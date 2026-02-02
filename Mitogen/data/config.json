@@ -1,0 +1,26 @@
+{
+  "updateToken": "-- ADD UPDATES HERE --", 
+  "data": {
+    "nextVersion": {
+      "prefix": "LIMSv3.2_DATA_"
+    }, 
+    "currentVersion": {
+      "prefix": "LIMSv3.2_DATA_", 
+      "update": 1
+    }, 
+    "key": "dbCurrentDataVersion", 
+    "file": "data.sql"
+  }, 
+  "branch": "origin/develop", 
+  "schema": {
+    "nextVersion": {
+      "prefix": "LIMSv3_ALPHA_"
+    }, 
+    "currentVersion": {
+      "prefix": "LIMSv3_ALPHA_", 
+      "update": 80
+    }, 
+    "key": "dbCurrentVersion", 
+    "file": "schemaupdates.sql"
+  }
+}

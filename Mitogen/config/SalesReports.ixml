@@ -1,0 +1,769 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup QC Samples Summary
+    step QC Summary
+      form
+        include userAccountInfo
+        vertical
+          text extractionTubeId
+            screenLabel~ Extraction Tube Id
+            onChange= $('#tubeTable').toggle();
+          date extractionDate
+            class= date
+            screenLabel~ Extraction Date
+            onChange= $('#dateTable').toggle();
+        div
+          id= extractTube
+          fieldSet
+            legend Extraction Tube(s)
+              style= font-weight:bold;
+                - color:blue;
+              onClick= $('#tubeTable').toggle();
+            table
+              class= stdTableSort
+              id= tubeTable
+              style= display:none;
+              sqlQuery~ select c.containerId,c.containerType
+                - ,cp1.property,cp1.value
+                - ,cp2.property,cp2.value
+                - ,date_format(e.eventDate,'%b %d %Y') as 'Date'
+                #- ,e.eventDate as 'Date'
+                - from containers c
+                - left join containerProperties cp1 on cp1.containerId = c.containerId and cp1.property = 'concentration'
+                - left join containerProperties cp2 on cp2.containerId = c.containerId and cp2.property = '260/280 ratio'
+                - left join events e on e.eventId = cp1.eventId
+                - where c.containerType = 'extractionTubeId'
+                - order by cp1.eventId
+        div Extractions by Date
+          id= extractDate
+          fieldSet
+            legend Extraction Date
+              style= font-weight:bold;
+                - color:blue;
+              onClick= $('#dateTable').toggle();
+            table
+              class= stdTableSort
+              id= dateTable
+              style= display:none;
+              sqlQuery~ select c.containerId,c.containerType
+                - ,cp1.property,cp1.value
+                - ,cp2.property,cp2.value
+                - ,date_format(e.eventDate,'%b %d %Y') as 'Date'
+                #- ,e.eventDate as 'Date'
+                - from containers c
+                - left join containerProperties cp1 on cp1.containerId = c.containerId and cp1.property = 'concentration'
+                - left join containerProperties cp2 on cp2.containerId = c.containerId and cp2.property = '260/280 ratio'
+                - left join events e on e.eventId = cp1.eventId
+                - where c.containerType = 'extractionTubeId'
+                - order by cp1.eventId
+
+
+    ###########################################################################################
+    stepGroup Sales Reports
+    step Report Statistics
+      form
+        include userAccountInfo
+
+        formQuery~ select count(*) as 'today'
+          - from queues q
+          - join events e on e.eventId = q.eventId
+          - where q.step = 'Create New Report'
+          - and date_format(e.eventDate,'%y %m %d') = date_format(curdate(),'%y %m %d')
+
+        formQuery~ select count(*) as 'processing'
+          - from queues
+          - where
+          -   step = 'Edit The New Report'
+          -    or step = 'Edit Report Data'
+          -    or step = 'Sign Out Report'
+
+          -    or step = 'Edit New Report'
+          -    or step = 'Edit Report'
+          -    or step = 'Lab Preview'
+          -    or step = 'GenoType-PhenoType Check'
+          -    or step = 'Preliminary Reports'
+          -    or step = 'PrePathologist Review'
+
+          -    or step = 'WIP PharmD'
+          -    or step = 'PharmD Review'
+          -    or step = 'PharmD Signatures'
+          -    or step = 'PharmD Preview'
+
+          -    or step = 'WIP Pathologist'
+          -    or step = 'Pathologist Review'
+          -    or step = 'Pathologist Signatures'
+          -    or step = 'Path Preview'
+
+          -    or step = 'Lab Director Review'
+          -    or step = 'Director Preview'
+
+          -    or step = 'Print Preview'
+          -    or step = 'Print Review'
+          -    or step = 'Print Report'
+
+        formQuery~ select count(*) as 'max'
+          - from queues
+          - where step = 'Create New Report'
+          -   or step = 'Create Report'
+          - and containerId not in
+          -   (select content
+          -   from queues
+          -   left join contents ct on ct.containerId = queues.containerId
+          -     and ct.contentType = 'requestId'
+          -   where step = 'Final Report')
+
+        formQuery~ select count(*) as 'reported'
+          - from queues q
+          - join events e on e.eventId = q.eventId
+          - where (q.step = 'Final Report'
+          -   or q.step = 'Sent to Customer')
+          - and date_format(e.eventDate,'%y %m %d') = date_format(curdate(),'%y %m %d')
+
+        formQuery~ select count(*) as 'total'
+          - from queues
+          - where step = 'Create New Report'
+          -   or step = 'Create Report'
+
+        formQuery~ select {_resultSet:max} - {_resultSet:processing} as 'net'
+          - ,'' as 'CDx'
+          - ,'' as 'PGx'
+          - from dual
+
+        formQuery~ select
+          - case when rf.sampleType = 'CDx' then {_resultSet:CDx} + 1 end as 'CDx'
+          - ,case when rf.sampleType = 'PGx' then {_resultSet:PGx} + 1 end as 'PGx'
+          - from queues q
+          - join events e on e.eventId = q.eventId
+          - join requestForms rf on rf.Id = q.containerId
+          - where q.step = 'Create New Report'
+          -   or q.step = 'Create Report'
+#          - and date_format(e.eventDate,'%y %m %d') = date_format(curdate(),'%y %m %d')
+
+        fieldSet
+          style= width:500px;
+          span NOTE: Being Processed may include some that were received today.
+
+        table
+          style= width:400px;
+          sqlQuery~
+            - select {_resultSet:today} 'Received Today'
+            -   ,{_resultSet:processing} 'Being Processed'
+            -   ,{_resultSet:total} 'To Be Processed'
+            -   ,{_resultSet:reported} 'Reported Today'
+
+            #-   ,{_resultSet:CDx} 'CDx'
+            #-   ,{_resultSet:PGx} 'PGx'
+            - from dual
+
+
+    step Weekly Sales Report
+      form
+        include userAccountInfo
+        formQuery~ select curDate() as 'today'
+        formQuery~ select DATE_FORMAT(DATE_SUB(curDate(), INTERVAL 7 DAY), '%m/%d/%Y') as 'week'
+        vertical
+          date startDate
+            class= date
+            screenLabel~ Start Date
+            value= {_resultSet:week}
+          date endDate
+            class= date
+            screenLabel~ End Date
+            value= {_resultSet:today}
+          select phy
+            screenLabel~ Physician Name - Id
+            sqlQuery~ SELECT
+              - CONCAT(p.firstName, ' '
+              - ,p.lastName, ' - ', p.entityId)
+              - from entities p
+              - where p.entityType = 'Physician'
+              - order by p.lastName
+          select cust
+            screenLabel~ Customer Name - Id
+            sqlQuery~ select CONCAT(firstName, ' - ', entityId) from entities where entityType = 'Organization'
+      form
+        include userAccountInfo
+        formQuery~ select substring_index('{phy}', '-', 1) as 'phys'
+        formQuery~ select COUNT(r.Id) as 'count'
+          + from entities p
+          + inner join requestForms r on p.entityId = r.physicianId
+          + inner join events e on r.eventId = e.eventId
+          + where e.eventDate between '{startDate}' and '{endDate}'
+          + and p.entityId = (SELECT SUBSTRING_INDEX('{phy}', '-', -1))
+        formQuery~ select COUNT(r.Id) as 'count2'
+          + from entities o
+          + inner join requestForms r on o.entityId = r.organizationId
+          + inner join events e on r.eventId = e.eventId
+          + where e.eventDate between '{startDate}' and '{endDate}'
+          + and o.entityId = (SELECT SUBSTRING_INDEX('{cust}', '-', -1))
+        formQuery~ select substring_index('{cust}', '-', 1) as 'org'
+
+        vertical
+          fieldset
+            legend Physician Count
+              class= legendButton
+            vertical
+              span <b>Physician:</b> {_resultSet:phys}
+              span <b>Sample Count:</b> {_resultSet:count}
+          fieldset
+            legend Customer Count
+              class= legendButton
+            vertical
+              span <b>Customer:</b> {_resultSet:org}
+              span <b>Sample Count:</b> {_resultSet:count2}
+
+
+    step Monthly Bar Chart Reports
+      form
+        formQuery~ select DATE_SUB(curDate(), INTERVAL 30 DAY) as 'start'
+        formQuery~ select curDate() as 'end'
+        include highcharts
+        include userAccountInfo
+        script
+          - var chart1;
+          - var chart2;
+          - var chart3;
+          - var optionsChart1;
+          - var optionsChart2;
+          - var optionsChart3;
+
+          - $(document).ready(function() {
+          -   //load template options into variables
+          -   optionsChart1 = jQuery.extend(true,{}, barchartOptions);
+          -   optionsChart2 = jQuery.extend(true, {}, barchartOptions);
+          -   optionsChart3 = jQuery.extend(true, {}, barchartOptions);
+
+          -   optionsChart1.chart.renderTo='physicians';
+          -   optionsChart1.title.text='Top 10 Physicians';
+          -   optionsChart1.yAxis.title='Samples Submitted';
+          -   optionsChart1.xAxis.title='Physicians';
+          -   optionsChart1.series.name='Samples';
+
+          -   optionsChart2.chart.renderTo='customers';
+          -   optionsChart2.title.text='Top 10 Customers';
+          -   optionsChart2.yAxis.title='Samples Submitted';
+          -   optionsChart2.xAxis.title='Customers';
+          -   optionsChart2.series.name='Samples';
+
+          -   optionsChart3.chart.renderTo='tests';
+          -   optionsChart3.title.text='All Tests';
+          -   optionsChart3.yAxis.title='Samples Submitted';
+          -   optionsChart3.xAxis.title='Tests';
+          -   optionsChart3.series.name='Samples';
+
+          - chart1 = new Highcharts.Chart(optionsChart1);
+          - chart2 = new Highcharts.Chart(optionsChart2);
+          - chart3 = new Highcharts.Chart(optionsChart3);
+
+          -   //make charts dragable
+          -   $( "#resizer1" ).draggable();
+          -   $( "#resizer2" ).draggable();
+          -   $( "#resizer3" ).draggable();
+
+          -   //make charts resizable
+          -   $('#resizer1').resizable({
+          -     // On resize, set the chart size to that of the
+          -     // resizer minus padding. If your chart has a lot of data or other
+          -     // content, the redrawing might be slow. In that case, we recommend
+          -     // that you use the 'stop' event instead of 'resize'.
+          -     resize: function() {
+          -       chart1.setSize(
+          -         this.offsetWidth - 20,
+          -         this.offsetHeight - 20,
+          -         false
+          -       );
+          -     }
+          -   });
+          -   $('#resizer2').resizable({
+          -     // On resize, set the chart size to that of the
+          -     // resizer minus padding. If your chart has a lot of data or other
+          -     // content, the redrawing might be slow. In that case, we recommend
+          -     // that you use the 'stop' event instead of 'resize'.
+          -     resize: function() {
+          -       chart2.setSize(
+          -         this.offsetWidth - 20,
+          -         this.offsetHeight - 20,
+          -         false
+          -       );
+          -     }
+          -   });
+          -   $('#resizer3').resizable({
+          -     // On resize, set the chart size to that of the
+          -     // resizer minus padding. If your chart has a lot of data or other
+          -     // content, the redrawing might be slow. In that case, we recommend
+          -     // that you use the 'stop' event instead of 'resize'.
+          -     resize: function() {
+          -       chart3.setSize(
+          -         this.offsetWidth - 20,
+          -         this.offsetHeight - 20,
+          -         false
+          -       );
+          -     }
+          -   });
+          - });
+
+          - function updateChart1() {
+          -   $.getJSON('/uniflow?callback=?&stepName=Ajax+Samples+From+Physician+Report',{},
+          -
+          -     function (data,status) {
+          -       var topCount=1
+          -       optionsChart1.series[0].data=[]
+          -       optionsChart1.xAxis.categories=[]
+          -       for(i=0; i<data.length; i++) {
+          -         optionsChart1.xAxis.categories.push(data[i].physician)
+          -         optionsChart1.series[0].data.push(parseInt(data[i].count))
+          -         if (data[i].count > topCount) {
+          -           topCount=data[i].count
+          -         }
+          -       }
+          -       optionsChart1.yAxis.max=topCount;
+          -       optionsChart1.chart.height=$('#resizer1').height()
+          -       chart1 = new Highcharts.Chart(optionsChart1);
+          -
+          -     }
+          -   );
+          - }
+          - function updateChart2() {
+          -   $.getJSON('/uniflow?callback=?&stepName=Ajax+Samples+From+Customer+Report',{},
+          -
+          -     function (data,status) {
+          -       var topCount=1
+          -       optionsChart2.series[0].data=[]
+          -       optionsChart2.xAxis.categories=[]
+          -       for(i=0; i<data.length; i++) {
+          -         optionsChart2.xAxis.categories.push(data[i].customer)
+          -         optionsChart2.series[0].data.push(parseInt(data[i].count))
+          -         if (data[i].count > topCount) {
+          -           topCount=data[i].count
+          -         }
+          -       }
+          -       optionsChart2.yAxis.max=topCount;
+          -       optionsChart2.chart.height=$('#resizer2').height()
+          -       chart2 = new Highcharts.Chart(optionsChart2);
+          -
+          -     }
+          -   );
+          - }
+          - function updateChart3() {
+          -   $.getJSON('/uniflow?callback=?&stepName=Ajax+Tests+Report',{},
+          -
+          -     function (data,status) {
+          -       var topCount=1
+          -       optionsChart3.series[0].data=[]
+          -       optionsChart3.xAxis.categories=[]
+          -       for(i=0; i<data.length; i++) {
+          -         optionsChart3.xAxis.categories.push(data[i].abb)
+          -         optionsChart3.series[0].data.push(parseInt(data[i].count))
+          -         if (data[i].count > topCount) {
+          -           topCount=data[i].count
+          -         }
+          -       }
+          -       optionsChart3.yAxis.max=topCount;
+          -       optionsChart3.chart.height=$('#resizer3').height()
+          -       chart3 = new Highcharts.Chart(optionsChart3);
+          -
+          -     }
+          -   );
+          - }
+        script
+          - $(document).ready(function(){
+          -    updateChart1();
+          -    updateChart2();
+          -    updateChart3();
+          - });
+
+        vertical
+          span <b>Displaying results for {_resultSet:start} through {_resultSet:end}</b>
+            style= color:blue;
+        hr
+        vertical
+          span TOP TEN PHYSICIANS
+        div
+          div
+            id= resizer1
+            style= border: 1px solid silver;padding-bottom:20px
+            div
+              id= physicians
+
+        vertical
+          span TOP TEN CUSTOMERS
+        div
+          div
+            id= resizer2
+            style= border: 1px solid silver;padding-bottom:20px
+            div
+              id= customers
+
+        vertical
+          span Tests Ordered
+        div
+          div
+            id= resizer3
+            style= border: 1px solid silver;padding-bottom:20px
+            div
+              id= tests
+
+    step Requests By Date
+      accessLevel 6
+      form
+        include userAccountInfo
+        fieldset
+          legend Directions
+            class= legend
+          li Enter the start date and end date of the time period in question.  
+          li Clicking submit will generate the request numbers by organizationte.  
+          vertical
+            date fromDate
+              class= date
+              screenLabel~ Start Date
+            date toDate
+              class= date
+              screenLabel~ End Date
+#            select organization
+#              screenLabel~ Customer Name
+#              option 
+#              sqlQuery~ select firstName, entityId from entities where entityType = 'Organization' order by name asc 
+      form     
+        include userAccountInfo
+        script
+          src= js/reporting.js
+        script
+          - $(document).ready(function(){
+          -  $('#printReport').click(function(){
+          -    var html = '<html><head><title>' + 'Print Requisition List' + '</title>'
+          -    html+='<link href="css/reportPrint.css" rel="stylesheet"/>'
+          -    html+= '</head><body><div id="myreport" class="main_report">';
+
+          -    html+= $('#report').clone().html() +  '</div></body></html>';
+
+          -    var win=window.open('url', 'Report', 'width=700,height=840,scrollbars=yes');
+          -    win.document.open();
+          -    win.document.write(html);
+          -    win.document.close();
+          -    return false;
+          -  });
+          -   $('#checkall').click(function(){ 
+          -   var checkval = $(this).attr('checked');
+          -   var checkvalun = $(this).attr('unchecked'); 
+          -   $('.checkall').attr('checked', checkval); 
+          -   $('.checkall').attr('unchecked', checkvalun);
+          -   }); 
+          - }); //End of Document Ready!!   
+        formQuery~ select date_format(sysdate(), '%Y-%m-%d') as 'todayDate'        
+#        formQuery~ SELECT a.address1 as 'Address1', 
+#          - concat(a.city, ', ', a.state, ' ', a.postalCode) as 'Address2'
+#          #- concat(a.city,concat(' ',concat(a.state,concat(' ',a.postalCode)))) as 'Address2'
+#          - from entityAddresses a
+#          - WHERE a.entityId = '{organization}'           
+        button Print Report
+          value= Print Report
+          id= printReport
+        vertical
+          div
+            id= report
+            class= main_report
+            div
+              id= header
+              class= report_header
+              div
+                style= border:0px solid blue;width: 200px;float:left;
+                img
+                  src= images/UNIFlowLogoStacked.JPG
+                  style= width:201px; height:72px;
+              div
+                class= header_middle
+                span <font color=#2ECCFA size=3>Requests By Date</font>
+                  - <br/>{_resultSet:todayDate}<br/>
+                  style= font-size:12px;color:#2ECCFA
+              div
+                class= header_right
+                span <b><font size="1.5">UNIConnect, INC.<br/>
+                - 11075 South State Street<br/>
+                - Sandy, UT 84070, USA<br/>
+                - Phone: 801.428.1700<br/>
+                - Fax: 801.990.1801<br/></font></b>  
+
+            div
+              align= center
+              h4 Requests By Date
+
+#              table
+#                class= stdTableSort
+#                pasteOutputTable
+#                sqlQuery~ select count(rf.Id) as 'Request Count', o.firstName as 'Organization'
+#                  - , '{fromDate}' as 'Beginning Date'
+#                  - , '{toDate}' as 'Ending Date'
+#                  - , rf.eventId as 'Event No.' from requestForms rf 
+#                  - join events e on e.eventId = rf.eventId 
+#                  - join entities o on o.entityId = rf.organizationId
+#                  - where eventDate > '{fromDate}' 
+#                  - and e.eventDate < '{toDate} 23:59:59'
+#                  - group by organizationId;        
+
+              table
+                class= stdTableSort
+                pasteOutputTable
+                sqlQuery~ select count(rf.Id) as 'Request Count', o.firstName as 'Organization'
+                  - , '{fromDate}' as 'Beginning Date'
+                  - , '{toDate}' as 'Ending Date'
+                  - , ch.eventId as 'Event No.' from requestForms rf 
+                  - join containerHistory ch on ch.containerId = rf.Id
+                  - join events e on e.eventId = ch.eventId 
+                  - join entities o on o.entityId = rf.organizationId
+                  - where e.eventDate > '{fromDate}' 
+                  - and e.eventDate < '{toDate} 23:59:59'
+                  - and e.step = 'New Requisition'
+                  - group by organizationId; 
+
+    step Query Failed AG Requests
+      accessLevel 6
+      form
+        include userAccountInfo
+        fieldset
+          legend Directions
+            class= legend
+          li Enter the start date and end date of the time period in question.  
+          li Clicking submit will generate the request numbers by organization.  
+          vertical
+            date fromDate
+              class= date
+              screenLabel~ Start Date
+            date toDate
+              class= date
+              screenLabel~ End Date
+#            select organization
+#              screenLabel~ Customer Name
+#              option 
+#              sqlQuery~ select firstName, entityId from entities where entityType = 'Organization' order by firstName asc 
+      form     
+        include userAccountInfo
+        script
+          src= js/reporting.js
+        script
+          - $(document).ready(function(){
+          -  $('#printReport').click(function(){
+          -    var html = '<html><head><title>' + 'Print Requisition List' + '</title>'
+          -    html+='<link href="css/reportPrint.css" rel="stylesheet"/>'
+          -    html+= '</head><body><div id="myreport" class="main_report">';
+
+          -    html+= $('#report').clone().html() +  '</div></body></html>';
+
+          -    var win=window.open('url', 'Report', 'width=700,height=840,scrollbars=yes');
+          -    win.document.open();
+          -    win.document.write(html);
+          -    win.document.close();
+          -    return false;
+          -  });
+          -   $('#checkall').click(function(){ 
+          -   var checkval = $(this).attr('checked');
+          -   var checkvalun = $(this).attr('unchecked'); 
+          -   $('.checkall').attr('checked', checkval); 
+          -   $('.checkall').attr('unchecked', checkvalun);
+          -   }); 
+          - }); //End of Document Ready!!   
+        formQuery~ select date_format(sysdate(), '%Y-%m-%d') as 'todayDate'                 
+        button Print Report
+          value= Print Report
+          id= printReport
+        vertical
+          div
+            id= report
+            class= main_report
+            div
+              id= header
+              class= report_header
+              div
+                style= border:0px solid blue;width: 200px;float:left;
+                img
+                  src= images/UNIFlowLogoStacked.JPG
+                  style= width:201px; height:72px;
+              div
+                class= header_middle
+                span <font color=#2ECCFA size=3>Requests By Date</font>
+                  - <br/>{_resultSet:todayDate}<br/>
+                  style= font-size:12px;color:#2ECCFA
+              div
+                class= header_right
+                span <b><font size="1.5">UNIConnect, INC.<br/>
+                - 11075 South State Street<br/>
+                - Sandy, UT 84070, USA<br/>
+                - Phone: 801.428.1700<br/>
+                - Fax: 801.990.1801<br/></font></b> 
+
+            div
+              align= center
+              #h4 Shipping List
+              div
+                align= right
+                vertical
+                  date fromDate
+                    value= {fromDate}
+                    screenLabel~ Beginning Date:
+                    style= border:none;
+                    readOnly=
+                  text toDate
+                    value= {toDate}
+                    screenLabel~ Ending Date:
+                    style= border:none;
+                    readOnly=                  
+              table
+                class= stdTableSort
+                pasteOutputTable
+                sqlQuery~ SELECT q.*, IFNULL(dna.content, 'not recorded') AS "DNA Vol (uL)", IFNULL(h2o.content, 'not recorded') AS "H2O Vol (uL)" FROM (select rf.Id as 'Request Id', rf.specimenId as 'Patient No.'
+                  - , tp.name 'Panel'
+                  - ,(select ct5.containerId from contents ct5 
+                  -   inner join containers con on ct5.containerId = con.containerId
+                  -     where ct5.content = rf.Id
+                  -     and con.containerType in ('dilutionTubeId', 'Viro Test Sample', 'extractionTubeId') limit 1) as 'DilutionId'
+                  - , date_format(e.eventDate, '%Y-%m-%d') as 'Request Date' from requestForms rf 
+                  - join containerProperties cp on cp.containerId = rf.Id 
+                  - join reqTestPanels rtp on rtp.reqId = rf.Id
+                  - join testPanels tp on tp.Id = rtp.panelId
+                  - join containerHistory ch on ch.containerId = rf.Id
+                  - join events e on e.eventId = ch.eventId
+                  - where e.eventDate > '{fromDate}' 
+                  - and e.eventDate < '{toDate} 23:59:59'
+                  - and cp.property = 'contactCustomer' 
+                  - and cp.value = 'Fail'
+                  - and e.step = 'New Requisition') q
+                  - LEFT JOIN contents dna
+                  - ON q.DilutionId = dna.containerId
+                  - AND 'dilution' = dna.attribute
+                  - AND 'DNA Volume' = dna.contentType
+                  - LEFT JOIN contents h2o
+                  - ON q.DilutionId = h2o.containerId
+                  - AND 'dilution' = h2o.attribute
+                  - AND 'DNA Volume' = h2o.contentType                  
+              table
+                class= stdTableSort
+                pasteOutputTable
+                sqlQuery~ select count(distinct rf.Id) as 'Requests'  
+                  - , o.firstName as 'Organization'
+                  - from requestForms rf 
+                  - join containerProperties cp on cp.containerId = rf.Id 
+                  - join reqTestPanels rtp on rtp.reqId = rf.Id
+                  - join testPanels tp on tp.Id = rtp.panelId
+                  - join containerHistory ch on ch.containerId = rf.Id
+                  - join events e on e.eventId = ch.eventId
+                  - join entities o on o.entityId = rf.organizationId
+                  - where e.eventDate > '{fromDate}' 
+                  - and e.eventDate < '{toDate} 23:59:59'
+                  - and cp.property = 'contactCustomer' 
+                  - and cp.value = 'Fail'
+                  - and e.step = 'New Requisition'
+                  - group by organizationId
+                
+    step Detailed Reqs
+      verboseNetworkResponseTime true
+      authorizedGroup AppliedGenetics
+      accessLevel 10
+      form
+        include userAccountInfo
+        fieldset
+          legend Directions
+            class= legend
+          li Enter the start date and end date of the time period in question.  
+          li Clicking submit will generate the request numbers by organizationte.  
+          vertical
+            date fromDate
+              class= date
+              screenLabel~ Start Date
+            date toDate
+              class= date
+              screenLabel~ End Date
+      form     
+        script
+          src= js/reporting.js
+        script
+          - $(document).ready(function(){
+          -  $('#printReport').click(function(){
+          -    var html = '<html><head><title>' + 'Print Requisition List' + '</title>'
+          -    html+='<link href="css/reportPrint.css" rel="stylesheet"/>'
+          -    html+= '</head><body><div id="myreport" class="main_report">';
+
+          -    html+= $('#report').clone().html() +  '</div></body></html>';
+
+          -    var win=window.open('url', 'Report', 'width=700,height=840,scrollbars=yes');
+          -    win.document.open();
+          -    win.document.write(html);
+          -    win.document.close();
+          -    return false;
+          -  });
+          -   $('#checkall').click(function(){ 
+          -   var checkval = $(this).attr('checked');
+          -   var checkvalun = $(this).attr('unchecked'); 
+          -   $('.checkall').attr('checked', checkval); 
+          -   $('.checkall').attr('unchecked', checkvalun);
+          -   }); 
+          - }); //End of Document Ready!!   
+        formQuery~ select date_format(sysdate(), '%Y-%m-%d') as 'todayDate'        
+        button Print Report
+          value= Print Report
+          id= printReport
+        vertical
+          div
+            id= report
+            class= main_report
+            div
+              id= header
+              class= report_header
+              div
+                style= border:0px solid blue;width: 200px;float:left;
+                img
+                  src= images/UNIFlowLogoStacked.JPG
+                  style= width:201px; height:72px;
+              div
+                class= header_middle
+                span <font color=#2ECCFA size=3>Requests By Date</font>
+                  - <br/>{_resultSet:todayDate}<br/>
+                  style= font-size:12px;color:#2ECCFA
+              div
+                class= header_right
+                span <b><font size="1.5">UNIConnect, INC.<br/>
+                - 11075 South State Street<br/>
+                - Sandy, UT 84070, USA<br/>
+                - Phone: 801.428.1700<br/>
+                - Fax: 801.990.1801<br/></font></b> 
+
+            div
+              align= center
+              h4 Requests By Date
+              
+              table
+                class= stdTableSort
+                pasteOutputTable
+                sqlQuery~ select rf.Id as 'Request Count', o.firstName as 'Organization'
+                  - , pb.insuranceCompany_1 as 'Insurance Company'
+                  - , rf.collectionDate as 'Collection Date'
+                  - , rf.receivedDate as 'Received Date'
+                  - , date_format(e.eventDate, '%Y-%m-%d') as 'Accession Date' 
+                  - from requestForms rf
+                  - right outer join patientBilling pb on pb.patientId = rf.patientId
+                  - join containers c on c.containerId = rf.Id 
+                  - join events e on e.eventId = c.eventId 
+                  - join entities o on o.entityId = rf.organizationId
+                  - where eventDate > '{fromDate}' 
+                  - and e.eventDate < '{toDate} 23:59:59'
+
+              h4 Reports By Date
+              table
+                class= stdTableSort
+                pasteOutputTable
+                sqlQuery~ select q.containerId as 'Report Count', o.firstName as 'Organization'
+                  - , rf.collectionDate as 'Collection Date'
+                  - , rf.receivedDate as 'Received Date'
+                  - , date_format(e.eventDate, '%Y-%m-%d') as 'Report Date' 
+                  - from queues q
+                  - join reportData rd on rd.reportId = q.containerId
+                  - join requestForms rf on rf.Id = rd.requestId
+                  - join entities o on o.entityId = rf.organizationId
+                  - join events e on e.eventId = q.eventId
+                  - where q.step = 'Final Report'
+                  - and eventDate > '{fromDate}' 
+                  - and e.eventDate < '{toDate} 23:59:59'

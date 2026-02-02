@@ -1,0 +1,168 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup API Calls
+  
+    step Query All Patients
+      accessLevel 10
+      authorizedGroup API
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select entityId as 'patientId', firstName, lastName, status 
+          - from entities e
+          - join client c
+          - where entityType = 'Patient'
+          - and lastName like '%{lastName}%'
+          - and '{apiToken}' = c.siteId
+          - union
+          - select 'No Valid API Token' as 'accessDenied', 
+          - '','','' from client c
+          - where '{apiToken}' <> c.siteId
+
+    step Query All Organizations
+      accessLevel 10
+      authorizedGroup API
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select e.entityId as 'organizationId', firstName as 'name', e.status 
+          - ,eph.number as 'phone'
+          - ,ead.address1 as 'address1', ead.address2 as 'address2', ead.city, ead.state, ead.postalCode
+          - ,eem.email
+          - from entities e
+          - join client c 
+          - left join entityPhones eph on eph.entityId = e.entityId and eph.type = 'Primary'
+          - left join entityAddresses ead on ead.entityId = e.entityId and ead.type = 'Primary'
+          - left join entityEmails eem on eem.entityId = e.entityId and eem.type = 'Primary'
+          - where entityType = 'Organization'
+          - and firstName like '%{organizationName}%'
+          - and '{apiToken}' = c.siteId
+          - union
+          - select 'No Valid API Token' as 'accessDenied', 
+          - '','','','','','','','','' from client c
+          - where '{apiToken}' <> c.siteId
+
+    step Patient Details
+      accessLevel 10
+      authorizedGroup API
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select pa.firstName, pa.lastName, pat.* from patients pat 
+          - join entities pa on pa.entityId = pat.patientId
+          - join client c
+          - where pa.lastName like '%{lastName}%'
+          - and pa.firstName like '%{firstName}%'
+          - and '%{lastName}%' <> ''
+          - and '{apiToken}' = c.siteId
+          - union 
+          - select 'No Valid API Token' as 'accessDenied',
+          - '','','','','','','','','','','','',''
+          - from client c 
+          - where '{apiToken}' <> c.siteId
+
+
+    step Query Patient Billing Details
+      authorizedGroup API
+      accessLevel 10
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select pa.firstName, pa.lastName, pb.* from patientBilling pb 
+          - join entities pa on pa.entityId = pb.patientId
+          - join client c
+          - where pa.lastName like '%{lastName}%'
+          - and pa.firstName like '%{firstName}%'
+          - and '%{lastName}%' <> ''
+          - and '{apiToken}' = c.siteId
+          - union 
+          - select 'No Valid API Token' as 'accessDenied',
+          - '','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','',''
+          - from client c 
+          - where '{apiToken}' <> c.siteId
+
+    step Query Requisitions By Patient
+      authorizedGroup API
+      accessLevel 10
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select pa.lastName, pa.firstName, rf.Id as 'Requisition', rf.collectionDate, 
+          - case when rf.signedEventId is NULL then 'NO SIGNED OUT' else sig.eventDate end as 'reportDate' 
+          - from requestForms rf 
+          - join entities pa on pa.entityId = rf.patientId
+          - join client c
+          - left join events sig on sig.eventId = rf.signedEventId
+          - where pa.lastName like '%{lastName}%'
+          - and pa.firstName like '%{firstName}%'
+          - and '%{lastName}%' <> ''
+          - and '{apiToken}' = c.siteId
+          - union 
+          - select 'No Valid API Token' as 'accessDenied',
+          - '','','',''
+          - from client c 
+          - where '{apiToken}' <> c.siteId
+
+
+    step Query Requisition Details
+      authorizedGroup API
+      accessLevel 10
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select pa.firstName, pa.lastName, pb.* from patientBilling pb 
+          - join entities pa on pa.entityId = pb.patientId
+          - join client c
+          - where pa.lastName like '%{lastName}%'
+          - and pa.firstName like '%{firstName}%'
+          - and '%{lastName}%' <> ''
+          - and '{apiToken}' = c.siteId
+          - union 
+          - select 'No Valid API Token' as 'accessDenied',
+          - '','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','',''
+          - from client c 
+          - where '{apiToken}' <> c.siteId
+
+    step Query TestPanels By Request 
+      authorizedGroup API
+      accessLevel 10
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select pa.firstName, pa.lastName, rf.Id, case when rf.signedEventId is NULL then 'NO SIGNED OUT' else sig.eventDate end as 'reportDate' 
+          - ,tp.name as 'panelName'
+          - from requestForms rf 
+          - join entities pa on pa.entityId = rf.patientId
+          - join reqTestPanels rtp on rtp.reqId = rf.Id
+          - join testPanels tp on tp.Id = rtp.panelId
+          - left join events sig on sig.eventId = rf.signedEventId
+          - where rf.Id = '{requestId}'
+          - and '{apiToken}' = c.siteId
+          - union 
+          - select 'No Valid API Token' as 'accessDenied',
+          - '','','',''
+          - from client c 
+          - where '{apiToken}' <> c.siteId
+
+    step Query Tests By Request 
+      authorizedGroup API
+      accessLevel 10
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select pa.firstName, pa.lastName, rf.Id as 'requisition' , case when rf.signedEventId is NULL then 'NO SIGNED OUT' else sig.eventDate end as 'reportDate' 
+          - ,tp.name as 'panelName'
+          - from requestForms rf 
+          - join entities pa on pa.entityId = rf.patientId
+          - join reqTests rtp on rtp.reqId = rf.Id
+          - join tests tp on tp.Id = rtp.testId
+          - join client c
+          - left join events sig on sig.eventId = rf.signedEventId
+          - where rf.Id = '{requestId}'
+          - and '{apiToken}' = c.siteId
+          - union 
+          - select 'No Valid API Token' as 'accessDenied',
+          - '','','',''
+          - from client c 
+          - where '{apiToken}' <> c.siteId
+
+
+

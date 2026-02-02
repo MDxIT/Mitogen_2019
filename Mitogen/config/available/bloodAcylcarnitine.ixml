@@ -1,0 +1,53 @@
+config
+  steps 
+    stepGroup Blood Acylcarnitine    
+    step ACP - Whole Blood to Plasma
+      form 
+        include stepInstructions
+        include resourceTable
+        vertical 
+          table 
+            sqlQuery~ select q.containerId as 'SampleId', '' as 'Plasma Id', '' as 'Vol', 'mL' as 'Units'
+              - from queues q 
+              - where q.step = '{_step}' 
+            columnSpecs~ wholeBloodTubes
+              allowChangedRecordIds 
+              column 1 
+                inputType container 
+                 # deleteQueue~ {_step}
+                  required~ false 
+                  #insertQueue~ Store 
+                  style= background-image: url(images/barcodebkg.jpg);
+              column 2 
+                inputType container 
+                  new~ true 
+                  required~ false 
+                  containerType~ specimenId 
+                  contentType~ specimenId 
+                  addContent~ 
+                  insertQueue~ ACP - Plasma Tube Setup 
+                  style= background-image: url(images/barcodebkg.jpg);
+              column 3
+                inputType text
+              column 4 
+                inputType select 
+                  option uL 
+                  option mL 
+
+      forRows wholeBloodTubes
+        ifCondition select 1 from dual where '{_columnInput_wholeBloodTubes:2}' <> ''
+          sql insert into sampleProperties (sampleId, property, value, eventId) 
+            - values ( '{_columnInput_wholeBloodTubes:2}', 'Sample Volume', '{_columnInput_wholeBloodTubes:3}', {_eventId})
+          sql insert into sampleProperties (sampleId, property, value, eventId) 
+            - values ( '{_columnInput_wholeBloodTubes:2}', 'Sample Volume Units', '{_columnInput_wholeBloodTubes:4}', {_eventId})  
+          sql insert into containerTransferHistory (containerId, eventId, sourceContainerId, transferMap)          
+            - values( '{_columnInput_wholeBloodTubes:2}', {_eventId}, '{_columnInput_wholeBloodTubes:1}', 'duplicate') 
+          sql delete from queues where containerId = '{_columnInput_wholeBloodTubes:1}' and step = '{_step}'
+          sql insert into queues (containerId, step, eventId) 
+            - values ('{_columnInput_wholeBloodTubes:1}', 'Store', {_eventId}) 
+
+
+
+
+
+            

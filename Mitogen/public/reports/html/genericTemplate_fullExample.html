@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="../css/reportPrint.css">
+  <title></title>
+</head>
+<body>
+​  <div id="reportBody" class="letterSize">
+    <!-- PAGE HEADER, These pieces will be populated depending on report configuration-->​
+    <div id="reportPageHeader">
+      <div id="headerTitle" class= "pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+      <div id="headerLabName" class="pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+      <div id="headerLabAddress" class="pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+      <div id="headerPatientName" class="pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+      <div id="headerDOB" class="pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+      <div id="headerMRN" class="pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+      <div id="headerPageNo" class="pageHeaderData">
+        <span class="pageHeaderLabel"> </span>
+        <span class="pageHeaderValue"> </span>
+      </div>
+    </div>
+    <!-- TITLE HEADER, Population of pieces here also depend on report configuration -->
+    <div id="reportHead">
+      <div>
+        <img id="primarySiteLogo" src="##">
+      </div>
+      <div id="primarySiteBlock">
+        <div id="primarySiteId">
+          <span id="primarySiteIdLabel" class="headerLabel"></span>
+          <span id="primarySiteIdValue" class="headerValue"> </span>
+        </div>
+        <div id="primarySiteAddressUS" class= "usaPrimaryAddressBlock">
+          <span id="primarySiteAddressLabel" class="headerLabel"></span>
+          <span id="primarySiteAddress1Value" class="headerValue"></span><br>
+          <span id="primarySiteAddress2Value" class="headerValue"></span>
+          <span id="primarySiteCityValue" class="headerValue"> </span>
+          <span class="headerValue">, </span>
+          <span id="primarySiteStateValue" class="headerValue"></span>
+          <span id="primarySiteZipValue" class="headerValue"></span><br>
+          <span id="primarySitePhone" class="headerValue"></span>
+        </div>
+        <div id="primarySiteAddressOther" class= "otherPrimaryAddressBlock">
+          <span id="primarySiteAddressLabel" class="headerLabel"></span>
+          <span id="primarySiteAddress1Value" class="headerValue"></span>
+        </div>
+      </div>
+      <div id="titleBlock">
+        <div id="reportTitle">
+          <span id="reportTitleValue" class="headerTitleValue"></span>
+        </div>
+      </div>
+      <div id="secondarySiteBlock" class= "verticalFlex-flexEnd">
+        <div id="secondarySiteId">
+          <span id="secondarySiteIdLabel" class="headerLabel"></span>
+          <span id="secondarySiteIdValue" class="headerValue"></span>
+        </div>
+        <div id="secondarySiteAddress">
+          <span id="secondarySiteAddressLabel" class="headerLabel"></span>
+          <span id="secondarySiteAddress1Value" class="headerValue"></span><br>
+          <span id="secondarySiteCityValue" class="headerValue"></span>
+          <span class="headerValue">, </span>
+          <span id="secondarySiteStateValue" class="headerValue"> </span>
+          <span id="secondarySiteZipValue" class="headerValue"></span><br>
+          <span id="secondarySitePhoneValue" class="headerValue"></span>
+        </div>
+        <div id="secondarySiteAddressOther" class= "otherSecondaryAddressBlock">
+          <span id="secondarySiteAddressLabel" class="headerLabel"></span>
+          <span id="secondarySiteAddress1Value" class="headerValue"></span>
+        </div>
+      </div>
+      <div>
+        <img id="secondarySiteLogo" src="##">
+      </div>
+    </div>
+    <div id="reportDescription">
+      <span id="reportDescriptionLabel" class="headerLabel"></span>
+      <span id="reportDescriptionValue" class="headerValue"> </span>
+    </div>
+
+    <div id="reportMetaData">
+      <!-- ORDER INFORMATION -->
+      <div id="orderInformation" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Order Information</span>
+        </div>
+        <div class="metaDataData">
+          <div id="requestId">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="externalRequestId">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="physicianSite">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="physician">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="orderInfoReceivedDate">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="priority">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="externalSystem">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="department">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="location">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PATIENT INFORMATION -->
+      <div id="patientIdentification" class="metaDataSection">
+        <!-- Combine firstName, middleName, lastName data points -->
+        <div class="metaLabelHeader">
+          <span>Patient Identification</span>
+        </div>
+        <div class="metaDataData">
+          <div id="patientFullName">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="firstName" class="hide">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="middleName" class="hide">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="lastName" class="hide">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="dob">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="mrn">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="govtId">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="geneticGender">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="genderId">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="ethnicity">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- CONTACT -->
+      <div id="patientContact" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Patient Contact</span>
+        </div>
+        <div class="metaDataData">
+          <div id="addressLine1">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="addressLine2">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="city">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="state">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="postalCode">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="country">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="homePhone">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="workPhone">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="mobilePhone">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="email">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT CLINICAL -->
+      <div id="patientClinical" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Patient Clinical</span>
+        </div>
+        <div class="metaDataData">
+          <div id="clinicalHistory">
+            <span class="metaLabel"></span>
+            <span class="metaValue"> </span>
+          </div>
+          <div id="clinicalNotes">
+            <span class="metaLabel"> </span>
+            <span class="metaValue"> </span>
+          </div>
+          <div id="ageAtPresentation">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="geneticCounselor">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="currentMedication">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="problemMedication">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="drugAllergies">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT PSA -->
+      <div id="patientClinicalPSA" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Prostate Specific Antigen</span>
+        </div>
+        <div class="metaDataData">
+          <div id="dateOfLastPSA">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="lastPSA">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="percentFreePSA">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT DRE -->
+      <div id="patientClinicalDRE" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Digital Rectal Exam</span>
+        </div>
+        <div class="metaDataData">
+          <div id="dateOfLastDRE">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="lastDREResults">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT Biopsy -->
+      <div id="patientClinicalBiopsy" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Patient Biopsy</span>
+        </div>
+        <div class="metaDataData">
+          <div id="biopsyHistoryNumber">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="biopsyHistoryOther">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="histopathologyFindings">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT WH -->
+      <div id="patientClinicalWH" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Women's Health</span>
+        </div>
+        <div class="metaDataData">
+          <div id="lastMenstrualCycle">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="pregnant">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="lastPregnancy">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="hysterectomy">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="miscarriages">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="thyroidIssues">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT Newborn Screening -->
+      <div id="patientClinicalNewborn" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span> Newborn Screening</span>
+        </div>
+        <div class="metaDataData">
+          <div id="birthWeight">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="placeOfBirth">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="birthTime">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="locationOfSampling">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="babyIdentifyingNumber">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="privatePublicPatient">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="referringDoctor">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="repeatSample">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="familyHistoryCF">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="meconiumIleus">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="prePostTransfusion">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="ambiguousGenitalia">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="motherFullName">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="dateOfFirstMilk">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="timeOfFirstMilk">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="feedingHistory">
+            <span class="metaLabel"</span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="clinicalHistoryOfMother">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT Tissue Donors -->
+      <div id="patientClinicalTissue" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span> Patient Tissue</span>
+        </div>
+        <div class="metaDataData">
+          <div id="donorOrRecipient">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="transfusionHistory">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="bloodType">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PATIENT HIV -->
+      <div id="patientClinicalHIV" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span> Patient HIV</span>
+        </div>
+        <div class="metaDataData">
+          <div id="transfusionTransplantHistory">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- SPECIMEN INFORMATION -->
+      <div id="specimenInfo" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Specimen Info</span>
+        </div>
+        <div class="specimen metaDataData">
+          <div id="expectedBarcode">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="externalIdentifier">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="specimenType">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="collectionDate">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="collectionTime">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="specimenId">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="receivedDate">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="panels">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="tests">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="method">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="specimenQuantity">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="specimenUnits">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+          <div id="specimenCondition">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+          </div>
+        </div>
+      </div>
+      <!-- PANELS/TESTS -->
+      <div id="panels" class="metaDataSection">
+        <div class="metaLabelHeader">
+          <span>Panels</span>
+        </div>
+        <div class="metaDataData">
+          <div id="allPanels">
+            <span class="metaLabel"></span>
+            <span class="metaValue"></span>
+        </div>
+      </div>
+     </div>
+    </div>
+    <!-- REPORT INTERPRETATIONS -->
+    <div id="reportInterpretations">
+      <div id="overallInterpretationHeader">
+        <span class>Results</span>
+      </div>
+      <div id= "overallReportResult">
+        <span class="overallResultLabel"></span>
+        <span class="overallResult"></span>
+      </div>
+      <div id="overallReportInterpretation">
+        <span class="reportOverallInterpretationLabel"></span>
+        <span class="reportOverallInterpretation"></span>
+      </div>
+
+      <div id= "reportInterpretationPanel_1" class="reportInterpretationPanel">
+        <span class="panelInterpretationHeader"></span>
+        <!-- Populate if the panel/assay has associated images -->
+        <div class= "panelInterpretationImages">
+          <img src= "##">
+          <span class="panelImageInterpretation">
+        </div>
+        <div class="panelInterpretationOverallResult">
+          <span class="interpretationLabel"></span>
+          <span class="interpretationValue"></span>
+        </div>
+        <div class="panelOverallInterpretation">
+          <span class="interpretationLabel"></span>
+          <span class="interpretationValue"></span>
+        </div>
+        <!-- These sections can repeat, depends on configuration, they should match up with panel  -->
+        <div class="panelReportWording">
+          <span class="wordingLabel"></span>
+          <span class="wordingValue"></span>
+        </div>
+        <div class="testReportWording">
+          <span class="wordingLabel"></span>
+          <span class="wordingValue"></span>
+        </div>
+        <div class="methodReportWording">
+          <span class="wordingLabel"></span>
+          <span class="wordingValue"></span>
+        </div>
+      </div>
+    </div>
+    <div id="electronicSignature">
+      <span class="signatureLabel">Signature: </span>
+      <span class="signature">Kelli Keiko Svendsen</span>
+    </div>
+    <!--REFERENCES-->
+    <div id="references">
+      <span class="referencesHeader">References</span>
+      <div class="referenceData">
+        <span class="reportReferencesData"></span>
+      </div>
+    </div>
+    <!-- PAGE FOOTER -->
+    <div class="reportFooter">
+      <div class="footerTitle">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+      <div class="footerLabName">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+      <div class="footerLabAddress">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+      <div class="footerPatientName">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+      <div class="footerDOB">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+      <div class="footerMRN">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+      <div class="footerPageNo">
+        <span class="pageFooterLabel"></span>
+        <span class="pageFooterValue"></span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

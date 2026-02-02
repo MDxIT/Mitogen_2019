@@ -1,0 +1,20 @@
+#splitSample_list > thead > tr > th {
+    padding-left: 0.75%;
+}
+
+#splitSampleSection table td.label {
+    text-align: right;
+}
+
+#splitSampleSection table td {
+    width: 7.5em;
+}
+
+input.datePicker {
+    width: 100px;
+}
+.patientBanner {
+
+  float:left;
+    margin-right:15px;
+}

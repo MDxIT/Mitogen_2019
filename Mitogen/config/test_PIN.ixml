@@ -1,0 +1,14 @@
+config
+  steps
+    stepGroup PIN testing
+    step test Create PIN
+      form
+        vertical
+          userPIN myPIN
+            screenLabel~ Please enter a PIN
+            updatePIN~
+    step test validate PIN
+      form
+        vertical
+          userPIN myPIN
+            validatePIN~

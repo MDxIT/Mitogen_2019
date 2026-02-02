@@ -1,0 +1,1310 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Translational Steps
+    _step Test HL7 Output 
+      accessLevel 12
+      form 
+        vertical
+          text requestId
+      forEach select '{requestId}' as 'billingReqId' from dual 
+        ifCondition select Id from requestForms where  Id = '{_:billingReqId}'
+          setFormQueryResult
+            sqlQuery~ select date_format(sysdate(),'%Y%m%d%H%i%s') as 'dateTime' from dual
+
+          ##PID QUERY##
+          setFormQueryResult
+            sqlQuery~ select address1 as 'patientAddress1', address2 as 'patientAddress2'
+              - , city as 'patientCity', state as 'patientState', postalCode as 'patientZip'
+              -  from requestForms rf
+              - left join entityAddresses pad on pad.entityId = rf.patientId
+              - where rf.Id = '{_:billingReqId}'
+          setFormQueryResult
+            sqlQuery~ select rf.patientId as 'patientId', rf.specimenId as 'specimenId', pa.lastName as 'patientLast', pa.firstName as 'patientFirst', pa.middleName as 'patientMiddle'
+              - ,case when pat.gender = 'Male' then 'M' when pat.gender = 'Female' then 'F' else pat.gender end as 'patientGender', ifnull(date_format(pat.dob,'%Y%m%d'), date_format(str_to_date(pat.dob,'%m/%d/%Y'), '%Y%m%d')) as 'patientDob', rf.organizationId as 'organizationId'
+              - , date_format(rf.receivedDate,'%Y%m%d%H%i%s') as 'receivedDate', ifnull(date_format(str_to_date(rf.collectionDate, '%Y-%m-%d'),'%Y%m%d%H%i%s'),'') as 'collectionDate'
+              - from requestForms rf
+              - join entities pa on pa.entityId = rf.patientId
+              - join patients pat on pat.patientId = rf.patientId
+              - where rf.Id = '{_:billingReqId}'
+          ## ORC QUERY##
+          setFormQueryResult
+            sqlQuery~ select rf.Id as 'requestId',ph.lastName as 'physicianLast', ph.firstName as 'physicianFirst', phy.npi as 'physicianNPI'
+              - from requestForms rf
+              - join entities ph on ph.entityId = rf.physicianId
+              - left join physicians phy on phy.physicianId = rf.physicianId
+              - where rf.Id = '{_:billingReqId}'
+          ### RXO segments for drugs
+          jython 
+            rxo = ''
+          forEach select name as 'drugName' from reqCurrentMedications rcm 
+            - join drugs d on d.Id = rcm.drugId
+            - where rcm.reqId = '{_:billingReqId}'
+            jython
+              rxo = rxo + 'RXO|^{_:drugName}||||||\r'
+          ### OBX segments for screening results ###
+          jython
+            obxNo = 0
+            obx1 = ''
+          forEach select distinct concat(Gene, '-', Assay) as 'assayName', TranslationalAssayId, concat(Allele1,'/',Allele2) as 'translationalResult' from ag_rawDataImport ag
+            - join contents co on co.containerId = ag.SampleID
+            - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+            - where co.content = '{_:billingReqId}' and TranslationalAssayId is not null
+            - union 
+            - select '2D6-CN', 'Hs00010001_cn', '2' from dual
+            jython
+              obxNo += 1
+              obx1 = obx1 + 'OBX|'+ str(obxNo) +'|TX|{_:assayName}^{_:translationalAssayId}||{_:translationalResult}||||||||||\r'
+          jython
+            message = 'MSH|^~\&|UNIF||||{_:dateTime}||ORU^R01|{_:dateTime}_{_eventId}|P|2.3|\r'
+            message = message +'DG1|1|I9|ICD CODE||\r'
+            message = message + "PID|1|{_:patientId}|||{_:patientLast}^{_:patientFirst}^{_:patientMiddle}^||{_:patientDob}|{_:patientGender}|||{_:patientAddress1}^{_:patientAddress2}^{_:patientCity}^{_:patientState}^{_:patientZip}||||||||\r"
+            message = message + "PV1|1||||||{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}|||||||||||||||||||||||||||||||||||||\r"
+            message = message + rxo
+            message = message + "ORC|RE|{_:requestId}|{_:specimenId}_6|||||||||{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^^^^^^^^^^NPI|\r"
+            message = message + 'OBR|1|||comp|||{_:collectionDate}|||||||{_:receivedDate}|BUCCAL|||||||||||\r'
+            message = message + obx1
+            destFile = open('private/hl7/translational/{_:requestId}_{_eventId}.hl7', 'w')
+            destFile.write (str(message))
+            destFile.close()
+          exec cp {_configPath}private/hl7/translational/{_:requestId}_{_eventId}.hl7 /sftp/pmdxTSI/ToTSI/{_:requestId}_{_eventId}.hl7
+          exec chown -R pmdxTSI:sftpusers /sftp/pmdxTSI/ToTSI/
+    step Translational Data Upload
+      accessLevel 6
+#       form
+#         include userAccountInfo
+#         vertical
+#           text rowsToSkip
+#             screenLabel~ Rows to Skip:
+#             required~ false
+      form
+        include userAccountInfo
+        vertical
+
+
+          databaseImportFile Allele Calls File
+            required~ false
+            destinationFolderName~ ../private/translationalData
+            destinationFilePrefix~ ADF_00000000
+#             skipRowCount~ 16
+            skipRowCount~ 18
+            delimiter~ TAB
+
+            sqlInsert~ UPDATE ag_rawDataImport
+              - SET Allele1 = substring_index('{_vector:6}', '/', 1)
+              -   , Allele2 = substring_index('{_vector:6}', '/', -1)
+              -   , eventId = {_eventId}
+              - WHERE SampleId = '{_vector:5}'
+              - AND Gene = '{_vector:3}'
+              - AND assay = '{_vector:4}'
+            sqlInsert~ INSERT INTO ag_rawDataImport (SampleID, Gene, Assay, TranslationalAssayId, Allele1, Allele2, eventId)
+              -  SELECT '{_vector:5}', '{_vector:3}', '{_vector:4}', '{_vector:2}', substring_index('{_vector:6}', '/', 1), substring_index('{_vector:6}', '/', -1), {_eventId}
+              -  FROM dual
+              -  WHERE '{_vector:15}' <> ''
+              -  AND NOT EXISTS (SELECT DISTINCT 1 
+              -                   FROM ag_rawDataImport di 
+              -                   WHERE SampleId = '{_vector:5}' 
+              -                   AND Gene = '{_vector:3}' 
+              -                   AND Assay = '{_vector:2}')
+              - AND EXISTS (select 1 from queues where containerId = '{_vector:5}' and step = '{_step}')
+            sqlInsert~ insert into pcrImport (containerId, type, assay, testName, result, metric) 
+              - select '{_vector:5}', 'CORRIELL', '{_vector:3}', '{_vector:2}', '{_vector:6}', '{_vector:8}' from dual where '{_vector:5}' like 'NA%'
+          databaseImportFile Copy Number File
+            required~ false
+            destinationFolderName~ ../private/translationalData
+            destinationFilePrefix~ CNV_00000000
+            delimiter~ TAB
+#             skipRowCount~ 67
+            skipRowCount~ 1
+#             sqlInsert~ UPDATE ag_rawDataImport
+#               - SET cnCalculated = CASE WHEN '{_vector:5}' = '' THEN 0 WHEN ISNULL('{_vector:5}') = 1 THEN 0 ELSE '{_vector:5}' END,
+#               - cnPredicted = CASE WHEN '{_vector:6}' = '' THEN 0 WHEN ISNULL('{_vector:6}') = 1 THEN 0 ELSE '{_vector:6}' END,
+#               - cnRange = CASE WHEN '{_vector:19}' = '' THEN 0 WHEN ISNULL('{_vector:19}') = 1 THEN 0 ELSE '{_vector:19}' END,
+#               - replicatesAnalyzed = CASE WHEN '{_vector:10}' = '' THEN 0 WHEN ISNULL('{_vector:10}') = 1 THEN 0 ELSE '{_vector:10}' END,
+#               - eventId = {_eventId}
+#               - WHERE SampleID = '{_vector:1}'
+#               - AND Gene = '{_vector:2}'
+#             sqlInsert~ INSERT INTO ag_rawDataImport (SampleID, Gene, Assay, cnCalculated, cnPredicted, cnRange, replicatesAnalyzed, eventId)
+#               - (SELECT DISTINCT
+#               -   '{_vector:1}', 
+#               -   '{_vector:2}', 
+#               -   rs,
+#               -   CASE WHEN '{_vector:5}' = '' THEN 0 WHEN ISNULL('{_vector:5}') = 1 THEN 0 ELSE '{_vector:5}' END,
+#               -   CASE WHEN '{_vector:6}' = '' THEN 0 WHEN ISNULL('{_vector:6}') = 1 THEN 0 ELSE '{_vector:6}' END,
+#               -   CASE WHEN '{_vector:19}' = '' THEN 0 WHEN ISNULL('{_vector:19}') = 1 THEN 0 ELSE '{_vector:19}' END,
+#               -   CASE WHEN '{_vector:10}' = '' THEN 0 WHEN ISNULL('{_vector:10}') = 1 THEN 0 ELSE '{_vector:10}' END,
+#               -   {_eventId}
+#               - FROM  ag_snplist
+#               - WHERE '{_vector:1}' <> ''
+#               - AND rs NOT IN ('gene duplication', 'complete gene deletion', '', 'wild-type')
+#               - AND Gene = 'CYP2D6'
+#               - AND NOT EXISTS (SELECT 1 FROM ag_rawDataImport WHERE SampleId = '{_vector:1}' AND Gene = '{_vector:2}'))
+
+            sqlInsert~ UPDATE ag_rawDataImport
+              - SET cnCalculated = CASE WHEN '{_vector:12}' = '' THEN 0 WHEN ISNULL('{_vector:12}') = 1 THEN 0 ELSE '{_vector:12}' END,
+              - cnPredicted = CASE WHEN '{_vector:13}' = '' THEN 0 WHEN ISNULL('{_vector:13}') = 1 THEN 0 ELSE '{_vector:13}' END,
+              - cnRange = CASE WHEN '{_vector:26}' = '' THEN 0 WHEN ISNULL('{_vector:26}') = 1 THEN 0 ELSE '{_vector:26}' END,
+              - replicatesAnalyzed = CASE WHEN '{_vector:17}' = '' THEN 0 WHEN ISNULL('{_vector:17}') = 1 THEN 0 ELSE '{_vector:17}' END,
+              - eventId = {_eventId}
+              - WHERE SampleID = '{_vector:1}'
+              - AND Gene = case when '{_vector:9}' = '2D6 CN' then 'CYP2D6' else '' end
+            sqlInsert~ INSERT INTO ag_rawDataImport (SampleID, Gene, Assay, cnCalculated, cnPredicted, cnRange, replicatesAnalyzed, eventId)
+              - (SELECT DISTINCT
+              -   '{_vector:1}', 
+              -   case when '{_vector:9}' = '2D6 CN' then 'CYP2D6' else '' end, 
+              -   rs,
+              -   CASE WHEN '{_vector:12}' = '' THEN 0 WHEN ISNULL('{_vector:12}') = 1 THEN 0 ELSE '{_vector:12}' END,
+              -   CASE WHEN '{_vector:13}' = '' THEN 0 WHEN ISNULL('{_vector:13}') = 1 THEN 0 ELSE '{_vector:13}' END,
+              -   CASE WHEN '{_vector:26}' = '' THEN 0 WHEN ISNULL('{_vector:26}') = 1 THEN 0 ELSE '{_vector:26}' END,
+              -   CASE WHEN '{_vector:17}' = '' THEN 0 WHEN ISNULL('{_vector:17}') = 1 THEN 0 ELSE '{_vector:17}' END,
+              -   {_eventId}
+              - FROM  ag_snplist
+              - WHERE '{_vector:1}' <> ''
+              - AND rs NOT IN ('gene duplication', 'complete gene deletion', '', 'wild-type')
+              - AND Gene = 'CYP2D6' and '{_vector:10}' <> ''
+              - AND NOT EXISTS (SELECT 1 FROM ag_rawDataImport WHERE SampleId = '{_vector:1}' AND Gene = '{_vector:9}'))
+      forEach select distinct SampleId from ag_rawDataImport where eventId = {_eventId}
+        sql delete from queues where step = '{_step}' and containerId = '{_:SampleID}'
+
+      forEach select distinct sampleId from ag_rawDataImport where eventId = {_eventId}
+
+
+        sql
+          - insert ignore into containerFiles (containerId, fileType, fileName, location, eventId) 
+          - select distinct '{_:sampleId}', 'Allele Data File', '{Allele Calls File}', '{_configPath}private/translationalData', {_eventId} from dual
+          - where '{Allele Calls File}' <> ''
+
+
+        sql
+          - insert ignore into containerFiles (containerId, fileType, fileName, location, eventId) 
+          - select distinct '{_:sampleId}', 'CNV Data File', '{Copy Number File}', '{_configPath}private/translationalData', {_eventId} from dual
+          - where '{Copy Number File}' <> '' 
+
+    step Review Translational Data
+      nextStep {_:nextStep}
+        recId {_recId}
+        formNumber {_:formNumber}
+      verboseNetworkResponseTime true
+#      verboseTime true
+      accessLevel 6
+      #queueSelectRecId
+      form
+        onLoad= if(document.stepForm.elements[1].value.length == 0)
+          + {document.stepForm.elements[1].focus();}
+          + else {document.stepForm.elements[1].focus();}
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('div.dataTables_filter input').focus();
+          - })
+        include submitButton
+        vertical
+          container _recId
+            screenLabel~ Report Id
+            new~ false
+        table
+          style= width:800px;
+          class= stdTableSort
+          sqlQuery~
+            - select rf.Id as 'Request Id', q.containerId as 'Report Id', group_concat(tp.name separator ' ') as 'Panel', co.containerId as 'Elution Tube', rf.specimenId as 'Specimen Id'
+            - , concat(pa.firstName, ' ', pa.lastName) as 'Patient', o.firstName as 'Organization', concat(phy.firstName, ' ', phy.lastName) as 'Physician'
+            - , date_Format(e.eventDate, '%Y-%m-%d') as 'Event Date'
+            - FROM requestForms rf 
+            - join contents co on co.content = rf.Id
+            - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+            - join entities pa on pa.entityId = rf.patientId
+            - join entities phy on phy.entityId = rf.physicianId
+            - join entities o on o.entityId = rf.organizationId
+            - join queues q on q.containerId = rf.Id
+            - join events e on e.eventId = q.eventId
+            - join reqTestPanels rtp on rtp.reqId = rf.Id
+            - join testPanels tp on tp.Id = rtp.panelId 
+            - where q.step = '{_step}'
+            - group by rf.Id
+      form
+        setFormQueryResult
+          sqlQuery
+            - select
+            -   case
+            -     when '{editStatus}' = 'Completed'
+            -     then
+            -       'Review Translational Data'
+            -    else 'Review Translational Data'
+            -   end as nextStep
+            - , case when '{editStatus}' = 'Completed' 
+            -     then case 'Yes' when 'Yes' then '0' else '0' end else '0' end as formNumber
+        #style .sectionHead {border:0px solid blue;float:left; width:100%;align:center;color:blue;}
+        style h1 {color:red}
+        include userAccountInfo
+        include googEditor
+        include submitButton
+        script
+          src= js/reporting.js
+        script
+          - $(document).ready(function(){
+          -    var testType=$('#testType').val();
+          -   if ($('#imageGroupA').val() > '')
+          -      $('#laserMicro').show();
+          -   $('.gene').click(function() {
+          -     $('#rawDataHeaders').show();
+          -     $('#rawData').load('uniflow?callback=?&stepName=Ajax+ApGen+Results&sample=' + $('#specimenId').val() + '&gene=' + $(this).val().replace(' ', '%20'), function(){ $('#rawData').show(); });
+        #  -     $('#rawData2').load('uniflow?callback=?&stepName=Ajax+ApGen+Results&sample=' + $('#specimenIdR').val() + '&gene=' + $(this).val().replace(' ', '%20'), function(){ $('#rawData2').show(); });
+          -   });
+          -   $('.gene').each(function() {
+          -     if($(this).val() == 'CYP2C9'){
+          -       $(this).parent().siblings().children('.result').children('option[value="Not Detected"]').remove();
+          -     }
+          -   });
+          - var $unique = $('input.unique');
+          - $unique.click(function() {
+          -     $unique.filter(':checked').not(this).removeAttr('checked');
+          -   });
+          -   $('#showTranslation').click(function(){
+          -       $('#translationTable').dialog({ minWidth: 400 });
+          -       });
+          -   $('#sendAmended').click(function(){
+          -       $('#amendedComments').toggle();
+          -       });
+          - });
+
+        formQuery~ select co.containerId as 'reportId',co.content as 'requestId',cp.value as 'title' ,rf.testType
+          - ,concat('<h4>Medications</h4>',pc.medications
+          -   ,'<h4>Medications that have been problematic</h4>',pc.problemMedications
+          -   ,'<h4>Drug Allergies</h4>',pc.allergies) as 'medications'
+          -   ,specimenId
+          - from contents co
+          - LEFT JOIN containerProperties cp ON cp.containerId='{reportId}' AND cp.property='title'
+          - INNER JOIN requestForms rf on rf.Id = co.content
+          - LEFT JOIN patientClinical pc on pc.patientId = rf.patientId
+          - WHERE co.containerId = '{_recId}'
+          - AND co.contentType='RequestId'
+
+### PGx Rework Sample Update **MVS 03/19/2014
+        formQuery~
+          - SELECT DISTINCT
+          - co.containerId  AS "specimenId"
+          - FROM requestForms f
+          - INNER JOIN contents c
+          - ON f.Id = c.content
+          - INNER JOIN containers co
+          - ON c.containerId = co.containerId
+          - AND co.containerType = 'elutionTubeId'
+          - WHERE f.ID = '{_resultSet:requestId}'
+          - UNION
+          - SELECT ''
+
+
+
+        formQuery~
+          - SELECT CASE mutationStatus WHEN 'Indeterminate' THEN 'true' ELSE 'false' END AS "indeterminate"
+          - FROM pcrImport
+          - WHERE containerId = '{_:specimenId}'
+          - AND assay = 'CYP2D6'
+          - UNION
+          - SELECT ''
+
+        formQuery~
+          - SELECT CASE mutationStatus WHEN 'No Copy Number' THEN 'true' ELSE 'false' END AS "noCopyNumber"
+          - FROM pcrImport
+          - WHERE containerId = '{_:specimenId}'
+          - AND assay = 'CYP2D6'
+          - UNION
+          - SELECT ''
+
+        formQuery~
+          - SELECT CASE mutationStatus WHEN '*5' THEN 'true' ELSE 'false' END AS "del*5"
+          - FROM pcrImport
+          - WHERE containerId = '{_:specimenId}'
+          - AND assay = 'CYP2D6'
+          - UNION
+          - SELECT ''
+
+        formQuery~
+          - SELECT CASE mutationStatus WHEN 'XN' THEN 'true' ELSE 'false' END AS "XN"
+          - FROM pcrImport
+          - WHERE containerId = '{_:specimenId}'
+          - AND assay = 'CYP2D6'
+          - UNION
+          - SELECT ''
+
+        formQuery~
+          - SELECT CASE mutationStatus WHEN 'Normal' THEN 'true' ELSE 'false' END AS "normal"
+          - FROM pcrImport
+          - WHERE containerId = '{_:specimenId}'
+          - AND assay = 'CYP2D6'
+          - UNION
+          - SELECT ''
+
+        formQuery~ SELECT IFNULL(
+          -   (SELECT 'Yes'
+          -   FROM reqTests rt
+          -   INNER JOIN tests t
+          -   ON rt.testId = t.Id
+          -   WHERE rt.reqId = '{_:requestId}'
+          -   AND t.testCode = 'intelligene'
+          -   LIMIT 1), 'No') AS "hasIntelligene"
+          -   FROM dual
+
+        vertical
+          container reportId
+            screenLabel~ Report Id
+            id= reportId
+            value= {_resultSet:reportId}
+            readonly=
+            style= border:none;
+            if~ {editStatus} == Completed
+              if~ {testType} == PGx
+                deleteQueue~ {_step}
+             #     insertQueue~ Print MyMEDIncode Report
+                if~ select 1 from dual where '{sendQNS}' = 'false'
+                  if~ select 1 from dual where '{sendDemoOnly}' = 'false'
+                    if~ select 1 from dual where '{sendAmended}' = 'true'
+                      sql 
+                        - insert into queues (containerId, step, eventId)
+                        - values ('{requestId}', 'Send Amended Data to Translational', {_eventId})
+                    if~ select 1 from dual where '{sendAmended}' = 'false'
+                      sql
+                        - insert into queues (containerId, step, eventId)
+                        - values ('{requestId}', 'Send Data to Translational', {_eventId})
+                  if~ select 1 from dual where '{sendDemoOnly}' = 'true'
+                    sql
+                      - insert into queues (containerId, step, eventId)
+                      - values ('{requestId}', 'Receive Report from Translational', {_eventId})    
+                if~ select 1 from dual where '{sendQNS}' = 'true'
+                  sql insert into queues (containerId, step, eventId)
+                    - values ('{requestId}', 'Receive Report from Translational', {_eventId}) 
+
+### PGx Rework Sample Update **MVS 03/19/2014
+          hidden specimenId
+            value= {_:specimenId}
+            id= specimenId
+            screenLabel~
+#           hidden specimenIdR
+#             value= {_:specimenIdR}
+#             id= specimenIdR
+#             screenLabel~
+
+          comments Comment
+          select editStatus
+            screenLabel~ Action
+            option Completed
+            option Not Finished
+        hidden _recId
+          value= {_recId}
+        hidden requestId
+          id= requestId
+          value= {_resultSet:requestId}
+          readonly=
+        hidden testType
+          id= testType
+          value= {_resultSet:testType}
+        hidden hasIntelligene
+          id= hasIntelligene
+          value= {_:hasIntelligene}
+
+
+#         textArea frecommendations
+#           id= frecommendations
+#           value= {_resultSet:description}
+#           style= display:none;
+#         vertical
+#           span {_resultSet:title}
+#           div
+#             class= report_section
+#             style= page-break-before:auto;display:none;
+#             id= referencesForTestsRequested
+        fieldset
+          legend LABORATORY TEST RESULTS
+            onClick= hide_show_element('testresults')
+            style= color:blue;
+          div
+          div
+            id= testresults
+            style= border:0px solid blue;width:100%;float:left;page-break-after:always;
+              #- display:none;
+            table
+              sqlQuery~ select rf.Id as 'RequestId', rf.specimenId as 'SpecimenId', co.containerId as 'Test Sample Id', concat(pa.firstName, ' ', pa.lastName) as 'Patient'
+                - , pat.dob as 'DOB' , pat.age as 'Age' from requestForms rf
+                - join contents co on co.content = rf.Id
+                - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+                - join entities pa on pa.entityId = rf.patientId
+                - join patients pat on rf.patientId = pat.patientId
+                - where rf.Id = '{_:requestId}'
+
+
+            div
+              class= pgx
+              vertical2
+                fieldset
+                  legend Previous CNV Call
+                  vertical
+                    checkbox No Copy Number
+                      #value= {noCopyNumber}
+                      readonly=
+                    checkbox Indeterminate
+                      value= {_:indeterminate}
+                      readonly=
+                    checkbox *5
+                      value= {_:del*5}
+                      readonly=
+                    checkbox XN
+                      value= {_:XN}
+                      readonly=
+                    checkbox Normal
+                      value= {_:normal}
+                      readonly=
+                fieldset 
+                  legend Translational Reports
+                  vertical
+                    checkbox trans*5
+                      screenLabel~ *5
+                      class= unique
+                    checkbox transXN
+                      screenLabel~ XN
+                      class= unique
+                    checkbox transNormal
+                      screenLabel~ Normal
+                      class= unique
+                    checkbox CNV Not Performed
+                      class= unique
+                checkbox sendDemoOnly
+                  screenLabel~ Send Demographic Data Only
+                  class= unique
+                div
+                checkbox sendAmended
+                  id= sendAmended
+                  screenLabel~ Mark as Amended Report
+                div
+                  id= amendedComments
+                  style= display:none;
+                  vertical
+                    textArea amendedComments
+                      screenLabel~ Amended Report Comments
+                checkbox sendQNS
+                  screenLabel~ Generate QNS Report and Mark as QNS
+                div 
+                  id= translationTable
+                  style= display:none;
+                  table
+                    sqlQuery~ select ag.Gene, t.rs, t.tranWT, t.tranVariant, t.starWT, t.starVariant from translationalAssays t
+                      - join ag_snplist ag on ag.rs = t.rs
+              vertical
+                table
+                  sqlQuery~ SELECT DISTINCT rd.cnCalculated, rd.cnPredicted, rd.cnRange, rd.replicatesAnalyzed
+                    - FROM contents c
+                    - INNER JOIN ag_rawDataImport rd
+                    - ON c.containerId = rd.sampleId
+                    - WHERE (rd.Gene = 'CYP2D6' OR rd.Gene = 'Hs00010001_cn')
+                    - AND c.content = '{_resultSet:requestId}'
+
+            vertical2
+
+              table
+                style= width:200px;
+                id= resultsPain
+                class= results stdTableSort pgx
+                sqlQuery~ select distinct co.containerId as 'Sample', t.abbreviation from requestForms rf join queues q on q.containerId = rf.Id
+                  - join reqTests rt on rt.reqId = rf.Id
+                  - join tests t on t.Id = rt.testId
+                  - join contents co on co.content = rf.Id
+                  - join containers c on c.containerId = co.containerId
+                  - where q.step = '{_step}' and c.containerType = 'elutionTubeId'
+                  - and rf.Id = '{_:requestId}'
+
+                columnSpecs~ resultsPain
+                  allowChangedRecordIds
+                  column 1
+                    inputType container
+                      readonly=
+                      acceptQueue~ any
+                      class= container 
+                      required~ false
+                      sql UPDATE pcrImport
+                        - SET
+                        -     eventId = {_eventId},
+                        -     mutationStatus = CASE assay
+                        -                         WHEN 'CYP2D6' THEN
+                        -                                 CASE
+                        -                                     WHEN '{transIndeterminate}' = 'true' THEN 'Indeterminate'
+                        -                                     WHEN '{CNV Not Performed}' = 'true' THEN 'No Copy Number'
+                        -                                     WHEN '{trans*5}' = 'true' THEN '*5'
+                        -                                     WHEN '{transXN}' = 'true' THEN 'XN'
+                        -                                 END
+                        -                       END
+                        - WHERE containerId = '{_thisInput}'
+                        - AND assay = '{_columnInput:2}'
+                        - AND '{testType}' = 'pgx'
+#                       if~ ! SELECT 1 FROM pcrImport WHERE containerId = '{_thisInput}' AND assay = '{_columnInput:2}'
+#                         sql~ INSERT INTO pcrImport (containerId, assay, result, metric, eventId)
+#                           - VALUES ('{_thisInput}', '{_columnInput:2}', '{_columnInput:4}', '{_columnInput:3}', {_eventId})
+                  column 2
+                    inputType text
+                      readonly=
+                      class= text gene
+                      style= border:0;background-color:transparent;
+
+              vertical
+                div
+                  id= rawDataHeaders
+                  style= display:none;
+                  h4 First Extract
+                  div
+                    style= width:50px;
+                    id= rawData
+                  h4 Second Extract
+                  div
+                    style= width:50px;
+                    id= rawData2
+
+
+
+        fieldSet
+          legend Test Panels
+            onClick= hide_show_element('testpanelssrequested')
+            style= color:blue;
+          div
+            style= border:0px solid blue;float:left;
+            id= testpanelssrequested
+            span no results found
+
+
+      allowDuplicateContainerIds true
+
+
+      ifCondition select 1 from dual where '{CNV Not Performed}' = 'true'
+        outputTable {_configPath}private/translationalData/CNV_{_eventId}.csv
+          sqlQuery select 'Sample Name','Target','Reference','Plate ID','CN Calculated','CN Predicted'
+            + ,'Confidence','|Z-Score|','Replicate Count','Replicates Analyzed','FAM Ct Mean','VIC Ct Mean'
+            + ,'Delta Ct Mean','Delta Ct SD','Delta Delta Ct','RQ,Min CN','Max CN','CN Range','Sample Comments'
+            + union
+            + select '{specimenId}','Hs00010001_cn','','','','UND'
+            + ,'','','','','',''
+            + ,'','','','','','',''
+          delimiter ,
+        sql 
+          - delete from containerFiles where containerId = '{specimenId}' and fileType = 'No CNV Data File'
+        sql
+          - insert into containerFiles (containerId, fileType, fileName, location, eventId)
+          - values ('{specimenId}', 'No CNV Data File', 'CNV_{_eventId}.csv', 'private/translationalData', {_eventId})
+
+      ifCondition select 1 from dual where '{trans*5}' = 'true'
+        outputTable {_configPath}private/translationalData/CNV_{_eventId}.csv
+          sqlQuery select 'Sample Name','Target','Reference','Plate ID','CN Calculated','CN Predicted'
+            + ,'Confidence','|Z-Score|','Replicate Count','Replicates Analyzed','FAM Ct Mean','VIC Ct Mean'
+            + ,'Delta Ct Mean','Delta Ct SD','Delta Delta Ct','RQ,Min CN','Max CN','CN Range','Sample Comments'
+            + union
+            + select '{specimenId}','Hs00010001_cn','','','','1'
+            + ,'','','','','',''
+            + ,'','','','','','',''
+          delimiter ,
+        sql 
+          - delete from containerFiles where containerId = '{specimenId}' and fileType = 'No CNV Data File'
+        sql
+          - insert into containerFiles (containerId, fileType, fileName, location, eventId)
+          - values ('{specimenId}', 'No CNV Data File', 'CNV_{_eventId}.csv', 'private/translationalData', {_eventId})
+
+      ifCondition select 1 from dual where '{transXN}' = 'true'
+        outputTable {_configPath}private/translationalData/CNV_{_eventId}.csv
+          sqlQuery select 'Sample Name','Target','Reference','Plate ID','CN Calculated','CN Predicted'
+            + ,'Confidence','|Z-Score|','Replicate Count','Replicates Analyzed','FAM Ct Mean','VIC Ct Mean'
+            + ,'Delta Ct Mean','Delta Ct SD','Delta Delta Ct','RQ,Min CN','Max CN','CN Range','Sample Comments'
+            + union
+            + select '{specimenId}','Hs00010001_cn','','','','3'
+            + ,'','','','','',''
+            + ,'','','','','','',''
+          delimiter ,
+        sql 
+          - delete from containerFiles where containerId = '{specimenId}' and fileType = 'No CNV Data File'
+        sql
+          - insert into containerFiles (containerId, fileType, fileName, location, eventId)
+          - values ('{specimenId}', 'No CNV Data File', 'CNV_{_eventId}.csv', 'private/translationalData', {_eventId})
+
+      ifCondition select 1 from dual where '{transNormal}' = 'true'
+        outputTable {_configPath}private/translationalData/CNV_{_eventId}.csv
+          sqlQuery select 'Sample Name','Target','Reference','Plate ID','CN Calculated','CN Predicted'
+            + ,'Confidence','|Z-Score|','Replicate Count','Replicates Analyzed','FAM Ct Mean','VIC Ct Mean'
+            + ,'Delta Ct Mean','Delta Ct SD','Delta Delta Ct','RQ,Min CN','Max CN','CN Range','Sample Comments'
+            + union
+            + select '{specimenId}','Hs00010001_cn','','','','2'
+            + ,'','','','','',''
+            + ,'','','','','','',''
+          delimiter ,
+        sql 
+          - delete from containerFiles where containerId = '{specimenId}' and fileType = 'No CNV Data File'
+        sql
+          - insert into containerFiles (containerId, fileType, fileName, location, eventId)
+          - values ('{specimenId}', 'No CNV Data File', 'CNV_{_eventId}.csv', 'private/translationalData', {_eventId})
+      ifCondition select 1 from dual where '{editStatus}' = 'Completed' and '{sendDemoOnly}' = 'false'
+        outputTable {_configPath}private/translationalData/ADF_{_eventId}.txt
+          delimiter TAB
+          sqlQuery~ select 'Assay Name', 'Assay ID','Gene Symbol','NCBI SNP Reference','Sample ID', 'Call' from dual
+            - UNION
+            - select distinct concat(Gene, '-', Assay), TranslationalAssayId, Gene, Assay
+            - , SampleID, concat(Allele1,'/',Allele2) from ag_rawDataImport 
+            - where SampleID = '{specimenId}' and TranslationalAssayId is not null
+#             - and 
+#             - (Gene in (select t.abbreviation from reqTests rt join tests t on rt.testId = t.Id where reqId = '{requestId}') 
+#             - or Gene like 'MTHFR%')
+        sql 
+          - delete from containerFiles where containerId = '{specimenId}' and fileType = 'Generated Allele File'
+        sql
+          - insert into containerFiles (containerId, fileType, fileName, location, eventId)
+          - values ('{specimenId}', 'Generated Allele File', 'ADF_{_eventId}.txt', 'private/translationalData', {_eventId})
+      ifCondition select 1 from dual where '{sendDemoOnly}' = 'true'
+        outputTable {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt
+          makeDirs
+          delimiter TAB
+          sqlQuery~ select 'requisition number', 'accession', 'medications', 'last name', 'first name', 'Dob'
+            - ,'Ssn', 'Gender', 'Provider Id', 'ordering physician', 'collection date', 'specimen type'
+            - ,'received date', 'reports' from dual
+            - UNION
+            -   select rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+            - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+            - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+            - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date', 'comp' as 'report'
+            - from requestForms rf
+            - join contents co on co.content = rf.Id
+            - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+            - join reqTests rt on rt.reqId = rf.Id
+            - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+            - join entities pa on pa.entityId = rf.patientId
+            - join patients pat on pat.patientId = rf.patientId
+            - join entities phy on phy.entityId = rf.physicianId
+            - join queues q on q.containerId = rf.Id
+            - where q.containerId = '{requestId}'
+        exec cp {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt /sftp/pmdxTSI/ToTSI/TSIDemoFile_{_eventId}.txt
+        exec chown -R  pmdxTSI /sftp/pmdxTSI/ToTSI/
+      ifCondition select 1 from dual where '{sendQNS}' = 'true'
+        outputTable {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt
+          makeDirs
+          delimiter TAB
+          sqlQuery~ select 'requisition number', 'accession', 'medications', 'last name', 'first name', 'Dob'
+            - ,'Ssn', 'Gender', 'Provider Id', 'ordering physician', 'collection date', 'specimen type'
+            - ,'received date', 'reports' from dual
+            - UNION
+            -   select rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+            - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+            - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+            - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date', 'qns' as 'report'
+            - from requestForms rf
+            - join contents co on co.content = rf.Id
+            - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+            - join reqTests rt on rt.reqId = rf.Id
+            - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+            - join entities pa on pa.entityId = rf.patientId
+            - join patients pat on pat.patientId = rf.patientId
+            - join entities phy on phy.entityId = rf.physicianId
+            - join queues q on q.containerId = rf.Id
+            - where q.containerId = '{requestId}'
+            #- and cp.property = 'Sent to Translational' and cp.value = 'true'
+        sql update requestForms set QNSEventId = {_eventId} where Id = '{requestId}'
+        exec cp {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt /sftp/pmdxTSI/ToTSI/TSIDemoFile_{_eventId}.txt
+        exec chown -R  pmdxTSI /sftp/pmdxTSI/ToTSI/
+      ifCondition select 1 from dual where '{sendAmended}' = 'true'
+        sql update requestForms set amendedEventId = {_eventId} where Id = '{requestId}'
+        sql update events set comments = '{amendedComments}' where eventId = {_eventId}
+        exec cp {_configPath}private/reports/REPORT-{requestId}.pdf {_configPath}private/reports/archivedForAmended/REPORT-{requestId}_{_eventId}.pdf
+
+
+
+    step Send Data to Translational
+      nextStep Receive Report from Translational
+        formNumber 0
+      accessLevel 6
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('#checkall').click(function(){
+          -   var checkval = $(this).is(':checked');
+          -     $('.checkall').each(function() {
+          -         $(this).attr('checked',checkval);
+          -     });
+          -   });
+          - }); //End of Document Ready!!
+        fieldset
+          legend Waiting for Upload
+          table
+            sqlQuery~ select '' as 'Send back for Review',
+              - rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+              - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+              - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+              - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date'
+              -  ,IFNULL(cf1.fileName, 'Waiting for Upload') as 'Variant File', IFNULL(cf2.fileName, 'Waiting for Upload') as 'CNV File'
+              - from requestForms rf
+              - join contents co on co.content = rf.Id
+              - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+              - join reqTests rt on rt.reqId = rf.Id
+              - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+              - join entities pa on pa.entityId = rf.patientId
+              - join patients pat on pat.patientId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - join queues q on q.containerId = rf.Id
+              - left join containerFiles cf1 on cf1.containerId = co.containerId and cf1.fileType = 'Generated Allele File'
+              - left join containerFiles cf2 on cf2.containerId = co.containerId and cf2.fileType = 'No CNV Data File'
+              - where q.step = '{_step}'
+              - and (cf1.fileName is null or cf2.fileName is null)
+              - group by rf.Id
+            columnSpecs~ sendToReview
+              column 1
+                inputType checkbox
+              column 2
+                inputType container
+                  if~ {_columnInput:1} == true
+                    deleteQueue~ {_step}
+                    insertQueue~ Review Translational Data
+                  style= border:none;background-color:transparent;
+                  readonly= 
+
+
+                
+
+        fieldset
+          legend Ready to Send to Translational
+          vertical
+            checkbox checkall
+              id= checkall
+              screenLabel~ Check All
+          table
+            sqlQuery~
+              - select '' as 'Send', '' as 'Return for Review', rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+              - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+              - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+              - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date'
+              -  ,cf1.fileName as 'Allele File Id',cf2.fileName as 'CNV File Id'
+              - from requestForms rf
+              - join contents co on co.content = rf.Id
+              - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+              - join reqTests rt on rt.reqId = rf.Id
+              - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+              - join entities pa on pa.entityId = rf.patientId
+              - join patients pat on pat.patientId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - join queues q on q.containerId = rf.Id
+              - join containerFiles cf1 on cf1.containerId = co.containerId
+              - join containerFiles cf2 on cf2.containerId = co.containerId
+              - where q.step = '{_step}'
+              - and cf1.fileType = 'Generated Allele File'
+              - and cf2.fileType = 'No CNV Data File'
+              - group by rf.Id
+            columnSpecs~ sendData
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= checkall
+              column 2 
+                inputType checkbox
+
+              column 3
+                inputType container
+                  recordContainerHistory~ false
+                  style= background-color:transparent;border:0;
+                  if~ {_columnInput:1} == true
+                    insertQueue~ Receive Report from Translational
+                    sql 
+                      - insert into containerHistory (containerId, eventId)
+                      - values ('{_thisInput}', {_eventId})
+                  if~ {_columnInput:2} == true  
+                    deleteQueue~ {_step}
+                    insertQueue~ Review Translational Data
+              column 4
+                inputType container
+                  acceptQueue~ any
+                  recordContainerHistory~ false
+                  style= background-color:transparent;border:0;
+                  if~ {_columnInput:1} == true
+                    sql 
+                      - insert into containerHistory (containerId, eventId)
+                      - values ('{_thisInput}', {_eventId})
+                    sql
+                      - insert into containerProperties (containerId, property, value, eventId)
+                      - values ('{_thisInput}', 'Sent to Translational', 'true', {_eventId})
+      outputTable {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt
+        makeDirs
+        delimiter TAB
+        sqlQuery~ select 'requisition number', 'accession', 'medications', 'last name', 'first name', 'Dob'
+          - ,'Ssn', 'Gender', 'Provider Id', 'ordering physician', 'collection date', 'specimen type'
+          - ,'received date', 'reports' from dual
+          - UNION
+          -   select rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+          - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+          - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+          - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date', 'comp' as 'report'
+          - from requestForms rf
+          - join contents co on co.content = rf.Id
+          - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+          - join reqTests rt on rt.reqId = rf.Id
+          - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+          - join entities pa on pa.entityId = rf.patientId
+          - join patients pat on pat.patientId = rf.patientId
+          - join entities phy on phy.entityId = rf.physicianId
+          - join queues q on q.containerId = rf.Id
+          - join containerFiles cf1 on cf1.containerId = co.containerId and cf1.fileType = 'Generated Allele File'
+          - join containerFiles cf2 on cf2.containerId = co.containerId and cf2.fileType = 'No CNV Data File'
+          - join containerProperties cp on cp.containerId = co.containerId
+          - where q.step = 'Send Data to Translational'
+          - and cp.property = 'Sent to Translational' and cp.value = 'true' and cp.eventId = {_eventId} group by rf.Id
+##FileName <Accession>-<Date>-<PanelNumber>.pdf
+
+  ####This moves the files to the translational server.  We need to 
+      forEach select fileName, cf.containerId
+        - from containerFiles cf 
+        - inner join containerProperties cp
+        - on cf.containerId = cp.containerId
+        - where cp.eventId = {_eventId} 
+        - and cf.fileType in ('Generated Allele File') 
+        - and cp.property = 'Sent to Translational'
+        - and cp.value = 'true'
+        - group by fileName
+        - union 
+        - select fileName, cf.containerId
+        - from containerProperties cp
+        - inner join containerFiles cf
+        - on cp.containerId = cf.containerId
+        - where cp.eventId = {_eventId} 
+        - and cp.property = 'Sent to Translational'
+        - and cp.value = 'true'
+        - and cf.fileType = 'No CNV Data File'
+        - group by fileName
+        
+        exec cp {_configPath}private/translationalData/{_:fileName} /sftp/pmdxTSI/ToTSI/{_:fileName}
+
+        sql
+          - delete from queues where containerId = '{_:containerId}' and step = '{_step}'
+      forEach select containerId from containerHistory where eventId = {_eventId}
+        sql
+          - delete from queues where containerId = '{_:containerId}' and step = '{_step}'
+       # exec sshpass -p p6[/LqDKVZPBkPy scp {_configPath}private/translationalData/{_:fileName} pmdxFTP@tsitransfer.com:/ToTSI/
+      exec cp {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt /sftp/pmdxTSI/ToTSI/TSIDemoFile_{_eventId}.txt 
+      exec chown -R  pmdxTSI /sftp/pmdxTSI/ToTSI/
+      allowDuplicateContainerIds true
+
+
+    step Send Amended Data to Translational
+      nextStep Receive Report from Translational
+        formNumber 0
+      accessLevel 6
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('#checkall').click(function(){
+          -   var checkval = $(this).is(':checked');
+          -     $('.checkall').each(function() {
+          -         $(this).attr('checked',checkval);
+          -     });
+          -   });
+          - }); //End of Document Ready!!
+        fieldset
+          legend Waiting for Upload
+          table
+            sqlQuery~ select '' as 'Send back for Review',
+              - rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+              - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+              - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+              - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date'
+              -  ,IFNULL(cf1.fileName, 'Waiting for Upload') as 'Variant File', IFNULL(cf2.fileName, 'Waiting for Upload') as 'CNV File'
+              - ,ame.comments as 'Amended Comments'
+              - from requestForms rf
+              - join contents co on co.content = rf.Id
+              - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+              - join reqTests rt on rt.reqId = rf.Id
+              - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+              - join entities pa on pa.entityId = rf.patientId
+              - join patients pat on pat.patientId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - join queues q on q.containerId = rf.Id
+              - join events ame on ame.eventId = rf.amendedEventId
+              - left join containerFiles cf1 on cf1.containerId = co.containerId and cf1.fileType = 'Generated Allele File'
+              - left join containerFiles cf2 on cf2.containerId = co.containerId and cf2.fileType = 'No CNV Data File'
+              - where q.step = '{_step}'
+              - and (cf1.fileName is null or cf2.fileName is null)
+              - group by rf.Id
+            columnSpecs~ sendToReview
+              column 1
+                inputType checkbox
+              column 2
+                inputType container
+                  if~ {_columnInput:1} == true
+                    deleteQueue~ {_step}
+                    insertQueue~ Review Translational Data
+                  style= border:none;background-color:transparent;
+                  readonly= 
+
+
+                
+
+        fieldset
+          legend Ready to Send to Translational
+          vertical
+            checkbox checkall
+              id= checkall
+              screenLabel~ Check All
+          table
+            sqlQuery~
+              - select '' as 'Send', '' as 'Return for Review', rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+              - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+              - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+              - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date'
+              -  ,cf1.fileName as 'Allele File Id',cf2.fileName as 'CNV File Id',ame.comments as 'Amended Comments'
+              - from requestForms rf
+              - join contents co on co.content = rf.Id
+              - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+              - join reqTests rt on rt.reqId = rf.Id
+              - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+              - join entities pa on pa.entityId = rf.patientId
+              - join patients pat on pat.patientId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - join queues q on q.containerId = rf.Id
+              - join containerFiles cf1 on cf1.containerId = co.containerId
+              - join containerFiles cf2 on cf2.containerId = co.containerId
+              - join events ame on ame.eventId = rf.amendedEventId
+              - where q.step = '{_step}'
+              - and cf1.fileType = 'Generated Allele File'
+              - and cf2.fileType = 'No CNV Data File'
+              - group by rf.Id
+            columnSpecs~ sendData
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= checkall
+              column 2 
+                inputType checkbox
+
+              column 3
+                inputType container
+                  recordContainerHistory~ false
+                  style= background-color:transparent;border:0;
+                  if~ {_columnInput:1} == true
+                    insertQueue~ Receive Report from Translational
+                    sql 
+                      - insert into containerHistory (containerId, eventId)
+                      - values ('{_thisInput}', {_eventId})
+                  if~ {_columnInput:2} == true  
+                    deleteQueue~ {_step}
+                    insertQueue~ Review Translational Data
+              column 4
+                inputType container
+                  acceptQueue~ any
+                  recordContainerHistory~ false
+                  style= background-color:transparent;border:0;
+                  if~ {_columnInput:1} == true
+                    sql 
+                      - insert into containerHistory (containerId, eventId)
+                      - values ('{_thisInput}', {_eventId})
+                    sql
+                      - insert into containerProperties (containerId, property, value, eventId)
+                      - values ('{_thisInput}', 'Sent to Translational', 'true', {_eventId})
+      outputTable {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt
+        makeDirs
+        delimiter TAB
+        sqlQuery~ select 'requisition number', 'accession', 'medications', 'last name', 'first name', 'Dob'
+          - ,'Ssn', 'Gender', 'Provider Id', 'ordering physician', 'collection date', 'specimen type'
+          - ,'received date', 'reports', 'comment' from dual
+          - UNION
+          -   select rf.Id as 'Requisition Id', co.containerId as 'Accession', IFNULL(group_concat(t.abbreviation separator ';'),'') as 'medications'
+          - ,pa.lastName as 'last name', pa.firstName as 'first name', pat.dob as 'Dob', right(pat.ssn,4) as 'Ssn', pat.gender as 'Gender' 
+          - ,rf.organizationId as 'Provider Id', concat(phy.firstName, ' ', phy.lastName) as 'ordering physician', date_format(rf.collectionDate, '%m/%d/%Y') as 'collection date'
+          - , rf.sampleType as 'specimen type', rf.receivedDate as 'received date', 'comp' as 'report'
+          - , ame.comments as 'comment'
+          - from requestForms rf
+          - join contents co on co.content = rf.Id
+          - join containers c on c.containerId = co.containerId and c.containerType = 'elutionTubeId'
+          - join reqTests rt on rt.reqId = rf.Id
+          - left join tests t on t.Id = rt.testId and t.testCode = 'drugList'
+          - join entities pa on pa.entityId = rf.patientId
+          - join patients pat on pat.patientId = rf.patientId
+          - join entities phy on phy.entityId = rf.physicianId
+          - join queues q on q.containerId = rf.Id
+          - join events ame on ame.eventId = rf.amendedEventId
+          - join containerFiles cf1 on cf1.containerId = co.containerId and cf1.fileType = 'Generated Allele File'
+          - join containerFiles cf2 on cf2.containerId = co.containerId and cf2.fileType = 'No CNV Data File'
+          - join containerProperties cp on cp.containerId = co.containerId
+          - where q.step = 'Send Data to Translational'
+          - and cp.property = 'Sent to Translational' and cp.value = 'true' and cp.eventId = {_eventId} group by rf.Id
+##FileName <Accession>-<Date>-<PanelNumber>.pdf
+
+  ####This moves the files to the translational server.  We need to 
+      forEach select fileName, cf.containerId
+        - from containerFiles cf 
+        - inner join containerProperties cp
+        - on cf.containerId = cp.containerId
+        - where cp.eventId = {_eventId} 
+        - and cf.fileType in ('Generated Allele File') 
+        - and cp.property = 'Sent to Translational'
+        - and cp.value = 'true'
+        - group by fileName
+        - union 
+        - select fileName, cf.containerId
+        - from containerProperties cp
+        - inner join containerFiles cf
+        - on cp.containerId = cf.containerId
+        - where cp.eventId = {_eventId} 
+        - and cp.property = 'Sent to Translational'
+        - and cp.value = 'true'
+        - and cf.fileType = 'No CNV Data File'
+        - group by fileName
+        
+        exec cp {_configPath}private/translationalData/{_:fileName} /sftp/pmdxTSI/ToTSI/{_:fileName}
+
+        sql
+          - delete from queues where containerId = '{_:containerId}' and step = '{_step}'
+      forEach select containerId from containerHistory where eventId = {_eventId}
+        sql
+          - delete from queues where containerId = '{_:containerId}' and step = '{_step}'
+       # exec sshpass -p p6[/LqDKVZPBkPy scp {_configPath}private/translationalData/{_:fileName} pmdxFTP@tsitransfer.com:/ToTSI/
+      exec cp {_configPath}private/translationalData/TSIDemoFile_{_eventId}.txt /sftp/pmdxTSI/ToTSI/TSIDemoFile_{_eventId}.txt 
+      exec chown -R  pmdxTSI /sftp/pmdxTSI/ToTSI/
+      allowDuplicateContainerIds true
+
+
+    step Receive Report from Translational
+      #accessLevel 12
+      queueSelectRecId
+      form
+
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#checkall').click(function(){
+          -   var checkval = $(this).is(':checked');
+          -     $('.checkall').each(function() {
+          -         $(this).attr('checked',checkval);
+          -     });
+          -   });
+          - var dataTable = $('#reportTable').DataTable(); 
+          - $("#stepFormSubmitButton").click(function() {
+         # - alert('testme');
+          -  dataTable.destroy();
+          -    });
+          -  }); 
+        fieldset
+          legend Directions
+            class= legend
+          vertical
+            li This step is designed for the user to sign out reports.  
+            li Click on the Request Id link to view the requisition.  
+            li Click on the Report Id link to download and view the report.  
+            li Click on the Demographic Id to download and view attached PDF patient data.  
+            li Check the Sign Out box for reports that are to be released to the requesting physician.  
+            li Check the Queue To Edit box for reports that need to be queued back to pmdx for further information.  
+
+##FileName <Accession>-<Date>-<PanelNumber>.pdf
+##extractionId-m-d-yyyy-panelId.pdf
+        vertical 
+          checkbox checkAll 
+            id= checkall
+            screenLabel~ Sign Out All Reports
+        table
+          style= width:800px;
+          class= stdTableSort
+          id= reportTable
+          sqlQuery~
+            - select distinct rf.Id as 'Request Id',
+            -    rf.specimenId,
+            -    concat('REPORT-',q.containerId) as 'Report Name', 
+            -    concat (
+            -      co.containerId,
+            -      '-',
+            -      date_format(addtime(e.eventDate,'6:00:00'),'%c-%e-%Y'),
+            -      '-', case when QNSEventId is not null then 'qns' when amendedEventId is not null then 'Amended' else 'comp' end) as 'Report',
+            -    concat (
+            -      co.containerId, 
+            -      '-',
+            -      date_format(addtime(e.eventDate,'6:00:00'),'%c-%e-%Y'),
+            -      '-',
+            -      case when QNSEventId is not null then 'qns' when amendedEventId is not null then 'Amended' else 'comp' end ,'.pdf') as 'Report Id'
+            -    ,tp.name 'Test(s) Ordered'
+            -    ,concat(p.firstName,' ',p.lastName) 'Patient'
+            -    ,concat(p1.lastName, ',', p1.firstName) as 'Physician'
+            -    , '' as 'Sign Out', '' as 'Queue To Edit', '' as 'Reason'
+           # -    ,group_concat(cp2.value separator '<br />') as 'Comments'
+            -    from requestForms rf
+            -    join contents co on co.content = rf.Id
+            -    join containers c on co.containerId = c.containerId and c.containerType = 'elutionTubeId'
+            -    join reqTestPanels rtp on rtp.reqId = rf.Id
+            -    join testPanels tp on tp.Id = rtp.panelId
+            -    join entities p on p.entityId = rf.patientId
+            -    join entities p1 on p1.entityId = rf.physicianId
+            #-    join containerProperties cp2 on cp2.containerId = rf.Id and cp2.property = 'contactCustomer'
+            -    join queues q on q.containerId = rf.Id
+            -    join events e on e.eventId = q.eventId
+            -    where q.step = 'Receive Report from Translational'
+            -    group by rf.Id
+            -    order by e.eventDate
+            
+          columnSpecs~ translationalSignOut
+            column 1
+              inputType text 
+                readonly=
+                style= border:none;
+                acceptQueue~ any
+            column 2
+              inputType text 
+                readonly=
+                style= border:none;
+                acceptQueue~ any
+            column 3
+              inputType container 
+                recordContainerHistory~ false
+                readonly=
+                acceptQueue~ any
+                style= border:none;
+                if~ {_columnInput:9} == true
+                  sql delete from queues where step = '{_step}'
+                    - and containerId = '{_columnInput:1}'
+                  sql insert into queues (containerId, step, eventId)
+                    - values ('{_columnInput:3}', '_MoveTranslationalReport', {_eventId})
+                  sql insert into containerFiles (containerId, fileType, fileName, location, eventId)
+                    - values ('{_columnInput:3}', 'Translational Report', '{_columnInput:4}.pdf', '{_configPath}private/translationalReports', {_eventId})
+#                   sql insert into queues (containerId, step, eventId)
+#                     - values ('{_columnInput:1}', 'Bill For CGI', {_eventId})
+                  sql insert into containerHistory (containerId, eventId)
+                    - values ('{_columnInput:3}', {_eventId})
+                  sql insert into queues (containerId, step, eventId)
+                    - values ('{_columnInput:3}', 'Final Report', {_eventId})
+                  sql update requestForms set signedEventId = {_eventId} where Id = '{_columnInput:1}'
+                if~ {_columnInput:10} == true
+                  sql delete from queues where step = '{_step}'
+                    - and containerId = '{_columnInput:1}'
+                  sql insert into queues (containerId, step, eventId)
+                    - values ('{_columnInput:1}', 'Review Translational Data', {_eventId}), ('{_columnInput:3}', '_DeleteFromTranslational', {_eventId})
+                  sql insert into containerFiles (containerId, fileType, fileName, location, eventId)
+                    - values ('{_columnInput:3}', 'Translational Report', '{_columnInput:4}.pdf', '{_configPath}private/translationalReports', {_eventId})
+                if~ select 1 from dual where '{_columnInput:11}' <> ''
+                  sql insert into containerProperties (containerId,property,value,eventId)
+                    -  values ('{_columnInput:1}','contactCustomer',concat(left('{_columnInput:2}',3),':{_columnInput:11}'),{_eventId})
+            column 4
+              inputType text
+                readonly=
+                style= border:none;
+            column 9
+              inputType checkbox
+                class= checkall
+            column 10
+              inputType checkbox
+            column 11
+              inputType textArea
+
+
+#       outputTable {_configPath}private/DMSData/DMSDemoFile_{_eventId}.csv
+#         makeDirs
+#         delimiter ,
+#         sqlQuery~ select 'requestId', 'dateOfService', 'signedDate', 'amendedDate', 'QNSDate'
+#           - UNION
+#           - select Id, date_format(e.eventDate,'%Y-%m-%d'), date_format(e.eventDate,'%Y-%m-%d')
+#           - , date_format(ame.eventDate,'%Y-%m-%d'), date_format(qns.eventDate,'%Y-%m-%d')
+#           - from requestForms rf
+#           - join queues q on substring_index(q.containerId, '-', -1) = rf.Id 
+#           - left join events e on e.eventId = rf.signedEventId
+#           - left join events ame on ame.eventId = rf.amendedEventId
+#           - left join events qns on qns.eventId = rf.QNSEventId
+#           - where q.step = '_MoveTranslationalReport'
+#       exec cp {_configPath}private/DMSData/DMSDemoFile_{_eventId}.csv /sftp/dmsUser/outgoing/DMSDemoFile_{_eventId}.csv
+      forEach select q.containerId as containerId, cf.fileName, case when rf.QNSEventId is null then '01' else '02' end as QNS
+        - from queues q
+        - inner join containerFiles cf
+        - on q.containerId = cf.containerId
+        - inner join requestForms rf on rf.Id = substring_index(q.containerId, '-', -1)
+        - where q.step = '_MoveTranslationalReport'
+        - and q.eventId = {_eventId}
+        - and cf.fileType = 'Translational Report'
+        - and cf.eventId = {_eventId}
+
+        #exec cp /sftp/pmdxTSI/FromTSI/{_:fileName} /sftp/dmsUser/outgoing/{_:guid}#{_:QNS}.pdf
+        exec mv /sftp/pmdxTSI/FromTSI/pdf/{_:fileName} {_configPath}private/reports/{_:containerId}.pdf
+
+        sql
+          - insert ignore into containerFiles (containerId, fileType, fileName, location, eventId)
+          - values ('{_:containerId}', 'Final Report', '{_:containerId}.pdf', '{_configPath}private/reports', {_eventId})
+
+        sql delete from queues where step = '_MoveTranslationalReport' and containerId = '{_:containerId}'
+
+      forEach select q.containerId as containerId, cf.fileName
+        - from queues q
+        - inner join containerFiles cf
+        - on q.containerId = cf.containerId
+        - where q.step = '_DeleteFromTranslational'
+        - and q.eventId = {_eventId}
+        - and cf.fileType = 'Translational Report'
+
+        exec mv /sftp/pmdxTSI/FromTSI/pdf/{_:fileName} {_configPath}private/archivedReports/{_:containerId}_{_eventId}.pdf
+        exec chown dmsUser /sftp/dmsUser/outgoing/*
+        sql delete from containerFiles where containerId = '{_:containerId}' and fileType = 'Translational Report'
+        sql delete from queues where step = '_DeleteFromTranslational' and containerId = '{_:containerId}'
+
+    step Final Translational Report
+      accessLevel 6
+      queueSelectRecId 
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('.hide').parent().hide();
+          -   $('.stdTableSort > thead > tr > th:contains("Hidden")').hide(); 
+          -  $('.hide').hide; 
+          -   var dataTable = $('#datatable').DataTable();
+          - 
+          -   $("#stepFormSubmitButton").click(function() { 
+         # - alert('testme');
+          -     dataTable.destroy();
+          -   });
+          -  });
+        vertical
+          a
+            id= pageTop
+        table
+          id= datatable
+          style= width:800px;
+          class= stdTableSort
+          sqlQuery~
+            - select 
+            - rf.Id as 'Request Id', concat('REPORT-',rf.Id) as 'Report Id', tp.name as 'Panel', rf.specimenId as 'Specimen Id'
+            - ,co.containerId as 'Elution Tube Id'
+            - , concat(pa.firstName, ' ', pa.lastName) as 'Patient', phy.lastName as 'Physician', o.firstName as 'Clinic'
+            - ,sign.eventDate as 'Signed Date'
+            - , view.eventDate as 'Viewed Date'
+            - , '' as 'Send To Review', rf.Id as "Hidden"
+            - , group_concat(concat('<a href=/uniflow?stepName=downloadArchivedReport&recId=',cf.fileName,'>',cf.fileName,'</a>') separator '<br />') as 'Archived Reports'
+            - from requestForms rf
+            - left join reqTestPanels rtp on rtp.reqId = rf.Id 
+            - left join testPanels tp on tp.Id = rtp.panelId
+            - join contents co on co.content = rf.Id
+            - join containers c on co.containerId = c.containerId and c.containerType = 'elutionTubeId'
+            - join entities pa on pa.entityId = rf.patientId
+            - join entities phy on phy.entityId = rf.physicianId
+            - join entities o on o.entityId = rf.organizationId
+            - left join events sign on sign.eventId = rf.signedEventId
+            - left join events view on view.eventId = rf.viewedEventId
+            - join queues q on q.containerId = concat('REPORT-',rf.Id)
+            - left join containerFiles cf on cf.containerId = q.containerId and cf.fileType = 'archivedReport'
+            - where q.step = 'Final Report' group by rf.Id
+          columnSpecs~ t1
+            allowChangedRecordIds 
+            column 11
+              inputType checkbox
+            column 12
+              inputType container
+                acceptQueue~ any
+                recordContainerHistory~ false
+                if~ {_columnInput:11} == true
+              #   deleteQueue~ Final Report
+                  insertQueue~ Review Translational Data
+                  sql update requestForms set viewedEventId = NULL where Id = '{_columnInput:12}'
+                  sql update queues set step = '_archiveReports', eventId = {_eventId} where step = 'Final Report' and containerId = 'REPORT-{_columnInput:12}'
+                class= hide
+      allowDuplicateContainerIds~ true
+      forEach select containerId from queues where step = '_archiveReports' and eventId = {_eventId}
+        exec mv {_configPath}private/reports/{_:containerId}.pdf {_configPath}private/reports/archivedReports/{_:containerId}_{_eventId}.pdf
+        sql insert into containerFiles (containerId, fileType, fileName, location, eventId) 
+          - values ('{_:containerId}', 'archivedReport', '{_:containerId}_{_eventId}.pdf', '{_configPath}private/reports/archivedReports/', {_eventId})
+      delete from queues where step = '_archiveReports' and eventId = {_eventId}    
+
+
+
+    

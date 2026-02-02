@@ -1,0 +1,57 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        vertical
+          text Text1
+            value= [$$Batch_Select$$]
+
+          text Text2
+            value= [$$Batch_Comments$$]
+
+          text Text3
+            value= [$$Batch_Comment_History$$]
+
+          text Text4
+            value= [$$print_plate_baRCODE$$]
+
+          text Text5
+            value= [$$Sample_Comments$$]
+
+          text Text6
+            value= [$$Sample_Comment_History$$]
+
+          text Text7
+            value= [$$Generate_plate_ID$$]
+
+          text Text8
+            value= [$$plate_comments$$]
+
+          text Text9
+            value= [$$QC_Resources$$]
+
+          text Text10
+            value= [$$Master_Mix$$]
+
+          text Text11
+            value= [$$plate_comment_history$$]
+
+          text Text12
+            value= [$$print_plate_layout$$]
+
+          text Text13
+            value= [$$Routing$$]
+
+          text Text14
+            value= [$$allow_sample_duplication$$]
+
+          text Text15
+            value= [$$scan_samples_into_plate$$]
+
+          text Text16
+            value= [$$add_plate_Controls$$]
+
+          text Text17
+            value= [$$destination_plate_routing$$]
+
+          text Text18
+            value= [$$allow_sample_exclusion$$]

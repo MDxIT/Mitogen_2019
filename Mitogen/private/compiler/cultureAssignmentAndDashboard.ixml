@@ -1,0 +1,361 @@
+    step [$$STEP_NAME$$]
+      jsScripts
+        src js/tasks/cultureAssignment.js
+      form
+        data-parsley-validate= true
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE WHEN ? = 'Yes' THEN 'Comments' ELSE '' END AS 'sampleList_comments',
+          -   CASE WHEN ? = 'Yes' THEN 'Comment History' ELSE '' END AS 'sampleList_commentHistory',
+          -   CASE WHEN ? = 'Select' THEN 'Culture Type' ELSE '' END AS 'cultureType'
+          string [$$Sample_Comments$$]
+          string [$$Sample_Comment_History$$]
+          string [$$Culture_Type$$]
+
+        div
+          class= additionalColumnsDiv
+          hidden col1
+            id= col1
+            class= additionalColumns
+            value= [$$Sample_Display_Column_1$$]
+          hidden col2
+            id= col2
+            class= additionalColumns
+            value= [$$Sample_Display_Column_2$$]
+          hidden col3
+            id= col3
+            class= additionalColumns
+            value= [$$Sample_Display_Column_3$$]
+          hidden col4
+            id= col4
+            class= additionalColumns
+            value= [$$Sample_Display_Column_4$$]
+          hidden col5
+            id= col5
+            class= additionalColumns
+            value= [$$Sample_Display_Column_5$$]
+          hidden col6
+            id= col6
+            class= additionalColumns
+            value= [$$Sample_Display_Column_6$$]
+          hidden comments
+            id= commentFields
+            value= {_:sampleList_comments}
+          hidden commentHistory
+            id= commentHistory
+            value= {_:sampleList_commentHistory}
+          hidden cultureType
+            id= cultureType
+            value= {_:cultureType}
+
+        div
+          id= selectAllDiv
+          vertical
+            checkbox selectAll
+              id= selectAll
+              class= selectAll
+              screenLabel~ Select All Specimens
+
+          br
+          br
+          table
+            id= cultureAssignment
+            sqlPreparedQuery
+              - SELECT
+              -   '' AS "Select",
+              -   sr.currentContainerId AS "Specimen Id",
+              -   CONCAT('<a href="/uniflow?lastForm=Y&stepName=Order+Form&nextStepInstance=View&recId=',rs.requestId,'">',rs.requestId,'</a>') AS "Request Id",
+              -   CONCAT('<span class="details"></span>') AS 'Details',
+              -   '' AS 'Incubation Time',
+              -   '' AS 'Culture Type',
+              -   '' AS 'Comments',
+              -   CONCAT('<span class="commentHistoryDisplay">',GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>'),'</span>') AS 'Comment History',
+              -   sr.runId,
+              -   CONCAT('<span class="orderPriority hideColumn">',IFNULL(vV.displayValue,''),'</span>') AS "Hidden",
+              -   CONCAT('<span class="receivedDate hideColumn">',IFNULL(DATE(rs.receivedDate), ''),'</span>') AS "Hidden",
+              -   CONCAT('<span class="patientName hideColumn">',IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, ''),'</span>') AS "Hidden",
+              -   CONCAT('<span class="mrnFacility hideColumn">',CASE WHEN IFNULL(os.siteId, '') <> ''  AND IFNULL(rf.mrn, '') <> '' THEN CONCAT('FacilityID-MRN: ',IFNULL(os.siteId, ''), '-', IFNULL(rf.mrn, '') )
+              -                                                       WHEN IFNULL(os.siteId, '') <> ''  AND IFNULL(rf.mrn, '') = '' THEN CONCAT('Facility: ',IFNULL(os.siteId, ''))
+              -                                                       WHEN IFNULL(os.siteId, '') = ''  AND IFNULL(rf.mrn, '') <> '' THEN CONCAT('MRN: ', IFNULL(rf.mrn, '') ) END ,'</span>') AS "Hidden",
+              -   CONCAT('<span class="specimenType hideColumn">',IFNULL(rs.specimenType,''),'</span>')  AS "Hidden",
+              -   CONCAT('<span class="dob hideColumn">',IFNULL(DATE(pa.dob), ''),'</span>') AS "Hidden",
+              -   CONCAT('<span class="testAndMethod hideColumn">',GROUP_CONCAT(DISTINCT(t.name) SEPARATOR '<br>'),'</span>') AS "Hidden",
+              -   CONCAT('<span class="queuedBy hideColumn">',CONCAT(e.userId, '<br>',
+              -    '<span class=sampleList_queuedByDate hideColumn>', DATE(e.eventDate), '</span>' ),'</span>') AS "Hidden",
+              -   CONCAT('<span class="storageLocation hideColumn">',IFNULL(storageContainerId, ''), ' ', IFNULL(location, ''),'</span>') AS "Hidden",
+              -   CONCAT('<span class="clientName hideColumn">',IFNULL(os.name,''),'</span>') AS "Hidden"
+              - FROM queues q
+              - INNER JOIN specimenRuns sr
+              -   ON q.containerId = sr.runId OR q.containerId = sr.currentParentId
+              -   AND sr.completedEventId IS NULL
+              - LEFT JOIN contents c
+              -   ON sr.currentContainerId = c.content AND c.attribute <> 'self'
+              - INNER JOIN specimenMethods sm
+              -   ON sr.specimenMethodsId = sm.id
+              - INNER JOIN requestSpecimens rs
+              -   ON sm.requestSpecimensId = rs.id
+              - INNER JOIN requestForms rf
+              -   ON rs.requestId = rf.requestId
+              - LEFT JOIN validValues vV
+              -   ON vV.setName = 'Priority' AND vV.value = rf.priority
+              - LEFT JOIN patients pa
+              -   ON pa.patientId = rf.patientId
+              -   AND rs.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON os.siteId = rf.physicianSiteId
+              - LEFT JOIN tests t
+              -   ON sm.testCode = t.testCode
+              - INNER JOIN events e
+              -   ON e.eventId = q.eventId
+              - LEFT JOIN storage s
+              -   ON s.content = sr.currentContainerId
+              - LEFT JOIN containerNotes cn
+              -   ON cn.containerId = sr.runId
+              - LEFT JOIN physicians ph
+              -   ON ph.physicianId = rf.physicianId
+              - WHERE q.step = ?
+              - GROUP BY sr.runId
+              - ORDER BY IF(ISNULL(c.attribute), '', c.attribute) ASC
+              string {_step}
+            columnSpecs~ cultureAssignment
+              allowChangedRecordIds true
+              column 1
+                inputType checkbox
+                  class= cultureCheckbox
+                  required~ false
+              column 2
+                inputType container
+                  class= specimenId
+                  acceptQueue~ any
+                  recordContainerHistory~ false
+                  readonly=
+              column 5
+                inputType select
+                  class= incubationTime
+                  setName~ incubationTime
+                  required~ false
+              column 6
+                inputType select
+                  class= cultureType
+                  setName~ cultureType
+                  required~ false
+              column 7
+                inputType textArea
+                  class= commentDisplay
+
+              column 9
+                inputType container
+                  class= hideColumn runId
+                  acceptQueue~ any
+                  recordContainerHistory~ false
+
+      allowDuplicateContainerIds true
+      forRows cultureAssignment
+        ifCondition {_columnInput_cultureAssignment:1}
+          advanced
+          equals~ true
+          sqlPreparedStatement
+            - INSERT INTO containerHistory(containerId,eventId)
+            - VALUES(?,?)
+            string {_columnInput_cultureAssignment:9}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO cultureAssignments(runId,cultureType,incubationTime,incubationStartEventDate,incubationStartEventId)
+            - VALUES(?,?,?,?,?)
+            string {_columnInput_cultureAssignment:9}
+            string {_columnInput_cultureAssignment:6}
+            string {_columnInput_cultureAssignment:5}
+            string {_currentDateTime}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - DELETE FROM queues
+            - WHERE step = ?
+            - AND containerId = ?
+            string {_step}
+            string {_columnInput_cultureAssignment:9}
+
+          ifCondition {_columnInput_cultureAssignment:7}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement
+              - INSERT INTO containerNotes(containerId, noteType, note, eventId)
+              - VALUES(?,?,?,?)
+              string {_columnInput_cultureAssignment:9}
+              string comment
+              string {_columnInput_cultureAssignment:7}
+              long {_eventId}
+
+
+    step [$$STEP_NAME$$] Dashboard
+      cssLinks
+        link /css/cultureDashboard.css
+      jsScripts
+        src js/tasks/cultureDashboard.js
+      form
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        formPreparedQuery~
+          - SELECT
+          -   SUBSTRING_INDEX(?,'Dashboard', 1) AS 'sourceStep',
+          -   nextStep AS 'nextStepRouting'
+          - FROM protocolSteps
+          - WHERE displayName = SUBSTRING_INDEX(?,'Dashboard', 1)
+          string {_step}
+          string {_step}
+
+        formPreparedQuery~
+          - SELECT
+          -   DATE_ADD(?, INTERVAL 0 DAY ) AS 'Day0',
+          -   DATE_ADD(?, INTERVAL 1 DAY ) AS 'Day1',
+          -   DATE_ADD(?, INTERVAL 2 DAY ) AS 'Day2',
+          -   DATE_ADD(?, INTERVAL 3 DAY ) AS 'Day3',
+          -   DATE_ADD(?, INTERVAL 4 DAY ) AS 'Day4'
+          string {_currentDate}
+          string {_currentDate}
+          string {_currentDate}
+          string {_currentDate}
+          string {_currentDate}
+
+        formQuery~ Day0Date
+          formatDate~
+          value= {_:Day0}
+
+        formQuery~ Day1Date
+          formatDate~
+          value= {_:Day1}
+
+        formQuery~ Day2Date
+          formatDate~
+          value= {_:Day2}
+
+        formQuery~ Day3Date
+          formatDate~
+          value= {_:Day3}
+
+        formQuery~ Day4Date
+          formatDate~
+          value= {_:Day4}
+
+        hidden sourceStep
+          value= {_:sourceStep}
+
+        hidden nextStepRouting
+          value= {_:nextStepRouting}
+
+        div
+          id= cultureDashboardDiv
+          class= pageSection
+          ### Day 0
+          div
+            class= sectionTitle greenBackground
+            span {_:Day0Date}
+          include cultureDashboard
+            parameter~ dateValue
+              value= {_:Day0}
+            parameter~ tableName
+              value= Day0Table
+            parameter~ currentDayTable
+              value= Yes
+
+          br
+          ### Day 1
+          div
+            class= sectionTitle greyBackground
+            span {_:Day1Date}
+          include cultureDashboard
+            parameter~ dateValue
+              value= {_:Day1}
+            parameter~ tableName
+              value= Day1Table
+            parameter~ currentDayTable
+              value= No
+
+          br
+          ### Day 2
+          div
+            class= sectionTitle greyBackground
+            span {_:Day2Date}
+          include cultureDashboard
+            parameter~ dateValue
+              value= {_:Day2}
+            parameter~ tableName
+              value= Day2Table
+            parameter~ currentDayTable
+              value= No
+
+          br
+          ### Day 3
+          div
+            class= sectionTitle greyBackground
+            span {_:Day3Date}
+          include cultureDashboard
+            parameter~ dateValue
+              value= {_:Day3}
+            parameter~ tableName
+              value= Day3Table
+            parameter~ currentDayTable
+              value= No
+
+          br
+          ### Day 4
+          div
+            class= sectionTitle greyBackground
+            span {_:Day4Date}
+          include cultureDashboard
+            parameter~ dateValue
+              value= {_:Day4}
+            parameter~ tableName
+              value= Day4Table
+            parameter~ currentDayTable
+              value= No
+
+
+      include cultureDashboard_SQL
+        parameter~ tableName
+          value= Day0Table
+        parameter~ sourceStep
+          value= {sourceStep}
+        parameter~ nextStepRouting
+          value= {nextStepRouting}
+
+      include cultureDashboard_SQL
+        parameter~ tableName
+          value= Day1Table
+        parameter~ sourceStep
+          value= {sourceStep}
+        parameter~ nextStepRouting
+          value= {nextStepRouting}
+
+      include cultureDashboard_SQL
+        parameter~ tableName
+          value= Day2Table
+        parameter~ sourceStep
+          value= {_:sourceStep}
+        parameter~ nextStepRouting
+          value= {_:nextStepRouting}
+
+      include cultureDashboard_SQL
+        parameter~ tableName
+          value= Day3Table
+        parameter~ sourceStep
+          value= {_:sourceStep}
+        parameter~ nextStepRouting
+          value= {_:nextStepRouting}
+
+      include cultureDashboard_SQL
+        parameter~ tableName
+          value= Day4Table
+        parameter~ sourceStep
+          value= {_:sourceStep}
+        parameter~ nextStepRouting
+          value= {_:nextStepRouting}

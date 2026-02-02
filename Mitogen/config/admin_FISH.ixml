@@ -1,0 +1,439 @@
+config
+  steps
+
+    stepGroup Fish Admin
+    step Manage FISH Cutoff Values
+      accessLevel 10
+      form
+        include stepInstructions
+        topVertical
+          select _recId
+            option
+            sqlPreparedQuery~
+              - SELECT 'NEW' AS ''
+              - UNION ALL
+              - (SELECT probe ''
+              -   FROM fishProbeCutOff
+              - WHERE probe <> 'NEW'
+              - ORDER BY probe)
+            screenLabel~ Probes
+            required=
+
+      form
+        include stepInstructions
+        hidden hiddenRecId
+          value= {_recId}
+        vertical
+          text _recId
+            value= {_recId}
+            screenLabel~ Probe Id
+            validate~ ! SELECT 1 FROM DUAL WHERE ? = 'NEW'
+              string {_recId}
+              errorMessage~ Please change the probe name.
+            validate~ SELECT 1 FROM fishProbeCutOff WHERE NOT EXISTS (SELECT probe FROM fishProbeCutOff WHERE probe = ? AND ? = 'NEW')
+              string {_recId}
+              string {hiddenRecId}
+              errorMessage~ Probe Id already exists.
+
+        br
+        br
+        br
+        br
+        vertical
+          table
+            sqlPreparedQuery~
+              - SELECT
+              -   'Signal Pattern' AS ?,
+              -   f1.signalPattern01 AS '1',
+              -   f1.signalPattern02 AS '2',
+              -   f1.signalPattern03 AS '3',
+              -   f1.signalPattern04 AS '4',
+              -   f1.signalPattern05 AS '5',
+              -   f1.signalPattern06 AS '6',
+              -   f1.signalPattern07 AS '7',
+              -   f1.signalPattern08 AS '8',
+              -   f1.signalPattern09 AS '9',
+              -   f1.signalPattern10 AS '10',
+              -   f1.signalPattern11 AS '11',
+              -   f1.signalPattern12 AS '12',
+              -   f1.signalPattern13 AS '13',
+              -   f1.signalPattern14 AS '14',
+              -   f1.signalPattern15 AS '15'
+              - FROM fishProbeCutOff f1
+              - WHERE f1.probe = ?
+              - UNION ALL
+              - SELECT
+              -   'CutOff Value' AS ?,
+              -   f2.cutOffValue01 AS '1',
+              -   f2.cutOffValue02 AS '2',
+              -   f2.cutOffValue03 AS '3',
+              -   f2.cutOffValue04 AS '4',
+              -   f2.cutOffValue05 AS '5',
+              -   f2.cutOffValue06 AS '6',
+              -   f2.cutOffValue07 AS '7',
+              -   f2.cutOffValue08 AS '8',
+              -   f2.cutOffValue09 AS '9',
+              -   f2.cutOffValue10 AS '10',
+              -   f2.cutOffValue11 AS '11',
+              -   f2.cutOffValue12 AS '12',
+              -   f2.cutOffValue13 AS '13',
+              -   f2.cutOffValue14 AS '14',
+              -   f2.cutOffValue15 AS '15'
+              - FROM fishProbeCutOff f2
+              - WHERE f2.probe = ?
+              string {_recId}
+              string {_recId}
+              string {_recId}
+              string {_recId}
+            columnSpecs~ fishProbeCutOff
+              column 1
+                inputType text
+                  readonly=
+              column 2
+                inputType text
+              column 3
+                inputType text
+              column 4
+                inputType text
+              column 5
+                inputType text
+              column 6
+                inputType text
+              column 7
+                inputType text
+              column 8
+                inputType text
+              column 9
+                inputType text
+              column 10
+                inputType text
+              column 11
+                inputType text
+              column 12
+                inputType text
+              column 13
+                inputType text
+              column 14
+                inputType text
+              column 15
+                inputType text
+              column 16
+                inputType text
+
+      ifCondition {hiddenRecId}
+        advanced~
+        not~
+          equals~ NEW
+
+        forRows fishProbeCutOff
+          ifCondition {_columnInput_fishProbeCutOff:1}
+            advanced~
+            equals~ Signal Pattern
+            sqlPreparedStatement
+              - UPDATE fishProbeCutOff
+              -  SET signalPattern01 = ?,
+              -  signalPattern02 = ?,
+              -  signalPattern03 = ?,
+              -  signalPattern04 = ?,
+              -  signalPattern05 = ?,
+              -  signalPattern06 = ?,
+              -  signalPattern07 = ?,
+              -  signalPattern08 = ?,
+              -  signalPattern09 = ?,
+              -  signalPattern10 = ?,
+              -  signalPattern11 = ?,
+              -  signalPattern12 = ?,
+              -  signalPattern13 = ?,
+              -  signalPattern14 = ?,
+              -  signalPattern15 = ?
+              - WHERE probe = ?
+              string {_columnInput_fishProbeCutOff:2}
+              string {_columnInput_fishProbeCutOff:3}
+              string {_columnInput_fishProbeCutOff:4}
+              string {_columnInput_fishProbeCutOff:5}
+              string {_columnInput_fishProbeCutOff:6}
+              string {_columnInput_fishProbeCutOff:7}
+              string {_columnInput_fishProbeCutOff:8}
+              string {_columnInput_fishProbeCutOff:9}
+              string {_columnInput_fishProbeCutOff:10}
+              string {_columnInput_fishProbeCutOff:11}
+              string {_columnInput_fishProbeCutOff:12}
+              string {_columnInput_fishProbeCutOff:13}
+              string {_columnInput_fishProbeCutOff:14}
+              string {_columnInput_fishProbeCutOff:15}
+              string {_columnInput_fishProbeCutOff:16}
+              string {_recId}
+
+          ifCondition {_columnInput_fishProbeCutOff:1}
+            advanced~
+            equals~ CutOff Value
+            sqlPreparedStatement
+              - UPDATE fishProbeCutOff
+              -   SET cutOffValue01 = ?,
+              -   cutOffValue02 = ?,
+              -   cutOffValue03 = ?,
+              -   cutOffValue04 = ?,
+              -   cutOffValue05 = ?,
+              -   cutOffValue06 = ?,
+              -   cutOffValue07 = ?,
+              -   cutOffValue08 = ?,
+              -   cutOffValue09 = ?,
+              -   cutOffValue10 = ?,
+              -   cutOffValue11 = ?,
+              -   cutOffValue12 = ?,
+              -   cutOffValue13 = ?,
+              -   cutOffValue14 = ?,
+              -   cutOffValue15 = ?
+              - WHERE probe = ?
+              string {_columnInput_fishProbeCutOff:2}
+              string {_columnInput_fishProbeCutOff:3}
+              string {_columnInput_fishProbeCutOff:4}
+              string {_columnInput_fishProbeCutOff:5}
+              string {_columnInput_fishProbeCutOff:6}
+              string {_columnInput_fishProbeCutOff:7}
+              string {_columnInput_fishProbeCutOff:8}
+              string {_columnInput_fishProbeCutOff:9}
+              string {_columnInput_fishProbeCutOff:10}
+              string {_columnInput_fishProbeCutOff:11}
+              string {_columnInput_fishProbeCutOff:12}
+              string {_columnInput_fishProbeCutOff:13}
+              string {_columnInput_fishProbeCutOff:14}
+              string {_columnInput_fishProbeCutOff:15}
+              string {_columnInput_fishProbeCutOff:16}
+              string {_recId}
+
+      ifCondition {hiddenRecId}
+        advanced~
+        equals~ NEW
+        forRows fishProbeCutOff
+          ifCondition {_columnInput_fishProbeCutOff:1}
+            advanced~
+            equals~ Signal Pattern
+            sqlPreparedStatement INSERT INTO fishProbeCutOff (probe, signalPattern01, signalPattern02, signalPattern03,
+              - signalPattern04, signalPattern05, signalPattern06, signalPattern07, signalPattern08, signalPattern09,
+              - signalPattern10,signalPattern11, signalPattern12, signalPattern13, signalPattern14, signalPattern15)
+              - VALUES
+              - (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              string {_recId}
+              string {_columnInput_fishProbeCutOff:2}
+              string {_columnInput_fishProbeCutOff:3}
+              string {_columnInput_fishProbeCutOff:4}
+              string {_columnInput_fishProbeCutOff:5}
+              string {_columnInput_fishProbeCutOff:6}
+              string {_columnInput_fishProbeCutOff:7}
+              string {_columnInput_fishProbeCutOff:8}
+              string {_columnInput_fishProbeCutOff:9}
+              string {_columnInput_fishProbeCutOff:10}
+              string {_columnInput_fishProbeCutOff:11}
+              string {_columnInput_fishProbeCutOff:12}
+              string {_columnInput_fishProbeCutOff:13}
+              string {_columnInput_fishProbeCutOff:14}
+              string {_columnInput_fishProbeCutOff:15}
+              string {_columnInput_fishProbeCutOff:16}
+
+          ifCondition {_columnInput_fishProbeCutOff:1}
+            advanced~
+            equals~ CutOff Value
+            sqlPreparedStatement
+              - UPDATE fishProbeCutOff
+              -   SET cutOffValue01 = ?,
+              -   cutOffValue02 = ?,
+              -   cutOffValue03 = ?,
+              -   cutOffValue04 = ?,
+              -   cutOffValue05 = ?,
+              -   cutOffValue06 = ?,
+              -   cutOffValue07 = ?,
+              -   cutOffValue08 = ?,
+              -   cutOffValue09 = ?,
+              -   cutOffValue10 = ?,
+              -   cutOffValue11 = ?,
+              -   cutOffValue12 = ?,
+              -   cutOffValue13 = ?,
+              -   cutOffValue14 = ?,
+              -   cutOffValue15 = ?
+              - WHERE probe = ?
+              string {_columnInput_fishProbeCutOff:2}
+              string {_columnInput_fishProbeCutOff:3}
+              string {_columnInput_fishProbeCutOff:4}
+              string {_columnInput_fishProbeCutOff:5}
+              string {_columnInput_fishProbeCutOff:6}
+              string {_columnInput_fishProbeCutOff:7}
+              string {_columnInput_fishProbeCutOff:8}
+              string {_columnInput_fishProbeCutOff:9}
+              string {_columnInput_fishProbeCutOff:10}
+              string {_columnInput_fishProbeCutOff:11}
+              string {_columnInput_fishProbeCutOff:12}
+              string {_columnInput_fishProbeCutOff:13}
+              string {_columnInput_fishProbeCutOff:14}
+              string {_columnInput_fishProbeCutOff:15}
+              string {_columnInput_fishProbeCutOff:16}
+              string {_recId}
+
+
+
+    ##############################################################
+    step Manage ISCN Values
+      accessLevel 10
+      form
+        include stepInstructions
+        script
+          src= js/admin/fishISCNValues.js
+        vertical
+          table
+            id= newISCNEntry
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS 'New',
+              -   '' AS 'Display',
+              -   '' AS 'Result',
+              -   '' AS 'Interpretation',
+              -   '' AS 'ISCN',
+              -   '' AS 'Comment',
+              -   'Probe'
+              - UNION ALL
+              - SELECT
+              -   '' AS 'New',
+              -   '' AS 'Display',
+              -   '' AS 'Result',
+              -   '' AS 'Interpretation',
+              -   '' AS 'ISCN',
+              -   '' AS 'Comment',
+              -   'Probe'
+              - UNION ALL
+              - SELECT
+              -   '' AS 'New',
+              -   '' AS 'Display',
+              -   '' AS 'Result',
+              -   '' AS 'Interpretation',
+              -   '' AS 'ISCN',
+              -   '' AS 'Comment',
+              -   'Probe'
+              - UNION ALL
+              - SELECT
+              -   '' AS 'New',
+              -   '' AS 'Display',
+              -   '' AS 'Result',
+              -   '' AS 'Interpretation',
+              -   '' AS 'ISCN',
+              -   '' AS 'Comment',
+              -   'Probe'
+              - UNION ALL
+              - SELECT
+              -   '' AS 'New',
+              -   '' AS 'Display',
+              -   '' AS 'Result',
+              -   '' AS 'Interpretation',
+              -   '' AS 'ISCN',
+              -   '' AS 'Comment',
+              -   'Probe'
+            columnSpecs~ newlyAdded
+              column 1
+                inputType checkbox
+              column 2
+                inputType textArea
+              column 3
+                inputType textArea
+              column 4
+                inputType textArea
+              column 5
+                inputType textArea
+              column 6
+                inputType textArea
+              column 7
+                inputType select
+                  class= optionSelect required
+
+        br
+        br
+        br
+        br
+        br
+
+        vertical
+          table
+            id= existingISCNEntries
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT '' AS 'Edit',
+              -   displayValue AS 'Display Value',
+              -   result AS 'Result',
+              -   interpretation AS 'Interpretation',
+              -   iscn AS 'ISCN',
+              -   comment AS 'Comment',
+              -   probe AS 'Probe',
+              -   status AS 'Status',
+              -   Id AS "Hidden"
+              - FROM fishIscn
+              - ORDER BY probe
+            columnSpecs~ existingISCN
+              column 1
+                inputType checkbox
+              column 2
+                inputType textArea
+              column 3
+                inputType textArea
+              column 4
+                inputType textArea
+              column 5
+                inputType textArea
+              column 6
+                inputType textArea
+              column 7
+                inputType select
+                  value= $(this).val()
+                  class= optionSelect
+              column 8
+                inputType select
+                  option
+                  option TRUE
+                  option FALSE
+              column 9
+                inputType hidden
+                  class= hide
+
+      forRows newlyAdded
+        ifCondition~ {_columnInput_newlyAdded:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement INSERT INTO fishIscn (displayValue,result,interpretation,iscn,comment,probe,status,eventId)
+            - VALUES
+            - (?, ?, ?, ?, ?, ?, ?, ?)
+            string {_columnInput_newlyAdded:2}
+            string {_columnInput_newlyAdded:3}
+            string {_columnInput_newlyAdded:4}
+            string {_columnInput_newlyAdded:5}
+            string {_columnInput_newlyAdded:6}
+            string {_columnInput_newlyAdded:7}
+            string TRUE
+            long {_eventId}
+
+      forRows existingISCN
+        ifCondition~ {_columnInput_existingISCN:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement UPDATE fishIscn
+            - SET displayValue = ?,
+            -   result = ?,
+            -   interpretation = ?,
+            -   iscn = ?,
+            -   comment = ?,
+            -   probe = ?,
+            -   status = ?,
+            -   eventId = ?
+            - WHERE Id = ?
+            string {_columnInput_existingISCN:2}
+            string {_columnInput_existingISCN:3}
+            string {_columnInput_existingISCN:4}
+            string {_columnInput_existingISCN:5}
+            string {_columnInput_existingISCN:6}
+            string {_columnInput_existingISCN:7}
+            string {_columnInput_existingISCN:8}
+            long {_eventId}
+            string {_columnInput_existingISCN:9}
+
+
+
+
+
+
+

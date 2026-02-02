@@ -1,0 +1,77 @@
+config
+  steps
+    stepGroup API Class Calls
+    step apiResults
+      form
+      jython
+        import mitoAPI
+
+        resultConfig = mitoAPI.apiEndPointConfig(jythonNode.parent.getByTagAndValue('responseInstructions', 'apiOrderLookup'), jythonNode.parent.getByTagAndValue('responseInstructions', 'apiCustomerLookup'), jythonNode.parent.getByTagAndValue('responseInstructions', 'apiORMQueries'))
+        resultConfig.allowUnsolicitedResults = True
+        resultConfig.unsolicitedTaskName = "processUnsolicitedAlternate"
+
+        switchboard.responseJson = mitoAPI.apiEndPoints(switchboard, {_eventId}).results(resultConfig)
+
+      include apiHL7Queries
+
+    step apiContainers
+      form
+      jython
+        import mitoAPI
+
+        switchboard.responseJson = mitoAPI.apiEndPoints(switchboard, {_eventId}).containers()
+
+    step apiOrders
+      form
+      jython
+        import mitoAPI
+
+        orderConfig = mitoAPI.apiEndPointConfig(jythonNode.parent.getByTagAndValue('responseInstructions', 'apiOrderLookup'), jythonNode.parent.getByTagAndValue('responseInstructions', 'apiCustomerLookup'), jythonNode.parent.getByTagAndValue('responseInstructions', 'apiORMQueries'))
+
+        switchboard.responseJson = mitoAPI.apiEndPoints(switchboard, {_eventId}).orders(orderConfig)
+
+      include apiHL7Queries
+
+  includes
+    includeable processingHandler
+      responseInstructions orderHandler
+        forSubtrees MITOGEN
+          setFormQueryResult
+            sqlQuery select '{_:containerId}' as 'requestId'
+
+    includeable apiHL7Queries
+#These queries can reconcile back to a requisition/request ID from containerType specified by "setFormQueryResult"
+      responseInstructions apiOrderLookup
+        setFormQueryResult specimenId
+          sqlQuery Select requestId from requestSpecimens where specimenId = ?
+#do not remove any setFormQueryResults from this section, only modify the sqlQuery
+      responseInstructions apiCustomerLookup
+        setFormQueryResult specimenId
+          sqlQuery Select requestId from requestSpecimens where externalIdentifier = ?
+        setFormQueryResult orderId
+          sqlQuery Select requestId from requestForms where placerOrderId = ?
+
+#These queries generate the HL7 segments from a specified "requestId" containerType parameter
+      responseInstructions apiORMQueries
+        setFormQueryResult MSH
+          sqlQuery select '' as '1.0'
+            - ,'ClientId' as '2.0'
+            - , 'Blood Center' as '3.0'
+            - , 'Mitogen' as '4.0'
+            - , 'Lab' as '5.0'
+            - , NOW() as '6.0'
+            - , '' as '7.0'
+            - , 'ORM' as '8.0'
+            - , '002' as '8.1'
+            - , UUID() as '9.0'
+            - , 'P' as '10.0'
+            - , '2.4' as '11.0'
+            -  from dual where ? IS NOT NULL
+
+
+#These queries generate the HL7 segments from a specified "requestId" containerType parameter
+      responseInstructions apiORUQueries
+        setFormQueryResult MSH
+          sqlQuery select '1','2','3','4','5','6' from dual where ? IS NULL
+        setFormQueryResult PID
+          sqlQuery select '2','3','4','5','6','7' as 'FirstField' from dual where ? IS NULL

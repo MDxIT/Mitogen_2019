@@ -1,0 +1,223 @@
+config
+  steps
+    stepGroup Hidden Steps
+    step DownloadFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {_recId}.pdf
+      documentsFolder {_configPath}private/reports/
+      validateSql SELECT distinct q.containerId FROM queues q
+        - INNER JOIN contents co ON co.containerId = q.containerId
+        - INNER JOIN requestForms rf ON rf.Id = co.content
+        - INNER JOIN entities o ON rf.organizationId = o.entityId
+        - INNER JOIN  
+        - (select er.entityId from entityRelations er
+        -   inner join entities u 
+        -   on er.memberId = u.entityId and u.userId = ?
+        -   ) er on er.entityId = rf.organizationId
+        - where q.containerId = ?
+        string {_userId}
+        string {_recId}
+      sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+        string {_recId}
+        long {_eventId}
+      sqlPreparedStatement UPDATE reportDetails SET viewedEventId = ? WHERE reportId = ?
+        long {_eventId}
+        string {_recId}
+
+    step DownloadRespiratoryReport
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}.pdf
+      documentsFolder {_configPath}private/uploads/{_recId}/
+
+    step DownloadInsurance
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder private/insuranceCard/
+
+    step DownloadOrderEntryFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/orderEntryFiles/
+
+    step DownloadSampleListFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      form
+        vertical
+          text runId
+          text eventId
+
+      sourceFileName {runId}/{eventId}
+      documentsFolder {_configPath}private/sampleList/
+
+    step DownloadQuantFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/quant/
+
+    step DownloadWorklist
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/agenaFiles/
+
+    step DownloadFile Unrestricted
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}.pdf
+      documentsFolder {_configPath}private/reports/
+      sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+        string {_recId}
+        long {_eventId}
+
+    step DownloadCMABatchFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/cma/
+
+    step DownloadFile Unrestricted Samplesheet
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/samplesheets/
+      sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+        string {_recId}
+        long {_eventId}
+
+    step DownloadFile Unrestricted FISH
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}.pdf
+      documentsFolder CytoImages
+      sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+        string {_recId}
+        long {_eventId}
+      
+    step Download Translational Data File
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder private/translationalData
+
+    step Download Translational Report
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder /sftp/pmdxTSI/FromTSI/pdf/
+
+    step downloadCorrectedReport
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/reports/corrected/
+
+    step downloadAddendumReport
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/reports/addendum/
+
+    step downloadArchivedReport
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/reports/archive/
+
+    step DownloadToxBatchFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/batch/
+
+    step DownloadMergeFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}private/reports/tmpReports
+
+    step Download NGS Report
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {_recId}.pdf
+      documentsFolder private/reports/tuteReports/
+
+    step DownloadMergeDemos
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder /private/reports/tmpReports
+
+    step DownloadRequisitionFile
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}{filePath}
+ 
+    step testStitch
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      form
+        vertical
+          text reportIds
+      exec pdftk {reportIds} cat output output_{_eventId}.pdf
+        execDirectory {_configPath}private/reports
+      exec mv {_configPath}private/reports/output_{_eventId}.pdf {_configPath}private/reports/tmpReports/merge_{_userId}.pdf
+
+    step testStitchDemos
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      form
+        vertical
+          text demoIds
+      exec pdftk {demoIds} cat output demo_{_eventId}.pdf
+        execDirectory {_configPath}private/insuranceCard
+      exec mv {_configPath}private/insuranceCard/demo_{_eventId}.pdf {_configPath}private/reports/tmpReports/demo_{_userId}.pdf
+
+    step DownloadFile InstrumentFiles
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {_recId}
+      documentsFolder {_configPath}public/documents/QC_Files
+
+    step DownloadFile Qiagen
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {dpId}.pdf
+      documentsFolder {_configPath}private/QiagenFiles/PDF
+
+    step DownloadFileReview
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.DownloadFile
+      sourceFileName {fileName}
+      documentsFolder {_configPath}{filePath} 
+
+

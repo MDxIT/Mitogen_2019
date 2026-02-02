@@ -1,0 +1,29 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps 
+    ####-  NGS MISEQ #######################################
+    stepGroup Data Innovations
+     
+    step Generate DI HL7
+      form
+        vertical
+          text test
+      jython
+        msg = "MSH|^~\&|IM||||20161216124045||ORU^R01|29|P|2.4|2||AL|NE\n" 
+        msg = msg + "PID|1||1234567_GH||Testpatient^Seth^||19821212|F|||||||||||666-66-6666\n"
+        msg = "PV1|1||^^^GH^^^||||STP^Testpath^Seth^||||||||||STP^Testpath^Seth^||201412050001\n"
+        msg = "ORC|NW|CP2016748|||||^^^^^ROUT\n"
+        msg = "OBR|1|CP2016748||HPVGEN|ROUT||20161216123000|20161216123000|||||||SWAB^^^^^^||||||||||||^^^^^ROUT|||||||Admin\n"
+        msg = "OBX|1|ST|02HPVOHR||POS Other HR HPV||||||F|||||||SN1234\n"
+        msg = "NTE|1|L|LIS Action: File Results\n"
+        msg = "OBX|2|ST|02HPV16||POS HPV16||||||F|||||||SN1234\n"
+        msg = "NTE|1|L|LIS Action: File Results\n"
+        msg = "OBX|3|ST|02HPV18||NEG HPV18||||||F|||||||SN1234\n"
+        msg = "NTE|1|L|LIS Action: File Results\n"
+        msg = "NTE|2|L|LIS Action: Auto Signout\n"
+      

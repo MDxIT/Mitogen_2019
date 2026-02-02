@@ -1,0 +1,134 @@
+.fontBold{
+	font-weight: 900;
+}
+
+body{
+	font-family: 'sans-serif';
+}
+
+h1{
+	color: #2bbc6a;
+}
+h2{
+	color: #2bbc6a;
+}
+
+h4{
+	color: #2bbc6a;
+}
+.page {
+	position:relative;
+}
+
+.infoHeader{
+	color: #2bbc6a;
+}
+.sBHeaders{
+	color: #000000;
+}
+
+#phenotypeTable{
+	margin-left: 100px;
+	page-break-inside: avoid;
+}
+
+#phenotypeTable thead th:nth-last-child(2), #phenotypeTable thead th:nth-last-child(1){
+	background-color:#C8C8C8;
+	padding: 10px;
+	width:25px;
+}
+
+#phenotypeTable .col0{
+/*	background-color: #848482*/
+	background-color:#C8C8C8;
+	width:150px;
+	text-align: center;
+}
+
+#phenotypeTable .col1{
+	width: 300px;
+	background-color:#eff3f4;
+	text-align: right;
+}
+#phenotypeTable .col2{
+	background-color:#eff3f4;
+	text-align: center;
+}
+#phenotypeTable .col3{
+	background-color:#eff3f4;
+	text-align: center;
+}
+
+#phenotypeLegendTable{
+	margin-left: 175px;
+	page-break-inside: avoid;
+}
+#phenotypeLegendTable tr{
+	margin:0px;
+	font-size: 10px;
+}
+#phenotypeLegendTable tr img{
+	width:15px;
+	height: 15px;
+}
+
+
+#geneticFindingsTable{
+	margin-left: 25px;
+	page-break-inside: avoid;
+}
+
+#variantRecommendationsTable{
+	margin-left: 25px;
+	page-break-inside: avoid;
+}
+#variantRecommendationsTable thead{
+	background-color:#C8C8C8;
+	padding: 10px;
+
+}
+#variantRecommendationsTable tbody{
+	background-color:#eff3f4;
+}
+
+#variantRecommendationsTable .col0{
+	width:90px;
+	text-align: center;
+}
+#variantRecommendationsTable .col1{
+	width: 400px;
+}
+#variantRecommendationsTable .col2{
+	width:90px;
+	text-align: center;
+}
+#variantRecommendationsTable .col3{
+	width:275px;
+}
+
+#recommendationsTable{
+	text-align: center;
+	margin-left: 100px;
+	page-break-inside: avoid;
+}
+#recommendationsTable thead th:nth-last-child(3),#recommendationsTable thead th:nth-last-child(2), #recommendationsTable thead th:nth-last-child(1){
+	background-color:#C8C8C8;
+	padding: 10px;
+	width:25px;
+}
+#recommendationsTable tbody{
+	background-color:#eff3f4;
+}
+#recommendationsTable .col0{
+	text-align: right;
+	width: 450px;
+}
+
+#lifestyleClinical thead{
+	display: none;
+}
+
+#genAnalaysisOfDisease thead{
+	display: none;
+}
+

@@ -1,0 +1,2069 @@
+config
+  steps
+    stepGroup Report Configuration
+    step Configure Reports
+      accessLevel 10
+      cssLinks
+        link css/reportConfiguration_f0.css
+      jsScripts
+        src js/configureReports_f0.js
+      form
+        include stepInstructions
+        div
+          class= tabs
+          ul
+            li
+              a Active Reports
+                href= #activeReports
+            li
+              a Inactive Reports
+                href= #inactiveReports
+          div
+            id= activeReports
+            class= verticalFlex
+            button
+              value= Create New
+              id= createNew
+            table
+              class= stdTableSort
+              id= activeReportTable
+              sqlPreparedQuery~
+                - SELECT
+                -    CONCAT('<a href=/uniflow?stepName=Configure+Report&recId=',rd.id,'>',rd.reportName, '</a>')  AS 'Report Type',
+                -    rdv.versionNumber AS 'Version',
+                -    GROUP_CONCAT(DISTINCT rdp.panelCode) AS 'Panels',
+                -    rs.title AS 'Title',
+                -    rs.reportDescription AS 'Description',
+                -   GROUP_CONCAT(DISTINCT os.name) AS 'Client',
+                -   '' AS 'Deactivate',
+                -   rdv.id AS 'hide'
+                - FROM reportDefinition rd
+                - INNER JOIN reportDefinitionVersion rdv
+                -    ON rd.Id = rdv.reportDefinitionId
+                - LEFT JOIN reportDefinitionPanels rdp
+                -     ON rdv.Id = rdp.reportDefinitionVersionId
+                - LEFT JOIN reportSettings rs
+                -    ON rdv.id = rs.reportDefinitionVersionId
+                - LEFT JOIN reportDefinitionCustomers rdc
+                -     ON rdv.id = rdc.reportDefinitionVersionId
+                - LEFT JOIN organizationSites os
+                -    ON rdc.customerId = os.siteId
+                - WHERE rdv.active = 1
+                - GROUP BY rdv.id, rd.reportName
+                - ORDER BY rd.reportName
+              columnSpecs~ activeReportTypes
+                allowChangedRecordIds
+                column 7
+                  inputType checkbox
+                    class= checkbox checkedRow
+                column 8
+                  inputType text
+                    class= hideColumn
+
+          div
+            id= inactiveReports
+            class= verticalFlex
+            table
+              class= stdTableSort
+              id= inactiveReportTable
+              caption Inactive Report Types
+              sqlPreparedQuery~
+                - SELECT
+                -    rd.reportName AS 'Report Type',
+                -    MAX(rdv.versionNumber) AS 'Version',
+                -    GROUP_CONCAT(DISTINCT rdp.panelCode) AS 'Panels',
+                -    rs.title AS 'Title',
+                -    rs.reportDescription AS 'Description',
+                -   GROUP_CONCAT(DISTINCT os.name) AS 'Client',
+                -   '' AS 'Reactivate',
+                -   rd.id AS 'hide',
+                -   MAX(rdv.versionNumber) AS 'hide'
+                - FROM reportDefinition rd
+                - INNER JOIN reportDefinitionVersion rdv
+                -    ON rd.Id = rdv.reportDefinitionId
+                - LEFT JOIN reportDefinitionPanels rdp
+                -     ON rdv.Id = rdp.reportDefinitionVersionId
+                - LEFT JOIN reportSettings rs
+                -    ON rdv.id = rs.reportDefinitionVersionId
+                - LEFT JOIN reportDefinitionCustomers rdc
+                -     ON rdv.id = rdc.reportDefinitionVersionId
+                - LEFT JOIN organizationSites os
+                -    ON rdc.customerId = os.siteId
+                - GROUP BY rd.id, rd.reportName
+                - HAVING SUM(rdv.active) = 0
+                - ORDER BY rd.reportName
+              columnSpecs~ inactiveReportTypes
+                allowChangedRecordIds
+                column 7
+                  inputType checkbox
+                    class= checkbox checkedRow
+                    validate~ ! (SELECT 1   FROM reportDefinitionPanels rp
+                      -    INNER JOIN reportDefinitionVersion rdv
+                      -         ON rp.reportDefinitionVersionId = rdv.id
+                      -    WHERE rdv.reportDefinitionId = ?
+                      -    AND rdv.versionNumber = ?
+                      -    AND rp.panelCode
+                      -    IN
+                      -    (SELECT DISTINCT rdp.panelCode
+                      -    FROM reportDefinitionPanels rdp
+                      -    INNER JOIN reportDefinitionVersion rdv
+                      -        ON rdp.reportDefinitionVersionId = rdv.id
+                      -    WHERE rdv.active = 1
+                      -    AND ? = 'true'))
+                      string {_columnInput:8}
+                      string {_columnInput:9}
+                      string {_columnInput:7}
+                      errorMessage~ You cannot reactivate a report type with a panel that is already active. You must deactivate the active report type containing the same panel first.
+                column 8
+                  inputType text
+                    class= hideColumn
+                column 9
+                  inputType text
+                    class= hideColumn
+
+        forRows activeReportTypes
+          ifCondition {_columnInput_activeReportTypes:7}
+            advanced~
+            equals~ true
+            sqlPreparedStatement~
+              - UPDATE reportDefinitionVersion
+              - SET active = 0
+              - WHERE id = ?
+              string {_columnInput_activeReportTypes:8}
+
+        forRows inactiveReportTypes
+          ifCondition {_columnInput_inactiveReportTypes:7}
+            advanced~
+            equals~ true
+
+            sqlPreparedStatement~
+              - UPDATE reportDefinitionVersion
+              - SET active = 1
+              - WHERE reportDefinitionId = ?
+              - AND versionNumber = ?
+              string {_columnInput_inactiveReportTypes:8}
+              string {_columnInput_inactiveReportTypes:9}
+
+            ## select currently existing reports
+    step View Report Configurations
+      accessLevel 10
+      cssLinks
+        link css/fontawesome/css/all.min.css
+        link css/reportConfiguration.css
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/viewReportConfigurations.js
+      form
+        include stepInstructions
+        div
+          class= verticalFlex tabs
+          ul
+            li
+              a Active Report Types
+                href= #activeTypes
+            li
+              a Inactive Report Types
+                href= #inactiveTypes
+          div
+            id= activeTypes
+            table
+              class= stdTableBasic
+              caption Active Report Types
+              sqlPreparedQuery~
+                - SELECT
+                -    CONCAT('<a href=/uniflow?lastForm=Y&stepName=View+Report+Configurations&recId=',rdv.id,'>',rd.reportName, '</a>')  AS 'Report Type',
+                -    rdv.versionNumber AS 'Version',
+                -    GROUP_CONCAT(DISTINCT rdp.panelCode) AS 'Panels',
+                -    rs.title AS 'Title',
+                -    rs.reportDescription AS 'Description',
+                -   GROUP_CONCAT(DISTINCT os.name) AS 'Client',
+                -   'Active' AS 'Status'
+                - FROM reportDefinition rd
+                - INNER JOIN reportDefinitionVersion rdv
+                -    ON rd.Id = rdv.reportDefinitionId
+                - INNER JOIN reportDefinitionPanels rdp
+                -     ON rdv.Id = rdp.reportDefinitionVersionId
+                - INNER JOIN reportSettings rs
+                -    ON rdv.id = rs.reportDefinitionVersionId
+                - LEFT JOIN reportDefinitionCustomers rdc
+                -     ON rdv.id = rdc.reportDefinitionVersionId
+                - LEFT JOIN organizationSites os
+                -    ON rdc.customerId = os.siteId
+                - WHERE rdv.active = 1
+                - GROUP BY rdv.id, rd.reportName
+                - ORDER BY rd.reportName
+          div
+            id= inactiveTypes
+            table
+              class= stdTableBasic
+              caption Inactive Report Types
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -    CONCAT('<a href=/uniflow?lastForm=Y&stepName=View+Report+Configurations&recId=',rdv.id,'>',rd.reportName, '</a>')  AS 'Report Type',
+                -    MAX(rdv.versionNumber) AS 'Version',
+                -    GROUP_CONCAT(DISTINCT rdp.panelCode) AS 'Panels',
+                -    rs.title AS 'Title',
+                -    rs.reportDescription AS 'Description',
+                -   GROUP_CONCAT(DISTINCT os.name) AS 'Client',
+                -   'Inactive' AS 'Status'
+                - FROM reportDefinition rd
+                - INNER JOIN reportDefinitionVersion rdv
+                -    ON rd.Id = rdv.reportDefinitionId
+                - INNER JOIN reportDefinitionPanels rdp
+                -     ON rdv.Id = rdp.reportDefinitionVersionId
+                - INNER JOIN reportSettings rs
+                -    ON rdv.id = rs.reportDefinitionVersionId
+                - LEFT JOIN reportDefinitionCustomers rdc
+                -     ON rdv.id = rdc.reportDefinitionVersionId
+                - LEFT JOIN organizationSites os
+                -    ON rdc.customerId = os.siteId
+                - GROUP BY rdv.id, rd.reportName
+                - HAVING SUM(rdv.active) = 0
+                - ORDER BY rd.reportName
+      form
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT DISTINCT rd.reportName AS 'reportName',
+          -   rdv.id AS 'versionId',
+          -   IFNULL(rdv.versionNumber, 1) AS 'currentVersion',
+          -   (rdv.versionNumber + 1)  AS 'newVersion',
+          -   GROUP_CONCAT(CONCAT("'", rdp.panelCode, "'") SEPARATOR ', ') AS 'panelCodeList'
+          - FROM reportDefinition rd
+          - INNER JOIN reportDefinitionVersion rdv
+          -    ON rd.id = rdv.reportDefinitionId
+          - LEFT JOIN reportDefinitionPanels rdp
+          -    ON rdv.id = reportDefinitionVersionId
+          - LEFT JOIN panels p
+          -   ON rdp.panelCode = p.panelCode
+          - WHERE rdv.id = ?
+          - GROUP BY rd.reportName
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -  name AS "SiteName",
+          -  siteId AS "SiteID"
+          - FROM organizationSites
+          - WHERE organizationType = 'Master'
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT rds.departmentId,
+          -   os.name AS 'deptName',
+          -   rds.locationId,
+          -   os1.name AS 'locationName'
+          - FROM reportDefinitionSites rds
+          - LEFT JOIN organizationSites os
+          -   ON rds.departmentId = os.siteId
+          - LEFT JOIN organizationSites os1
+          -   ON rds.locationId = os1.siteId
+          - WHERE rds.reportDefinitionVersionId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          - title AS 'reportTitle',
+          - headerId AS 'headerId',
+          - pageHeaderFooterId AS 'pageHeaderFooterExisingId',
+          - reportDescription AS 'reportDesc'
+          - FROM reportSettings
+          - WHERE reportDefinitionVersionId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   templateName AS "pageHeaderFooterTemplate"
+          - FROM reportPageHeaderFooter
+          - WHERE id = ?
+          string {_:pageHeaderFooterExisingId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          - headerName,
+          - reportDescription,
+          - CASE reportDescription
+          -     WHEN 0 THEN 'NOT DISPLAYED IN HEADER'
+          -     WHEN 1 THEN 'DISPLAYED IN HEADER'
+          -     ELSE '' END AS "reportDescInterp"
+          - FROM reportHeaders
+          - WHERE id = ?
+          string {_:headerId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT GROUP_CONCAT(os.name) AS 'customerList'
+          - FROM reportDefinitionCustomers rdc
+          - INNER JOIN organizationSites os
+          -    ON rdc.customerId = os.siteId
+          - WHERE reportDefinitionVersionId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -   CONCAT(metadataName,' ','(Current Template)') AS 'CurrentMetaDataTemplateName',
+          -   rmt.id AS 'CurrentMetaDataTemplateId'
+          - FROM reportMetadataFields rm
+          - INNER JOIN reportMetadataTemplates rmt ON rm.metadataTemplateId = rmt.Id
+          - WHERE reportDefinitionVersionId = ?
+          - GROUP BY reportDefinitionVersionId
+          string {_recId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -   rphf.id AS "reportPageHeaderFooterTemplateId",
+          -   rphf.templateName AS "reportPageHeaderFooterTemplateName"
+          - FROM reportSettings rs
+          -   INNER JOIN reportPageHeaderFooter rphf ON rs.pageHeaderFooterId = rphf.id
+          - WHERE rs.reportDefinitionVersionId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT riw.overallResult AS 'OverallResult'
+          - FROM reportInterpretationWording riw
+          - WHERE riw.reportDefinitionVersionId = ?
+          - LIMIT 1
+          string {_recId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT rw.sectionContent AS "WordingContent"
+          - FROM reportWording rw
+          - WHERE rw.reportDefinitionVersionId = ?
+          - LIMIT 1
+          string {_recId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT rr.referenceId AS "ReferenceID"
+          - FROM reportReferences rr
+          - WHERE rr.reportDefinitionVersionId = ?
+          - LIMIT 1
+          string {_recId}
+          allowEmptyResults~
+
+
+        hidden metaDataReportDefinitionVersionId
+          id= metaDataReportDefinitionVersionId
+          value= {_recId}
+
+        hidden _recId
+          id= recId
+          value= {_recId}
+
+        div
+          class= verticalFlex
+          h4 !!! Version  {_:currentVersion}
+          div
+            class= tabs
+            ul
+              li
+                id= typeTab
+                a Type
+                  href= #reportDefinition
+              # li
+              #   id= headerTab
+              #   a Header
+              #     href= #header
+              # li
+              #   id= pageTab
+              #   a Page Header & Footer
+              #     href= #pageheaderfooter
+              # li
+              #   id= metadataTab
+              #   a Metadata
+              #     href= #metadata
+              li
+                id= referencesTab
+                a References
+                  href= #reportReferences
+              li
+                id= wordingTab
+                a Wording
+                  href= #wording
+              li
+                id= interpretationsTab
+                a Interpretations
+                  href= #interpretations
+
+
+
+            div
+              id= reportDefinition
+              div
+                class= horizontalFlex-spacearound
+                div
+                  class= verticalFlex noPadding
+                  label Report Type
+                    for= reportType1
+                  text reportType1
+                    id= reportType1
+                    size= 50
+                    value= {_:reportName}
+                    readonly=
+                  label Report Title
+                    for= reportTitle
+                  text reportTitle
+                    id= reportTitle
+                    size= 50
+                    value= {_:reportTitle}
+                    readonly=
+                  label Description
+                    for= description
+                  textArea description
+                    id= description
+                    value= {_:reportDesc}
+                    readonly=
+                  label Site
+                    for= globalSiteName
+                  text globalSiteName
+                    id= globalSiteName
+                    value= {_:SiteName}
+                    readonly=
+                  label Department
+                    for= department
+                  text department
+                    id= department
+                    value= {_:deptName}
+                    readonly=
+                  label Location
+                    for= location
+                  text location
+                    id= location
+                    value= {_:locationName}
+                    readonly=
+                  span Customer(s): {_:customerList}
+                    id= customers
+
+                div
+                  class= addMarginLeft
+                  h4 Associated Panels
+                  table
+                    id= panelCodeTable
+                    class= stdTableBasic
+                    sqlPreparedQuery~
+                      -  SELECT
+                      -      CONCAT(p.name, ' (', p.type, ')') AS 'Panel',
+                      -      p.panelCode AS 'Code'
+                      - FROM panels p
+                      - INNER JOIN reportDefinitionPanels rdp
+                      -     ON p.panelCode = rdp.panelCode
+                      - INNER JOIN reportDefinitionVersion rdv
+                      -    ON rdp.reportDefinitionVersionId = rdv.id
+                      - WHERE rdp.reportDefinitionVersionId = ?
+                      string {_recId}
+
+
+                div
+                  class= addMarginLeft
+                  h4 Associated Template Files
+                  table
+                    id= templateFiles
+                    class= stdTableBasic
+                    sqlPreparedQuery~
+                      - SELECT 'HTML Template File'AS '',
+                      -         reportTemplateHTML AS 'File'
+                      - FROM reportSettings
+                      - WHERE reportDefinitionVersionId = ?
+                      - UNION
+                      - SELECT 'CSS Template Files'AS '',
+                      -         reportTemplateCSS AS 'File'
+                      - FROM reportSettings
+                      - WHERE reportDefinitionVersionId = ?
+                      - UNION
+                      - SELECT 'JS Template File'AS '',
+                      -         reportTemplateJS AS 'File'
+                      - FROM reportSettings
+                      - WHERE reportDefinitionVersionId = ?
+                      string {_recId}
+                      string {_recId}
+                      string {_recId}
+
+            # div
+            #   id= header
+              # div
+              #   configureIf~ {_:headerId}
+              #     advanced~
+              #     not~
+              #       isBlank~
+              #   class= verticalFlex wideInputs
+              #   label Header Template Name
+              #   text headerName
+              #     id= headerName
+              #     value= {_:headerName}
+              #     readonly=
+              #   label Report Title
+              #   text headerName
+              #     value= {_:reportTitle}
+              #     id= reportTitleHeader
+              #     readonly=
+              #   label !!! Report Description
+              #   textArea
+              #     value= ({_:reportDescInterp}) {_:reportDesc}
+              #     id= reportDescriptionHeader
+              #     readonly=
+              #   table
+              #     verticalMode~
+              #     sqlPreparedQuery~
+              #       - SELECT headerName as "Header Template",
+              #       - IFNULL(os.name, "NONE SELECTED") as "Primary Site",
+              #       - CASE primaryLogo WHEN 0 THEN "NOT SHOWN"
+              #       -    WHEN null THEN "NOT SHOWN"
+              #       -    WHEN 1 THEN (CASE WHEN os.organizationType = 'Master' THEN CONCAT("DISPLAYED ON REPORT", "<br>",
+              #       -    '<div><img src="images/logoUploads/globalLogo.png" alt="" border=3 height=100 width=100></img></div>')
+              #       -    ELSE CONCAT("DISPLAYED ON REPORT", "<br>",
+              #       -    '<div><img src="', cf.location, '/', cf.fileName, '" alt="" border=3 height=100 width=100></img></div>') END ) END AS "Primary Logo" ,
+              #       - CASE primaryAddress WHEN 0 THEN "NOT SHOWN"
+              #       -     ELSE CONCAT("DISPLAYED ON REPORT", "<br>",
+              #       -                  IFNULL(os.address1,''), '<br>',
+              #       -                  IFNULL( os.city,''), ',',' ',
+              #       -                  IFNULL(os.state, ''),' ',
+              #       -                  IFNULL(os.postalCode,''), '<br>',
+              #       -                  IFNULL(os.country,'') ) END AS 'Primary Address',
+              #       - IFNULL(os2.name, "NONE SELECTED") as "Secondary Site",
+              #       - CASE secondaryLogo WHEN 0 THEN "NOT SHOWN"
+              #       -    WHEN null THEN "NOT SHOWN"
+              #       -    WHEN 1 THEN  (CASE WHEN os2.organizationType = 'Master' THEN CONCAT("DISPLAYED ON REPORT", "<br>",
+              #       -    '<div><img src="images/logoUploads/globalLogo.png" alt="" border=3 height=100 width=100></img></div>')
+              #       -    ELSE CONCAT("DISPLAYED ON REPORT", "<br>",
+              #       -    '<div><img src="', cf2.location, '/', cf2.fileName, '" alt="" border=3 height=100 width=100></img></div>') END ) END AS "Secondary Logo" ,
+              #       - CASE secondaryAddress WHEN 0 THEN "NOT SHOWN"
+              #       -     ELSE CONCAT("DISPLAYED ON REPORT", "<br>",
+              #       -                  IFNULL(os2.address1,''), '<br>',
+              #       -                  IFNULL(os2.city,''), ',',' ',
+              #       -                  IFNULL(os2.state, ''),' ',
+              #       -                  IFNULL(os2.postalCode,''), '<br>',
+              #       -                  IFNULL(os2.country,'') ) END AS 'Secondary Address',
+              #       - CASE reportDescription WHEN 0 THEN "NOT SHOWN"
+              #       -    ELSE "DISPLAYED ON REPORT" END AS "Report Description"
+              #       - FROM reportHeaders rh
+              #       - LEFT JOIN organizationSites os
+              #       -    ON rh.primarySiteId = os.siteId
+              #       - LEFT JOIN containerFiles cf
+              #       -    ON os.orgId = cf.containerId
+              #       - LEFT JOIN organizationSites os2
+              #       -    ON rh.secondarySiteId = os2.siteId
+              #       - LEFT JOIN containerFiles cf2
+              #       -    ON os2.orgId = cf2.containerId
+              #       - WHERE rh.id = {_:headerId}
+              # div
+              #   configureIf~ {_:headerId}
+              #     advanced~
+              #     isBlank~
+              #   span NO HEADER CONFIGURED
+
+            # div
+            #   id= pageheaderfooter
+              # div
+              #   configureIf~ {_:pageHeaderFooterExisingId}
+              #     advanced~
+              #     not~
+              #       isBlank~
+              #   class= verticalFlex wideInputs
+              #   label Header/Footer Template
+              #     for= pageHeaderFooterTemp
+              #   text pageHeaderFooterTemp
+              #     value= {_:pageHeaderFooterTemplate}
+              #     readonly=
+              #   table
+              #     id= pageFooterTable
+              #     sqlPreparedQuery~
+              #       - SELECT
+              #       -   rphf.title AS 'Report Title',
+              #       -   rphf.pageNumber AS 'Page #',
+              #       -   rphf.labName AS 'Site Name',
+              #       -   rphf.labAddress AS 'Site Address',
+              #       -   rphf.patientName AS 'Patient Name',
+              #       -   rphf.mrn AS 'Patient MRN',
+              #       -   rphf.dob AS 'Patient DOB'
+              #       - FROM reportSettings rs
+              #       -   INNER JOIN reportPageHeaderFooter rphf ON rs.pageHeaderFooterId = rphf.id
+              #       - WHERE rs.reportDefinitionVersionId = ?
+              #       string {_recId}
+              #     verticalMode~
+              # div
+              #   configureIf~ {_:pageHeaderFooterExisingId}
+              #     advanced~
+              #     isBlank~
+              #   span NO PAGE HEADER OR PAGE FOOTER CONFIGURED
+
+            # div
+            #   id= metadata
+              # div
+              #   id= metadataEmpty
+              #   configureIf~ {_:CurrentMetaDataTemplateId}
+              #     advanced~
+              #     isBlank~
+              #   span NO METADATA CONFIGURED
+              # div
+              #   id= metadataTables
+              #   configureIf~ {_:CurrentMetaDataTemplateId}
+              #     advanced~
+              #     not~
+              #       isBlank~
+              #   div
+              #     class= verticalFlex wideInputs
+              #     label Metadata Template
+              #       for= metadataTemplate
+              #     text metadataTemplate
+              #       id= metadataTemplate
+              #       value= {_:CurrentMetaDataTemplateName}
+              #       readonly=
+
+
+              #   div
+              #     class= pageSection
+              #     div
+              #       class= sectionTitle
+              #       span 1.  Order Info
+              #     div
+              #       id= orderInfoTable
+              #       class= sectionContent
+              #       table
+              #         class= metaDataInfo
+              #         id= metaDataInfo
+              #         sqlPreparedQuery~
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance IN ('QC', 'Receiving')
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND (fc.required = '1' OR fis.showField = 'true')
+              #           -     AND fc.inputType NOT IN ('section','subsection')
+              #           -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax')
+              #           -  GROUP BY fis.id, p.type
+              #           - UNION
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance = 'QC'
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND fc.inputName IN ('Panel Selection','Proband')
+              #           -     AND fis.showField = 'true'
+              #           -  GROUP BY fis.id, p.type
+              #           string orderInformation
+              #           string {_recId}
+              #           string {_recId}
+              #           string orderInformation
+              #           string {_recId}
+              #           string {_recId}
+              #         columnSpecs~ metaDataInfo
+              #           allowChangedRecordIds
+              #           column 2
+              #             inputType checkbox
+              #               class= metaDataSelection
+
+
+              #   div
+              #     class= pageSection
+              #     div
+              #       class= sectionTitle
+              #       span 2.  Patient Info
+              #     div
+              #       id= patientInfoTable
+              #       class= sectionContent
+              #       table
+              #         class= metaDataInfo
+              #         id= metaDataInfo
+              #         sqlPreparedQuery~
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance IN ('QC', 'Receiving')
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND (fc.required = '1' OR fis.showField = 'true')
+              #           -     AND fc.inputType NOT IN ('section','subsection')
+              #           -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax')
+              #           -  GROUP BY fis.id, p.type
+              #           - UNION
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance = 'QC'
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND fc.inputName IN ('Panel Selection','Proband')
+              #           -     AND fis.showField = 'true'
+              #           -  GROUP BY fis.id, p.type
+              #           string patientInformation
+              #           string {_recId}
+              #           string {_recId}
+              #           string patientInformation
+              #           string {_recId}
+              #           string {_recId}
+              #         columnSpecs~ metaDataInfo
+              #           allowChangedRecordIds
+              #           column 2
+              #             inputType checkbox
+              #               class= metaDataSelection
+
+              #   div
+              #     class= pageSection
+              #     div
+              #       class= sectionTitle
+              #       span 3.  Specimen Info
+              #     div
+              #       id= specimenInfoTable
+              #       class= sectionContent
+              #       table
+              #         class= metaDataInfo
+              #         id= metaDataInfo
+              #         sqlPreparedQuery~
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance IN ('QC', 'Receiving')
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND (fc.required = '1' OR fis.showField = 'true')
+              #           -     AND fc.inputType NOT IN ('section','subsection')
+              #           -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax','printBarcodesButton')
+              #           -  GROUP BY fis.id, p.type
+              #           - UNION
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance = 'QC'
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND fc.inputName IN ('Panel Selection','Proband')
+              #           -     AND fis.showField = 'true'
+              #           -  GROUP BY fis.id, p.type
+              #           string specimenInfo
+              #           string {_recId}
+              #           string {_recId}
+              #           string specimenInfo
+              #           string {_recId}
+              #           string {_recId}
+              #         columnSpecs~ metaDataInfo
+              #           allowChangedRecordIds
+              #           column 2
+              #             inputType checkbox
+              #               class= metaDataSelection
+
+              #   div
+              #     class= pageSection
+              #     div
+              #       class= sectionTitle
+              #       span 4.  Panels
+              #     div
+              #       id= panelInfoTable
+              #       class= sectionContent
+              #       table
+              #         class= metaDataInfo
+              #         id= metaDataInfo
+              #         sqlPreparedQuery~
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance IN ('QC', 'Receiving')
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND (fc.required = '1' OR fis.showField = 'true')
+              #           -     AND fc.inputType NOT IN ('section','subsection')
+              #           -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax')
+              #           -  GROUP BY fis.id, p.type
+              #           - UNION
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance = 'QC'
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND fc.inputName IN ('Panel Selection','Proband')
+              #           -     AND fis.showField = 'true'
+              #           -  GROUP BY fis.id, p.type
+              #           string panelSelection
+              #           string {_recId}
+              #           string {_recId}
+              #           string panelSelection
+              #           string {_recId}
+              #           string {_recId}
+              #         columnSpecs~ metaDataInfo
+              #           allowChangedRecordIds
+              #           column 2
+              #             inputType checkbox
+              #               class= metaDataSelection
+
+              #   div
+              #     class= pageSection
+              #     div
+              #       class= sectionTitle
+              #       span 5.  Clinical Info
+              #     div
+              #       id= clinicalInfoTable
+              #       class= sectionContent
+              #       table
+              #         class= metaDataInfo
+              #         id= metaDataInfo
+              #         sqlPreparedQuery~
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance IN ('QC', 'Receiving')
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND (fc.required = '1' OR fis.showField = 'true')
+              #           -     AND fc.inputType NOT IN ('section','subsection')
+              #           -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax')
+              #           -  GROUP BY fis.id, p.type
+              #           - UNION
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance = 'QC'
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND fc.inputName IN ('Panel Selection','Proband')
+              #           -     AND fis.showField = 'true'
+              #           -  GROUP BY fis.id, p.type
+              #           string clinicalInformation
+              #           string {_recId}
+              #           string {_recId}
+              #           string clinicalInformation
+              #           string {_recId}
+              #           string {_recId}
+              #         columnSpecs~ metaDataInfo
+              #           allowChangedRecordIds
+              #           column 2
+              #             inputType checkbox
+              #               class= metaDataSelection
+              #   div
+              #     class= pageSection
+              #     div
+              #       class= sectionTitle
+              #       span 6.  Proband Info
+              #     div
+              #       id= probandInfoTable
+              #       class= sectionContent
+              #       table
+              #         class= metaDataInfo
+              #         id= metaDataInfo
+              #         sqlPreparedQuery~
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance IN ('QC', 'Receiving')
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND (fc.required = '1' OR fis.showField = 'true')
+              #           -     AND fc.inputType NOT IN ('section','subsection')
+              #           -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax')
+              #           -  GROUP BY fis.id, p.type
+              #           - UNION
+              #           -  SELECT DISTINCT
+              #           -    fis.screenLabel AS "Field",
+              #           -    CASE
+              #           -       WHEN rmf.formInputSettingsId = fis.id
+              #           -       THEN 'true'
+              #           -       ELSE 'false'
+              #           -    END AS "Include In Report"
+              #           -  FROM reportDefinitionPanels r
+              #           -  INNER JOIN panels p ON r.panelCode = p.panelCode
+              #           -  INNER JOIN formDefinition f ON p.type = f.workflow
+              #           -     AND f.instance = 'QC'
+              #           -     AND f.formType = 'Accessioning'
+              #           -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+              #           -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+              #           -     AND fc.section = ?
+              #           -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+              #           -     AND rmf.reportDefinitionVersionId = ?
+              #           -  WHERE r.reportDefinitionVersionId = ?
+              #           -     AND fc.inputName IN ('Panel Selection','Proband')
+              #           -     AND fis.showField = 'true'
+              #           -  GROUP BY fis.id, p.type
+              #           string proband
+              #           string {_recId}
+              #           string {_recId}
+              #           string proband
+              #           string {_recId}
+              #           string {_recId}
+              #         columnSpecs~ metaDataInfo
+              #           allowChangedRecordIds
+              #           column 2
+              #             inputType checkbox
+              #               class= metaDataSelection
+
+            div
+              id= reportReferences
+              div
+                configureIf~ {_:ReferenceID}
+                  advanced~
+                  isBlank~
+                span NO REFERENCES CONFIGURED
+              div
+                class= pageSection
+                configureIf~ {_:ReferenceID}
+                  advanced~
+                  not~
+                    isBlank~
+                div
+                  class= sectionTitle
+                  span Selected Report References
+                div
+                  class= sectionContent
+                  id= reportReferencesAjax
+                  table
+                    id= assayReferencesIncludedTable
+                    class= referenceTables
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      -   CONCAT(r.codeName, ' - ',r.assayType) AS "Reference Type",
+                      -   a.reference AS "Reference"
+                      - FROM reportReferences r
+                      -   INNER JOIN allReferences a ON r.referenceId = a.id
+                      -   INNER JOIN reportDefinitionVersion rdv ON r.reportDefinitionVersionId = rdv.id
+                      - WHERE rdv.id = ?
+                      string {_recId}
+            div
+              id= wording
+              div
+                configureIf~ {_:WordingContent}
+                  advanced~
+                  isBlank~
+                span NO REPORT SECTION WORDING CONFIGURED
+              div
+                class= pageSection
+                configureIf~ {_:WordingContent}
+                  advanced~
+                  not~
+                    isBlank~
+                div
+                  class= sectionTitle
+                  span Report Wording
+                div
+                  class= sectionContent
+                  id= reportWordingAjax
+                  table
+                    id= reportWordingIncludedTable
+                    class= referenceTables
+                    sqlPreparedQuery~
+                      - SELECT
+                      -   CONCAT(r.codeName, ' - ',r.sectionType) AS "Type",
+                      -   r.sectionHeader AS "Header",
+                      -   r.sectionContent AS "Content",
+                      -   r.displayOrder AS "Order"
+                      - FROM reportWording r
+                      -   INNER JOIN reportDefinitionVersion rdv ON r.reportDefinitionVersionId = rdv.id
+                      -   WHERE rdv.id = ?
+                      string {_recId}
+
+            div
+              id= interpretations
+              div
+                configureIf~ {_:OverallResult}
+                  advanced~
+                  isBlank~
+                span NO RESULTS & INTERPRETATIONS CONFIGURED
+              div
+                configureIf~ {_:OverallResult}
+                  advanced~
+                  not~
+                    isBlank~
+                div
+                  class= pageSection
+                  div
+                    class= sectionTitle
+                    span Overall Interpretation
+                  div
+                    class= sectionContent
+                    id= loadOverallInterpretations
+                    class= verticalFlex
+                    table
+                      class= referenceTables
+                      sqlPreparedQuery~
+                        - SELECT DISTINCT rd.reportName AS 'ReportName',
+                        -  riw.overallResult AS 'Result',
+                        -  riw.overallInterpretation AS 'Interpretation'
+                        # ,
+                        # -  CASE riw.isGroupSignout WHEN 1 THEN 'true' WHEN 0 THEN 'false' END AS 'GroupSignout'
+                        - FROM reportDefinition rd
+                        -  INNER JOIN reportDefinitionVersion rdv
+                        -    ON rdv.reportDefinitionId = rd.id
+                        -  LEFT JOIN reportInterpretationWording riw
+                        -    ON riw.reportDefinitionVersionId = rdv.id AND riw.isOverallReportResult = 1
+                        - WHERE rdv.id = ?
+                        - GROUP BY rd.reportName, riw.overallResult, riw.overallInterpretation
+                        - ORDER BY Result
+                        string {_recId}
+                      columnSpecs~ reportInterpretations
+                        allowChangedRecordIds
+                        column 4
+                          inputType checkbox
+                            class= groupSignout
+                div
+                  class= pageSection
+                  div
+                    class= sectionTitle
+                    span Panel Interpretations
+                  div
+                    class= sectionContent verticalFlex
+                    id= loadPanelInterpretations
+                    table
+                      class= referenceTables
+                      sqlPreparedQuery~
+                        - SELECT DISTINCT p.name AS 'Panel',
+                        -  riw.overallResult AS 'Result',
+                        -  riw.overallInterpretation AS 'Interpretation',
+                        -  p.panelCode AS 'PanelCode'
+                        - FROM reportDefinition rd
+                        -  INNER JOIN reportDefinitionVersion rdv
+                        -    ON rdv.reportDefinitionId = rd.id
+                        - INNER JOIN reportDefinitionPanels rdp
+                        -    ON rdp.reportDefinitionVersionId = rdv.id
+                        -  INNER JOIN panels p
+                        -    ON rdp.panelCode = p.panelCode
+                        -  LEFT JOIN reportInterpretationWording riw
+                        -    ON riw.reportDefinitionVersionId = rdv.id AND rdp.panelCode = riw.panelCode AND riw.isOverallReportResult = 0
+                        - WHERE rdv.id = ?
+                        - GROUP BY p.name, riw.overallResult, riw.overallInterpretation
+                        - ORDER BY p.name
+                        string {_recId}
+
+    step Upload Report Templates to server
+      accessLevel 10
+      cssLinks
+        link css/fontawesome/css/all.min.css
+        link css/reportConfiguration.css
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/niceedit/nicEdit.js
+      form
+        include stepInstructions
+
+        span Report Template
+          title= Select an HTML report template to upload to the server
+          i
+            class= fas fa-info-circle
+        files reportTemplate
+          screenLabel~ Report Template
+          accept= html
+          maxlength= 1
+          containerId~ htmlTemplate
+          fileType~ HTML Report Template
+          destinationFolderName~ ../public/reports/html
+          required~ false
+
+        br
+        span Report Template CSS
+          title= Select an CSS file
+          i
+            class= fas fa-info-circle
+        files reportTemplateCss
+          screenLabel~ Report Template CSS
+          accept= css
+          maxlength= 2
+          containerId~ cssTemplate
+          fileType~ CSS Report File
+          destinationFolderName~ ../public/reports/css
+          required~ false
+
+        br
+        span Report Template JavaScript
+          title= Select a JavaScript file
+          i
+            class= fas fa-info-circle
+        files reportTemplateJs
+          screenLabel~ Report Template JavaScript
+          accept= js
+          maxlength= 1
+          containerId~ jsReportTemplate
+          fileType~ JS Report File
+          destinationFolderName~ ../public/reports/js
+          required~ false
+
+
+
+
+
+    stepGroup Report Configuration Hidden
+    step Configure Report
+      accessLevel 10
+      cssLinks
+        link css/fontawesome/css/all.min.css
+        link css/reportConfiguration.css
+      jsScripts
+        src js/configureReports_type.js
+        # src js/configureReports_headers.js
+        # src js/configureReports_pageHeaderFooter.js
+        # src js/configureReports_metadata.js
+        src js/configureReports_references.js
+        src js/configureReports_wording.js
+        src js/configureReports_interpretations.js
+        src js/fontawesome/js/all.min.js
+        src js/niceedit/nicEdit.js
+
+      form
+        include stepInstructions
+        id= reportConfigForm
+        formPreparedQuery~
+          - SELECT DISTINCT rd.reportName AS 'reportName',
+          -   rdv.id AS 'versionId',
+          -   IFNULL(rdv.versionNumber, 1) AS 'currentVersion',
+          -   (rdv.versionNumber + 1)  AS 'newVersion',
+          -   GROUP_CONCAT(CONCAT("'", rdp.panelCode, "'") SEPARATOR ', ') AS 'panelCodeList'
+          - FROM reportDefinition rd
+          - INNER JOIN reportDefinitionVersion rdv
+          -    ON rd.id = rdv.reportDefinitionId
+          - LEFT JOIN reportDefinitionPanels rdp
+          -    ON rdv.id = reportDefinitionVersionId
+          - LEFT JOIN panels p
+          -   ON rdp.panelCode = p.panelCode
+          - WHERE rd.id = ?
+          -   AND ? <> 'new'
+          -   AND rdv.active = 1
+          - GROUP BY rd.reportName
+          string {_recId}
+          string {_recId}
+          allowEmptyResults~
+          emptyResultDefault~
+            newVersion= 1
+            panelCodeList= 'none'
+
+        formPreparedQuery~
+          - SELECT
+          - title AS 'reportTitle',
+          - pageHeaderFooterId AS 'pageHeaderFooterExisingId',
+          - reportDescription AS 'reportDesc'
+          - FROM reportSettings
+          - WHERE reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -  name AS "SiteName",
+          -  siteId AS "SiteID"
+          - FROM organizationSites
+          - WHERE organizationType = 'Master'
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT rds.departmentId,
+          -   os.name AS 'deptName',
+          -   rds.locationId,
+          -   os1.name AS 'locationName'
+          - FROM reportDefinitionSites rds
+          - LEFT JOIN organizationSites os
+          -   ON rds.departmentId = os.siteId
+          - LEFT JOIN organizationSites os1
+          -   ON rds.locationId = os1.siteId
+          - WHERE rds.reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+          emptyResultDefault~
+            locationName= Select a deparment...
+            locationId= null
+
+        formPreparedQuery~
+          - SELECT GROUP_CONCAT(customerId) AS 'customerIds'
+          - FROM reportDefinitionCustomers
+          - WHERE reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT GROUP_CONCAT(quote(r.panelCode)) AS 'reportPanels'
+          - FROM reportDefinitionPanels r
+          - WHERE r.reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+          emptyResultDefault~
+            reportPanels= ""
+
+        formPreparedQuery~
+          - SELECT
+          -   CONCAT(metadataName,' ','(Current Template)') AS 'CurrentMetaDataTemplateName',
+          -   rmt.id AS 'CurrentMetaDataTemplateId'
+          - FROM reportMetadataFields rm
+          - INNER JOIN reportMetadataTemplates rmt ON rm.metadataTemplateId = rmt.Id
+          - WHERE reportDefinitionVersionId = ?
+          - GROUP BY reportDefinitionVersionId
+          string {_:versionId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   rs.reportTemplateHTML AS "reportTemplate",
+          -   rs.reportTemplateCSS AS "reportTemplateCSS",
+          -   rs.reportTemplateJS AS "reportTemplateJS"
+          - FROM reportSettings rs
+          - WHERE rs.reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+
+        hidden _recId
+          id= recId
+          value= {_recId}
+        hidden reportType
+          id= reportType
+          value= {_:reportName}
+        hidden panelCodeList
+          id= panelCodeList
+          value= {_:panelCodeList}
+        hidden versionNumber
+          id= versionNumber
+          value= {_:newVersion}
+          readonly=
+        hidden globalSiteID
+          id= globalSiteID
+          value= {_:SiteID}
+        hidden versionId
+          value= {_:versionId}
+          id= versionId
+        hidden customerIds
+          value= {_:customerIds}
+          id= customerIds
+        hidden panelType
+          id= panelType
+        hidden pageHeaderFooterExisingId
+          id= pageHeaderFooterExisingId
+          value= {_:pageHeaderFooterExisingId}
+        hidden CurrentMetaDataTemplateName
+          id= CurrentMetaDataTemplateName
+          value= {_:CurrentMetaDataTemplateName}
+        hidden CurrentMetaDataTemplateId
+          id= CurrentMetaDataTemplateId
+          value= {_:CurrentMetaDataTemplateId}
+        hidden metaDataReportDefinitionVersionId
+          id= metaDataReportDefinitionVersionId
+          value= {_:versionId}
+        hidden htmlReportTemplate
+          id= htmlReportTemplate
+          value= {_:reportTemplate}
+        hidden cssreportTemplate
+          id= cssreportTemplate
+          value= {_:reportTemplateCSS}
+        hidden jsReportTemplate
+          id= jsReportTemplate
+          value= {_:reportTemplateJS}
+        div
+          id= modalMessage
+        div
+          div
+            class= verticalFlex
+            h4 !!! Version  {_:newVersion}
+            a Back to Report Configuration List
+              href= /uniflow?stepName=Configure+Reports
+            div
+              id= errorDiv
+            div
+              id= messageDiv
+          div
+            class= tabs
+            ul
+              li
+                id= typeTab
+                a Type
+                  href= #reportDefinition
+
+              li
+                id= referencesTab
+                a References
+                  href= #reportReferences
+              li
+                id= wordingTab
+                a Wording
+                  href= #wording
+              li
+                id= interpretationsTab
+                a Interpretations
+                  href= #interpretations
+              li
+                id= templatesTab
+                a Report Templates
+                  href= #templatesTab
+
+
+            div
+              id= reportDefinition
+              div
+                class= horizontalFlex-spacearound
+                div
+                  class= verticalFlex noPadding
+                  h4 Define Report
+                  label Report Type
+                    for= reportType1
+                  text reportType1
+                    id= reportType1
+                    size= 50
+                    value= {_:reportName}
+                    class= required
+                  label Report Title
+                    for= reportTitle
+                  text reportTitle
+                    id= reportTitle
+                    size= 50
+                    value= {_:reportTitle}
+                    class= required
+                  label Description
+                    for= description
+                  textArea description
+                    id= description
+                    value= {_:reportDesc}
+                  label Site
+                    for= globalSiteName
+                    title= Global Site Name. Can be entered or edited in the Site Configurations page.
+                    i
+                      class= fas fa-info-circle
+                  text globalSiteName
+                    id= globalSiteName
+                    value= {_:SiteName}
+                    readonly=
+                  label Department
+                    for= department
+                    title= Optional. Select a department to populate locations.
+                      - If departments are not present,
+                      - navigate to Site Configurations to set up.
+                    i
+                      class= fas fa-info-circle
+                  select department
+                    id= department
+                    option {_:deptName}
+                      value= {_:departmentId}
+                    option
+                    sqlPreparedQuery~
+                      - SELECT name, siteId
+                      - FROM organizationSites
+                      - WHERE isSystem = 1
+                      - AND organizationType = ?
+                      string Department
+
+                  label Location
+                    for= location
+                    title= Optional. Select a department to populate locations.
+                      - If locations are not present,
+                      - navigate to Site Configurations to set up.
+                    i
+                      class= fas fa-info-circle
+
+                  select location
+                    id= location
+                    option {_:locationName}
+                      value= {_:locationId}
+                      placeholder= Select a department...
+                    option
+                    sqlPreparedQuery~
+                      - SELECT os.name, os.siteId
+                      - FROM organizationSites os
+                      - INNER JOIN organizationSites os2 ON os.parentSiteId = os2.siteId
+                      - WHERE  os2.siteId = ?
+                      - AND os.organizationType = 'Location'
+                      string {_:departmentId}
+
+
+                  label Customer
+                    for= customers
+                  select customers
+                    id= customers
+                    multiple=
+                    size= 6
+                    option
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      - os.name,
+                      - ps.siteId
+                      - FROM physicianSites ps
+                      - INNER JOIN organizationSites os
+                      -   ON ps.siteId = os.siteId
+                      - WHERE ps.active = 1
+                      - ORDER BY os.name
+
+
+
+                  div
+                    id= successDiv
+                  br
+                  button
+                    value= Save Report Type
+                    id= saveReportType
+                div
+                  h4 Select Panels
+                  span <i class= "fas fa-info-circle"></i>
+                    title= Available Panels for Configuration
+                  table
+                    id= panelCodeTable
+                    class= stdTableBasic
+                    sqlPreparedQuery~
+                      -  SELECT DISTINCT a.* FROM
+                      - ((SELECT
+                      -      CASE WHEN p.panelCode = rdp.panelCode THEN 'true' ELSE 'false' END AS 'Select',
+                      -      CONCAT(p.name, ' <i>( ', p.type, ' )</i>') AS 'Panel',
+                      -      p.panelCode AS 'Code'
+                      - FROM panels p
+                      - INNER JOIN reportDefinitionPanels rdp
+                      -     ON p.panelCode = rdp.panelCode
+                      - INNER JOIN reportDefinitionVersion rdv
+                      -    ON rdp.reportDefinitionVersionId = rdv.id
+                      - WHERE rdp.reportDefinitionVersionId = ? AND rdv.active = 1)
+                      - UNION
+                      - (  SELECT
+                      -     '' AS 'Select',
+                      -       CONCAT(pa.name, ' <i>( ', pa.type, ' )</i>') AS 'Panel',
+                      -       pa.panelCode AS 'Code'
+                      -  FROM panels pa
+                      -  LEFT JOIN reportDefinitionPanels rp ON pa.panelCode = rp.panelCode
+                      -     AND rp.reportDefinitionVersionId IN
+                      -      (SELECT id FROM reportDefinitionVersion WHERE active =1)
+                      -  WHERE rp.panelCode IS NULL)) a
+                      - GROUP BY a.Code
+                      - ORDER BY a.Select desc, a.Panel
+                      string {_:versionId}
+                    columnSpecs~ panelTable
+                      allowChangedRecordIds
+                      column 1
+                        inputType checkbox
+                          class= selectedPanel
+                      column 3
+                        inputType text
+                          class= readonly panelCode
+                          readonly=
+
+
+                div
+                  class= verticalFlex noPadding
+                  h4 Assign Report Templates
+
+                  span Report Template
+                    title= Select an HTML report template to associate with the report type.
+                      - Templates must be chosen from the public/reports/html folder or it will not be applied.
+                      - If no template is chosen, the default template will be assigned. Only select ONE template per report type.
+                    i
+                      class= fas fa-info-circle
+                  select reportTemplate
+                    required~ false
+                    id= reportTemplate
+                    size= 6
+                    option {_:reportTemplate}
+                      value= {_:reportTemplate}
+                      selected= selected
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      - fileName,
+                      - fileName
+                      - FROM containerFiles cF
+                      - WHERE fileType = 'HTML Report Template'
+                      - ORDER BY fileName
+
+
+                  span Report Template CSS
+                    title= Select an CSS report template file to associate with the report template.
+                      - css template files must be chosen from the public/reports/css folder or it will not be applied.
+                    i
+                      class= fas fa-info-circle
+                  select reportTemplateCss
+                    id= reportTemplateCss
+                    required~ false
+                    multiple=
+                    size= 6
+                    option {_:reportTemplateCSS}
+                      value= {_:reportTemplateCSS}
+                      selected= selected
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      - fileName,
+                      - fileName
+                      - FROM containerFiles cF
+                      - WHERE fileType = 'CSS Report File'
+                      - ORDER BY fileName
+
+
+
+                  span Report Template JavaScript
+                    title= Select a JavaScript file to associate with the report template.
+                      - JavaScript files must be chosen from the public/reports/js folder or it will not be applied.
+                    i
+                      class= fas fa-info-circle
+                  select reportTemplateJs
+                    id= reportTemplateJs
+                    required~ false
+                    multiple=
+                    size= 6
+                    option {_:reportTemplateJS}
+                      value= {_:reportTemplateJS}
+                      selected= selected
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      - fileName,
+                      - fileName
+                      - FROM containerFiles cF
+                      - WHERE fileType = 'JS Report File'
+                      - ORDER BY fileName
+
+
+
+            div
+              id= reportReferences
+              div
+                class= pageSection
+                div
+                  class= sectionTitle
+                  span Selected Report References
+                div
+                  class= sectionContent
+                  id= reportReferencesAjax
+
+              div
+                id= successDivReportReferences
+              div
+                class= pageSection
+                div
+                  class= sectionTitle
+                  span Available References
+                div
+                  class= sectionContent
+                  id= allReferencesAjax
+              div
+                id= successDivAllReferences
+              div
+                class= hide
+                textArea reportReferences
+                  id= reportReferencesSave
+                table
+                  id= warningMessage
+              div
+                class= pageSection
+                div
+                  class= sectionTitle
+                  span Add New Reference
+                div
+                  class= sectionContent
+                  div
+                    id= referenceDisplayArea
+                    class= verticalFlex refDisplayArea
+                    div
+                      class= verticalFlex
+                      label Select Test/Panel/Method Code:
+                        for= panelReferenceSelection
+                      select panels
+                        id= panelReferenceSelection
+                        option
+                        class= required
+                      vertical
+                        div
+                          id= fancyTextPanelReferences
+                          class= fancyTextPanelReferences required
+                        div
+                          id= reportReferenceBox
+                          class= reportReferenceBox assayWordingRefBox required
+
+              div
+                id= successDivReferences
+              br
+              button
+                value= Save New Reference
+                id= saveReportReferences
+            div
+              id= wording
+              div
+                class= pageSection
+                div
+                  class= sectionTitle
+                  span Selected Report Wording
+                div
+                  class= sectionContent
+                  id= reportWordingAjax
+
+              div
+                id= successDivReportWording
+              div
+                class= pageSection
+                div
+                  class= sectionTitle
+                  span Available Wording
+                div
+                  class= sectionContent
+                  id= allWordingAjax
+              div
+                id= successDivAllWording
+
+              div
+                class= hide
+                textArea reportWordingContent
+                  id= reportWordingContentSave
+                table
+                  id= wordingWarningMessage
+              div
+                id= duplicateHeader
+              div
+                id= duplicateOrder
+
+              div
+                class= pageSection
+                div
+                  class= sectionTitle
+                  span Add New Wording
+                div
+                  class= sectionContent
+                  div
+                    class= horizontalFlex
+                    div
+                      class= verticalFlex
+                      label Select Test/Panel/Method Code:
+                        for= panelReferenceSelection
+                      select panelWording
+                        id= panelWordingSelection
+                        option
+                        class= required
+                    div
+                      class= verticalFlex
+                      label Header
+                      text reportWordingHeader
+                        class= required
+                        id= reportWordingHeader
+                    div
+                      class= verticalFlex
+                      label Order
+                      select reportWordingOrder
+                        id= reportWordingOrder
+                        class= required
+                        option
+                        sqlPreparedQuery~
+                          - SELECT no
+                          - FROM numbers
+                  div
+                    id= refDisplayArea
+                    class= verticalFlex refDisplayArea
+                    vertical
+                      div
+                        id= fancyTextPanelWording
+                        class= fancyTextPanelWording required
+                      div
+                        id= reportWordingBox
+                        class= reportWordingBox assayWordingRefBox required
+              div
+                id= successDivWording
+              br
+              button
+                value= Save New Wording
+                id= saveReportWording
+
+            div
+              id= interpretations
+
+              div
+                id= loadOverallInterpretations
+                class= verticalFlex
+
+              div
+                id= loadPanelInterpretations
+                class= verticalFlex
+
+
+              div
+                id= successDivPanelInterpretation
+              div
+                id= successDivOverallInterpretation
+
+              br
+              button
+                value= Save Interpretations
+                id= savePanelInterpretation
+
+
+            # div
+            #   id= header
+              # div
+              #   hidden primarySiteId
+              #     id= primarySiteId
+              #     value= {_:SiteID}
+              #   hidden secondarySiteId
+              #     id= secondarySiteId
+              #     value= null
+              #   hidden primaryLogoVal
+              #     id= primaryLogoVal
+              #     value= 0
+              #   hidden secondaryLogoVal
+              #     id= secondaryLogoVal
+              #     value= 0
+              #   hidden primaryAddressVal
+              #     id= primaryAddressVal
+              #     value= 0
+              #   hidden secondaryAddressVal
+              #     id= secondaryAddressVal
+              #     value= 0
+
+              # div
+              #   class= verticalFlex
+              #   id= informationHeader
+              #   span <i class="fas fa-info-circle"></i> This tab allows configuration of the report header.
+              #     - Entering a header name will create a report header template that can be used in other reports.
+              #     - The report title is always displayed in the header, but the description is optional.
+              #     - The site logos and addresses displayed are from the sites selected in the TYPE tab.
+              #     - A primary logo and/or address can be added to the header.
+              #     - A secondary logo and address can also be added.
+
+              # div
+              #   class= verticalFlex
+              #   div
+              #     class= horizontalFlex-spacearound
+              #     div
+              #       class= verticalFlex
+              #       label Load Header Template
+              #       select headerNameSelect
+              #         id= headerNameSelect
+              #     div
+              #       class= verticalFlex
+              #       span OR
+              #     div
+              #       class= verticalFlex
+              #       label New Header Name
+              #       text headerName
+              #         id= headerName
+              #   h4 loadTitleHere
+              #     id= reportTitleHeader
+              #   div
+              #     class= horizontalFlex-spacearound-centered
+              #     label Show Description in Report Header
+              #       class= checkboxLabel
+              #     checkbox includeDescriptionInHeader
+              #       id= includeDescriptionInHeader
+              #       asBit~
+              #   span loadReportDescriptionHere
+              #     id= reportDescriptionHeader
+
+              # div
+              #   id= loadLogoTable
+              #   class= verticalFlex
+
+              # div
+              #   id= successDivHeader
+              # br
+              # button
+              #   value= Save Header
+              #   id= saveReportHeader
+
+
+            # div
+            #   id= pageheaderfooter
+
+              # div
+              #   id= pageHeaderFieldsError
+
+              # div
+              #   class= verticalFlex
+              #   div
+              #     class= horizontalFlex-spacearound
+              #     div
+              #       class= verticalFlex
+              #       label Load Header/Footer Template
+              #         for= pageHeaderFooterTemp
+              #       select pageHeaderFooterTemp
+              #         id= pageHeaderFooterTemp
+              #         option
+              #         sqlQuery~
+              #           - SELECT
+              #           -   templateName, id
+              #           - FROM reportPageHeaderFooter
+              #         value= {_:pageHeaderFooterExisingId}
+              #     div
+              #       class= verticalFlex
+              #       span OR
+              #     div
+              #       class= verticalFlex
+              #       label New Header/Footer Template Name
+              #         for= pageHeaderFooterTempName
+              #       text pageHeaderFooterTempName
+              #         id= pageHeaderFooterTempName
+              #   table
+              #     id= pageFooterTable
+              #     sqlPreparedQuery~
+              #       - SELECT
+              #       -   rphf.title AS 'Report Title',
+              #       -   rphf.pageNumber AS 'Page #',
+              #       -   rphf.labName AS 'Site Name',
+              #       -   rphf.labAddress AS 'Site Address',
+              #       -   rphf.patientName AS 'Patient Name',
+              #       -   rphf.mrn AS 'Patient MRN',
+              #       -   rphf.dob AS 'Patient DOB'
+              #       - FROM reportSettings rs
+              #       -   INNER JOIN reportPageHeaderFooter rphf ON rs.pageHeaderFooterId = rphf.id
+              #       - WHERE rs.reportDefinitionVersionId = ?
+              #       - UNION
+              #       - SELECT
+              #       - '',
+              #       - '',
+              #       - '',
+              #       - '',
+              #       - '',
+              #       - '',
+              #       - ''
+              #       - LIMIT 1
+              #       string {_:versionId}
+              #     verticalMode~
+              #     columnSpecs~ pageHFOptions
+              #       allowChangedRecordIds
+              #       column 1
+              #         inputType select
+              #           class= pageReportTitle required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              #       column 2
+              #         inputType select
+              #           class= pagePageNo required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              #       column 3
+              #         inputType select
+              #           class= pageSiteName required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              #       column 4
+              #         inputType select
+              #           class= pageSiteAddress required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              #       column 5
+              #         inputType select
+              #           class= pagePatientName required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              #       column 6
+              #         inputType select
+              #           class= pagePatientMRN required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              #       column 7
+              #         inputType select
+              #           class= pagePatientDOB required pageHeaderFooterRequired
+              #           setName~ pageHeaderFooter
+              # div
+              #   id= successDivPageHeaderFooter
+              # br
+              # button
+              #   value= Save Page Header & Footer
+              #   id= saveReportPageHeaderFooter
+
+
+            # div
+            #   id= metadata
+              # div
+              #   class= verticalFlex
+              #   div
+              #     class= horizontalFlex-spacearound
+              #     div
+              #       class= verticalFlex
+              #       label Load Metadata Template
+              #         for= metadataTemplate
+              #       select metadataTemplate
+              #         class= logoSelectMetadata
+              #         id= metadataTemplate
+
+              #     div
+              #       class= verticalFlex
+              #       span OR
+              #     div
+              #       class= verticalFlex
+              #       label New Metadata Template Name
+              #         for= metadataName
+              #       text metadataName
+              #         id= metadataName
+
+              #   div
+              #     class= expand
+              #     span <i class="far fa-plus-square"></i> Expand All
+              #       class= expandAll
+              #     span &nbsp &nbsp &nbsp
+              #     span <i class="far fa-minus-square"></i> Collapse All
+              #       class= collapseAll
+
+              # div
+              #   class= pageSection
+              #   div
+              #     class= sectionTitle
+              #     span 1.  Order Info
+              #   div
+              #     id= orderInfoTable
+              #     class= sectionContent
+
+              # div
+              #   class= pageSection
+              #   div
+              #     class= sectionTitle
+              #     span 2.  Patient Info
+              #   div
+              #     id= patientInfoTable
+              #     class= sectionContent
+
+              # div
+              #   class= pageSection
+              #   div
+              #     class= sectionTitle
+              #     span 3.  Specimen Info
+              #   div
+              #     id= specimenInfoTable
+              #     class= sectionContent
+
+              # div
+              #   class= pageSection
+              #   div
+              #     class= sectionTitle
+              #     span 4.  Panels
+              #   div
+              #     id= panelInfoTable
+              #     class= sectionContent
+
+              # div
+              #   class= pageSection
+              #   div
+              #     class= sectionTitle
+              #     span 5.  Clinical Info
+              #   div
+              #     id= clinicalInfoTable
+              #     class= sectionContent
+              # div
+              #   class= pageSection
+              #   div
+              #     class= sectionTitle
+              #     span 6.  Proband Info
+              #   div
+              #     id= probandInfoTable
+              #     class= sectionContent
+
+              # div
+              #   id= successDivMetadata
+              # br
+              # button
+              #   value= Save Metadata
+              #   id= saveReportMetadata
+
+
+
+
+
+

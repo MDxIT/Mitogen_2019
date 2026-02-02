@@ -1,0 +1,473 @@
+config
+  steps
+    stepGroup orderEntryAjaxServers
+
+
+    step Ajax Get Insurance Carrier
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select id, amdCarrierCode, carrierName, address1, address2, city, state, country, postalCode, phoneNumber
+          - from insuranceCarriers where id = ?
+          string {id}
+
+    step Ajax Get Insurance Carrier List
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~ SELECT distinct carrierName, id
+          - FROM insuranceCarriers
+          - ORDER BY carrierName
+
+    step Ajax ICD10 Description
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        caption Diagnosis
+        sqlPreparedQuery~ select case when count(shortDescription) = 0 then 'Not A Valid Code' else shortDescription end as 'Description' from icd10Codes where icd10Code = ?
+          string {icd10Code}
+
+    step Ajax Get Clinical Information Drug Name
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   name AS "drugName"
+          - FROM drugs
+          - WHERE id = ?
+          string {drugId}
+
+    step Ajax Report Distribution Physician Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   concat('<input class="reportDistribution_searchCheckbox" type="checkbox" value="false" /><br>') AS "Select"
+          -   , p.physicianId AS "Physician ID"
+          -   , concat(p.last_name, ', ', p.first_name) AS "Name"
+          -   , p.providerType AS "Type"
+          -   , o.name AS "Organization"
+          -   , os.name AS "Site"
+          - FROM physicians p
+          -   INNER JOIN physicianSites ps ON p.physicianId = ps.physicianId and ps.active = 1
+          -   INNER JOIN organizationSites os ON ps.siteId = os.siteId
+          -   INNER JOIN organizations o ON os.orgId = o.orgId
+          - WHERE
+          -   (length(?) > 0 and p.last_name like ?)
+          -   OR (length(?) > 0 and p.first_name like ?)
+          -   OR (length(?) > 0 and p.providerType = ?)
+          -   OR (length(?) > 0 and o.name like ?)
+          -   OR (length(?) > 0 and os.name like ?)
+          - ORDER BY p.providerType, p.last_name
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {type}
+          string {type}
+          string {organization}
+          string %{organization}%
+          string {site}
+          string %{site}%
+
+    step Ajax get methods for tests
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~ SELECT  m.name, m.methodCode
+          - FROM testMethods tm
+          - INNER JOIN methods m
+          - ON tm.methodCode = m.methodCode
+          - WHERE tm.testCode = ?
+          - AND m.disabled = 0
+          - UNION
+          - SELECT '', ''
+          - FROM dual
+          - WHERE NOT EXISTS (
+          -       SELECT 1
+          -       FROM testMethods
+          -       WHERE testCode = ?)
+          string {testCode}
+          string {testCode}
+
+    step Ajax get tests for panel
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~ SELECT  t.name, t.testCode
+          - FROM testPanels tp
+          - INNER JOIN tests t
+          - ON tp.testCode = t.testCode
+          - WHERE tp.panelCode = ?
+          - AND t.disabled = 0
+          string {panelCode}
+
+    step Ajax Order Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= orderSearchResults
+        sqlPreparedQuery~
+          - SELECT
+          -   CONCAT('<a href="/uniflow?lastForm=Y&stepName=Order+Form&nextStepInstance={instance}&recId=',rf.requestId, '">', rf.requestId,'</a>') {selectColumns}
+          - FROM patients p
+          - LEFT JOIN requestForms rf
+          - ON p.patientId = rf.patientId
+          - LEFT JOIN requestSpecimens rs
+          - ON rf.requestId = rs.requestId
+          - WHERE
+          -   (length(?) > 0 AND p.lastName LIKE ?)
+          - OR  (length(?) > 0 AND p.firstName LIKE ?)
+          - OR (length(?) > 0 AND p.dob = ?)
+          - OR (length(?) > 0 AND rf.mrn LIKE ?)
+          - OR (length(?) > 0 AND p.geneticGender = ?)
+          - OR (length (?) > 0 AND rf.externalRequestId LIKE ?)
+          - OR (length (?) > 0 AND rs.specimenId LIKE ?)
+          - OR (length(?) > 0 AND p.patientId LIKE ?)
+          - OR (length (?) > 0 AND p.govtId LIKE ?)
+          - GROUP BY rf.requestId
+          - ORDER BY
+          -   CASE WHEN (LENGTH(?) > 0 AND p.lastName LIKE ?) THEN 13 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.lastName = ?) THEN 16 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.firstName LIKE ?) THEN 10 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.firstName = ?) THEN 13 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.dob = ?) THEN 20 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rf.mrn LIKE ?) THEN 50 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rf.mrn = ?) THEN 60 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.geneticGender = ?) THEN 20 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rf.externalRequestId LIKE ?) THEN 20 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rf.externalRequestId = ?) THEN 100 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rs.specimenId LIKE ?) THEN 30 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rs.specimenId = ?) THEN 100 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.patientId = ?) THEN 100 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.patientId LIKE ?) THEN 30 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.govtId LIKE ?) THEN 30 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.govtId = ?) THEN 40 ELSE 0 END DESC
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {dob}
+          string {dob}
+          string {mrn}
+          string %{mrn}%
+          string {geneticGender}
+          string {geneticGender}
+          string {externalRequestId}
+          string %{externalRequestId}%
+          string {specimenId}
+          string %{specimenId}%
+          string {patientId}
+          string %{patientId}%
+          string {govtId}
+          string %{govtId}%
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {dob}
+          string {dob}
+          string {mrn}
+          string %{mrn}%
+          string {mrn}
+          string {mrn}
+          string {geneticGender}
+          string {geneticGender}
+          string {externalRequestId}
+          string %{externalRequestId}%
+          string {externalRequestId}
+          string {externalRequestId}
+          string {specimenId}
+          string %{specimenId}%
+          string {specimenId}
+          string {specimenId}
+          string {patientId}
+          string {patientId}
+          string {patientId}
+          string %{patientId}%
+          string {govtId}
+          string %{govtId}%
+          string {govtId}
+          string {govtId}
+        # columnSpecs~ orderSearch
+        #   column 4
+        #     inputType date
+        #       format~ {_dateShortFormat}
+        #       readonly= true
+
+    step Ajax Medical Code Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~ select
+          -   concat('<input class="searchCheckbox" type="checkbox" value= "false" onclick="diagnosticCodesSelectionGenerateRow(\'diagnosticCodesSelectionTable\', \'',dc.type,'\', \'',dc.diagnosticCode,'\', \'',dc.description,'\', \'',dc.id,'\');" /><br>') AS "Select",
+          -   dc.diagnosticCode AS 'Code',
+          -   dc.type as 'Code Type',
+          -   dc.description as 'Description'
+          -   FROM diagnosticCodes dc
+          -   WHERE dc.disabled = 0
+          -     AND
+          -     (
+          -       (length(?) > 0 and dc.diagnosticCode like ?)
+          -       OR (length(?) > 0 and dc.description like ?)
+          -     )
+          -   order by
+          -     case when (length(?) > 0 and dc.diagnosticCode like ?) then 50 else 0 end desc,
+          -     case when (length(?) > 0 and dc.description like ?) then 13 else 0 end desc
+          string {code}
+          string {code}%
+          string {keyword}
+          string %{keyword}%
+          string {code}
+          string {code}%
+          string {keyword}
+          string %{keyword}%
+
+    step Ajax Patients Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~  select distinct
+          -   concat('<input type="checkbox" class="selectPatient" patientId="',p.patientId,'" /><br>') as 'Select',
+          -   p.patientId AS 'Patient Id'
+          -   {patientSearchSelectColumns}
+          -   FROM patients p
+          -   INNER JOIN patientSources ps
+          -     on ps.patientId = p.patientId
+          -   WHERE ps.status = 'active'
+          -     AND
+          -     (
+          -       (length(?) > 0 and p.lastName like ?)
+          -       OR  (length(?) > 0 and p.firstName like ?)
+          -       OR (length(?) > 0 and p.govtId like ?)
+          -       OR (length(?) > 0 and p.dob = ?)
+          -       OR (length(?) > 0 and p.geneticGender = ?)
+          -       OR (length(?) > 0 and ps.mrn = ?)
+          -       OR (length(?) > 0 and p.patientId = ?)
+          -       OR (length(?) > 0 and p.familyId = ?)
+          -     )
+          -   group by p.patientId
+          -   order by 
+
+          -     (case when (length(?) > 0 and p.firstName like ?) then 10 else 0 end +
+          -     case when (length(?) > 0 and p.firstName = ?) then 10 else 0 end +
+          -     case when (length(?) > 0 and p.lastName like ?) then 13 else 0 end +
+          -     case when (length(?) > 0 and p.lastName = ?) then 13 else 0 end +
+          -     case when (length(?) > 0 and p.govtId like ?) then 50 else 0 end +
+          -     case when (length(?) > 0 and p.dob = ?) then 20 else 0 end +
+          -     case when (length(?) > 0 and p.geneticGender = ?) then 20 else 0 end +
+          -     case when (length(?) > 0 and ps.mrn = ?) then 40 else 0 end) desc
+
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {GovtId}
+          string %{GovtId}%
+          string {DOB}
+          string {DOB}
+          string {geneticGender}
+          string {geneticGender}
+          string {MRN}
+          string {MRN}
+          string {patientId}
+          string {patientId}
+          string {familyId}
+          string {familyId}
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {GovtId}
+          string %{GovtId}%
+          string {DOB}
+          string {DOB}
+          string {geneticGender}
+          string {geneticGender}
+          string {MRN}
+          string {MRN}
+        columnSpecs~ patientSearch
+          column 5
+            formatDate~
+            convertDateTime~ false
+
+    step Ajax Proband Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= probandSearchResults
+        sqlPreparedQuery~
+          - SELECT
+          -   CONCAT ('<input type="checkbox" class="selectProband" probandId="',pr.id,'" /><br>') AS 'Select',
+          -   t.name AS "Test",
+          -   t.testCode,
+          -   pr.id,
+          -   {probandSelectColumns},
+          -   pa.patientId AS "Patient Id"
+          - FROM proband pr
+          - INNER JOIN patients pa
+          - ON pr.patientId = pa.patientId
+          - INNER JOIN tests t
+          - ON pr.testCode = t.testCode
+          - INNER JOIN requestForms rf
+          - ON pa.patientId = rf.patientId
+          - WHERE
+          -   pr.patientId <> ?
+          -   AND
+          -     (
+          -       (length(?) > 0 and pa.lastName like ?)
+          -       OR  (length(?) > 0 and pa.firstName like ?)
+          -       OR (length(?) > 0 and pa.dob = ?)
+          -       OR (length(?) > 0 and pa.geneticGender = ?)
+          -       OR (length(?) > 0 and rf.mrn = ?)
+          -       OR (length(?) > 0 and pr.testCode = ?)
+          -       OR (length(?) > 0 and pr.patientId = ?)
+          -     )
+          - GROUP BY pr.id
+          - ORDER BY
+          -   (
+          -     case when (length(?) > 0 and pa.lastName like ?) then 13 else 0 end +
+          -     case when (length(?) > 0 and pa.lastName = ?) then 17 else 0 end +
+          -     case when (length(?) > 0 and pa.firstName like ?) then 10 else 0 end +
+          -     case when (length(?) > 0 and pa.firstName = ?) then 10 else 0 end +
+          -     case when (length(?) > 0 and pa.dob = ?) then 20 else 0 end +
+          -     case when (length(?) > 0 and pa.geneticGender = ?) then 10 else 0 end +
+          -     case when (length(?) > 0 and rf.mrn = ?) then 30 else 0 end +
+          -     case when (length(?) > 0 and pr.testCode = ?) then 13 else 0 end +
+          -     case when (length(?) > 0 and pr.patientId = ?) then 50 else 0 end
+          -   ) DESC
+          string {currentPatientId}
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {DOB}
+          string {DOB}
+          string {geneticGender}
+          string {geneticGender}
+          string {MRN}
+          string {MRN}
+          string {testCode}
+          string {testCode}
+          string {patientId}
+          string {patientId}
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {DOB}
+          string {DOB}
+          string {geneticGender}
+          string {geneticGender}
+          string {MRN}
+          string {MRN}
+          string {testCode}
+          string {testCode}
+          string {patientId}
+          string {patientId}
+
+    step Ajax Search Patient Probands
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   pl.relationship,
+          -   pl.id AS "probandLinkId",
+          -   t.testCode,
+          -   p.id AS "probandId",
+          -   t.name,
+          -   pa.lastName,
+          -   pa.firstname,
+          -   pa.dob,
+          -   GROUP_CONCAT(DISTINCT IF(rf.mrn = '', null, rf.mrn) SEPARATOR ', ') AS "mrn",
+          -   pa.geneticGender,
+          -   pa.patientId
+          - FROM probandLinks pl
+          - INNER JOIN proband p
+          - on pl.probandId = p.id
+          - INNER JOIN tests t
+          - ON p.testCode = t.testCode
+          - INNER JOIN patients pa
+          - ON p.patientId = pa.patientId
+          - INNER JOIN requestForms rf
+          - ON pa.patientId = rf.patientId
+          - WHERE pl.patientId = ?
+          - GROUP BY pl.probandId
+          string {patientId}
+
+    step Ajax Patient Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select p.patientId as 'Id',
+          - p.firstName,
+          - p.lastName,
+          - p.middleName,
+          - p.geneticGender,
+          - p.genderId,
+          - p.dob as 'dob',
+          - CASE WHEN
+          - (
+          -   SELECT up.authorizedStep
+          -   FROM userPrivileges up
+          -   WHERE up.userId = ?
+          -     AND up.authorizedStep = 'canViewFullSSN'
+          -     AND up.status = 'active'
+          -   union all
+          -   SELECT 'NoAccess'
+          -   FROM dual
+          -   limit 1
+          - ) = 'canViewFullSSN' THEN p.govtId
+          - ELSE CASE WHEN p.govtId = '' THEN ''
+          - ELSE concat('###-##-',right(p.govtId,4)) END
+          - END as 'govtId',
+          - p.govtId AS 'govtIdValue',
+          - ps.mrn,
+          - p.familyId,
+          - p.ethnicity,
+          - p.address1,
+          - p.address2,
+          - p.city,
+          - p.state,
+          - p.postalCode,
+          - p.country,
+          - p.phone1CountryCode as 'homePhoneCountryCode',
+          - p.phone1 as 'homePhone',
+          - p.phone2CountryCode as 'workPhoneCountryCode',
+          - p.phone2 as 'workPhone',
+          - p.phone3CountryCode as 'mobilePhoneCountryCode',
+          - p.phone3 'mobilePhone',
+          - p.email
+          - from patients p
+          - INNER JOIN patientSources ps
+          -   ON ps.patientId = p.patientId
+          - where p.patientId = ?
+          - AND ps.status = 'active'
+          string {_userId}
+          string {patientId}
+
+

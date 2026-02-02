@@ -1,0 +1,81 @@
+config
+  steps
+
+    stepGroup Analysis Form 0
+
+    step Analysis Form 0
+
+      form
+        data-parsley-validate=
+
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= BatchId
+          parameter~ currentStep
+            value= {_step}
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= batchId
+
+
+      form
+
+        script
+          src= js/analysis.js
+
+        configurePreparedQuery~
+          - SELECT CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -   ELSE ? END AS "batchId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+        configurePreparedQuery~
+          - SELECT
+          -   am.methodName AS "methodName"
+          - FROM analysisDataDefinition ad 
+          -   INNER JOIN analysisMethodVersions amv ON ad.AnalysisMethodVersionsId = amv.analysisMethodsId
+          -   INNER JOIN analysisMethods am ON amv.AnalysisMethodsId = am.Id
+
+        hidden stepName
+          id= stepName
+          value= {_step}
+
+        hidden containerLabel
+          id= containerLabel
+          value= Sample Id
+
+        hidden analysisResultSet
+          id= analysisResultSet
+          value= analysisResults
+
+        div
+          class= hideDiv
+          select overallResultOptions
+            setName~ analysisResults
+            required~ false
+            id= overallResultOptions
+
+        vertical
+          container batchId
+            screenLabel~ Batch ID
+            id= parentId
+            value= {_:batchId}
+            readonly=
+            deleteQueue~ {_step}
+
+          text methodName
+            screenLabel~ Analysis Method
+            value= {_:methodName}
+            readonly=
+            id= methodName
+
+        div
+          id= errorBox
+
+        div
+          id= analysisDataTableDiv

@@ -1,0 +1,605 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  recIdViewSteps
+
+    recId BloodTubeId
+      view Blood Tube Transfer
+
+    recId AnalyzePlateId
+      view Analyze Plate
+
+    recId ReportPlateId
+      view Report Plate
+
+    recId Report File Id
+      view DownloadRespiratoryReport
+      fromStep BioFire - Final Respiratory Report
+        view DownloadRespiratoryReport
+
+    recId Worklist Id
+      view DownloadWorklist
+      fromStep PGx - Quant File Download
+        view DownloadQuantFile
+      fromStep PGx - Download Agena Worklist
+        view DownloadWorklist
+
+    recId Pool Tube Id
+      fromStep NGS - View Sample Worksheet
+        view DownloadFile Unrestricted Samplesheet
+    recId PoolTubeId
+      fromStep NGS - View Sample Worksheet
+        view DownloadFile Unrestricted Samplesheet
+
+    recId Assignment Id
+      fromStep Manage Tray Map Assignments
+        view Manage Tray Map Assignments
+
+    recId Primer Id
+      view View or Edit Primer
+
+    recId Batch Id
+      view Container Detail
+      fromStep Confirm Extraction
+        view Confirm Extraction
+      fromStep FISH - Hybridizing
+        view FISH - Hybridizing
+      fromStep FISH - Post Hybridizing
+        view FISH - Post Hybridizing
+      fromStep Process Batch
+        view Process Batch
+      fromStep Process Batch Transfer New Batch Out
+        view Process Batch Transfer New Batch Out
+
+    recId Patient Id
+      view Patients
+      fromStep Patients
+        view Patients
+
+    recId Request ID
+      view View Order
+      fromStep Patients
+        view View Order
+      fromStep Contact Customer
+        view Contact Customer
+
+    recId Insurance Card Id
+      view DownloadInsurance
+    recId MM Id
+      view Master Mix Definition
+    recId aliquotId
+      view Container Detail
+      fromStep WST Review
+        view WST Review
+      fromStep TRT Review
+        view TRT Review
+      fromStep 2C19 Review
+        view 2C19 Review
+      fromStep 2D6 Review
+        view 2D6 Review
+      fromStep 3A4 Review
+        view 3A4 Review
+      fromStep 3A5 Review
+        view 3A5 Review
+    recId Aliquot Id
+      view Container Detail
+      fromStep WST Review
+        view WST Review
+      fromStep TRT Review
+        view TRT Review
+      fromStep 2C19 Review
+        view 2C19 Review
+      fromStep 2D6 Review
+        view 2D6 Review
+      fromStep 3A4 Review
+        view 3A4 Review
+      fromStep 3A5 Review
+        view 3A5 Review
+      fromStep Tox - Screen Review
+        view Tox - Specimen Screen Review
+      fromStep Tox - Results Review
+        view Tox - Specimen Results Review
+    recId Aliquot ID
+      view Container Detail
+      fromStep WST Review
+        view WST Review
+      fromStep TRT Review
+        view TRT Review
+      fromStep 2C19 Review
+        view 2C19 Review
+      fromStep 2D6 Review
+        view 2D6 Review
+      fromStep 3A4 Review
+        view 3A4 Review
+      fromStep 3A5 Review
+        view 3A5 Review
+
+
+    recId Culture Id
+      fromStep 24 Hour Culture Setup
+        view 24 Hour Culture Setup
+      fromStep 48 Hour Culture Setup
+        view 48 Hour Culture Setup
+      fromStep 48 Hypo A Culture Setup
+        view 48 Hypo A Culture Setup
+      fromStep Harvest Cells
+        view Harvest Cells
+      fromStep FS 24 Hour Culture Setup
+        view FS 24 Hour Culture Setup
+      fromStep FS 48 Hour Culture Setup
+        view FS 48 Hour Culture Setup
+      fromStep FS 48 Hypo A Culture Setup
+        view FS 48 Hypo A Culture Setup
+      fromStep FS Harvest Cells
+        view FS Harvest Cells
+      fromStep FS Culture QC
+        view FS Culture QC
+      fromStep FS Culture Status
+        view FS Culture Status
+
+    recId ConsumableId
+      view Lookup Consumable
+      fromStep Edit Consumable
+        view Edit Consumable
+    recId consumableId
+      view Lookup Consumable
+      fromStep Edit Consumable
+        view Edit Consumable
+    recId Consumable Id
+      view Lookup Consumable
+      fromStep Edit Consumable
+        view Edit Consumable
+    recId Consumable ID
+      fromStep Edit Consumable
+        view Edit Consumable
+
+    recId ControlId
+      view Lookup Control
+    recId controlId
+      view Lookup Control
+    recId Control Id
+      view Lookup Control
+    recId Control ID
+      view Lookup Control
+
+    recId Harvest Id
+      fromStep Slide Preparation
+        view Slide Preparation
+      fromStep Banding/Staining
+        view Banding/Staining
+      fromStep FISH Slide Preparation
+        view FISH Slide Preparation
+      fromStep FS Slide Preparation
+        view FS Slide Preparation
+      fromStep FS Banding and Staining
+        view FS Banding and Staining
+      fromStep FS Slide Setup
+        view FS Slide Setup
+
+    recId SlideId
+      fromStep FS - Analyst 1
+        view FS - Analyst 1
+      fromStep Microscope Analysis by Tech 1
+        view Microscope Analysis by Tech 1
+      fromStep Microscope Analysis by Tech 2
+        view Microscope Analysis by Tech 2
+      fromStep Review by Senior Scientist
+        view Review by Senior Scientist
+      fromStep Karyo - Review by Senior Scientist
+        view Karyo - Review by Senior Scientist
+      fromStep Karyogram Prep and Analysis
+        view Karyogram Prep and Analysis
+      fromStep FISH Prep and Analysis
+        view FISH Prep and Analysis
+      fromStep MicroArray Prep and Analysis
+        view MicroArray Prep and Analysis
+      fromStep FISH Slide Preparation
+        view FISH Slide Preparation
+      fromStep FISH Analyst 1
+        view FISH Analyst 1
+      fromStep FISH Analyst 2
+        view FISH Analyst 2
+      fromStep FISH Senior Scientist Review
+        view FISH Senior Scientist Review
+      fromStep FS Microscope Analysis by Tech 1
+        view FS Microscope Analysis by Tech 1
+      fromStep FS Microscope Analysis by Tech 2
+        view FS Microscope Analysis by Tech 2
+      fromStep FISH - Senior Scientist Review
+        view FISH - Senior Scientist Review
+      fromStep FISH - Tech Analysis 1
+        view FISH - Tech Analysis 1
+      fromStep FISH - Tech Analysis 2
+        view FISH - Tech Analysis 2
+
+
+
+    recId recBatchId
+      fromStep Receive Specimens
+        view Receive Specimens
+
+    recId DilutionId
+      view Container Detail
+
+    recId aliquotTubeId
+      view Container Detail
+    recId Aliquot Tube Id
+      view Container Detail
+    recId Aliquot Tube ID
+      view Container Detail
+
+    recId contactId
+      view Contacts
+    recId Contact Id
+      view Contacts
+    recId Contact ID
+      view Contacts
+
+
+    recId System Id
+      view Update Instrument
+    recId Equipment Id
+      view Update Instrument
+
+    # recId containerId
+    #   view Container Detail
+    # recId Container Id
+    #   view Container Detail
+    # recId Container ID
+    #   view Container Detail
+
+    recId customerId
+      view Customers
+    recId Customer Id
+      view Customers
+    recId Customer ID
+      view Customers
+
+    recId Document Version Id
+      view Document Details
+      fromStep Edit Web Document
+        view Edit Web Document
+      fromStep Draft Document
+        view Draft Document
+      fromStep Review Document
+        view Review Document
+      fromStep Approve Document
+        view Approve Document
+
+    recId Document Id
+      view Document Details
+      fromStep Pending Review Documents
+        view Pending Review Documents
+      fromStep Create/Revise Document
+        view Create/Revise Document
+
+    recId extractionTubeId
+      view Container Detail
+    recId Extraction Tube Id
+      view Container Detail
+    recId Extraction Tube ID
+      view Container Detail
+
+
+    # recId eventId
+    #   view Annotate Event
+    #   fromStep Tox - Tecan Plate
+    #     view Tox - Tecan Plate Assign
+    # recId Event Id
+    #   view Annotate Event
+    # recId Event ID
+    #   view Annotate Event
+
+    recId History Id
+      view Report History
+
+    recId instId
+      view Record Task
+      fromStep Manage Instrument Service
+        view Lookup Instrument Details
+    recId instrumentId
+      view Lookup Instrument Details
+    recId Instrument ID
+      view Lookup Instrument Details
+      fromStep Edit Instrument
+        view Edit Instrument
+
+    recId itemId
+      view Update Inventory Record
+
+
+    recId lastUpdateEventId
+      view Show Event
+
+    recId organizationId
+      view Customers
+    recId Organization Id
+      view Customers
+    recId Organization ID
+      view Customers
+
+    recId parentStorageId
+      view Search Storage
+    recId Parent Storage Id
+      view Search Storage
+    recId Parent Storage ID
+      view Search Storage
+
+    recId personId
+      view People
+    recId Person Id
+      view People
+    recId Person ID
+      view People
+
+    recId physicianId
+      view Physicians
+      fromStep Physicians
+        view Physicians
+
+    recId Physician Id
+      view Physicians
+
+    recId Physician ID
+      view physicianId
+      fromStep Physicians
+        view Physicians
+
+    recId Client Id
+      view Clients
+
+
+    recId POId
+      view Lookup Purchase Order
+
+    recId requestedPOId
+      view Order Approval Log M1
+
+    recId approvedPOId
+      view Order Request Log
+
+    recId halfApprovedPOId
+      view Order Approval Log M2
+
+
+    recId Customer Member Id
+      view People
+
+    recId Member Id
+      view Manage Organization Users
+
+    recId reagentId
+      view Lookup Reagent
+    recId Reagent Id
+      view Lookup Reagent
+    recId Reagent ID
+      view Lookup Reagent
+
+    recId receiveId
+      view Receive Sample
+    recId Receive Id
+      view Receive Sample
+    recId Receive ID
+      view Receive Sample
+
+
+    recId Receive Quest Accession Id
+      view Receive Sample
+
+    recId Receive Accession Id
+      fromStep Receive Sample
+        view Receive Individual Sample
+
+
+    recId File Id
+      fromStep View Requisition
+        view Download Requisition File
+      fromStep QC Requisition
+        view Download Requisition File
+      fromStep Edit Requisition
+        view Download Requisition File
+
+    recId downloadInstrumentFileId
+      fromStep Lookup Instrument Details
+        view DownloadFile InstrumentFiles
+      fromStep Lookup Instrument History
+        view DownloadFile InstrumentFiles
+
+
+
+    recId Rep Id
+      view DownloadFile
+      fromStep Previously Viewed Reports
+        view DownloadFile
+
+
+
+
+
+    recId referenceId
+      view Literature References
+    recId Reference Id
+      view Literature References
+    recId Reference ID
+      view Literature References
+
+
+    recId Test Code Id
+      view Tests
+
+    recId Panel Code Id
+      view Panels
+
+    recId Method Code Id
+      view Methods
+
+    recId Drug Id
+      view Drugs
+
+    recId Analyte Id
+      view Analytes
+
+
+
+    recId storageId
+      view Search Storage
+    recId Storage Id
+      view Search Storage
+    recId Storage ID
+      view Search Storage
+
+    recId projectId
+      view Project Details
+
+    recId milestoneId
+      view Update Milestone
+
+    recId Related Milestone Id
+      view Update Milestone
+
+    recId Related Note Id
+      view Update Note
+
+    recId noteId
+      view Update Note
+
+    recId ticketId
+      view Update Ticket
+
+    recId Upload Id
+      fromStep Variant Uploads
+        view Variant Uploads
+      fromStep NextGENe Uploads
+        view NextGENe Uploads
+
+    recId Vendor Id
+      view Vendor
+
+    recId Material Id
+      view Receive Request Sheet
+      fromStep Assign Tests
+        view Assign Tests
+      fromStep Prepare Specimen
+        view Prepare Specimen
+      fromStep Perform Test
+        view Perform Test
+      fromStep Record Data
+        view Record Data
+      fromStep Review Data
+        view Review Data
+
+    recId Allele File Id
+      view Download Translational Data File
+      fromStep Send Data to Translational
+        view Download Translational Data File
+
+    recId CNV File Id
+      view Download Translational Data File
+      fromStep Send Data to Translational
+        view Download Translational Data File
+
+    recId Translational Id
+      view Receive Report from Translational
+      fromStep Receive Report from Translational
+        view Receive Report from Translational
+
+
+    recId batchId
+      view NGS Extraction
+      fromStep NGS Extraction
+        view NGS Extraction
+      fromStep Plasma Extraction Setup
+        view Plasma Extraction Setup
+      fromStep NGS FPET Extraction Setup
+        view NGS FPET Extraction Setup
+      fromStep DNA Quantitation Setup
+        view DNA Quantitation Setup
+      fromStep DNA Quantitation
+        view DNA Quantitation
+      fromStep DNA Quantitation Result Upload
+        view DNA Quantitation Result Upload
+      fromStep NGS Normalization
+        view NGS Normalization
+      fromStep Library Quantitation Result Upload
+        view Library Quantitation Result Upload
+      fromStep FISH - Hybridizing
+        view FISH - Hybridizing
+      fromStep FISH - Post Hybridizing
+        view FISH - Post Hybridizing
+
+    recId Setup Batch Id
+      fromStep Repair and Capping
+        view Repair and Capping
+      fromStep Blood Extraction
+        view Blood Extraction
+      fromStep FFPE Extraction
+        view FFPE Extraction
+      fromStep DNA Quantitation
+        view DNA Quantitation
+      fromStep Adaptor Ligation and Pooling
+        view Adaptor Ligation and Pooling
+      fromStep Library Quantitation
+        view Library Quantitation
+      fromStep Biochemical Genetics Extraction
+        view Biochemical Genetics Extraction
+      fromStep FISH - Hybridizing
+        view FISH - Hybridizing
+      fromStep FISH - Post Hybridizing
+        view FISH - Post Hybridizing
+
+    recId Upload Batch Id
+      fromStep DNA Quantitation
+        view DNA Quantitation Result Upload
+      fromStep Library Quantitation
+        view Library Quantitation Result Upload
+
+    recId Result Batch Id
+      fromStep Repair and Capping
+        view Repair and Capping Results
+      fromStep Blood Extraction
+        view NGS Extraction
+      fromStep FFPE Extraction
+        view NGS Extraction
+      fromStep DNA Quantitation
+        view DNA Quantitation Results
+      fromStep Adaptor Ligation and Pooling
+        view Adaptor Ligation and Pooling Results
+      fromStep Library Quantitation
+        view Library Quantitation Results
+      fromStep Biochemical Genetics Extraction
+        view Biochemical Genetics Extraction
+
+    recId poolTubeId
+      fromStep Adaptor Ligation and Pooling Results
+        view Adaptor Ligation and Pooling Results
+      fromStep Capture
+        view Capture
+      fromStep Library Quantitation Setup
+        view Library Quantitation Setup
+      fromStep Library Pooling and Denaturation
+        view Library Pooling and Denaturation
+
+    recId libraryQuantPlateId
+      fromStep Library Quantitation Results
+        view Library Quantitation Results
+
+#     recId Uploaded Documents ID
+#       fromStep Karyogram Prep and Analysis
+#         view DownloadInsurance
+#       fromStep Microscope Analysis by Tech 1
+#         view DownloadInsurance
+#       fromStep Microscope Analysis by Tech 2
+#         view DownloadInsurance
+#       fromStep Review by Senior Scientist
+#         view DownloadInsurance
+#       fromStep FISH Analyst 2
+#         view DownloadFile Unrestricted FISH
+#       fromStep FISH Analyst 1
+#         view DownloadFile Unrestricted FISH
+#       fromStep FISH Senior Scientist Review
+#         view DownloadFile Unrestricted FISH
+

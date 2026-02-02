@@ -1,0 +1,108 @@
+# Mitogen LIMS
+# Barcode Printer
+# 
+# @see config/Barcode.ixml
+config
+  steps
+    stepGroup Barcode Printer
+    
+    step View Printed Barcodes
+      form
+        table
+          class= stdTableBasic
+          sqlQuery~ SELECT bp.barcode AS "Barcode", bp.printerName AS "Printer", bp.printerIP AS "IP", bp.printerPort AS "Port", e.eventDate AS "Date", bp.printed AS "Printed"
+            - FROM barcodePrinter bp LEFT JOIN events e ON e.eventId = bp.eventId ORDER BY e.eventDate DESC LIMIT 1000
+  
+  
+  timerTask BarcodePrintTimer
+    intervalSeconds 10
+    jython
+      import os
+      import ssl
+      import urllib
+      import urllib2
+      import json
+      
+      try:
+        switchboard.log("*** Barcode Timer Ping ***")
+        
+        prop = ~{~}
+        prop_path = r"""{_configPath}transferagent.properties"""
+        if not os.path.exists(prop_path):
+          raise IOError("Transfer Agent properties file does not exist...")
+        
+        with open(prop_path) as infile:
+          for line in infile:
+            if line.startswith('host='):
+              prop['host'] = line.split('=', 1)[1].strip()
+            if line.startswith('username='):
+              prop['username'] = line.split('=', 1)[1].strip()
+            if line.startswith('password='):
+              prop['password'] = line.split('=', 1)[1].strip()
+        
+        if not all(i in prop for i in ['host','username','password']):
+          raise Exception("Invalid properties file...")
+        
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
+        switchboard.log("Get Barcodes")
+        values = ~{'userId': prop['username'], 'password': prop['password'], 'stepName': 'GET Barcodes To Print', 'Submit': True ~}
+        data = urllib.urlencode(values)
+        req = urllib2.Request(prop['host'], data)
+        response = urllib2.urlopen(req, context=ctx)
+        result = response.read()
+        obj = json.loads(result)
+        
+        pendingBarcodes = []
+        if obj['data']:
+          switchboard.log("Insert Barcodes")
+          
+          sqlInsertBarcode = "INSERT INTO barcodePrinter (barcode, zpl, printerName, printerIP, printerPort, eventId, extBarcodeId) values (?, ?, ?, ?, ?, ?, ?)"
+          ps = switchboard.connection.prepareStatement(sqlInsertBarcode)
+          
+          for b in obj['data']:
+            ps.setString(1, b['barcode'])
+            ps.setString(2, b['zpl'])
+            ps.setString(3, b['printerName'])
+            ps.setString(4, b['printerIP'])
+            ps.setInt(5, b['printerPort'])
+            ps.setLong(6, {_eventId})
+            ps.setInt(7, b['id'])
+            ps.execute()
+            
+            pendingBarcodes.append([b['id'], b['barcode']])
+        else:
+          switchboard.log("No barcodes to print")
+        
+        if pendingBarcodes:
+          switchboard.log("Post Pending")
+          jsonBarcodes = json.dumps(pendingBarcodes)
+          values = ~{'userId': prop['username'], 'password': prop['password'], 'stepName': 'POST Print Pending', 'barcodes': jsonBarcodes, 'formNumber' : 0, 'Submit': True ~}
+          data = urllib.urlencode(values)
+          req = urllib2.Request(prop['host'], data)
+          response = urllib2.urlopen(req, context=ctx)
+      except IOError as e:
+        switchboard.log(e.message)
+      except urllib2.HTTPError as e:
+        switchboard.log(e.code)
+        switchboard.log(e.read())
+      except Exception as e:
+        switchboard.log(e.message)
+    
+    ifCondition SELECT 1 FROM barcodePrinter WHERE printed IS NULL LIMIT 1
+      forEach SELECT id, barcode, zpl, printerName, printerIP, printerPort FROM barcodePrinter WHERE printed IS NULL
+        jython
+          switchboard.log("Print ZPL: {_:barcode}")
+        
+        # Print barcode
+        print
+          printerIP {_:printerIP}
+          port {_:printerPort}
+          sqlQuery select 1 from dual
+          zpl {_:zpl}
+        
+        # Update the local print queue table
+        sqlPreparedStatement UPDATE barcodePrinter SET printed = 1 WHERE id = ?
+          long {_:id}

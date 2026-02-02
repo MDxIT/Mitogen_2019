@@ -1,0 +1,50 @@
+
+#auditTrailDiv {
+	clear: both;
+	padding-top: 25px;
+}
+
+#auditTrailFieldSet {
+	border-radius: 10px;
+	width: 96%;
+}
+
+#auditTrailTable {
+    width: 100%;
+}
+
+#specimenInfoDiv {
+	float: left;
+	margin-top: 10px;
+}
+
+#patientInfoDiv {
+	float: left;
+    width: 45%;
+}
+
+#orderInfoDiv {
+	float: left;
+	margin-right: 20px;
+}
+
+.initialContainerId {
+	font-weight:bold;
+	font-size: 1.2em;
+}
+
+.initialContainerType {
+	font-style: italic;
+}
+
+.processingContainerId	{
+	font-weight: bold;
+}
+.processingContainerType	{
+	font-weight: italic;
+}
+
+.noTransfer{
+	font-weight: lighter;
+	font-color: gainsboro;
+}

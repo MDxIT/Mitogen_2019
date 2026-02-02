@@ -1,0 +1,316 @@
+    step [$$STEP_NAME$$]
+      form
+        data-parsley-validate=
+        script
+          src= js/components/container.js
+        script
+          src= js/components/printBarcode.js
+        script
+          src= js/tasks/sampleMinMax.js
+        script
+          src= js/tasks/batchingUtils.js
+        script
+          src= js/tasks/samplePoolSample.js
+
+        include stepInstructions
+        # PARAMETERS FOR GENERATE NEW SEQUENCE
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "poolReadOnly",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'false'
+          -     ELSE 'true'
+          -   END AS "poolRequired"
+          string [$$Generate_Pool_ID$$]
+          string [$$Generate_Pool_ID$$]
+
+        # PARAMETERS FOR MIN/MAX
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '0'
+          -     ELSE ?
+          -   END AS "sampleMin"
+          string [$$Pool_Tube_Min_Samples$$]
+          string [$$Pool_Tube_Min_Samples$$]
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '5000'
+          -     ELSE ?
+          -   END AS "sampleMax"
+          string [$$Pool_Tube_Max_Samples$$]
+          string [$$Pool_Tube_Max_Samples$$]
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+        printerControls
+          configureIf~ [$$Print_Pool_Barcode$$]
+            advanced~
+            equals~ Yes
+            or~ [$$Print_Sample_Details$$]
+              equals~ Yes
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+
+        fieldset
+          legend Source
+
+          include sampleList_table
+            parameter~ col1
+              value= [$$Sample_Display_Column_1$$]
+            parameter~ col2
+              value= [$$Sample_Display_Column_2$$]
+            parameter~ col3
+              value= [$$Sample_Display_Column_3$$]
+            parameter~ col4
+              value= [$$Sample_Display_Column_4$$]
+            parameter~ col5
+              value= [$$Sample_Display_Column_5$$]
+            parameter~ col6
+              value= [$$Sample_Display_Column_6$$]
+            parameter~ prioritySetName
+              value= priority
+            parameter~ print
+              value= No
+            parameter~ action
+              value= No
+            parameter~ comments
+              value= [$$Sample_Comments$$]
+            parameter~ commentHistory
+              value= [$$Sample_Comment_History$$]
+            parameter~ actionSetName
+              value= passfail
+            parameter~ counter
+              value= [$$Sample_Counter$$]
+            parameter~ validateOrTransfer
+              value= Validate
+            parameter~ printAll
+              value= [$$Print_Sample_Details$$]
+            parameter~ scanAll
+              value= false
+            parameter~ parentId
+              value=
+            parameter~ parentIdRequired
+              value= false
+            parameter~ containerIdGen
+              value=
+            parameter~ fileType
+              value= [$$File_Category$$]
+
+        fieldset
+          legend Destination
+
+          fieldset
+            configureIf~ [$$Pool_Tube_Min_Samples$$]
+              advanced~
+              not~
+                equals~ Not Applicable
+              or~ [$$Pool_Tube_Max_Samples$$]
+                not~
+                  equals~ Not Applicable
+              or~ [$$Sample_Counter$$]
+                equals~ On
+
+            legend Pool Count Details
+            rowGroups
+              rowGroup
+                div
+                  vertical
+                    number minSamples
+                      size= 4
+                      class= minSamples spacer
+                      screenLabel~ Min Allowed:
+                      id= sampleMin
+                      readonly=
+
+                      value= {_:sampleMin}
+                div
+                  vertical
+                    number maxSamples
+                      size= 4
+                      class= maxSamples spacer
+                      screenLabel~ Max Allowed:
+                      id= sampleMax
+                      readonly=
+
+                      value= {_:sampleMax}
+                div
+                  configureIf~ [$$Sample_Counter$$]
+                    advanced~
+                    equals~ On
+
+                  id= counter_div
+                  vertical
+                    number counter
+                      size= 4
+                      class= counter spacer
+                      readonly=
+                      screenLabel~ Number in Pool Tube:
+
+          include containerComponent
+            parameter~ containerName
+              value= poolTubeId
+            parameter~ containerScreenLabel
+              value= [$$Pool_Screen_Label$$]
+            parameter~ containerReadonly
+              value= {_:poolReadonly}
+            parameter~ containerNew
+              value= true
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= poolTubeId
+            parameter~ containerRequired
+              value= {_:poolRequired}
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value=
+            parameter~ useThisSequence
+              value= poolTubeId
+            parameter~ containerCommentsInclude
+              value= [$$Pool_Tube_Comments$$]
+            parameter~ containerActionInclude
+              value= [$$Action_Option$$]
+            parameter~ containerGenerateFromSequence
+              value= [$$Generate_Pool_ID$$]
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= [$$Print_Pool_Barcode$$]
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+      include sampleList_SQL
+        parameter~ validateOrTransfer
+          value= Validate
+
+      # ADD TO POOL TUBE
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~
+          not~
+            isBlank~
+
+          setFormQueryResult
+            sqlPreparedQuery
+              - SELECT containerType
+              - FROM containers
+              - WHERE containerId = ?
+              string {_columnInput_samples:4}
+
+
+          sqlPreparedStatement
+            - UPDATE specimenRuns
+            - SET currentParentId = ?,
+            -     currentParentPosition = '',
+            -     lastUpdatedEventId = ?
+            - WHERE runId = ?
+            string {poolTubeId}
+            long {_eventId}
+            string {_columnInput_samples:9}
+
+
+          # USED FOR DEQUEUEING SAMPLES
+          include routeContainer
+            parameter~ routingDirection
+              value= IN
+            parameter~ routingType
+              value= run
+            parameter~ processContainerId
+              value= {_columnInput_samples:9}
+            parameter~ result
+              value=
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value=
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_step}
+
+      include createNewPoolRun
+        parameter~ processContainerId
+          value= {poolTubeId}
+        parameter~ processRunWorkflowParentRunId
+          value=
+        parameter~ currentParentId
+          value=
+        parameter~ currentParentPosition
+          value=
+
+      sqlPreparedStatement~
+        - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+        - SELECT poolRunId, ?, ?, ?
+        - FROM poolRuns WHERE currentContainerId = ?
+        string {_step}_Container_Notes
+        string {poolTubeId_Comments}
+        long {_eventId}
+        string {poolTubeId}
+
+      forEach SELECT sr.runId as 'specimenRunId', sr.currentParentPosition, sr.specimenMethodsId
+        - FROM specimenRuns sr
+        - WHERE sr.currentParentId = '{poolTubeId}'
+
+        sqlPreparedStatement
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - VALUES(?,?,?,?,?)
+          string {_:poolRunId}
+          string {_:currentParentPosition}
+          string run
+          string {_:specimenRunId}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 0, c.containerType, c.containerId, ?
+          - FROM specimenRuns sr
+          - INNER JOIN containers c
+          -   ON sr.currentContainerId = c.containerId
+          - WHERE sr.runId = ?
+          string {_:poolRunId}
+          long {_eventId}
+          string {_:specimenRunId}
+
+
+      # OUT CONTAINER ROUTING, APPLIES NEXT STEP DEFAULT
+      include routeContainer
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ processContainerId
+          value= {_:poolRunId}
+        parameter~ result
+          value= {poolTubeId_Action}
+        parameter~ deleteFromStep
+          value=
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+

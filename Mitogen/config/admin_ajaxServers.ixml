@@ -1,0 +1,372 @@
+config
+  steps
+    stepGroup Admin Ajax Servers
+
+    step Ajax Get Patient Details by Sqid
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT firstName
+          - , middleName
+          - , lastName
+          - , dob AS "dob"
+          - , geneticGender
+          - FROM patients
+          - WHERE sqId = ?
+          string {sqid}
+        columnSpecs~ t1
+          column 4
+            formatDate~
+            convertDateTime~ false
+
+    step Ajax Validate Squid
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ (SELECT 'Exists' AS "sqidCheck"
+          - , patientId
+          - FROM patients
+          - WHERE sqId = ?)
+          - UNION
+          - (SELECT 'New' AS "sqidCheck"
+          - , 'New' AS "patientId"
+          - FROM dual)
+          - LIMIT 1
+          string {sqid}
+
+    step Ajax Patient Search Requests By Sqid
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= sqidRequestsTable
+        class= stdTableSort
+        sqlPreparedQuery~
+          - SELECT
+          - CONCAT('<a href= # class= viewOrder>',r.requestId,'</a>') as "Order ID"
+          - , r.type as "Type"
+          - , r.receivedDate as "Date"
+          - FROM requestForms r
+          - INNER JOIN patients p
+          -      ON r.patientId = p.patientId
+          - WHERE p.sqId = ?
+          string {sqid}
+
+    step Ajax Patient Search Requests By MRN and PatientId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= currentMRNRequests
+        class= stdTableSort
+        sqlPreparedQuery~
+          - SELECT '' as "Unmerge<br>Requests"
+          - , CONCAT('<a href=# class= viewOrder>',r.requestId,'</a>') as "Order ID"
+          - , GROUP_CONCAT(p.name SEPARATOR '<br>') as "Panels"
+          - , GROUP_CONCAT(rd.reportId SEPARATOR '<br>') as 'Reports'
+          - , date(r.receivedDate) as "Date"
+          - FROM requestForms r
+          - LEFT JOIN reportDetails rd
+          -      ON r.id = rd.requestFormsId
+          - LEFT JOIN reqPanels rp
+          -     ON r.requestId = rp.requestId
+          - LEFT JOIN panels p
+          -     ON rp.panelCode = p.panelCode
+          - WHERE r.patientId = ?
+          - AND r.mrn = ?
+          - GROUP BY r.requestId
+          string {patientId}
+          string {mrn}
+        columnSpecs~ unmergeRequests
+          allowChangedRecordIds
+          column 1
+            inputType checkbox
+              class= unmergeRequestsCheckbox
+          column 5
+            formatDate~
+            convertDateTime~ false
+
+    step Ajax Admin Patients Search Server
+      accessLevel 2
+      class uniflow.AjaxQuery
+      jython
+        import com.uniconnect.uniflow.node as node
+
+        dob = '{DOB}'
+        fDob = ''
+        if dob:
+
+          nodeDate = node.date()
+          nodeDate.switchboard = switchboard
+          nodeDate.add("value=", dob)
+          nodeDate.add("convert~", "false")
+          nodeDate.parseAndSetDateValue()
+          fDob = nodeDate.getSQLFormat()
+
+      table
+        id= patientSearchTable
+        class= stdTableBasic
+        sqlPreparedQuery~ SELECT DISTINCT
+          - CASE WHEN (LENGTH(?) > 0 AND p.firstName LIKE ?) THEN 10 ELSE 0 END +
+          - CASE WHEN (LENGTH(?) > 0 AND p.firstName = ?) THEN 12 ELSE 0 END +
+          - CASE WHEN (LENGTH(?) > 0 AND p.lastName LIKE ?) THEN 12 ELSE 0 END +
+          - CASE WHEN (LENGTH(?) > 0 AND p.lastName = ?) THEN 15 ELSE 0 END +
+          - CASE WHEN (LENGTH(?) > 0 AND ps.mrn = ?) THEN 20 ELSE 0 END +
+          - CASE WHEN (LENGTH(?) > 0 AND p.dob = ?) THEN 20 ELSE 0 END +
+          - CASE WHEN (LENGTH(?) > 0 AND p.geneticGender = ?) THEN 10
+          - ELSE 0 END AS 'Hidden',
+          - p.patientId AS 'Patient Id',
+          - concat(p.firstName,' ',p.lastName) AS 'Name',
+          - p.geneticGender AS 'Gender',
+          - DATE(p.dob) AS 'DOB',
+          - GROUP_CONCAT( DISTINCT
+          -       CONCAT(ps.mrn, (CASE WHEN ps.mrn <> '' THEN CONCAT (' - ', ps.status) ELSE '' END)) ORDER BY ps.status, ps.mrn
+          -       SEPARATOR '<br>') AS 'MRN(s) - Status'
+          - FROM patients p
+          - INNER JOIN patientSources ps ON p.patientId = ps.patientId
+          - WHERE ((length(?) > 0 AND p.lastName LIKE ?)
+          - OR  (length(?) > 0 AND p.firstName LIKE ?)
+          - OR (length(?) > 0 AND p.dob =  ?)
+          - OR (length(?) > 0 AND ps.mrn = ?)
+          - OR (length(?) > 0 AND p.geneticGender = ?)
+          - )
+          - GROUP BY p.patientId
+          - ORDER BY Hidden DESC
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {MRN}
+          string {MRN}
+          string {_j:fDob}
+          string {_j:fDob}
+          string {gender}
+          string {gender}
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {_j:fDob}
+          string {_j:fDob}
+          string {MRN}
+          string {MRN}
+          string {gender}
+          string {gender}
+        columnSpecs~ patientTable
+          column 5
+            formatDate~
+            convertDateTime~ false
+
+
+
+    step Ajax Admin Person Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlPreparedQuery~
+          - SELECT
+          -   ph.physicianId AS "Physician Id",
+          -   IF(ph.first_name = '', ph.last_name, IF( ph.last_name = '', ph.first_name, CONCAT(ph.last_name, ', ', ph.first_name) ))AS "Name",
+          -   GROUP_CONCAT(DISTINCT os.name) AS "Client(s)",
+          -   GROUP_CONCAT(DISTINCT CONCAT(phs.phone1, '<br />', phs.phone2) SEPARATOR '<br />') AS "Phone Number(s)",
+          -   GROUP_CONCAT(DISTINCT phs.email) AS "Email(s)"
+          - FROM physicians ph
+          - LEFT JOIN physicianSites phs
+          - ON ph.physicianId = phs.physicianId
+          - AND phs.active = 1
+          - LEFT JOIN organizationSites os
+          - ON phs.siteId = os.siteId
+          -   AND os.isSystem IS NULL
+          - WHERE ? = 'true'
+          -   OR (
+          -     (length(?) > 0 AND ph.last_name LIKE ?)
+          -     OR (length(?) > 0 AND ph.first_name LIKE ?)
+          -     OR (length(?) > 0 AND os.name LIKE ?)
+          -     OR (length(?) > 0 AND
+          -       REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(phs.phone1, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -         =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') )
+          -     OR (length(?) > 0 AND
+          -       REPLACE(  REPLACE( REPLACE( REPLACE( REPLACE(phs.phone2, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -         =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') )
+          -     OR (length(?) > 0 AND phs.email = ?)
+          -   )
+          - GROUP BY ph.physicianId
+          - ORDER BY
+          -   CASE WHEN (length(?) > 0 AND ph.first_name = ?) THEN 12 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND ph.first_name LIKE ?) THEN 10 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND ph.last_name = ?) THEN 15 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND ph.last_name LIKE ?) THEN 13 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND os.name = ?) THEN 7 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND os.name LIKE ?) THEN 5 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND
+          -      REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(phs.phone1, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -     =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''))
+          -     THEN 13 ELSE 0 end +
+          -   CASE WHEN (length(?) > 0 AND
+          -      REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(phs.phone2, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -     =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''))
+          -     THEN 13 ELSE 0 end +
+          -   CASE WHEN (length(?) > 0 AND phs.email = ?) THEN 13 ELSE 0 END DESC, Name
+
+          string {displayAll}
+          string {physicianLastName}
+          string %{physicianLastName}%
+          string {physicianFirstName}
+          string %{physicianFirstName}%
+          string {customer}
+          string %{customer}%
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {email}
+          string {email}
+          string {physicianFirstName}
+          string {physicianFirstName}
+          string {physicianFirstName}
+          string %{physicianFirstName}%
+          string {physicianLastName}
+          string {physicianLastName}
+          string {physicianLastName}
+          string %{physicianLastName}%
+          string {customer}
+          string {customer}
+          string {customer}
+          string %{customer}%
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {email}
+          string {email}
+
+    step Ajax Admin Site Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlPreparedQuery~
+          - SELECT
+          -      os.siteId AS "Client Id",
+          -      os.siteCode AS "Site Code",          
+          -      os.name AS "Client Name",
+          -      o.name AS "Organization Name",
+          -      GROUP_CONCAT(CONCAT(IFNULL(ph.last_name, ''),  CASE IFNULL(ph.first_name,'') WHEN '' THEN '' ELSE ', ' END, IFNULL(ph.first_name,'')) SEPARATOR '<br />') AS "Physician(s)",
+          -      CONCAT(os.phone1, CASE IFNULL(os.phone2,'') WHEN '' THEN '' ELSE '<br />' END, os.phone2) AS "Phone Number(s)",
+          -      os.email AS "Email"
+          - FROM organizationSites os
+          - LEFT JOIN organizations o
+          - ON os.orgId = o.orgId
+          - LEFT JOIN physicianSites ps
+          - ON os.siteId = ps.siteId
+          - AND ps.active = 1
+          - LEFT JOIN physicians ph
+          - ON ps.physicianId = ph.physicianId
+          - WHERE os.isSystem IS NULL
+          -   AND ('{displayAll}' = 'true' )
+          -   OR (
+          -     (length(?) > 0 AND os.name LIKE ?)
+          -     OR (length(?) > 0 AND o.name LIKE ?)
+          -     OR (length(?) > 0 AND ph.first_name LIKE ?)
+          -     OR (length(?) > 0 AND ph.last_name LIKE ?)
+          -     OR (length(?) > 0 AND
+          -        REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(os.phone1, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -         =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') )
+          -     OR (length(?) > 0 AND
+          -        REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(os.phone2, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -         =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '') )
+          -     OR (length(?) > 0 AND os.email = ?)
+          -   )
+          - GROUP BY os.siteId
+          - ORDER BY
+          -   case when (length(?) > 0 AND os.name = ?) then 50 else 0 end +
+          -   case when (length(?) > 0 AND os.name LIKE ?) then 30 else 0 end +
+          -   case when (length(?) > 0 AND o.name = ?) then 30 else 0 end +
+          -   case when (length(?) > 0 AND o.name LIKE ?) then 20 else 0 end +
+          -   case when (length(?) > 0 AND ph.first_name = ?) then 20 else 0 end +
+          -   case when (length(?) > 0 AND ph.first_name LIKE ?) then 10 else 0 end +
+          -   case when (length(?) > 0 AND ph.last_name = ?) then 20 else 0 end +
+          -   case when (length(?) > 0 AND ph.last_name LIKE ?) then 10 else 0 end +
+          -   CASE WHEN (length(?) > 0 AND
+          -      REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(os.phone1, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -     =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''))
+          -     THEN 13 ELSE 0 end +
+          -   CASE WHEN (length(?) > 0 AND
+          -      REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(os.phone2, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')
+          -     =  REPLACE( REPLACE( REPLACE( REPLACE( REPLACE(?, ' ', ''), '-', ''), '(', ''), ')', ''), '+', ''))
+          -     THEN 13 ELSE 0 end +
+          -   CASE WHEN (length(?) > 0 AND os.email = ?) THEN 13 ELSE 0 END DESC, os.Name
+
+          string {siteName}
+          string %{siteName}%
+          string {organizationName}
+          string %{organizationName}%
+          string {firstName}
+          string %{firstName}%
+          string {lastName}
+          string %{lastName}%
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {email}
+          string {email}
+          string {siteName}
+          string {siteName}
+          string {siteName}
+          string %{siteName}%
+          string {organizationName}
+          string {organizationName}
+          string {organizationName}
+          string %{organizationName}%
+          string {firstName}
+          string {firstName}
+          string {firstName}
+          string %{firstName}%
+          string {lastName}
+          string {lastName}
+          string {lastName}
+          string %{lastName}%
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {phoneNumber}
+          string {email}
+          string {email}
+
+    step ajaxCheckCurrentAssayReferences
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= checkCurrentReferences
+        sqlPreparedQuery~
+          - SELECT reference
+          - FROM allReferences a
+          - INNER JOIN assayReferences ar ON a.id = ar.referenceId
+          - WHERE a.active = 1
+          -   AND ar.active = 1
+          -   AND a.reference = ?
+          -   AND ar.codeName = ?
+          -   AND ? = ''
+          - UNION
+          -  SELECT reference
+          - FROM allReferences a
+          - INNER JOIN assayReferences ar ON a.id = ar.referenceId
+          - WHERE referenceId <> ?
+          -   AND a.active = 1
+          -   AND ar.active = 1
+          -   AND a.reference = ?
+          -   AND ar.codeName = ?
+          - UNION
+          - SELECT 'newReference' AS 'reference'
+          - FROM DUAL
+          string {assayReference}
+          string {codeName}
+          string {assayReferenceId}
+          string {assayReferenceId}
+          string {assayReference}
+          string {codeName}
+

@@ -1,0 +1,56 @@
+config
+  steps
+    stepGroup System Setup
+    step Install System
+      accessLevel 12
+      form
+        vertical
+          text clientId
+            screenLabel~ Client ID
+            required~ true
+          text name
+            style= width: 250px;
+            screenLabel~ Client Name
+            required~ true
+          select deploymentType
+            style= padding-right: .5em;
+            screenLabel~ Deployment
+            option Standalone
+              value= Standalone
+            option Delegated
+              value= Delegated
+          text alertEmail
+            style= width: 400px;
+            screenLabel~ Alert Email(s)
+          p
+          text clientAddress1
+            style= width: 250px;
+            screenLabel~ Address 1
+          text clientAddress2
+            style= width: 250px;
+            screenLabel~ Address 2
+          text clientCity
+            style= width: 250px;
+            screenLabel~ City
+          text clientState
+            screenLabel~ State
+          text postalCode
+            screenLabel~ Postal Code
+      sqlPreparedStatement INSERT INTO client (clientId, name, nameId, siteId, deploymentType, alertEmail, eventId) 
+        - VALUES (?, ?, md5(?), SHA2(CONCAT(?, NOW(), RAND()), 256), ?, ?, ?)
+        string {clientId}
+        string {name}
+        string {clientId}
+        string {clientId}
+        string {deploymentType}
+        string {alertEmail}
+        long {_eventId}
+      sqlPreparedStatement INSERT INTO clientAddress(clientId, address1, address2, city, state, postalCode, eventId)
+        - VALUES (?, ?, ?, ?, ?, ?, ?)
+        string {clientId}
+        string {clientAddress1}
+        string {clientAddress2}
+        string {clientCity}
+        string {clientState}
+        string {postalCode}
+        long {_eventId}

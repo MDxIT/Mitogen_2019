@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+  <title>Test Suite</title>
+</head>
+<body>
+<table id="suiteTable" cellpadding="1" cellspacing="1" border="1" class="selenium"><tbody>
+<tr><td><b>Test Suite</b></td></tr>
+<tr><td><a href="new_microarray_req">new_microarray_req</a></td></tr>
+<tr><td><a href="QC_Req">QC_Req</a></td></tr>
+<tr><td><a href="ReceiveSample">ReceiveSample</a></td></tr>
+<tr><td><a href="AssignSpecimenMethod_microarray">AssignSpecimenMethod_microarray</a></td></tr>
+<tr><td><a href="processSpecimens">processSpecimens</a></td></tr>
+<tr><td><a href="Extraction_extractDNA">Extraction_extractDNA</a></td></tr>
+<tr><td><a href="micro_BatchCreation">micro_BatchCreation</a></td></tr>
+<tr><td><a href="micro_QuantExtraction">micro_QuantExtraction</a></td></tr>
+<tr><td><a href="micro_NormalizeExtraction">micro_NormalizeExtraction</a></td></tr>
+<tr><td><a href="micro_Digest">micro_Digest</a></td></tr>
+<tr><td><a href="micro_Ligate">micro_Ligate</a></td></tr>
+<tr><td><a href="micro_PCRSetup">micro_PCRSetup</a></td></tr>
+<tr><td><a href="micro_PCR">micro_PCR</a></td></tr>
+<tr><td><a href="micro_PCRProductCheckSetup">micro_PCRProductCheckSetup</a></td></tr>
+<tr><td><a href="micro_PCRProductCheck">micro_PCRProductCheck</a></td></tr>
+<tr><td><a href="micro_productCheck">micro_productCheck</a></td></tr>
+<tr><td><a href="micro_Quantitate">micro_Quantitate</a></td></tr>
+<tr><td><a href="micro_Fragment">micro_Fragment</a></td></tr>
+<tr><td><a href="micro_FragmentQCGel">micro_FragmentQCGel</a></td></tr>
+<tr><td><a href="micro_Label">micro_Label</a></td></tr>
+<tr><td><a href="micro_hybridizationPrep">micro_hybridizationPrep</a></td></tr>
+<tr><td><a href="micro_HybLoadChip">micro_HybLoadChip</a></td></tr>
+</tbody></table>
+</body>
+</html>

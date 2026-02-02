@@ -1,0 +1,70 @@
+hr {
+	margin-top: 0;
+}
+
+input[type=text], input[type=file] {
+	width: 200px;
+	margin-bottom: 1em;
+	margin-right: 42px;
+}
+
+#search_genes div {
+	float: left;
+}
+
+.filter-section1 {
+	float: left;
+	min-width: 300px;
+}
+
+.filter-section4 {
+	clear: both;
+}
+
+.filter-section1 div {
+	display: inline-block;
+}
+
+.filter-section1 div div {
+	float: left; margin: 8px; 
+}
+
+.filter-section1 select {
+	float: left;
+	margin: 5px;
+	min-width: 135px;
+	min-height: 100px;
+}
+
+#gene_list_table {
+	width: 100%;
+}
+
+.gene-counts span {
+	font-weight: bold;
+	margin-left: .7em;
+}
+
+.gene-counts span:first-child {
+	margin-left: 0;
+}
+
+.filterOptions {
+	margin-bottom: 7px;
+	display: inline-block;
+	width:100%;
+}
+
+#aoh_search {
+	width: 200px;
+	margin-bottom: .3em;
+}
+
+#gene_search {
+	width: 210px;
+	height: 60px;
+}
+
+#applyFilter {
+	margin-left: 0;
+}

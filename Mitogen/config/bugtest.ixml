@@ -1,0 +1,1692 @@
+config
+  steps
+    stepGroup BugFixes
+    step wgCreateBatch
+
+      form
+        data-parsley-validate=
+
+        script
+          src= js/components/container.js
+
+        script
+          src= js/components/printBarcode.js
+
+        script
+          src= js/tasks/sampleMinMax.js
+
+        # PARAMETERS FOR GENERATE NEW SEQUENCE
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "batchReadonly",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'false'
+          -     ELSE 'true'
+          -   END AS "batchRequired"
+          string Auto Generated
+          string Auto Generated
+
+        # PARAMETERS FOR MIN/MAX
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '0'
+          -     ELSE ?
+          -   END AS "sampleMin"
+          string Not Applicable
+          string Not Applicable
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '5000'
+          -     ELSE ?
+          -   END AS "sampleMax"
+          string Not Applicable
+          string Not Applicable
+
+        # PARAMETERS FOR EXISTING CONTROLS
+        configurePreparedQuery~
+          - SELECT 
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT *
+          -       FROM controlRuns cr
+          -       WHERE cr.currentParentId = ?
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "existingControls"
+          - FROM DUAL
+          string {batchId}
+
+      # PARAMETERS FOR ADD CONTROLS
+        configurePreparedQuery~
+          - SELECT 
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT *
+          -       FROM inventoryUsage iu
+          -       WHERE iu.step = ?
+          -         AND inventoryItemUsage = 'Batch Control'
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "addControls"
+          - FROM DUAL
+          string {_step}
+
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= No
+          parameter~ currentLoop
+            value= N/A
+
+        include containerComponent
+          parameter~ containerName
+            value= batchId
+          parameter~ containerScreenLabel
+            value= my batch
+          parameter~ containerReadonly
+            value= {_:batchReadonly}
+          parameter~ containerNew
+            value= true
+          parameter~ containerAsSelect
+            value= false
+          parameter~ acceptQueue
+            value= any
+          parameter~ containerType
+            value= batchId
+          parameter~ containerRequired
+            value= {_:batchRequired}
+          parameter~ containerAdditionalClasses
+            value=
+          parameter~ containerValue
+            value=
+          parameter~ useThisSequence
+            value= batchId
+          parameter~ containerCommentsInclude
+            value= No
+          parameter~ containerActionInclude
+            value= Yes
+          parameter~ containerGenerateFromSequence
+            value= Auto Generated
+          parameter~ containerShowStorageLocation
+            value= No
+          parameter~ containerPrintBarcode
+            value= Yes
+          parameter~ containerCategoryInclude
+            value= View Only
+          parameter~ parentIdRequired
+            value= false
+          parameter~ includePriority
+            value= View Only
+
+
+          #### PARAMETER DRIVEN ROUTING
+          parameter~ containerActionOptions
+            value= passfail
+
+
+        br
+          include controlComponent
+            parameter~ controls_stepName
+              value= {_step}
+            parameter~ controls_commentsInclude
+              value= No
+            parameter~ controls_commentHistory
+              value= No
+            parameter~ controls_validateOrTransfer
+              value= Validate
+            parameter~ existingControls
+              value= {_:existingControls}
+            parameter~ addControls
+              value= {_:addControls}
+            parameter~ groupingContainerId
+              value= 
+            parameter~ controlIdGen
+              value= Auto Generated
+            parameter~ printBarcodes
+              value= No
+        br
+        div
+
+          vertical
+            text sampleMin
+              size= 4
+              screenLabel~ Batch Minimum:
+              id= sampleMin
+              value= {_:sampleMin}
+            text sampleMax
+              size= 4
+              screenLabel~ Batch Maximum:
+              id= sampleMax
+              value= {_:sampleMax}
+
+        br
+
+
+        include sampleList_table
+          parameter~ col1
+            value= 
+          parameter~ col2
+            value= 
+          parameter~ col3
+            value= 
+          parameter~ col4
+            value= 
+          parameter~ col5
+            value= 
+          parameter~ col6
+            value= 
+          parameter~ prioritySetName
+            value= priority
+          parameter~ print
+            value= Yes
+          parameter~ action
+            value= No
+          parameter~ comments
+            value= No
+          parameter~ commentHistory
+            value= No
+          parameter~ actionSetName
+            value= passfail
+          parameter~ counter
+            value= On
+          parameter~ validateOrTransfer
+            value= Validate
+          parameter~ printAll
+            value= Selected
+          parameter~ scanAll
+            value= false
+          parameter~ parentId
+            value=
+          parameter~ parentIdRequired
+            value= false
+          paramter~ containerIdGen
+            value=
+          parameter~ fileType
+            value= 
+
+
+      include sampleList_SQL
+        parameter~ validateOrTransfer
+          value= Validate
+
+
+      # ADD TO BATCH
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~ true
+          not~
+            isBlank~
+
+          setFormQueryResult
+            sqlPreparedQuery
+              - SELECT containerType
+              - FROM containers
+              - WHERE containerId = ?
+              string {_columnInput_samples:4}
+
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES (?,?,?,?,?),
+            -         (?,?,?,?,?)
+            string {batchId}
+            string {_columnInput_samples:2}
+            string {_:containerType}
+            string {_columnInput_samples:4}
+            long {_eventId}
+            string {batchId}
+            string {_columnInput_samples:2}
+            string runId
+            string {_columnInput_samples:9}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - UPDATE specimenRuns
+            - SET currentParentId = ?,
+            -     currentParentPosition = ?,
+            -     lastUpdatedEventId = ?
+            - WHERE runId = ?
+            string {batchId}
+            string {_columnInput_samples:2}
+            long {_eventId}
+            string {_columnInput_samples:9}
+
+
+          # USED FOR DEQUEUEING SAMPLES
+          include routeContainer
+            parameter~ routingDirection
+              value= IN
+            parameter~ routingType
+              value= run
+            parameter~ processContainerId
+              value= {_columnInput_samples:9}
+            parameter~ result
+              value=
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value=
+
+      include controlAddTableSQL
+        parameter~ addControls
+          value= {addControls}
+        parameter~ runType
+          value= workflow
+        parameter~ processRunWorkflowParentRunId
+          value= 
+        parameter~ currentParentId
+          value= {batchId}
+        parameter~ currentParentPosition
+          value= 
+        parameter~ controlIdGen
+          value= Auto Generated
+
+
+      include controlListTableSQL
+        parameter~ validateOrTransfer
+          value= Validate
+        parameter~ existingControls
+          value= {existingControls}
+        parameter~ controlIdGen
+          value= Auto Generated
+        parameter~ currentParentId
+          value=
+        parameter~ currentParentPosition
+          value=
+
+      # OUT CONTAINER ROUTING, APPLIES NEXT STEP DEFAULT
+      include routeContainer
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ processContainerId
+          value= {batchId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value=
+        parameter~ defaultNextStep
+          value= wgBatchtoTray
+
+    step wgBatchtoTray
+
+      allowDuplicateContainerIds true
+
+      form
+
+
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= Batch Id
+          parameter~ currentStep
+            value= wgBatchtoTray
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= batchId
+
+        div
+          configureIf~ 'Auto Generated' == 'Allow Existing Identifier'
+          topVertical
+            container trayId
+              screenLabel~ Tray ID
+              class= barcodeBackground
+              acceptQueue~ any
+              containerType~ trayId
+              required~ true
+              validate~
+                - SELECT 1
+                - FROM contents
+                - WHERE containerId = ?
+                - AND contentType = 'trayId'
+                - AND attribute = 'self'
+                string {_thisInput}
+
+
+        hidden allowExisitingId
+          id= allowExisitingId
+          value= Auto Generated
+
+      form
+
+        data-parsley-validate=
+
+        script
+          src= js/components/container.js
+
+        script
+          src= js/components/printBarcode.js
+
+        script
+          src= js/batchToTray.js
+
+        script
+          src= js/tasks/removeSelectOption.js
+
+        configurePreparedQuery~
+          - SELECT CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -   ELSE ? END AS "batchId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+        configurePreparedQuery~
+          - SELECT ? AS "trayId"
+          string {trayId}
+
+        configurePreparedQuery~
+          - SELECT CASE ?
+          -   WHEN 'Allow Existing Identifier'
+          -   THEN 'false'
+          -   ELSE 'true' END AS "newPlate"
+          string Auto Generated
+
+        configurePreparedQuery~
+          - SELECT
+          - tmp.trayRows AS 'trayRows',
+          - tmp.trayColumns AS 'trayColumns',
+          - tmp.trayType AS 'trayType'
+          - FROM
+          -   trayMapProperties tmp
+          -   INNER JOIN
+          -   trayMapStepAssignments tms ON tmp.id = tms.trayMapId
+          - WHERE tms.step = ?
+          allowEmptyResults~
+          emptyResultDefault~
+            trayRows= 7
+            trayColumns= 5
+            trayType= Plate
+          string wgBatchtoTray
+
+        # PARAMETERS FOR EXISTING CONTROLS
+        configurePreparedQuery~
+          - SELECT 
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT *
+          -       FROM controlRuns cr
+          -       WHERE cr.currentParentId = ?
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "existingControls"
+          - FROM DUAL
+          string {_:batchId}
+        # PARAMETERS FOR ADD CONTROLS
+        configurePreparedQuery~
+          - SELECT 
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT *
+          -       FROM inventoryUsage iu
+          -       WHERE iu.step = ?
+          -         AND inventoryItemUsage = 'Batch Control'
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "addControls"
+          - FROM DUAL
+          string {_step}
+
+
+        hidden trayRows
+          value= {_:trayRows}
+        hidden trayColumns
+          value= {_:trayColumns}
+        hidden trayType
+          value= {_:trayType}
+        hidden isBatch
+          id= isBatch
+          value= Yes
+
+        hidden editDestinationTray
+          id= editDestinationTray
+          value= Yes
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= No
+          parameter~ currentLoop
+            value= N/A
+
+        ## Batch to transfer from
+        include containerComponent
+
+          parameter~ containerName
+            value= batchId
+
+          parameter~ containerScreenLabel
+            value= Batch Id
+
+          parameter~ containerReadonly
+            value= true
+
+          parameter~ containerNew
+            value= false
+
+          parameter~ containerAsSelect
+            value= false
+
+          parameter~ acceptQueue
+            value= {_step}
+
+          parameter~ containerType
+            value= batchId
+
+          parameter~ containerRequired
+            value= No
+
+          parameter~ containerAdditionalClasses
+            value=
+
+          parameter~ containerValue
+            value= {_:batchId}
+
+          parameter~ useThisSequence
+            value=
+
+          parameter~ containerCommentsInclude
+            value= No
+
+          parameter~ containerActionInclude
+            value= No
+
+          parameter~ containerGenerateFromSequence
+            value= No
+
+          parameter~ containerShowStorageLocation
+            value= No
+
+          parameter~ containerPrintBarcode
+            value= Yes
+
+          parameter~ containerCategoryInclude
+            value= View Only
+
+          parameter~ includePriority
+            value= View Only
+
+          parameter~ containerActionOptions
+            value=
+
+        br
+        
+        include controlComponent
+          parameter~ controls_stepName
+            value= {_step}
+          parameter~ controls_commentsInclude
+            value= No
+          parameter~ controls_commentHistory
+            value= No
+          parameter~ controls_validateOrTransfer
+            value= Validate
+          parameter~ existingControls
+            value= {_:existingControls}
+          parameter~ addControls
+            value= No
+          parameter~ groupingContainerId
+            value= {_:batchId}
+          parameter~ controlIdGen
+            value= 
+          parameter~ printBarcodes
+            value= No
+
+        br
+
+        ## Sample List for batch
+        include sampleList_table
+
+          parameter~ col1
+            value= 
+
+          parameter~ col2
+            value= 
+
+          parameter~ col3
+            value= 
+
+          parameter~ col4
+            value= 
+
+          parameter~ col5
+            value= 
+
+          parameter~ col6
+            value= 
+
+          parameter~ prioritySetName
+            value= priority
+
+          parameter~ print
+            value= No
+
+          parameter~ action
+            value= No
+
+          parameter~ comments
+            value= No
+
+          parameter~ commentHistory
+            value= No
+
+          parameter~ actionSetName
+            value=
+
+          parameter~ counter
+            value= No
+
+          parameter~ validateOrTransfer
+            value= Validate
+
+          parameter~ printAll
+            value= Print All
+
+          parameter~ scanAll
+            value= true
+
+          parameter~ parentId
+            value= {_:batchId}
+
+          parameter~ parentIdRequired
+            value= true
+
+          parameter~ fileType
+            value= 
+          parameter~ containerIdGen
+            value=
+
+        div
+          configureIf~ {_:trayType}
+            advanced~
+            equals~ plate
+              ignoreCase~
+
+          include trayComponent
+
+            parameter~ containerNameParm
+              value= trayId
+
+            parameter~ containerScreenLabel
+              value= Destination Tray
+
+            parameter~ containerReadonly
+              value= false
+
+            parameter~ containerNew
+              value= {_:newPlate}
+
+            parameter~ containerAsSelect
+              value= false
+
+            parameter~ acceptQueue
+              value= any
+
+            parameter~ containerType
+              value= trayId
+
+            parameter~ containerRequired
+              value= true
+
+            parameter~ containerAdditionalClasses
+              value=
+
+            parameter~ containerValue
+              value= {_:trayId}
+
+            parameter~ useThisSequence
+              value= trayId
+
+            parameter~ containerCommentsInclude
+              value= Yes
+
+            parameter~ containerGenerateFromSequence
+              value= Auto Generated
+
+            parameter~ containerShowStorageLocation
+              value= No
+
+            parameter~ containerPrintBarcode
+              value= Yes
+
+            parameter~ containerActionInclude
+              value= No
+
+            parameter~ containerCategoryInclude
+              value= Select
+
+            parameter~ containerActionOptions
+              value= passfail
+
+            parameter~ platePrintLayout
+              value= Yes
+
+            parameter~ plateAllowSampleDuplicates
+              value= No
+
+            parameter~ trayType
+              value= plate
+
+            parameter~ trayRowNumber
+              value= {_:trayRows}
+
+            parameter~ trayColumnNumber
+              value= {_:trayColumns}
+
+            parameter~ userClass1
+              value=
+
+            parameter~ includePriority
+              value= Yes
+
+            parameter~ trayInputReadyOnly
+              value= false
+
+            parameter~ trayLabel
+              value= Destination Plate
+
+            parameter~ sampleScanReadOnly
+              value= Yes
+
+            parameter~ trayToTray
+              value= false
+
+################################################
+        div
+          configureIf~ {_:trayType}
+            advanced~
+            equals~ grid
+              ignoreCase~
+
+          include trayComponent
+
+            parameter~ containerNameParm
+              value= trayId
+
+            parameter~ containerScreenLabel
+              value= Destination Tray
+
+            parameter~ containerReadonly
+              value= false
+
+            parameter~ containerNew
+              value= {_:newPlate}
+
+            parameter~ containerAsSelect
+              value= false
+
+            parameter~ acceptQueue
+              value= any
+
+            parameter~ containerType
+              value= trayId
+
+            parameter~ containerRequired
+              value= true
+
+            parameter~ containerAdditionalClasses
+              value=
+
+            parameter~ containerValue
+              value=
+
+            parameter~ useThisSequence
+              value= trayId
+
+            parameter~ containerCommentsInclude
+              value= Yes
+
+            parameter~ containerGenerateFromSequence
+              value= Auto Generated
+
+            parameter~ containerShowStorageLocation
+              value= No
+
+            parameter~ containerPrintBarcode
+              value= Yes
+
+            parameter~ containerActionInclude
+              value= No
+
+            parameter~ containerCategoryInclude
+              value= Select
+
+            parameter~ containerActionOptions
+              value= passfail
+
+            parameter~ platePrintLayout
+              value= Yes
+
+            parameter~ plateAllowSampleDuplicates
+              value= No
+
+            parameter~ trayType
+              value= grid
+
+            parameter~ trayRowNumber
+              value= {_:trayRows}
+
+            parameter~ trayColumnNumber
+              value= {_:trayColumns}
+
+            parameter~ userClass1
+              value=
+
+            parameter~ includePriority
+              value= Yes
+
+            parameter~ trayInputReadyOnly
+              value= false
+
+            parameter~ trayLabel
+              value= Destination Grid
+
+            parameter~ sampleScanReadOnly
+              value= Yes
+
+            parameter~ trayToTray
+              value= false
+
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~ true
+          not~
+            isBlank~
+          include routeContainer
+            parameter~ processContainerId
+              value= {_columnInput_samples:9}
+            parameter~ result
+              value=
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value=
+            parameter~ routingDirection
+              value= OUT
+            parameter~ routingType
+              value= run
+
+      include sampleList_SQL
+        parameter~ validateOrTransfer
+          value= Validate
+
+      include controlAddTableSQL
+        parameter~ addControls
+          value= {addControls}
+        parameter~ runType
+          value= process
+        parameter~ processRunWorkflowParentRunId
+          value= 
+        parameter~ currentParentId
+          value= 
+        parameter~ currentParentPosition
+          value= 
+        parameter~ controlIdGen
+          value= 
+
+          
+      include controlListTableSQL
+        parameter~ validateOrTransfer
+          value= Validate
+        parameter~ existingControls
+          value= {existingControls}
+        parameter~ controlIdGen
+          value= 
+
+
+      include trayComponent_SQL
+        parameter~ trayColumnNumber
+          value= {trayColumns}
+        parameter~ trayRowNumber
+          value= {trayRows}
+        parameter~ trayId
+          value= {trayId}
+        parameter~ trayType
+          value= {trayType}
+          
+      include routeContainer
+        parameter~ processContainerId
+          value= {trayId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= wgcherrypicktraytobatch
+        parameter~ routingContainerType
+          value=
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {batchId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value=
+        parameter~ routingDirection
+          value= IN
+        parameter~ routingType
+          value= group
+
+
+
+
+
+    step wgcherrypicktraytobatch
+
+      allowDuplicateContainerIds
+      form
+        data-parsley-validate=
+        script
+          src= js/components/container.js
+
+        script
+          src= js/components/groupingContainer.js
+
+        script
+          src= js/tasks/cherryPickTrayToBatch/cherryPickTrayToBatch_form0.js
+
+## Commented out until SampleList can handle parent containers not queued to step
+        # configurePreparedQuery~
+        #   - SELECT
+        #   -  CASE 
+        #   -   WHEN ? = 'No' THEN 'any'
+        #   -  ELSE ? 
+        #   - END AS 'queueRequired'
+        #   string [$$Require_Queued_Source$$]
+        #   string {_step}
+
+        fieldset
+          legend Source Tray
+
+          include groupingContainer_Form0
+            parameter~ groupingContainerScreenLabel
+              value= Source Tray
+            parameter~ currentStep
+              value= {_step}
+            parameter~ containerType
+              value= trayId
+            parameter~ acceptQueue
+              value= {_step}
+
+        fieldset
+          legend Destination Batch
+          vertical
+            select destinationType
+              screenLabel~ Destination Batch Source
+              required~ true
+              class= required
+              id= destinationType
+              setName~ destinationType
+          br
+          br
+          fieldset
+            id= existingBatch
+            legend Scan Existing Batch
+            topVertical
+              container destinationBatch
+                class= required existingBatchId
+                required~ false
+                containerType~ batchId
+                acceptQueue~ any
+                screenLabel~
+                data-parsley-required= false
+
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+
+
+        script
+          src= js/components/container.js
+
+        script
+          src= js/components/printBarcode.js
+
+        script
+          configureIf~ Auto Generated
+            advanced~
+            equals~ User Generated
+          src= js/tasks/removeSelectOption.js
+
+        script
+          src= js/tasks/cherryPicking/cherryPicking.js
+
+        script
+          configureIf~ {destinationType}
+            advanced~
+            equals~ New
+          src= js/tasks/sampleMinMax.js
+
+        script
+          src= js/tasks/cherryPickTrayToBatch/cherryPickTrayToBatch_form1.js
+
+        div 
+          id= modalId 
+
+        configurePreparedQuery~
+          - SELECT value AS 'rowNumber'
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = ?
+          string {groupingContainerId}
+          string trayRowNumber
+
+        configurePreparedQuery~
+          - SELECT value AS 'columnNumber'
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = ?
+          string {groupingContainerId}
+          string trayColumnNumber
+
+        configurePreparedQuery~
+          - SELECT value AS 'trayType'
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = ?
+          string {groupingContainerId}
+          string trayType
+
+        # PARAMETERS FOR MIN/MAX
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '0'
+          -     ELSE ?
+          -   END AS "sampleMin"
+          string 1
+          string 1
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '5000'
+          -     ELSE ?
+          -   END AS "sampleMax"
+          string 5
+          string 5
+
+        configurePreparedQuery~
+          - SELECT
+          -   step AS "destCurrentQueue"
+          - FROM queues
+          - WHERE containerId = ?
+          string {destinationBatch}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS 'sampleScan'
+          string Auto Generated
+
+      # PARAMETERS FOR EXISTING CONTROLS
+        configurePreparedQuery~
+          - SELECT 
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT cr.controlRunId
+          -       FROM controlRuns cr
+          -       WHERE cr.currentParentId = ?
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "existingControls"
+          - FROM DUAL
+          string {groupingContainerId}
+
+      # PARAMETERS FOR ADD CONTROLS
+        configurePreparedQuery~
+          - SELECT 
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT iu.inventoryItem
+          -       FROM inventoryUsage iu
+          -       WHERE iu.step = ?
+          -         AND inventoryItemUsage = 'Batch Control'
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "addControls"
+          - FROM DUAL
+          string {_step}
+        
+        hidden groupingContainerId
+          value= {groupingContainerId}
+
+        hidden destinationBatch
+          value= {destinationBatch}
+          id= destinationBatch
+
+        hidden destType 
+          value= {destinationType}
+          id= destType
+
+        hidden destQ 
+          value= {destCurrentQueue}
+          id= destinationQueue
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= No
+          parameter~ currentLoop
+            value= N/A
+
+        fieldset
+          legend Source Tray
+          br
+          br
+          button viewSource
+            id= viewSource
+            screenLabel~
+            value= View Source Layout
+          br
+          br
+  
+          div
+            configureIf~ {_:trayType}
+              advanced~
+              equals~ plate
+                ignoreCase~
+  
+            include trayComponent
+  
+              parameter~ containerNameParm
+                value= trayId
+  
+              parameter~ containerScreenLabel
+                value= Source Tray
+  
+              parameter~ containerReadonly
+                value= true
+  
+              parameter~ containerNew
+                value= false
+  
+              parameter~ containerAsSelect
+                value= false
+  
+              parameter~ acceptQueue
+                value= any
+  
+              parameter~ containerType
+                value= trayId
+  
+              parameter~ containerRequired
+                value= true
+  
+              parameter~ containerAdditionalClasses
+                value=
+  
+              parameter~ containerValue
+                value= {groupingContainerId}
+  
+              parameter~ useThisSequence
+                value= trayId
+  
+              parameter~ containerCommentsInclude
+                value= No
+  
+              parameter~ containerGenerateFromSequence
+                value= 
+  
+              parameter~ containerShowStorageLocation
+                value= No
+  
+              parameter~ containerPrintBarcode
+                value= Yes
+  
+              parameter~ containerActionInclude
+                value= No
+  
+              parameter~ containerCategoryInclude
+                value= Yes
+  
+              parameter~ containerActionOptions
+                value= passfail
+  
+              parameter~ platePrintLayout
+                value= No
+  
+              parameter~ plateAllowSampleDuplicates
+                value= Yes
+  
+              parameter~ trayType
+                value= plate
+  
+              parameter~ trayRowNumber
+                value= {_:rowNumber}
+  
+              parameter~ trayColumnNumber
+                value= {_:columnNumber}
+  
+              parameter~ userClass1
+                value=
+  
+              parameter~ includePriority
+                value= Yes
+  
+              parameter~ trayInputReadyOnly
+                value= true
+  
+              parameter~ trayLabel
+                value= Source Plate
+  
+              parameter~ sampleScanReadOnly
+                value= {_:sampleScan}
+
+              parameter~ trayToTray
+                value= false
+  
+          div
+            configureIf~ {_:trayType}
+              advanced~
+              equals~ grid
+                ignoreCase~
+  
+            include trayComponent
+  
+              parameter~ containerNameParm
+                value= trayId
+  
+              parameter~ containerScreenLabel
+                value= Source Tray
+  
+              parameter~ containerReadonly
+                value= true
+  
+              parameter~ containerNew
+                value= false
+  
+              parameter~ containerAsSelect
+                value= false
+  
+              parameter~ acceptQueue
+                value= any
+  
+              parameter~ containerType
+                value= trayId
+  
+              parameter~ containerRequired
+                value= true
+  
+              parameter~ containerAdditionalClasses
+                value=
+  
+              parameter~ containerValue
+                value= {groupingContainerId}
+  
+              parameter~ useThisSequence
+                value= trayId
+  
+              parameter~ containerCommentsInclude
+                value= No
+  
+              parameter~ containerGenerateFromSequence
+                value= 
+  
+              parameter~ containerShowStorageLocation
+                value= No
+  
+              parameter~ containerPrintBarcode
+                value= Yes
+  
+              parameter~ containerActionInclude
+                value= No
+  
+              parameter~ containerCategoryInclude
+                value= Yes
+  
+              parameter~ containerActionOptions
+                value= passfail
+  
+              parameter~ platePrintLayout
+                value= No
+  
+              parameter~ plateAllowSampleDuplicates
+                value= Yes
+  
+              parameter~ trayType
+                value= grid
+  
+              parameter~ trayRowNumber
+                value= {_:rowNumber}
+  
+              parameter~ trayColumnNumber
+                value= {_:columnNumber}
+  
+              parameter~ userClass1
+                value=
+  
+              parameter~ includePriority
+                value= Yes
+  
+              parameter~ trayInputReadyOnly
+                value= true
+  
+              parameter~ trayLabel
+                value= Source Grid
+  
+              parameter~ sampleScanReadOnly
+                value= {_:sampleScan}
+
+              parameter~ trayToTray
+                value= false
+          
+          topVertical
+            select keepOnQueue
+              screenLabel~ Keep Source Tray On Queue
+              option Yes
+              option No
+              value= Yes
+
+          br
+          
+          include controlComponent
+            parameter~ controls_stepName
+              value= {_step}
+            parameter~ controls_commentsInclude
+              value= Yes
+            parameter~ controls_commentHistory
+              value= Yes
+            parameter~ controls_validateOrTransfer
+              value= Transfer
+            parameter~ existingControls
+              value= {_:existingControls}
+            parameter~ addControls
+              value= {_:addControls}
+            parameter~ groupingContainerId
+              value= {groupingContainerId}
+            parameter~ controlIdGen
+              value= Auto Generated
+            parameter~ printBarcodes
+              value= Yes 
+
+          br
+
+          # # Sample List for tray
+          include sampleList_table
+            parameter~ col1
+              value= Order Priority
+            parameter~ col2
+              value= Specimen Received Date
+            parameter~ col3
+              value= Patient Name
+            parameter~ col4
+              value= Specimen Type
+            parameter~ col5
+              value= DOB
+            parameter~ col6
+              value= Queued By
+            parameter~ prioritySetName
+              value= priority
+            parameter~ print
+              value= Yes
+            parameter~ action
+              value= No
+            parameter~ comments
+              value= Yes
+            parameter~ commentHistory
+              value= Yes
+            parameter~ actionSetName
+              value=
+            parameter~ counter
+              value= On
+            parameter~ validateOrTransfer
+              value= Split
+            parameter~ printAll
+              value= Selected
+            parameter~ scanAll
+              value= false
+            parameter~ parentId
+              value= {groupingContainerId}
+            parameter~ parentIdRequired
+              value= true
+            parameter~ fileType 
+              value= PCR
+            parameter~ containerIdGen
+              value= Auto Generated
+
+          
+
+        fieldset
+          legend Destination Batch
+          
+          div 
+            id= newDestinationBatch
+            configureIf~ {destinationBatch}
+              advanced~
+              isBlank~
+
+            fieldset
+              legend Batch Count Details
+              rowGroups
+                rowGroup
+                  div
+                    vertical
+                      number minSamples
+                        size= 5
+                        class= minSamples spacer
+                        screenLabel~ Min Allowed:
+                        id= sampleMin
+                        readonly= 
+                          
+                        value= {_:sampleMin}
+                  div
+                    vertical
+                      number maxSamples
+                        size= 5
+                        class= maxSamples spacer
+                        screenLabel~ Max Allowed:
+                        id= sampleMax
+                        readonly=
+                          
+                        value= {_:sampleMax}
+                  div
+                    id= counter_div
+                    vertical
+                      number counter
+                        size= 5
+                        class= counter spacer
+                        readonly=
+                        screenLabel~ Number in Batch: 
+
+            include containerComponent
+              parameter~ containerName
+                value= batchId
+              parameter~ containerScreenLabel
+                value= Cherry Pick tray to batch
+              parameter~ containerReadonly
+                value= false
+              parameter~ containerNew
+                value= true
+              parameter~ containerAsSelect
+                value= false
+              parameter~ acceptQueue
+                value= any
+              parameter~ containerType
+                value= batchId
+              parameter~ containerRequired
+                value= Yes
+              parameter~ containerAdditionalClasses
+                value=
+              parameter~ containerValue
+                value= 
+              parameter~ useThisSequence
+                value= batchId
+              parameter~ containerCommentsInclude
+                value= Yes
+              parameter~ containerActionInclude
+                value= No
+              parameter~ containerGenerateFromSequence
+                value= Auto Generated
+              parameter~ containerShowStorageLocation
+                value= No
+              parameter~ containerPrintBarcode
+                value= Yes
+              parameter~ containerCategoryInclude
+                value= Select
+              parameter~ includePriority
+                value= Yes
+              parameter~ containerActionOptions
+                value= passfail
+
+          div 
+            id= newDestinationBatch
+            configureIf~ {destinationBatch}
+              advanced~
+              not~
+                isBlank~
+            include containerComponent
+              parameter~ containerName
+                value= batchId
+              parameter~ containerScreenLabel
+                value= Cherry Pick tray to batch
+              parameter~ containerReadonly
+                value= true
+              parameter~ containerNew
+                value= false
+              parameter~ containerAsSelect
+                value= false
+              parameter~ acceptQueue
+                value= any
+              parameter~ containerType
+                value= batchId
+              parameter~ containerRequired
+                value= Yes
+              parameter~ containerAdditionalClasses
+                value=
+              parameter~ containerValue
+                value= {destinationBatch}
+              parameter~ useThisSequence
+                value= 
+              parameter~ containerCommentsInclude
+                value= Yes
+              parameter~ containerActionInclude
+                value= No
+              parameter~ containerGenerateFromSequence
+                value= 
+              parameter~ containerShowStorageLocation
+                value= No
+              parameter~ containerPrintBarcode
+                value= Yes
+              parameter~ containerCategoryInclude
+                value= Select
+              parameter~ includePriority
+                value= Yes
+              parameter~ containerActionOptions
+                value= 
+
+            table
+              sqlPreparedQuery~ 
+                - SELECT 
+                -   currentParentPosition AS "Order", 
+                -   currentContainerId AS "Specimen ID" 
+                - FROM 
+                -   specimenRuns 
+                - WHERE 
+                -   currentParentId = ? 
+                - ORDER BY ABS(currentParentPosition)
+                string {destinationBatch}
+                allowEmptyResults~
+              
+      ifCondition {keepOnQueue}
+        advanced~
+        equals~ No
+        include routeContainer
+          parameter~ processContainerId
+            value= {trayId}
+          parameter~ result
+            value=
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= 
+          parameter~ routingDirection
+            value= IN
+          parameter~ routingType
+            value= group
+
+      ifCondition~ Yes
+        advanced~
+        equals~ Yes
+        or~ {destType}
+          equals~ New
+
+        include routeContainer
+          parameter~ processContainerId
+            value= {batchId}
+          parameter~ result
+            value=
+          parameter~ deleteFromStep
+            value= {_:destCurrentQueue}
+          parameter~ defaultNextStep
+            value= Next_Task
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= group
+      
+      ### Data processsing section
+      include sampleList_SQL
+        parameter~ validateOrTransfer
+          value= Split
+
+      include controlAddTableSQL
+        parameter~ addControls
+          value= {addControls}
+        parameter~ runType
+          value= workflow
+        parameter~ processRunWorkflowParentRunId
+          value= 
+        parameter~ currentParentId
+          value= {batchId}
+        parameter~ currentParentPosition
+          value= 
+        parameter~ controlIdGen
+          value= Auto Generated
+
+      include controlListTableSQL
+        parameter~ validateOrTransfer
+          value= Transfer
+        parameter~ existingControls
+          value= {existingControls}
+        parameter~ currentParentId
+          value= {batchId}
+        parameter~ currentParentPosition
+          value=
+        parameter~ controlIdGen
+          value= Auto Generated
+
+
+      # ADD TO BATCH
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~ true
+          not~
+            isBlank~
+
+          setFormQueryResult
+            sqlPreparedQuery
+              - SELECT containerType
+              - FROM containers
+              - WHERE containerId = ?
+              string {_columnInput_samples:4}
+
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES (?,?,?,?,?),
+            -         (?,?,?,?,?)
+            string {batchId}
+            string {_columnInput_samples:2}
+            string {_:containerType}
+            string {_columnInput_samples:4}
+            long {_eventId}
+            string {batchId}
+            string {_columnInput_samples:2}
+            string {_:containerType}
+            string {_:runId}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - UPDATE specimenRuns sr
+            - INNER JOIN contents c ON sr.currentContainerId = c.content
+            - SET currentParentId = ?,
+            -     currentParentPosition = ?,
+            -     lastUpdatedEventId = ?
+            - WHERE c.containerId = ? AND c.content = ?
+            string {batchId}
+            string {_columnInput_samples:2}
+            string {_eventId}
+            string {batchId}
+            string {_columnInput_samples:4}
+
+          ifCondition ! SELECT 1
+            - FROM containerHistory
+            - WHERE containerId = ?
+            - AND eventId = ?
+            string {_columnInput_samples:4}
+            long {_eventId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_samples:4}
+              long {_eventId}
+
+
+          ifCondition ! SELECT 1
+            - FROM containerHistory
+            - WHERE containerId = ?
+            - AND eventId = ?
+            string {_columnInput_samples:9}
+            long {_eventId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_samples:9}
+              long {_eventId}
+
+      # ADD Control TO BATCH
+      forRows controlListTable
+        ifCondition {_columnInput_controlListTable:6}
+          advanced~ true
+          not~
+            isBlank~
+
+          setFormQueryResult
+            sqlPreparedQuery
+              - SELECT containerType
+              - FROM containers
+              - WHERE containerId = ?
+              string {_columnInput_controlListTable:6}
+
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES (?,?,?,?,?),
+            -         (?,?,?,?,?)
+            string {batchId}
+            string {_columnInput_controlListTable:2}
+            string {_:containerType}
+            string {_columnInput_controlListTable:6}
+            long {_eventId}
+            string {batchId}
+            string {_columnInput_controlListTable:2}
+            string {_:containerType}
+            string {_columnInput_controlListTable:10}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - UPDATE controlRuns cr
+            - INNER JOIN contents c ON cr.currentContainerId = c.content
+            - SET currentParentId = ?,
+            -     currentParentPosition = NULL,
+            -     lastUpdatedEventId = ?
+            - WHERE c.containerId = ? AND c.content = ?
+            string {batchId}
+            string {_eventId}
+            string {batchId}
+            string {_columnInput_controlListTable:6}
+
+      
+
+
+
+

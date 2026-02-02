@@ -1,0 +1,96 @@
+config
+  steps
+    stepGroup DI Queues
+    step Run Available for Testing
+      accessLevel 8
+      form
+        p To manually trigger population of enchanted forest copy and paste runId into runId input and submit form.
+        p You'll be able to view the application node in the log file
+
+        vertical
+          text runId
+        table
+          sqlPreparedQuery~
+            - SELECT
+            -   q.containerId AS "runId",
+            -   cp.value AS "from step",
+            -   e.eventDate AS "sent date"
+            - FROM queues q
+            - INNER JOIN containerProperties cp
+            -   ON q.containerId = cp.containerId
+            - INNER JOIN events e
+            -   ON q.eventId = e.eventId
+            - WHERE q.step = ?
+            -   AND cp.property = 'Current DI Step'
+            string {_step}
+
+      setFormQueryResult
+        sqlPreparedQuery select cp.value AS "step"
+          - FROM queues q
+          - INNER JOIN containerProperties cp
+          -   ON q.containerId = cp.containerId
+          - WHERE q.step = ?
+          -   AND q.containerId = ?
+          -   AND cp.property = 'Current DI Step'
+          string {_step}
+          string {runId}
+
+      jython
+        from runForest import *
+
+        enchantedForest = AppTree(switchboard, '{runId}', '{_:step}')
+        print enchantedForest.buildTree()
+    step Run Available
+      accessLevel 8
+      form
+        p To manually trigger population of enchanted forest copy and paste runId into runId input and submit form.
+        p You'll be able to view the application node in the log file
+
+        vertical
+          text runId
+        table
+          sqlPreparedQuery~
+            - SELECT
+            -   q.containerId AS "runId",
+            -   cp.value AS "from step",
+            -   e.eventDate AS "sent date"
+            - FROM queues q
+            - INNER JOIN containerProperties cp
+            -   ON q.containerId = cp.containerId
+            - INNER JOIN events e
+            -   ON q.eventId = e.eventId
+            - WHERE q.step = ?
+            -   AND cp.property = 'Current DI Step'
+            string {_step}
+
+      setFormQueryResult
+        sqlPreparedQuery select cp.value AS "step"
+          - FROM queues q
+          - INNER JOIN containerProperties cp
+          -   ON q.containerId = cp.containerId
+          - WHERE q.step = ?
+          -   AND q.containerId = ?
+          -   AND cp.property = 'Current DI Step'
+          string {_step}
+          string {runId}
+
+      jython
+        from runForest import *
+
+        enchantedForest = AppTree(switchboard, '{runId}', '{_:step}')
+        print enchantedForest.buildTree()
+
+
+    step IM Results Received
+      accessLevel 8
+      form
+        table
+          sqlPreparedQuery~
+            - SELECT
+            -   q.containerId AS "runId",
+            -   e.eventData AS "received date"
+            - FROM queues q
+            - INNER JOIN events e
+            -   ON q.eventId = e.eventId
+            - WHERE q.step = ?
+            string {_step}

@@ -1,0 +1,170 @@
+
+
+/* View Control Inventory */
+.controlsInUse {
+	text-align:center; 
+	font-weight:bold; 
+}
+
+.controlsAlmostExpired {
+	text-align:center; 
+	font-weight:bold; 
+}
+
+.controlsToQC {
+	text-align:center; 
+	font-weight:bold; 
+}
+
+.QCSoon {
+	text-align:center; 
+	font-weight:bold; 
+}
+
+.problemControls {
+	text-align:center; 
+	font-weight:bold; 
+}
+
+#statusTable1{
+	display:none;
+}
+
+#statusTable2{
+	display:none;
+}
+
+#statusTable3{
+	display:none;
+}
+
+#statusTable4{
+	display:none;
+}
+
+#statusTable4{
+	display:none;
+}
+
+#searchList{
+	border-radius:10px; 
+	background-color:#E1E8F0;
+}
+
+.inventoryDetailsControlType{
+	width:300px;
+}
+
+.twoDayExpirationTable{
+	background-color:#FF6666;
+}
+
+.fiveDayExpirationTable{
+	background-color:#FFAD33;
+}
+
+.fourteenDayExpirationTable{
+	background-color:#FFFF80;
+}
+
+.oneMonthExpirationTable{
+	background-color:#80B2FF;
+}
+
+.twoDayQCSoonTable{
+	background-color:#FF6666;
+}
+
+.fiveDayQCSoonTable{
+	background-color:#FFAD33;
+}
+
+.fourteenDayQCSoonTable{
+	background-color:#FFFF80;
+}
+
+.createControlsInstructions1{
+	width:700px;
+	background-color:white;
+}
+
+.createControlsInstructions2{
+	width:700px;
+	background-color:white;
+}
+
+.createControlControlId{
+	background-image: url(images/barcodebkg.jpg);
+}
+
+.createControlUnits{
+	width:15px;
+}
+
+.createControlComponentResource{
+	background-image: url(images/barcodebkg.jpg);
+}
+
+.createControlDilutionsParentControl{
+	background-image: url(images/barcodebkg.jpg);
+}
+
+.createControlDilutionsControlType{
+	border:none; 
+	background:transparent; 
+	color:white; 
+	text-align:left; 
+	font-size:1.3em;
+}
+
+.createControlDilutionsControl{
+	background-image: url(images/barcodebkg.jpg);
+}
+
+.createControlDilutionsControlDiv{
+	background-color:#1C92C1; 
+	width:400px; 
+	height:25px; 
+	padding:10px; 
+	padding-right:20px; 
+	border-radius:5px;
+}
+
+.manageControlLimitsId{
+	display:none;
+}
+
+.createControlDilutionsUnit{
+	border:none; background:transparent;
+}
+
+.diluteControlResource{
+	background-image: url(images/barcodebkg.jpg);
+}
+
+.createControlDilutionsAliquot{
+	display:none;
+}
+
+.createControlDilutionsAliquotImg{
+	height:45px; 
+	width:35px;
+}
+
+.QCControlControlType{
+	border:none; 
+	background:transparent; 
+	color:#000; 
+	text-align:left; 
+	font-size:1.3em;
+}
+
+.QCControlControlTypeDiv{
+	border:1px solid #1C92C1; 
+	background-color:1C92C1; 
+	width:400px; 
+	height:auto; 
+	padding:10px; 
+	padding-right:20px; 
+	border-radius:5px;
+}

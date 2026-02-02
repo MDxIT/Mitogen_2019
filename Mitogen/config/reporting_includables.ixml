@@ -1,0 +1,521 @@
+config
+  includes
+
+    includeable reportingMetaData
+
+      configurePreparedQuery~
+        - SELECT
+        -   'show' AS "panels"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp.inputName = 'Panel Selection'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          panels= 'hide'
+
+      configurePreparedQuery~
+        - SELECT
+        -   'show' AS "probands"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp.inputName = 'Proband'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          probands= 'hide'
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT(fcp.inputName, ' AS "', fis.screenLabel, '"') SEPARATOR ', ') AS "orderColumns"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'orderInformation'
+        -   AND fcp.inputType NOT LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          orderColumns= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT("'userDef_", fcp.inputName, "'") SEPARATOR ', ') AS "orderUserDef"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'orderInformation'
+        -   AND fcp.inputType LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          orderUserDef= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT(fcp.inputName, ' AS "', fis.screenLabel, '"') SEPARATOR ', ') AS "patientColumns"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'patientInformation'
+        -   AND fcp.inputType NOT LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          patientColumns= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT("'userDef_", fcp.inputName, "'") SEPARATOR ', ') AS "patientUserDef"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'patientInformation'
+        -   AND fcp.inputType LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          patientUserDef= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT(fcp.inputName, ' AS "', fis.screenLabel, '"') SEPARATOR ', ') AS "specimenColumns"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'specimenInfo'
+        -   AND fcp.inputType NOT LIKE 'userDef_%'
+        -   AND fcp.inputName <> 'specimenComments'
+        -   AND fcp.inputName <> 'printBarcodesButton'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          specimenColumns= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT("'userDef_", fcp.inputName, "'") SEPARATOR ', ') AS "specimenUserDef"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'specimenInfo'
+        -   AND fcp.inputType LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          specimenUserDef= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT(fcp.inputName, ' AS "', fis.screenLabel, '"') SEPARATOR ', ') AS "clinicalColumns"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'clinicalInformation'
+        -   AND fcp.inputType NOT LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          clinicalColumns= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT("'userDef_", fcp.inputName, "'") SEPARATOR ', ') AS "clinicalUserDef"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'clinicalInformation'
+        -   AND fcp.inputType LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          clinicalUserDef= ''
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(CONCAT("'userDef_", fcp.inputName, "'") SEPARATOR ', ') AS "probandUserDef"
+        - FROM reportMetadataFields mf
+        - INNER JOIN formInputSettings fis
+        -   ON mf.formInputSettingsId = fis.id
+        - INNER JOIN formConfigurableParts fcp
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formConfigurableParts fcp2
+        -   ON fcp.section = fcp2.section
+        -   AND fcp.subsection = fcp2.subsection
+        -   AND (fcp2.inputType = 'section' OR fcp2.inputType = 'subSection')
+        - WHERE mf.reportDefinitionVersionId = ?
+        -   AND fcp2.section = 'proband'
+        -   AND fcp.inputType LIKE 'userDef_%'
+        - GROUP BY mf.reportDefinitionVersionId
+        int {_includeParm:reportVersion}
+        allowEmptyResults~
+        emptyResultDefault~
+          clinicalUserDef= ''
+
+
+      h2 Report Demographic Data
+      h3 Order Information
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT {_:orderColumns}
+          - FROM vw_runmetadata
+          - WHERE requestId = ?
+          string {_includeParm:requestId}
+      table
+        configureIf~ {_:orderUserDef}
+          advanced~
+          not~
+            equals~ ''
+        sqlPreparedQuery~
+          - SELECT
+          -   REPLACE(property, 'userDef_','') AS "Property",
+          -   value AS "Value"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property IN ({_:orderUserDef})
+          - UNION
+          - SELECT
+          -   REPLACE(property, 'userDef_','') AS "Property",
+          -   value AS "Value"
+          - FROM containerDates
+          - WHERE containerId = ?
+          - AND property IN ({_:orderUserDef})
+          string {_includeParm:requestId}
+          string {_includeParm:requestId}
+
+      h3 Patient Information
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT {_:patientColumns}
+          - FROM vw_runmetadata
+          - WHERE requestId = ?
+          string {_includeParm:requestId}
+      table
+        configureIf~ {_:patientUserDef}
+          advanced~
+          not~
+            equals~ ''
+        sqlPreparedQuery~
+          - SELECT
+          -   REPLACE(property, 'userDef_','') AS "Property",
+          -   value AS "Value"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property IN ({_:patientUserDef})
+          - UNION
+          - SELECT
+          -   REPLACE(property, 'userDef_','') AS "Property",
+          -   value AS "Value"
+          - FROM containerDates
+          - WHERE containerId = ?
+          - AND property IN ({_:patientUserDef})
+          string {_includeParm:requestId}
+          string {_includeParm:requestId}
+
+
+
+      div
+        configureIf~ {_:clinicalColumns}
+          advanced~
+          not~
+            equals~ ''
+
+        h3 Clinical Information
+        table
+          configureIf~ {_:clinicalColumns}
+            advanced~
+            not~
+              equals~ ''
+          sqlPreparedQuery~
+            - SELECT DISTINCT {_:clinicalColumns}
+            - FROM vw_runmetadata
+            - WHERE requestId = ?
+            string {_includeParm:requestId}
+        table
+          configureIf~ {_:clinicalUserDef}
+            advanced~
+            not~
+              equals~ ''
+          sqlPreparedQuery~
+            - SELECT
+            -   REPLACE(property, 'userDef_','') AS "Property",
+            -   value AS "Value"
+            - FROM containerProperties
+            - WHERE containerId = ?
+            - AND property IN ({_:clinicalUserDef})
+            - UNION
+            - SELECT
+            -   REPLACE(property, 'userDef_','') AS "Property",
+            -   value AS "Value"
+            - FROM containerDates
+            - WHERE containerId = ?
+            - AND property IN ({_:clinicalUserDef})
+            string {_includeParm:requestId}
+            string {_includeParm:requestId}
+
+
+      h3 Specimen Information
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT {_:specimenColumns}
+          - FROM (
+          -       SELECT
+          -         rqs.expectedBarcode,
+          -         rqs.externalIdentifier,
+          -         rqs.specimenType,
+          -         rqs.collectionDate,
+          -         rqs.collectionTime,
+          -         rqs.specimenId,
+          -         rqs.receivedDate,
+          -         rqs.specimenQuantity,
+          -         rqs.specimenQuantityUnits AS "specimenUnits",
+          -         rqs.specimenCondition,
+          -         p.name AS "panels",
+          -         CASE ISNULL(t.name) WHEN 1 THEN p.name ELSE CONCAT(p.name, ' -  ', t.name) END AS "tests",
+          -         m.name AS "method"
+          -       FROM reportDetails rd
+          -       INNER JOIN reportSpecimens rs
+          -         ON rd.Id = rs.reportDetailsId
+          -       INNER JOIN requestSpecimens rqs
+          -         ON rs.requestSpecimensId = rqs.id
+          -       INNER JOIN specimenMethods sm
+          -         ON rqs.id = sm.requestSpecimensId
+          -       INNER JOIN panels p
+          -         ON sm.panelCode = p.panelCode
+          -       LEFT JOIN tests t
+          -         ON sm.testCode = t.testCode
+          -       LEFT JOIN methods m
+          -         ON sm.methodCode = m.methodCode
+          -       WHERE rd.reportId = ? ) q
+          string {_includeParm:reportId}
+
+      table
+        configureIf~ {_:specimenUserDef}
+          advanced~
+          not~
+            equals~ ''
+        sqlPreparedQuery~
+          - SELECT
+          -   REPLACE(property, 'userDef_','') AS "Property",
+          -   value AS "Value"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property IN ({_:specimenUserDef})
+          - UNION
+          - SELECT
+          -   REPLACE(property, 'userDef_','') AS "Property",
+          -   value AS "Value"
+          - FROM containerDates
+          - WHERE containerId = ?
+          - AND property IN ({_:specimenUserDef})
+          string {_includeParm:requestId}
+          string {_includeParm:requestId}
+
+
+      div
+        configureIf~ {_:panels}
+          advanced~
+          equals~ show
+        h3 Report Panel/s
+        table
+          sqlPreparedQuery~
+            - SELECT
+            -   p.name AS "Panel/s", GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR '<br />') AS "Test/s in Panel"
+            - FROM reportDetails rd
+            - INNER JOIN reportDefinitionPanels rp
+            -   ON rd.reportDefinitionVersionId = rp.reportDefinitionVersionId
+            - INNER JOIN panels p
+            -   ON rp.panelCode = p.panelCode
+            - INNER JOIN testPanels tp
+            -   ON p.panelCode = tp.panelCode
+            - LEFT JOIN tests t
+            -   ON tp.testCode = t.testCode
+            - WHERE rd.reportId = ?
+            - GROUP BY p.panelCode
+            string {_includeParm:reportId}
+
+      div
+        configureIf~ {_:probands}
+          advanced~
+          equals~ show
+        h3 Proband/s
+        table
+          sqlPreparedQuery~
+            - SELECT
+            -   pl.relationship AS "Relationship",
+            -   t.name AS "Test",
+            -   CONCAT(pa.lastName, ', ', IFNULL(pa.firstName, '')) AS "Proband Name",
+            -   pa.DOB,
+            -   pa.geneticGender
+            - FROM probandLinks pl
+            - INNER JOIN proband pr
+            -   ON pl.probandId = pr.Id
+            - INNER JOIN patients pa
+            -   ON pr.patientId = pa.patientId
+            - INNER JOIN tests t
+            -   ON pr.testCode = t.testCode
+            - WHERE pl.patientId = ?
+            string {_:patientId}
+        table
+          configureIf~ {_:probandUserDef}
+            advanced~
+            not~
+              equals~ ''
+          sqlPreparedQuery~
+            - SELECT
+            -   REPLACE(property, 'userDef_','') AS "Property",
+            -   value AS "Value"
+            - FROM containerProperties
+            - WHERE containerId = ?
+            - AND property IN ({_:probandUserDef})
+            - UNION
+            - SELECT
+            -   REPLACE(property, 'userDef_','') AS "Property",
+            -   value AS "Value"
+            - FROM containerDates
+            - WHERE containerId = ?
+            - AND property IN ({_:probandUserDef})
+            string {_includeParm:requestId}
+            string {_includeParm:requestId}
+
+
+    includeable reportingSaveData
+      jython
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from general_functions import *
+        from report_modifications import ReportMod
+
+        errorLocation = '<<<<< modify Reporting include >>>>>'
+        switchboard.log('<<<<<< modify Reporting include  >>>>>>')
+        try:
+          rowReportId = '{_includeParm:reportId}'
+          currentStepName = '{_includeParm:curStep}'
+          rowCorrectedText = r'''{_includeParm:changeText}'''.encode("utf-8")
+
+          print 'rowReportId' + str(rowReportId)
+          print 'rowCorrectedText' + str(rowCorrectedText)
+
+          errorLocation = '<<<<< modify Reporting include delete >>>>>'
+          deleteQueueByStepAndContainer(switchboard, rowReportId, currentStepName)
+          errorLocation = '<<<<< modify Reporting include insert >>>>>'
+          insertQueue(switchboard, rowReportId, 'Sign Out Report', {_eventId})
+
+          errorLocation = '<<<<< modify Reporting include reportMod >>>>>'
+          reportModifier = ReportMod(switchboard, rowReportId)
+          
+          errorLocation = '<<<<< modify Reporting include insertModText >>>>>'
+          reportModifier.insertModText(rowCorrectedText)
+
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+        except Exception as e:
+          switchboard.log("---FAILURE TO INSERT/UPDATE CORRECTED REPORT DATA----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Error occured. Failed to queue to Sign Out Report.

@@ -1,0 +1,12 @@
+.resultsTable {
+  width:916px;
+  border-collapse: collapse;
+}
+.resultsTable th {
+  background-color:#40927E;
+  border:1px solid #40927E;
+  color:white;
+}
+.resultsTable td {
+  border: 1px solid gray;
+}

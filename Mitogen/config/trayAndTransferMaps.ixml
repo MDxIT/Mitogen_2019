@@ -1,0 +1,2544 @@
+config
+  steps
+
+    stepGroup Tray and Transfer Maps
+
+    step Create Tray/Transfer Map
+      accessLevel 8
+      cssLinks
+        link css/traymaps/createMap.css
+      form
+
+        data-parsley-validate=
+        script
+          src= js/trayAndTransferMaps/createMap.js
+        data-parsley-validate=
+        include stepInstructions
+        vertical
+          select mapType
+            id= mapType
+            screenLabel~ Map Type
+            setName~ mapType
+            required~ true
+            data-parsley-required= true
+
+          text mapName
+            id= mapName
+            screenLabel~ Map Name
+            required~ true
+            data-parsley-required= true
+            placeholder= Insert New Map Name
+            validate~ SELECT 1 FROM DUAL WHERE
+              - (? = 'Tray Map' AND NOT EXISTS (SELECT trayMapName FROM trayMapProperties
+              -   WHERE trayMapName = ?)) OR (? = 'Transfer Map'  AND NOT EXISTS (
+              -   SELECT name FROM transferMapProperties WHERE name = ?))
+              string {mapType}
+              string {_thisInput}
+              string {mapType}
+              string {_thisInput}
+              errorMessage~ Map name already exists. Please change the Map name to something
+                - unique.
+
+        div
+          id= trayMapSection
+          class= hidden
+          h3 Tray Map Info
+          vertical
+            select trayType
+              screenLabel~ Tray Type
+              setName~ TrayType
+              required~ false
+              class= traymapOptions
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE (? <> '' AND ? = 'Tray Map')
+                -   OR (? = '' AND ? <> 'Tray Map')
+                string {_thisInput}
+                string {mapType}
+                string {_thisInput}
+                string {mapType}
+                errorMessage~ A Map Type is required.
+
+            number trayRows
+              screenLabel~ Number of Rows
+              size= 3
+              class= traymapOptions
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE (? <> '' AND ? = 'Tray Map')
+                -   OR (? = '' AND ? <> 'Tray Map')
+                string {_thisInput}
+                string {mapType}
+                string {_thisInput}
+                string {mapType}
+                errorMessage~ Please assign the number of rows.
+
+            number trayColumns
+              screenLabel~ Number of Columns
+              size= 3
+              class= traymapOptions
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE (? <> '' AND ? = 'Tray Map')
+                -   OR (? = '' AND ? <> 'Tray Map')
+                string {_thisInput}
+                string {mapType}
+                string {_thisInput}
+                string {mapType}
+                errorMessage~ Please assign the number of columns.
+
+
+        div
+          id= transferMapSection
+          class= hidden
+          h3 Source Table
+          vertical
+            select sourceType
+              screenLabel~ Source Type
+              setName~ TrayType
+              required~ false
+              class= transfermapOptions
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE (? <> '' AND ? = 'Transfer Map')
+                -   OR (? = '' AND ? <> 'Transfer Map')
+                string {_thisInput}
+                string {mapType}
+                string {_thisInput}
+                string {mapType}
+                errorMessage~ A Map Type is required.
+
+            number sourceRows
+              screenLabel~ Number of Rows
+              size= 3
+              class= transfermapOptions
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE (? <> '' AND ? = 'Transfer Map')
+                -   OR (? = '' AND ? <> 'Transfer Map')
+                string {_thisInput}
+                string {mapType}
+                string {_thisInput}
+                string {mapType}
+                errorMessage~ Please assign the number of rows.
+
+            number sourceColumns
+              screenLabel~ Number of Columns
+              size= 3
+              class= transfermapOptions
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE (? <> '' AND ? = 'Transfer Map')
+                -   OR (? = '' AND ? <> 'Transfer Map')
+                string {_thisInput}
+                string {mapType}
+                string {_thisInput}
+                string {mapType}
+                errorMessage~ Please assign the number of columns.
+
+          h3 Destination Table
+          vertical
+            select destinationType
+              screenLabel~ Destination Type
+              class= transfermapOptions
+              setName~ TrayType
+              required~ false
+
+            number destinationRows
+              screenLabel~ Number of Rows
+              size= 3
+              class= transfermapOptions
+
+            number destinationColumns
+              screenLabel~ Number of Columns
+              size= 3
+              class= transfermapOptions
+
+      form
+        
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+
+        script
+          src= js/trayAndTransferMaps/createMap.js
+
+      # hidden map type
+        hidden mapType
+          id= mapType
+          value= {mapType}
+
+      # hidden map type
+        hidden mapName
+          id= mapName
+          value= {mapName}
+
+      # hidden Traymap information
+        hidden trayRows
+          id= trayRows
+          value= {trayRows}
+
+        hidden trayColumns
+          id= trayColumns
+          value= {trayColumns}
+
+        hidden trayType
+          id= trayType
+          value= {trayType}
+
+      # hidden transfer Map Information
+        hidden sourceType
+          id= sourceType
+          value= {sourceType}
+          screenLabel~
+
+        hidden sourceRows
+          id= sourceRows
+          value= {sourceRows}
+          screenLabel~
+
+        hidden sourceColumns
+          id= sourceColumns
+          value= {sourceColumns}
+          screenLabel~
+
+        hidden destinationType
+          id= destinationType
+          value= {destinationType}
+          screenLabel~
+
+        hidden destinationRows
+          id= destinationRows
+          value= {destinationRows}
+          screenLabel~
+
+        hidden destinationColumns
+          id= destinationColumns
+          value= {destinationColumns}
+          screenLabel~
+
+        ### Tray Maps div ###
+        div
+          id= traymap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+          fieldset
+            legend New Tray Map Name
+            vertical
+              ### select options have to be in the contents table with a self record or the plate will not execute or create the new traymap  ##
+              text traymapName
+                screenLabel~
+                value= {mapName}
+                readonly=
+                sqlPreparedStatement~
+                  - insert into trayMapProperties (trayMapName, trayType, trayRows, trayColumns, eventId)
+                  - values (?, ?, ?, ?, ?)
+                  string {mapName}
+                  string {trayType}
+                  string {trayRows}
+                  string {trayColumns}
+                  long {_eventId}
+
+          fieldset
+            legend Create New Tray Map
+            fieldset
+              legend Click to Select Well Input
+              rowGroups
+                rowGroup
+                  text controlOption
+                    id= trayMapControlOption
+                    class= controlOption wellOptionButton wellType
+                    value= Control
+                    screenLabel~
+
+                  text standardOption
+                    id= trayMapStandardOption
+                    class= standardOption wellOptionButton wellType
+                    value= Standard
+                    screenLabel~
+
+                  text blankOption
+                    id= trayMapBlankOption
+                    class= blankOption wellOptionButton wellType
+                    value= Blank
+                    screenLabel~
+
+                  text sampleOption
+                    id= trayMapSampleOption
+                    class= sampleOption wellOptionButton wellType
+                    value= Sample
+                    screenLabel~
+
+                  br
+
+            br
+
+            div
+              configureIf~ {trayType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Create Tray Map
+                  rows {trayRows}
+                  cols {trayColumns}
+                  inputType text
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~
+                      - INSERT INTO trayMaps (trayMapId, well, containerType, eventId)
+                      - SELECT Id, ?, ?, ?
+                      - FROM trayMapProperties WHERE trayMapName = ?
+                      string {_thisInputAttribute}
+                      string {_thisInput}
+                      long {_eventId}
+                      string {mapName}
+
+            div
+              configureIf~ {trayType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Create Tray Map
+                  rows {trayRows}
+                  cols {trayColumns}
+                  inputType text
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~
+                      - INSERT INTO trayMaps (trayMapId, well, containerType, eventId)
+                      - SELECT Id, ?, ?, ?
+                      - FROM trayMapProperties WHERE trayMapName = ?
+                      string {_thisInputAttribute}
+                      string {_thisInput}
+                      long {_eventId}
+                      string {mapName}
+
+
+            br
+
+            vertical
+              button Clear Tray Map {destinationType}
+                id= destinationClear
+                screenLabel~
+
+        ### Transfer Maps div ###
+
+        div
+          id= transferMap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+          fieldset
+            legend New Transfer Map Name
+            vertical
+              text destinationMapName
+                id= destinationMapName
+                screenLabel~
+                value= {mapName}
+                readonly=
+
+          br
+
+          fieldset
+            legend Source Plate
+            vertical
+              text sourceTableType
+                id= sourceTableType
+                screenLabel~ Source Map Type:
+                value= {sourceType}
+                readonly=
+            vertical
+            div
+              id= sourcePlate
+              configureIf~ {sourceType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Source Plate
+                  rows {sourceRows}
+                  cols {sourceColumns}
+                  inputType text
+                    class= sourceWell
+                    size= 10
+                    readonly=
+            div
+              id= sourcePlate
+              configureIf~ {sourceType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Source Grid
+                  rows {sourceRows}
+                  cols {sourceColumns}
+                  inputType text
+                    class= sourceWell
+                    size= 10
+                    readonly=
+
+            br
+
+            vertical
+              button Clear Selections
+                id= sourceClear
+                screenLabel~
+
+
+            br
+          fieldset
+            legend Create New Tray Map
+            fieldset
+              legend Click to Select Well Input
+              rowGroups
+                rowGroup
+                  text controlOption
+                    id= trayMapControlOption
+                    class= controlOption wellOptionButton wellType
+                    value= Control
+                    screenLabel~
+
+                  text standardOption
+                    id= trayMapStandardOption
+                    class= standardOption wellOptionButton wellType
+                    value= Standard
+                    screenLabel~
+
+                  text blankOption
+                    id= trayMapBlankOption
+                    class= blankOption wellOptionButton wellType
+                    value= Blank
+                    screenLabel~
+
+                  text sampleOption
+                    id= trayMapSampleOption
+                    class= sampleOption wellOptionButton wellType
+                    value= Sample
+                    screenLabel~
+
+                  br
+
+            vertical
+              text destinationTableType
+                id= destinationTableType
+                screenLabel~ Destination Map Type:
+                value= {destinationType}
+                readonly=
+
+                sqlPreparedStatement~ insert into transferMapProperties (name, sourceType, sourceRows, sourceColumns, destinationType, destinationRows, destinationColumns, eventid)
+                  - values (?, ?, ?, ?, ?, ?, ?, ?)
+                  string {mapName}
+                  string {sourceType}
+                  string {sourceRows}
+                  string {sourceColumns}
+                  string {destinationType}
+                  string {destinationRows}
+                  string {destinationColumns}
+                  long {_eventId}
+            div
+              id= destinationPlate
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Plate
+
+              vertical
+                plate Destination Plate
+                  rows {destinationRows}
+                  cols {destinationColumns}
+                  inputType text
+                    required~ false
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~ INSERT INTO transferMaps (transferMap, sourceAttribute, destinationAttribute)
+                      - SELECT id, ?, ?
+                      - FROM transferMapProperties
+                      - WHERE name = ?
+                      - AND (? <> "Control" AND ? <> "Standard"  AND ? <> "Blank"  AND ? <> "Sample" )
+                      string {_thisInput}
+                      string {_thisInputAttribute}
+                      string {mapName}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+                    sqlPreparedStatement~ INSERT INTO transferMaps (transferMap, sourceAttribute, destinationType, destinationAttribute)
+                      - SELECT id, '', ?, ?
+                      - FROM transferMapProperties
+                      - WHERE name = ?
+                      - AND (? = "Control" OR ? = "Standard"  OR ? = "Blank"  OR ? = "Sample" )
+                      string {_thisInput}
+                      string {_thisInputAttribute}
+                      string {mapName}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+
+            div
+              id= destinationGrid
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Destination Grid
+                  rows {destinationRows}
+                  cols {destinationColumns}
+                  inputType text
+                    required~ false
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~ INSERT INTO transferMaps (transferMap, sourceAttribute, destinationAttribute, destinationType)
+                      - SELECT Id, ?, ?, ''
+                      - FROM transferMapProperties
+                      - WHERE name = ?
+                      - AND (? <> "Control" AND ? <> "Standard"  AND ? <> "Blank"  AND ? <> "Sample" )
+                      string {_thisInput}
+                      string {_thisInputAttribute}
+                      string {mapName}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+                    sqlPreparedStatement~ INSERT INTO transferMaps (transferMap, sourceAttribute, destinationType, destinationAttribute)
+                      - SELECT Id, '', ?, ?
+                      - FROM transferMapProperties
+                      - WHERE name = ?
+                      - AND (? = "Control" OR ? = "Standard"  OR ? = "Blank"  OR ? = "Sample" )
+                      string {_thisInput}
+                      string {_thisInputAttribute}
+                      string {mapName}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+
+            br
+
+            vertical
+              button Clear Destination {destinationType}
+                id= destinationClear
+                screenLabel~
+
+        br
+
+        vertical
+          select nextStep
+            screenLabel~ Next step
+            data-parsley-required= true
+            required~ true
+            option
+            option Assign Master Mix
+              value= Add Master Mixes to Maps and Assign to Steps
+            option Save and Close
+              value= {_step}
+
+        br
+
+      ifCondition {nextStep}
+        advanced~
+        equals~ Assign Master Mix
+
+        ifCondition {mapType}
+          advanced~
+          equals~ Transfer Map
+          setFormQueryResult
+            sqlPreparedQuery SELECT Id AS 'mapId'
+              - FROM transferMapProperties
+              - WHERE name = ?
+              string {mapName}
+
+        ifCondition {mapType}
+          advanced~
+          equals~ Tray Map
+          setFormQueryResult
+            sqlPreparedQuery SELECT Id AS 'mapId'
+              - FROM trayMapProperties
+              - WHERE trayMapName = ?
+              string {mapName}
+
+      nextStep {nextStep}
+        formNumber 0
+        parameter mapTypeParameter
+          value {mapType}
+        parameter mapNameParameter
+          value {mapName}
+
+#####################################################################################################
+    step Edit Tray/Transfer Map
+      accessLevel 8
+      cssLinks
+        link css/traymaps/createMap.css
+      jsScripts
+        src js/trayAndTransferMaps/editMap.js
+      form
+
+        data-parsley-validate=
+        include userAccountInfo
+        include combobox
+        include stepInstructions
+        vertical
+          select mapType
+            id= mapType
+            class= required
+            data-parsley-required= true
+            screenLabel~ Map Type
+            setName~ mapType
+            required~ true
+
+        br
+
+        div
+          id= trayMapSection
+          class= hidden
+          fieldset
+            legend Select Tray Map Name
+            vertical
+              select trayMapName
+                screenLabel~ Tray Map Name
+                required~ false
+                class= traymapOptions
+                option
+                sqlPreparedQuery~
+                  - SELECT trayMapName AS "displayValue",
+                  -   Id AS "value"
+                  - FROM trayMapProperties
+                  - ORDER BY trayMapName
+                validate~ SELECT 1
+                  - FROM DUAL
+                  - WHERE (? <> '' AND ? = 'Tray Map')
+                  -   OR (? = '' AND ? <> 'Tray Map')
+                  string {_thisInput}
+                  string {mapType}
+                  string {_thisInput}
+                  string {mapType}
+                  errorMessage~ A You Must Select a Tray Map.
+
+
+        div
+          id= transferMapSection
+          class= hidden
+          fieldset
+            legend Select Transfer Map Name
+            vertical
+              select transferMapName
+                screenLabel~ Transfer Map Name
+                required~ false
+                class= transfermapOptions
+                sqlPreparedQuery~
+                  - SELECT name AS "displayValue",
+                  -   Id as "value"
+                  - FROM transferMapProperties
+                  - ORDER BY name
+                validate~ SELECT 1
+                  - FROM DUAL
+                  - WHERE (? <> '' AND ? = 'Transfer Map')
+                  -   OR (? = '' AND ? <> 'Transfer Map')
+                  string {_thisInput}
+                  string {mapType}
+                  string {_thisInput}
+                  string {mapType}
+                  errorMessage~ A You Must Select a Transfer Map.
+
+      form
+
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+
+        configurePreparedQuery~ SELECT Id AS "trayMapId",
+          - trayMapName,
+          - trayType,
+          - trayRows,
+          - trayColumns
+          - FROM trayMapProperties
+          - WHERE Id = ?
+          allowEmptyResults~
+          string {trayMapName}
+
+        configurePreparedQuery~
+          - SELECT Id AS "transferMapId",
+          - name AS "transferMapName",
+          - sourceType,
+          - sourceRows,
+          - sourceColumns,
+          - destinationType,
+          - destinationRows,
+          - destinationColumns
+          - FROM transferMapProperties
+          - WHERE Id = ?
+          allowEmptyResults~
+          string {transferMapName}
+
+      # hidden map type
+        hidden mapType
+          id= mapType
+          value= {mapType}
+
+      # hidden Traymap information
+        hidden trayRows
+          id= trayRows
+          value= {_:trayRows}
+
+        hidden trayColumns
+          id= trayColumns
+          value= {_:trayColumns}
+
+        hidden trayType
+          id= trayType
+          value= {_:trayType}
+
+        hidden trayMapName
+          id= trayMapName
+          value= {_:trayMapName}
+
+        hidden trayMapId
+          id= trayMapId
+          value= {_:trayMapId}
+
+      # hidden transfer Map Information
+
+        hidden transferMapName
+          id= transferMapName
+          value= {_:transferMapName}
+
+        hidden transferMapId
+          id= transferMapId
+          value= {_:transferMapId}
+
+        hidden sourceType
+          id= sourceType
+          value= {_:sourceType}
+
+        hidden sourceRows
+          id= sourceRows
+          value= {_:sourceRows}
+
+        hidden sourceColumns
+          id= sourceColumns
+          value= {_:sourceColumns}
+
+        hidden destinationType
+          id= destinationType
+          value= {_:destinationType}
+
+        hidden destinationRows
+          id= destinationRows
+          value= {_:destinationRows}
+
+        hidden destinationColumns
+          id= destinationColumns
+          value= {_:destinationColumns}
+
+        ### Tray Maps div ###
+        div
+          id= traymap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+          fieldset
+            legend Tray Map Name
+            vertical
+              ### select options have to be in the contents table with a self record or the plate will not execute or create the new traymap  ##
+              text traymapName
+                screenLabel~
+                value= {_:trayMapName}
+                readonly=
+
+          fieldset
+            legend View Current Step Assignments
+            vertical
+              button View/Hide
+                id= viewStepAssignments
+                class= viewButton
+                screenLabel~
+
+              div
+                id= viewAssignedSteps
+                vertical
+                  table
+                    sqlPreparedQuery~
+                      - SELECT Distinct Step AS "Steps Assigned"
+                      - FROM trayMapProperties tmp
+                      - INNER JOIN trayMapStepAssignments tmsa
+                      -   ON tmp.Id = tmsa.trayMapId
+                      - WHERE tmp.Id = ?
+                      - UNION
+                      - SELECT '' AS "Steps Assigned"
+                      string {_:trayMapId}
+
+          fieldset
+            legend Create Edit Tray Map
+            fieldset
+              legend Click to Select Well Input
+              rowGroups
+                rowGroup
+                  text controlOption
+                    id= trayMapControlOption
+                    class= controlOption wellOptionButton wellType
+                    readonly=
+                    value= Control
+                    screenLabel~
+
+                  text standardOption
+                    id= trayMapStandardOption
+                    class= standardOption wellOptionButton wellType
+                    readonly=
+                    value= Standard
+                    screenLabel~
+
+                  text blankOption
+                    id= trayMapBlankOption
+                    class= blankOption wellOptionButton wellType
+                    readonly=
+                    value= Blank
+                    screenLabel~
+
+                  text sampleOption
+                    id= trayMapSampleOption
+                    class= sampleOption wellOptionButton wellType
+                    readonly=
+                    value= Sample
+                    screenLabel~
+
+                  br
+
+            br
+
+            div
+              configureIf~ {trayType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Tray Map
+                  rows {_:trayRows}
+                  cols {_:trayColumns}
+                  sqlPreparedQuery~
+                    - SELECT well AS "attribute",
+                    -   containerType AS "content"
+                    - FROM trayMaps
+                    - WHERE trayMapId = ?
+                    string {_:trayMapId}
+                  inputType text
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~ update trayMaps
+                      - set containerType = ?,
+                      -   eventId = ?
+                      - WHERE trayMapId = ?
+                      -   AND well = ?
+                      -   AND ? = 'false'
+                      string {_thisInput}
+                      long {_eventid}
+                      string {trayMapId}
+                      string {_thisInputAttribute}
+                      string {deleteMap}
+
+            div
+              configureIf~ {trayType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Tray Map
+                  rows {_:trayRows}
+                  cols {_:trayColumns}
+                  sqlPreparedQuery~
+                    - SELECT well AS "attribute",
+                    -   containerType AS "content"
+                    - FROM trayMaps
+                    - WHERE trayMapId = ?
+                    string {_:trayMapId}
+                  inputType text
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~ update trayMaps
+                      - set containerType = ?,
+                      -   eventId = ?
+                      - WHERE trayMapId = ?
+                      -   AND well = ?
+                      -   AND ? = 'false'
+                      string {_thisInput}
+                      long {_eventid}
+                      string {trayMapId}
+                      string {_thisInputAttribute}
+                      string {deleteMap}
+
+
+            br
+
+            vertical
+              button Clear Tray Map
+                id= destinationClear
+                screenLabel~
+
+        ### Transfer Maps div ###
+
+        div
+          id= transferMap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+          fieldset
+            legend New Transfer Map Name
+            vertical
+              text destinationMapName
+                id= destinationMapName
+                screenLabel~
+                value= {_:transferMapName}
+                readonly=
+
+          fieldset
+            legend View Current Step Assignments
+            vertical
+              button View/Hide
+                id= viewStepAssignments
+                class= viewButton
+                screenLabel~
+
+              div
+                id= viewAssignedSteps
+                vertical
+                  table
+                    sqlPreparedQuery~
+                      - SELECT Distinct Step AS "Steps Assigned"
+                      - FROM transferMapProperties tmp
+                      - INNER JOIN transferMapStepAssignments tmsa
+                      -   ON tmp.Id = tmsa.transferMapId
+                      - WHERE tmp.Id = ?
+                      - UNION
+                      - SELECT '' AS "Steps Assigned"
+                      string {_:transferMapId}
+
+          fieldset
+            legend Source Plate
+            vertical
+              text sourceTableType
+                id= sourceTableType
+                screenLabel~ Source Map Type:
+                value= {_:sourceType}
+                readonly=
+            vertical
+            div
+              id= sourcePlate
+              configureIf~ {sourceType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Source Plate
+                  rows {_:sourceRows}
+                  cols {_:sourceColumns}
+                  inputType text
+                    class= sourceWell
+                    size= 10
+                    readonly=
+            div
+              id= sourcePlate
+              configureIf~ {sourceType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Source Grid
+                  rows {_:sourceRows}
+                  cols {_:sourceColumns}
+                  inputType text
+                    class= sourceWell
+                    size= 10
+                    readonly=
+
+            br
+
+            vertical
+              button Clear Selections
+                id= sourceClear
+                screenLabel~
+
+
+            br
+          fieldset
+            legend Edit Transfer Map
+            fieldset
+              legend Click to Select Well Input
+              rowGroups
+                rowGroup
+                  text controlOption
+                    id= trayMapControlOption
+                    class= controlOption wellOptionButton wellType
+                    value= Control
+                    screenLabel~
+
+                  text standardOption
+                    id= trayMapStandardOption
+                    class= standardOption wellOptionButton wellType
+                    value= Standard
+                    screenLabel~
+
+                  text blankOption
+                    id= trayMapBlankOption
+                    class= blankOption wellOptionButton wellType
+                    value= Blank
+                    screenLabel~
+
+                  text sampleOption
+                    id= trayMapSampleOption
+                    class= sampleOption wellOptionButton wellType
+                    value= Sample
+                    screenLabel~
+
+                  br
+
+            vertical
+              text destinationTableType
+                id= destinationTableType
+                screenLabel~ Destination Map Type:
+                value= {_:destinationType}
+                readonly=
+
+            div
+              id= destinationPlate
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Plate
+
+              vertical
+                plate Destination Plate
+                  rows {_:destinationRows}
+                  cols {_:destinationColumns}
+                  sqlPreparedQuery~
+                    - SELECT destinationAttribute AS "attribute",
+                    -   sourceAttribute AS "content"
+                    - FROM transferMaps
+                    - WHERE transferMap = ?
+                    -   AND sourceAttribute <> ''
+                    - UNION
+                    - SELECT destinationAttribute AS "attribute",
+                    -   destinationType AS "content"
+                    - FROM transferMaps
+                    - WHERE transferMap = ?
+                    -   AND destinationType <> ''
+                    string {_:transferMapId}
+                    string {_:transferMapId}
+                  inputType text
+                    required~ false
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~ Update transferMaps
+                      - SET sourceAttribute = ?,
+                      -   destinationType= ''
+                      - WHERE transferMap = ?
+                      -   AND destinationAttribute = ?
+                      -   AND ? = 'false'
+                      -   AND (? <> 'Control' AND ? <> 'Standard' AND ? <> 'Blank' AND ? <> 'Sample')
+                      string {_thisInput}
+                      string {transferMapId}
+                      string {_thisInputAttribute}
+                      string {deleteMap}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+                    sqlPreparedStatement~ Update transferMaps
+                      - SET destinationType = ?,
+                      -   sourceAttribute= ''
+                      - WHERE transferMap = ?
+                      -   AND destinationAttribute = ?
+                      -   AND ? = 'false'
+                      -   AND (? = 'Control' OR ? = 'Standard' OR ? = 'Blank' OR ? = 'Sample')
+                      string {_thisInput}
+                      string {transferMapId}
+                      string {_thisInputAttribute}
+                      string {deleteMap}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+
+            div
+              id= destinationGrid
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Destination Grid
+                  rows {_:destinationRows}
+                  cols {_:destinationColumns}
+                  sqlPreparedQuery~
+                    - SELECT destinationAttribute AS "attribute",
+                    -   sourceAttribute AS "content"
+                    - FROM transferMaps
+                    - WHERE transferMap = ?
+                    -   AND sourceAttribute <> ''
+                    - UNION
+                    - SELECT destinationAttribute AS "attribute",
+                    -   destinationType AS "content"
+                    - FROM transferMaps
+                    - WHERE transferMap = ?
+                    -   AND destinationType <> ''
+                    string {_:transferMapId}
+                    string {_:transferMapId}
+                  inputType text
+                    required~ false
+                    class= destinationWell
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~ Update transferMaps
+                      - SET sourceAttribute = ?,
+                      -   destinationType= ''
+                      - WHERE transferMap = ?
+                      -   AND destinationAttribute = ?
+                      -   AND ? = 'false'
+                      -   AND (? <> 'Control' AND ? <> 'Standard' AND ? <> 'Blank' AND ? <> 'Sample')
+                      string {_thisInput}
+                      string {transferMapId}
+                      string {_thisInputAttribute}
+                      string {deleteMap}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+                    sqlPreparedStatement~ Update transferMaps
+                      - SET destinationType = ?,
+                      -   sourceAttribute= ''
+                      - WHERE transferMap = ?
+                      -   AND destinationAttribute = ?
+                      -   AND ? = 'false'
+                      -   AND (? = 'Control' OR ? = 'Standard' OR ? = 'Blank' OR ? = 'Sample')
+                      string {_thisInput}
+                      string {transferMapId}
+                      string {_thisInputAttribute}
+                      string {deleteMap}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+                      string {_thisInput}
+
+
+            br
+
+            vertical
+              button Clear Destination Map
+                id= destinationClear
+                screenLabel~
+
+        br
+        vertical
+          checkbox deleteMap
+            id= deleteMap
+            screenLabel~ Delete Map
+        br
+        br
+
+      ifCondition {deleteMap}
+        advanced~
+        equals~ true
+
+        ifCondition {mapType}
+          advanced~
+          equals~ Tray Map
+
+          sqlPreparedStatement~
+            - DELETE tmma.*
+            - FROM trayMapMMAssignments tmma
+            - INNER JOIN trayMapStepAssignments tmsa
+            -   ON tmma.trayMapStepId = tmsa.Id
+            - INNER JOIN trayMapProperties tmp
+            -   ON tmsa.trayMapId = tmp.Id
+            - WHERE tmp.Id = ?
+            string {trayMapId}
+
+          sqlPreparedStatement~
+            - DELETE FROM trayMapStepAssignments
+            - WHERE trayMapId = ?
+            string {trayMapId}
+
+          sqlPreparedStatement~
+            - DELETE FROM trayMaps
+            - WHERE trayMapId = ?
+            string {trayMapId}
+
+          sqlPreparedStatement~
+            - DELETE FROM  trayMapProperties
+            - WHERE Id = ?
+            string {trayMapId}
+
+        ifCondition {mapType}
+          advanced~
+          equals~ Transfer Map
+
+          sqlPreparedStatement~
+            -  DELETE  tmma.*
+            -  FROM transferMapMMAssignments tmma
+            -  INNER JOIN transferMapStepAssignments tmsa
+            -   ON tmma.transferMapStepId = tmsa.Id
+            -  INNER JOIN transferMapProperties tmp
+            -   ON tmsa.transferMapId = tmp.Id
+            -  WHERE tmp.Id = ?
+            string {transferMapId}
+
+          sqlPreparedStatement~
+            - DELETE FROM transferMapStepAssignments
+            - WHERE transferMapId = ?
+
+            string {transferMapId}
+
+          sqlPreparedStatement~
+            - DELETE FROM transferMaps
+            - WHERE transferMap = ?
+            string {transferMapId}
+
+          sqlPreparedStatement~
+            - DELETE FROM transferMapProperties
+            - WHERE Id = ?
+            string {transferMapId}
+
+
+#############################################################################################################
+    step Edit Tray/Transfer Map Step and Master Mix Assignments
+      accessLevel 8
+      cssLinks
+        link css/traymaps/assignMap.css
+      jsScripts
+        src js/trayAndTransferMaps/editMapMM.js
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include combobox
+        include stepInstructions
+        vertical
+          select mapType
+            id= mapType
+            class= required
+            data-parsley-required= true
+            screenLabel~ Map Type
+            setName~ mapType
+            required~ true
+
+        br
+
+        div
+          id= trayMapSection
+          class= hidden
+          fieldset
+            legend Select Tray Map Name
+            vertical
+              select trayMapId
+                screenLabel~ Tray Map Name
+                required~ false
+                class= traymapOptions
+                option
+                sqlPreparedQuery~
+                  - SELECT trayMapName AS "displayValue",
+                  -   Id AS "value"
+                  - FROM trayMapProperties
+                  - ORDER BY trayMapName
+                validate~ SELECT 1
+                  - FROM DUAL
+                  - WHERE (? <> '' AND ? = 'Tray Map')
+                  -   OR (? = '' AND ? <> 'Tray Map')
+                  string {_thisInput}
+                  string {mapType}
+                  string {_thisInput}
+                  string {mapType}
+                  errorMessage~ A You Must Select a Tray Map.
+
+
+        div
+          id= transferMapSection
+          class= hidden
+          fieldset
+            legend Select Transfer Map Name
+            vertical
+              select transferMapId
+                screenLabel~ Transfer Map Name
+                required~ false
+                class= transfermapOptions
+                sqlPreparedQuery~
+                  - SELECT name AS "displayValue",
+                  -   Id as "value"
+                  - FROM transferMapProperties
+                  - ORDER BY name
+                validate~ SELECT 1
+                  - FROM DUAL
+                  - WHERE (? <> '' AND ? = 'Transfer Map')
+                  -   OR (? = '' AND ? <> 'Transfer Map')
+                  string {_thisInput}
+                  string {mapType}
+                  string {_thisInput}
+                  string {mapType}
+                  errorMessage~ A You Must Select a Transfer Map.
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        configurePreparedQuery~ SELECT trayMapName AS "trayMapName"
+          - FROM trayMapProperties
+          - WHERE Id = ?
+          - UNION
+          - SELECT ''
+          string {trayMapId}
+
+        configurePreparedQuery~
+          - SELECT name AS "transferMapName"
+          - FROM transferMapProperties
+          - WHERE Id = ?
+          - UNION ALL
+          - SELECT ''
+          string {transferMapId}
+
+
+        hidden mapType
+          value= {mapType}
+
+        hidden trayMapId
+          value= {trayMapId}
+
+        hidden transferMapId
+          value= {transferMapId}
+
+        hidden trayMapName
+          value= {_:trayMapName}
+
+        hidden transferMapName
+          value= {_:transferMapName}
+
+        fieldset
+          legend Selected Map
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+          vertical
+            text mapName
+              readonly=
+              id= mapType
+              value= {_:trayMapName}
+              screenLabel~ Map Name:
+
+        fieldset
+          legend Selected Map
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+          vertical
+            text mapName
+              readonly=
+              id= mapType
+              value= {_:transferMapName}
+              screenLabel~ Map Name:
+
+
+        fieldset
+          legend Select Step
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+          vertical
+            select trayMapStepId
+              screenLabel~
+              required~ true
+              class= traymapOptions required
+              data-parsley-required= true
+              option
+              option Create New Assignment
+                value= NA
+              sqlPreparedQuery~
+                - SELECT tmsa.step AS "displayValue",
+                -   tmsa.Id AS "value"
+                - FROM trayMapProperties tmp
+                - INNER JOIN trayMapStepAssignments tmsa
+                -   ON tmp.id = tmsa.trayMapId
+                - WHERE tmp.Id= ?
+                string {trayMapId}
+
+
+        fieldset
+          legend Select Step Instance
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+          vertical
+            select transferMapStepId
+              screenLabel~
+              required~ true
+              data-parsley-required= true
+              class= transfermapOptions required
+              option
+              option Create New Assignment
+                value= NA
+              sqlPreparedQuery~
+                - SELECT CONCAT(tmsa.step, " - ", tmsa.displayOrder) AS "displayValue",
+                -   tmsa.Id AS "value"
+                - FROM transferMapProperties tmp
+                - INNER JOIN transferMapStepAssignments tmsa
+                -   ON tmp.id = tmsa.transferMapId
+                - WHERE tmp.Id= ?
+                string {transferMapId}
+
+      form
+        data-parsley-validate=
+        include stepInstructions
+        include combobox
+        include stepInstructions
+
+        script
+          src= js/trayAndTransferMaps/assignMap.js
+
+        configurePreparedQuery~ SELECT trayType, trayRows, trayColumns
+          - FROM trayMapProperties
+          - WHERE Id = ?
+          - UNION
+          - SELECT '','',''
+          string {trayMapId}
+
+        configurePreparedQuery~ SELECT destinationType, destinationRows, destinationColumns
+          - FROM transferMapProperties
+          - WHERE Id = ?
+          - UNION ALL
+          - SELECT '','',''
+          string {transferMapId}
+
+        configurePreparedQuery~ SELECT step AS "trayStep"
+          - FROM trayMapStepAssignments
+          - WHERE Id = ?
+          - UNION
+          - SELECT ''
+          string {trayMapStepId}
+
+        configurePreparedQuery~ SELECT step AS "transferStep"
+          - FROM transferMapStepAssignments
+          - WHERE Id = ?
+          - UNION ALL
+          - SELECT ''
+          string {transferMapStepId}
+
+
+        hidden mapType
+          id= mapType
+          value= {mapType}
+
+        hidden trayMapName
+          id= trayMapName
+          value= {trayMapName}
+
+        hidden trayMapId
+          id= trayMapId
+          value= {trayMapId}
+
+        hidden trayMapStepId
+          id= trayMapStepId
+          value= {trayMapStepId}
+
+        hidden trayType
+          id= trayType
+          value= {_:trayType}
+
+        hidden trayStep
+          id= trayStep
+          value= {_:trayStep}
+
+        hidden transferMapStepId
+          id= transferMapStepId
+          value= {transferMapStepId}
+
+        hidden transferMapId
+          id= transferMapId
+          value= {transferMapId}
+
+        hidden destinationType
+          id= destinationType
+          value= {_:destinationType}
+
+        hidden transferMapName
+          id= transferMapName
+          value= {transferMapName}
+
+        hidden transferStep
+          id= transferStep
+          value= {_:transferStep}
+
+        fieldset
+          legend Map Name
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+          vertical
+            text mapName
+              readonly=
+              id= mapType
+              value= {trayMapName}
+              screenLabel~
+
+        fieldset
+          legend Transfer Map Name
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+          vertical
+            text mapName
+              readonly=
+              id= mapType
+              value= {transferMapName}
+              screenLabel~
+
+        fieldset
+          legend View Current Step Assignments
+          vertical
+            button View/Hide
+              id= viewStepAssignments
+              class= viewButton
+              screenLabel~
+
+            div
+              id= viewAssignedSteps
+              configureIf~ {mapType}
+                advanced~
+                equals~ Tray Map
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT Distinct Step AS "Steps Assigned"
+                    - FROM trayMapProperties tmp
+                    - INNER JOIN trayMapStepAssignments tmsa
+                    -   ON tmp.Id = tmsa.trayMapId
+                    - WHERE tmp.Id = ?
+                    - UNION
+                    - SELECT '' AS "Steps Assigned"
+                    string {trayMapId}
+
+            div
+              id= viewAssignedSteps
+              configureIf~ {mapType}
+                advanced~
+                equals~ Transfer Map
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT Distinct Step AS "Steps Assigned"
+                    - FROM transferMapProperties tmp
+                    - INNER JOIN transferMapStepAssignments tmsa
+                    -   ON tmp.Id = tmsa.transferMapId
+                    - WHERE tmp.Id = ?
+                    - UNION
+                    - SELECT '' AS "Steps Assigned"
+                    string {transferMapId}
+
+        fieldset
+          legend Select Step to Assign Master Mix to
+          vertical
+            select mmStep
+              configureIf~ {mapType}
+                advanced~
+                equals~ Tray Map
+              screenLabel~
+              class= required combobox
+              required~ true
+              data-parsley-required= true
+              value= {_:trayStep}
+              option
+              sqlQuery~ SELECT DISTINCT ps.displayName
+                - FROM protocolSteps ps
+                - LEFT JOIN trayMapStepAssignments tmsa
+                -   ON ps.displayName = tmsa.step
+                - LEFT JOIN transferMapStepAssignments tranmsa
+                -   ON ps.displayName = tranmsa.step
+                - WHERE ps.displayName NOT IN
+                - (
+                -   'Login','LOGOUT','FS Protocol Writer','FS Protocols','FS Settings','FS Summary','FS Tasks',
+                -   'downloadArchivedReport','DownloadFile','DownloadFile Unrestricted','DownloadFile Unrestricted FISH',
+                -   'DownloadInsurance','DownloadMergeDemos','DownloadMergeFile','DownloadProtocolConfig',
+                -   'DownloadRequisitionFile','DownloadToxBatchFile','Download NGS Report',
+                -   'Download Translational Data File','Download Translational Report'
+                - )
+                -   AND ps.displayName NOT LIKE '*%'
+                -   AND ps.displayName NOT LIKE lower('ajax%')
+                -   AND ps.displayName NOT LIKE lower('post%')
+                -   AND ps.displayName NOT LIKE lower('get%')
+                -   AND tmsa.step IS NULL
+                -   AND tranmsa.step IS NULL
+                - ORDER BY ps.displayName
+              validate~ SELECT 1 FROM protocolSteps WHERE displayName = '{mmStep}'
+                errorMessage~ The entered step name does not match a step in the system. Please select from the given list.
+
+            select mmStep
+              configureIf~ {mapType}
+                advanced~
+                equals~ Transfer Map
+              screenLabel~
+              class= required combobox
+              required~ true
+              data-parsley-required= true
+              value= {_:transferStep}
+              option
+              sqlQuery~ SELECT DISTINCT ps.displayName
+                - FROM protocolSteps ps
+                - LEFT JOIN trayMapStepAssignments tmsa
+                -   ON ps.displayName = tmsa.step
+                - WHERE ps.displayName NOT IN
+                - (
+                -   'Login','LOGOUT','FS Protocol Writer','FS Protocols','FS Settings','FS Summary','FS Tasks',
+                -   'downloadArchivedReport','DownloadFile','DownloadFile Unrestricted','DownloadFile Unrestricted FISH',
+                -   'DownloadInsurance','DownloadMergeDemos','DownloadMergeFile','DownloadProtocolConfig',
+                -   'DownloadRequisitionFile','DownloadToxBatchFile','Download NGS Report',
+                -   'Download Translational Data File','Download Translational Report'
+                - )
+                -   AND ps.displayName NOT LIKE '*%'
+                -   AND ps.displayName NOT LIKE lower('ajax%')
+                -   AND ps.displayName NOT LIKE lower('post%')
+                -   AND ps.displayName NOT LIKE lower('get%')
+                -   AND tmsa.step IS NULL
+                - ORDER BY ps.displayName
+              validate~ SELECT 1 FROM protocolSteps WHERE displayName = '{mmStep}'
+                errorMessage~ The entered step name does not match a step in the system. Please select from the given list.
+
+        div
+          id= trayMap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+
+          fieldset
+            legend Add Master Mix
+            fieldset
+              legend Select Master Mix to Add
+              vertical2
+                select mmName
+                  id= selectMM
+                  screenLabel~
+                  option
+                  sqlQuery~ SELECT DISTINCT name FROM masterMixes
+
+                  sqlPreparedStatement~
+                    - DELETE FROM trayMapMMAssignments
+                    - WHERE trayMapStepID = ?
+                    string {trayMapStepId}
+
+                  sqlPreparedStatement~ DELETE FROM trayMapStepAssignments
+                    - WHERE Id= ?
+                    -   AND (? <> ? OR ? = 'true')
+                    string {trayMapStepId}
+                    string {mmStep}
+                    string {trayStep}
+                    string {deleteMap}
+
+                  sqlPreparedStatement~ INSERT INTO trayMapStepAssignments (trayMapId, step, eventId)
+                    - SELECT ?, ?, ?
+                    - FROM DUAL
+                    - WHERE NOT EXISTS
+                    - (
+                    -   SELECT 1
+                    -   FROM trayMapStepAssignments
+                    -   WHERE trayMapId = ?
+                    -     AND step = ?
+                    - )
+                    -   AND ? = 'false'
+                    string {trayMapId}
+                    string {mmStep}
+                    long {_eventId}
+                    string {trayMapId}
+                    string {mmStep}
+                    string {deleteMap}
+
+                  sqlPreparedStatement~ UPDATE trayMapStepAssignments
+                    - SET eventId = ?
+                    - WHERE Id = ?
+                    -   AND step = ?
+                    long {_eventId}
+                    string {trayMapStepId}
+                    string {trayStep}
+
+                button Add to All Wells
+                  id= addToAll
+                  screenLabel~
+
+            fieldset
+              legend View Map Contents
+              vertical
+                button View/Hide
+                  id= viewContent
+                  class= viewButton
+                  screenLabel~
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {trayType}
+                    advanced~
+                    equals~ Plate
+                  vertical
+                    plate Plate Contents
+                      rows {_:trayRows}
+                      cols {_:trayColumns}
+                      sqlPreparedQuery~
+                        - SELECT well AS "attribute",
+                        -   containerType AS "content"
+                        - FROM trayMaps
+                        - WHERE trayMapId = ?
+                        string {trayMapId}
+                      inputType text
+                        readonly= true
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {trayType}
+                    advanced~
+                    equals~ Grid
+                  vertical
+                    grid Grid Contents
+                      rows {_:trayRows}
+                      cols {_:trayColumns}
+                      sqlPreparedQuery~
+                        - SELECT well AS "attribute",
+                        -   containerType AS "content"
+                        - FROM trayMaps
+                        - WHERE trayMapId = ?
+                        string {trayMapId}
+                      inputType text
+                        readonly= true
+
+            div
+              id= destinationPlatePanel
+              configureIf~ {trayType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Tray Map Plate
+                  rows {_:trayRows}
+                  cols {_:trayColumns}
+                  sqlPreparedQuery~
+                    - SELECT tmma.well AS "attribute",
+                    -   mm.name AS "content"
+                    - FROM trayMapMMAssignments tmma
+                    - INNER JOIN masterMixes mm
+                    -   ON tmma.mmId = mm.Id
+                    - WHERE trayMapStepId = ?
+                    string {trayMapStepId}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~
+                      - INSERT INTO trayMapMMAssignments (trayMapStepID, well, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM trayMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.trayMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      -   AND ? = 'false'
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {trayMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+                      string {deleteMap}
+            div
+              id= destinationGridPanel
+              configureIf~  {trayType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Tray Map Grid
+                  rows {_:trayRows}
+                  cols {_:trayColumns}
+                  sqlPreparedQuery~
+                    - SELECT tmma.well AS "attribute",
+                    -   mm.name AS "content"
+                    - FROM trayMapMMAssignments tmma
+                    - INNER JOIN masterMixes mm
+                    -   ON tmma.mmId = mm.Id
+                    - WHERE trayMapStepId = ?
+                    string {trayMapStepId}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~
+                      - INSERT INTO trayMapMMAssignments (trayMapStepID, well, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM trayMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.trayMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      -   AND ? = 'false'
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {trayMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+                      string {deleteMap}
+
+            vertical
+              button Clear Destination Map
+                id= destinationClear
+                screenLabel~
+
+        div
+          id= transferMap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+
+          fieldset
+            legend Add Master Mix
+            fieldset
+              legend Select Master Mix to Add
+              vertical2
+                select MMName
+                  id= selectMM
+                  screenLabel~
+                  option
+                  sqlQuery~ SELECT DISTINCT name FROM masterMixes
+
+                  sqlPreparedStatement~
+                    - DELETE FROM transferMapMMAssignments
+                    - WHERE transferMapStepID = ?
+                    string {transferMapStepId}
+
+                  sqlPreparedStatement~ DELETE FROM transferMapStepAssignments
+                    - WHERE Id= ?
+                    -   AND (? <> ? OR ? = 'true')
+                    string {transferMapStepId}
+                    string {mmStep}
+                    string {transferStep}
+                    string {deleteMap}
+
+                  sqlPreparedStatement~
+                    - INSERT INTO transferMapStepAssignments (transferMapId, step, displayOrder, eventId)
+                    - SELECT ?,?,0,?
+                    - FROM DUAL
+                    - WHERE ? = 'false'
+                    -   AND ? <> ?
+                    string {transferMapId}
+                    string {mmStep}
+                    long {_eventId}
+                    string {deleteMap}
+                    string {mmStep}
+                    string {transferStep}
+
+                  sqlPreparedStatement~
+                    - UPDATE transferMapStepAssignments tmsa
+                    - INNER JOIN
+                    -   (
+                    -     SELECT MAX(tmsa2.displayOrder) AS 'maxDisplayOrder'
+                    -     FROM transferMapStepAssignments tmsa2
+                    -     WHERE tmsa2.step = ?
+                    -   )As maxOrder
+                    - SET tmsa.displayOrder = (maxOrder.maxDisplayOrder + 1)
+                    - WHERE eventId = ?
+                    -   AND ? <> ?
+                    -   AND ? = 'false'
+                    -   AND tmsa.step <> ?
+                    string {mmStep}
+                    long {_eventId}
+                    string {mmStep}
+                    string {transferStep}
+                    string {deleteMap}
+                    string {transferStep}
+
+                  sqlPreparedStatement~ UPDATE transferMapStepAssignments
+                    - SET eventId = ?
+                    - WHERE Id = ?
+                    -   AND step = ?
+                    -   AND ? = 'false'
+                    long {_eventId}
+                    string {transferMapStepId}
+                    string {transferStep}
+                    string {deleteMap}
+
+                button Add to All Wells
+                  id= addToAll
+                  screenLabel~
+
+            fieldset
+              legend View Map Contents
+              vertical
+                button View/Hide
+                  id= viewContent
+                  class= viewButton
+                  screenLabel~
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {destinationType}
+                    advanced~
+                    equals~ Plate
+                  vertical
+                    plate Destination Plate Contents
+                      rows {_:destinationRows}
+                      cols {_:destinationColumns}
+                      sqlPreparedQuery~
+                        - SELECT destinationAttribute AS "attribute",
+                        -   sourceAttribute AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND sourceAttribute <> ''
+                        - UNION
+                        - SELECT destinationAttribute AS "attribute",
+                        -   destinationType AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND destinationType <> ''
+                        string {transferMapId}
+                        string {transferMapId}
+                      inputType text
+                        readonly= true
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {destinationType}
+                    advanced~
+                    equals~ Grid
+                  vertical
+                    grid Destination Grid Contents
+                      rows {_:destinationRows}
+                      cols {_:destinationColumns}
+                      sqlPreparedQuery~
+                        - SELECT destinationAttribute AS "attribute",
+                        -   sourceAttribute AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND sourceAttribute <> ''
+                        - UNION
+                        - SELECT destinationAttribute AS "attribute",
+                        -   destinationType AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND destinationType <> ''
+                        string {transferMapId}
+                        string {transferMapId}
+                      inputType text
+                        readonly= true
+
+            div
+              id= destinationPlatePanel
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Destination Plate
+                  rows {_:destinationRows}
+                  cols {_:destinationColumns}
+                  sqlPreparedQuery~
+                    - SELECT tmma.destinationAttribute AS "attribute",
+                    -   mm.name AS "content"
+                    - FROM transferMapMMAssignments tmma
+                    - INNER JOIN masterMixes mm
+                    -   ON tmma.mmId = mm.Id
+                    - WHERE transferMapStepId = ?
+                    string {transferMapStepId}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~
+                      - INSERT INTO transferMapMMAssignments (transferMapStepID, destinationAttribute, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM transferMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.transferMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      -   AND ? = 'false'
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {transferMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+                      string {deleteMap}
+            div
+              id= destinationGridPanel
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Destination Grid
+                  rows {_:destinationRows}
+                  cols {_:destinationColumns}
+                  sqlPreparedQuery~
+                    - SELECT tmma.destinationAttribute AS "attribute",
+                    -   mm.name AS "content"
+                    - FROM transferMapMMAssignments tmma
+                    - INNER JOIN masterMixes mm
+                    -   ON tmma.mmId = mm.Id
+                    - WHERE transferMapStepId = ?
+                    string {transferMapStepId}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+
+                    sqlPreparedStatement~
+                      - INSERT INTO transferMapMMAssignments (transferMapStepID, destinationAttribute, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM transferMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.transferMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      -   AND ? = 'false'
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {transferMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+                      string {deleteMap}
+
+            vertical
+              button Clear Destination Map
+                id= destinationClear
+                screenLabel~
+
+        br
+        vertical
+          checkbox deleteMap
+            id= deleteMap
+            screenLabel~ Delete Map
+        br
+        br
+
+
+#####################################################################################################
+    step View/Edit Transfer Map Order
+      accessLevel 8
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        h3 Transfer Map Steps
+        vertical
+          select transferMapSteps
+            screenLabel~ Select Step
+            option
+            sqlPreparedQuery~
+              - SELECT Distinct step
+              - FROM transferMapStepAssignments
+            required~ true
+            class= transfermapStep
+
+
+      form
+        include stepInstructions
+        script
+          src= js/trayAndTransferMaps/editOrder.js
+
+        fieldset
+          legend Step
+            vertical
+              text stepName
+                screenLabel~
+                readonly= true
+                value= {transferMapSteps}
+        fieldset
+          legend Assigned Transfer Maps
+          table
+            id= orderTable
+            sqlPreparedQuery~
+              - SELECT tmsa.id, tmp.name AS 'Map Name', tmsa.displayOrder AS 'Order'
+              - FROM transferMapStepAssignments tmsa
+              - INNER JOIN transferMapProperties tmp
+              -   ON tmsa.transferMapId = tmp.id
+              - WHERE tmsa.step = ?
+              string {transferMapSteps}
+            columnSpecs~ TransferMapOrders
+              allowChangedRecordIds
+              column 1
+                inputType text
+                  class= hiddenColumn
+                  readonly=
+                  sqlPreparedStatement~
+                    - UPDATE transferMapStepAssignments
+                    - SET displayOrder = ?
+                    - WHERE id = ?
+                    string {_columnInput:3}
+                    string {_columnInput:1}
+              column 3
+                inputType number
+                  class= Order required
+                  required~ true
+
+
+##############################################################################################################
+    stepGroup Hidden Tray and Transfer Maps
+
+    step Add Master Mixes to Maps and Assign to Steps
+
+      cssLinks
+        link css/traymaps/assignMap.css
+
+      form
+        data-parsley-validate=
+
+        include combobox
+        include stepInstructions
+
+        script
+          src= js/trayAndTransferMaps/assignMap.js
+
+        configurePreparedQuery~ SELECT Id AS 'trayMapId',trayType, trayRows, trayColumns
+          - FROM trayMapProperties
+          - WHERE trayMapName = ?
+          - UNION
+          - SELECT '','','',''
+          string {mapNameParameter}
+
+        configurePreparedQuery~ SELECT Id AS 'transferMapId',destinationType, destinationRows, destinationColumns
+          - FROM transferMapProperties
+          - WHERE name = ?
+          - UNION ALL
+          - SELECT '','','',''
+          string {mapNameParameter}
+
+        hidden mapType
+          id= mapType
+          value= {mapTypeParameter}
+
+        hidden trayMapId
+          id= trayMapId
+          value= {_:trayMapId}
+
+        hidden transferMapId
+          id= transferMapId
+          value= {_:transferMapId}
+
+        hidden mapName
+          id= mapName
+          value= {mapNameParameter}
+
+        hidden trayType
+          value= {_:trayType}
+
+        hidden destinationType
+          value= {_:destinationType}
+
+        fieldset
+          legend Map Name
+          vertical
+            text traymapName
+              screenLabel~
+              value= {mapNameParameter}
+              readonly=
+
+        fieldset
+          legend Select Step to Assign Master Mix to
+            vertical
+              select mmStep
+                configureIf~ {mapType}
+                  advanced~
+                  equals~ Tray Map
+                screenLabel~
+                class= required combobox
+                required~
+                option
+                sqlQuery~ SELECT DISTINCT ps.displayName
+                  - FROM protocolSteps ps
+                  - LEFT JOIN trayMapStepAssignments tmsa
+                  -   ON ps.displayName = tmsa.step
+                  - LEFT JOIN transferMapStepAssignments tranmsa
+                  -   ON ps.displayName = tranmsa.step
+                  - WHERE ps.displayName NOT IN
+                  - (
+                  -   'Login','LOGOUT','FS Protocol Writer','FS Protocols','FS Settings','FS Summary','FS Tasks',
+                  -   'downloadArchivedReport','DownloadFile','DownloadFile Unrestricted','DownloadFile Unrestricted FISH',
+                  -   'DownloadInsurance','DownloadMergeDemos','DownloadMergeFile','DownloadProtocolConfig',
+                  -   'DownloadRequisitionFile','DownloadToxBatchFile','Download NGS Report',
+                  -   'Download Translational Data File','Download Translational Report'
+                  - )
+                  -   AND ps.displayName NOT LIKE '*%'
+                  -   AND ps.displayName NOT LIKE lower('ajax%')
+                  -   AND ps.displayName NOT LIKE lower('post%')
+                  -   AND ps.displayName NOT LIKE lower('get%')
+                  -   AND tmsa.step IS NULL
+                  -   AND tranmsa.step IS NULL
+                  - ORDER BY ps.displayName
+                validate~ SELECT 1 FROM protocolSteps WHERE displayName = '{mmStep}'
+                  errorMessage~ The entered step name does not match a step in the system. Please select from the given list.
+
+              select mmStep
+                configureIf~ {mapType}
+                  advanced~
+                  equals~ Transfer Map
+                screenLabel~
+                class= required combobox
+                required~
+                option
+                sqlQuery~ SELECT DISTINCT ps.displayName
+                  - FROM protocolSteps ps
+                  - LEFT JOIN trayMapStepAssignments tmsa
+                  -   ON ps.displayName = tmsa.step
+                  - WHERE ps.displayName NOT IN
+                  - (
+                  -   'Login','LOGOUT','FS Protocol Writer','FS Protocols','FS Settings','FS Summary','FS Tasks',
+                  -   'downloadArchivedReport','DownloadFile','DownloadFile Unrestricted','DownloadFile Unrestricted FISH',
+                  -   'DownloadInsurance','DownloadMergeDemos','DownloadMergeFile','DownloadProtocolConfig',
+                  -   'DownloadRequisitionFile','DownloadToxBatchFile','Download NGS Report',
+                  -   'Download Translational Data File','Download Translational Report'
+                  - )
+                  -   AND ps.displayName NOT LIKE '*%'
+                  -   AND ps.displayName NOT LIKE lower('ajax%')
+                  -   AND ps.displayName NOT LIKE lower('post%')
+                  -   AND ps.displayName NOT LIKE lower('get%')
+                  -   AND tmsa.step IS NULL
+                  - ORDER BY ps.displayName
+                validate~ SELECT 1 FROM protocolSteps WHERE displayName = '{mmStep}'
+                  errorMessage~ The entered step name does not match a step in the system. Please select from the given list.
+        div
+          id= trayMap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Tray Map
+
+          fieldset
+            legend Add Master Mix
+            fieldset
+              legend Select Master Mix to Add
+              vertical2
+                select mmName
+                  id= selectMM
+                  screenLabel~
+                  option
+                  sqlQuery~ SELECT DISTINCT name FROM masterMixes
+                  sqlPreparedStatement~ INSERT INTO trayMapStepAssignments (trayMapId, step, eventId)
+                    - SELECT ?, ?, ?
+                    - FROM DUAL
+                    - WHERE NOT EXISTS
+                    - (
+                    -   SELECT 1
+                    -   FROM trayMapStepAssignments
+                    -   WHERE trayMapId = ?
+                    -     AND step = ?
+                    - )
+                    string {trayMapId}
+                    string {mmStep}
+                    long {_eventId}
+                    string {trayMapId}
+                    string {mmStep}
+                button Add to All Wells
+                  id= addToAll
+                  screenLabel~
+
+            fieldset
+              legend View Map Contents
+              vertical
+                button View/Hide
+                  id= viewContent
+                  class= viewButton
+                  screenLabel~
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {trayType}
+                    advanced~
+                    equals~ Plate
+                  vertical
+                    plate Plate Contents
+                      rows {_:trayRows}
+                      cols {_:trayColumns}
+                      sqlPreparedQuery~
+                        - SELECT well AS "attribute",
+                        -   containerType AS "content"
+                        - FROM trayMaps
+                        - WHERE trayMapId = ?
+                        string {_:trayMapId}
+                      inputType text
+                        readonly= true
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {trayType}
+                    advanced~
+                    equals~ Grid
+                  vertical
+                    grid Grid Contents
+                      rows {_:trayRows}
+                      cols {_:trayColumns}
+                      sqlPreparedQuery~
+                        - SELECT well AS "attribute",
+                        -   containerType AS "content"
+                        - FROM trayMaps
+                        - WHERE trayMapId = ?
+                        string {_:trayMapId}
+                      inputType text
+                        readonly= true
+
+            div
+              id= destinationPlatePanel
+              configureIf~ {trayType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Tray Map Plate
+                  rows {_:trayRows}
+                  cols {_:trayColumns}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~
+                      - INSERT INTO trayMapMMAssignments (trayMapStepID, well, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM trayMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.trayMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {trayMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+            div
+              id= destinationGridPanel
+              configureIf~  {trayType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Tray Map Grid
+                  rows {_:trayRows}
+                  cols {_:trayColumns}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~
+                      - INSERT INTO trayMapMMAssignments (trayMapStepID, well, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM trayMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.trayMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {trayMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+
+            vertical
+              button Clear Destination Maps
+                id= destinationClear
+                screenLabel~
+
+        div
+          id= transferMap
+          configureIf~ {mapType}
+            advanced~
+            equals~ Transfer Map
+
+          fieldset
+            legend Add Master Mix
+            fieldset
+              legend Select Master Mix to Add
+              vertical2
+                select MMName
+                  id= selectMM
+                  screenLabel~
+                  option
+                  sqlQuery~ SELECT DISTINCT name FROM masterMixes
+                  sqlPreparedStatement~
+                    - INSERT INTO transferMapStepAssignments (transferMapId, step, displayOrder, eventId)
+                    - Values (?,?,0,?)
+                    string {transferMapId}
+                    string {mmStep}
+                    long {_eventId}
+                  sqlPreparedStatement~
+                    - UPDATE transferMapStepAssignments tmsa
+                    - INNER JOIN
+                    -   (
+                    -     SELECT MAX(tmsa2.displayOrder) AS 'maxDisplayOrder'
+                    -     FROM transferMapStepAssignments tmsa2
+                    -     WHERE tmsa2.step = ?
+                    -   )As maxOrder
+                    - SET tmsa.displayOrder = (maxOrder.maxDisplayOrder + 1)
+                    - WHERE eventId = ?
+                    string {mmStep}
+                    long {_eventId}
+                button Add to All Wells
+                  id= addToAll
+                  screenLabel~
+
+            fieldset
+              legend View Map Contents
+              vertical
+                button View/Hide
+                  id= viewContent
+                  class= viewButton
+                  screenLabel~
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {destinationType}
+                    advanced~
+                    equals~ Plate
+                  vertical
+                    plate Destination Plate Contents
+                      rows {_:destinationRows}
+                      cols {_:destinationColumns}
+                      sqlPreparedQuery~
+                        - SELECT destinationAttribute AS "attribute",
+                        -   sourceAttribute AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND sourceAttribute <> ''
+                        - UNION
+                        - SELECT destinationAttribute AS "attribute",
+                        -   destinationType AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND destinationType <> ''
+                        string {_:transferMapId}
+                        string {_:transferMapId}
+                      inputType text
+                        readonly= true
+
+                div
+                  id= viewTranferContents
+                  configureIf~ {destinationType}
+                    advanced~
+                    equals~ Grid
+                  vertical
+                    grid Destination Grid Contents
+                      rows {_:destinationRows}
+                      cols {_:destinationColumns}
+                      sqlPreparedQuery~
+                        - SELECT destinationAttribute AS "attribute",
+                        -   sourceAttribute AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND sourceAttribute <> ''
+                        - UNION
+                        - SELECT destinationAttribute AS "attribute",
+                        -   destinationType AS "content"
+                        - FROM transferMaps
+                        - WHERE transferMap = ?
+                        -   AND destinationType <> ''
+                        string {_:transferMapId}
+                        string {_:transferMapId}
+                      inputType text
+                        readonly= true
+
+            div
+              id= destinationPlatePanel
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Plate
+              vertical
+                plate Destination Plate
+                  rows {_:destinationRows}
+                  cols {_:destinationColumns}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~
+                      - INSERT INTO transferMapMMAssignments (transferMapStepID, destinationAttribute, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM transferMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.transferMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {transferMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+            div
+              id= destinationGridPanel
+              configureIf~ {destinationType}
+                advanced~
+                equals~ Grid
+              vertical
+                grid Destination Grid
+                  rows {_:destinationRows}
+                  cols {_:destinationColumns}
+                  inputType text
+                    class= destinationWellPanel well
+                    size= 10
+                    autocomplete= off
+                    sqlPreparedStatement~
+                      - INSERT INTO transferMapMMAssignments (transferMapStepID, destinationAttribute, mmId, eventID)
+                      - SELECT tmsa.Id, ?, mm.Id, ?
+                      - FROM transferMapStepAssignments tmsa, masterMixes mm
+                      - WHERE tmsa.transferMapId = ?
+                      -   AND tmsa.step = ?
+                      -   AND tmsa.eventId = ?
+                      -   AND mm.name = ?
+                      string {_thisInputAttribute}
+                      long {_eventId}
+                      string {transferMapId}
+                      string {mmStep}
+                      long {_eventId}
+                      string {_thisInput}
+
+            vertical
+              button Clear Destination Maps
+                id= destinationClear
+                screenLabel~
+
+        br
+
+        vertical
+          select nextStep
+            class= required
+            screenLabel~ Next step
+            data-parsley-required= true
+            required~ true
+            option
+            option Assign Map to Another Step
+              value= {_step}
+            option Save and Close
+              value= Create Tray/Transfer Map
+
+        br
+
+      ifCondition {mapType}
+        advanced~
+        equals~ Transfer Map
+        setFormQueryResult
+          sqlPreparedQuery SELECT Id AS 'mapId'
+            - FROM transferMapProperties
+            - WHERE name = ?
+            string {mapName}
+
+      ifCondition {mapType}
+        advanced~
+        equals~ Tray Map
+        setFormQueryResult
+          sqlPreparedQuery SELECT Id AS 'mapId'
+            - FROM trayMapProperties
+            - WHERE trayMapName = ?
+            string {mapName}
+
+      nextStep {nextStep}
+        formNumber 0
+        parameter mapTypeParameter
+          value {mapType}
+        parameter mapNameParameter
+          value {mapName}
+
+

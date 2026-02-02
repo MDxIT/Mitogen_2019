@@ -1,0 +1,288 @@
+config
+  steps
+    stepGroup Ajax Servers normalization
+
+    step ajaxPrevNormalizationDataTable
+      class uniflow.AjaxQuery
+      table
+        id= loadDataTable
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -      'false' AS "Include",
+          -      am.analysisStepName AS "Step",
+          -      andd.value AS "Field Name",
+          -      andd.id,
+          -      andd.dataType
+          - FROM analysisMethodPanels amp
+          -   INNER JOIN analysisMethodVersions amv
+          -     ON amp.analysisMethodId = amv.analysisMethodsId
+          -     AND amv.active = 1
+          -   INNER JOIN analysisMethods am
+          -     ON amv.analysisMethodsId = am.id
+          -   INNER JOIN analysisDataDefinition andd
+          -     ON amv.id = andd.analysisMethodVersionsId
+          - WHERE amp.panelCode IN ({associatedPanels})
+          -   AND am.analysisStepName <> '' AND am.analysisStepName <> ?
+          -   AND andd.definerType = 'data'
+          -   AND  andd.dataType = 'decimal'
+          - ORDER BY am.analysisStepName
+          string {associatedStep}
+
+        columnSpecs~ loadDataTable
+          column 1
+            inputType checkbox
+              class= prevData_checkbox
+          column 2
+            inputType text
+              readonly=
+              class= prevDataStepName readonly
+          column 3
+            inputType text
+              readonly=
+              class= prevDataFieldName readonly
+          column 4
+            inputType text
+              readonly=
+              class= prevDataDefId hiddenColumn
+          column 5
+            inputType text
+              readonly=
+              class= prevDataType hiddenColumn 
+
+
+    step ajaxPostSaveNormalizationConfiguration
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        vertical
+          text templateName
+            value= {templateName}
+            required~ true
+          text associatedStepName
+            value= {associatedStepName}
+          text templateDescription
+            value= {templateDescription}
+            required~ true
+          number templateVersionNumber
+            value= {templateVersionNumber}
+            required~ true
+          text templateNameId
+            value= {templateNameId}
+            required~ true
+
+          number previousTemplateVersionId
+            value= {previousTemplateVersionId}
+
+          number thresholdValue
+            value= {thresholdValue}
+
+          text templateActive
+            value= {templateActive}
+
+          textarea loadPreviousDataJson
+            value= loadPreviousDataJson
+
+      setFormQueryResult processingSuccessful
+        value= false
+
+      validateSql SELECT 1 from dual WHERE ? >= 1
+        decimal {templateVersionNumber}
+        errorMessage Template version can not be negative
+
+      validateSql SELECT 1 from dual WHERE NOT EXISTS (SELECT 1 FROM analysisMethods WHERE methodName = '{templateName}' ) OR '{templateName}' = '' OR 1 =  (SELECT 1 FROM analysisMethods WHERE methodName = ? AND id = ?)
+        string {templateName}
+        string {templateNameId}
+        errorMessage Template name already exists.  Choose another name.
+
+      validateSql SELECT 1 from dual WHERE ? = 'newMethod' OR ? > (SELECT version FROM analysisMethodVersions WHERE id = ?)
+        string {templateNameId}
+        decimal {templateVersionNumber}
+        long {previousTemplateVersionId}
+        errorMessage Template version must be greater than previous template version
+
+      validateSql SELECT 1 from dual WHERE NOT EXISTS (SELECT 1 FROM analysisMethods WHERE methodName = ? ) OR 1 = (SELECT 1 FROM analysisMethods WHERE methodName = ? AND ? = id)
+        string {templateName}
+        string {templateName}
+        string {templateNameId}
+        errorMessage Template name already exists.  Choose another name.
+
+      ifCondition~ {templateNameId}
+        advanced~
+        equals~ newMethod
+        sqlPreparedStatement INSERT INTO analysisMethods (methodName, methodType, methodDescription, analysisStepName, eventId) VALUES (?, 'Normalization', ?, ?, ?)
+          string {templateName}
+          string {templateDescription}
+          string {associatedStepName}
+          long {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS 'analysisMethodsId' FROM analysisMethods WHERE eventId = {_eventId}
+
+        else
+          setFormQueryResult
+            sqlPreparedQuery SELECT '{templateNameId}' AS 'analysisMethodsId' FROM dual
+
+          sqlPreparedStatement UPDATE analysisMethodVersions SET active = 0 WHERE id = ?
+            long {previousTemplateVersionId}
+
+          sqlPreparedStatement UPDATE analysisMethods SET methodName = ?, methodDescription = ?, analysisStepName = ? WHERE id = ?
+            string {templateName}
+            string {templateDescription}
+            string {associatedStepName}
+            string {_:analysisMethodsId}
+
+      ifCondition~ 
+        advanced~
+        sqlPreparedQuery~ SELECT 1 from dual WHERE ? = 'newMethod' OR ? > (SELECT version FROM analysisMethodVersions WHERE id = ?)
+          string {templateNameId}
+          decimal {templateVersionNumber}
+          string {previousTemplateVersionId}
+
+        sqlPreparedStatement INSERT INTO analysisMethodVersions (analysisMethodsId, version, active, eventId) VALUES (?, ?, ?, ?)
+          long {_:analysisMethodsId}
+          string {templateVersionNumber}
+          int {templateActive}
+          long {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS 'analysisMethodVersionsId' FROM analysisMethodVersions WHERE eventId = ?
+            long {_eventId}
+
+        ifCondition {thresholdValue}
+          advanced~ 
+          not~
+            isBlank~
+          sqlPreparedStatement INSERT INTO analysisDataDefinition (analysisMethodVersionsId, sequence, value, definerType, dataType, eventId)
+            - VALUES (?, 0, 'Normalization Threshold', 'normalizationThreshold', 'decimal', ?)
+            string {_:analysisMethodVersionsId}
+            long {_eventId}
+
+          setFormQueryResult
+            sqlPreparedQuery~ SELECT LAST_INSERT_ID() AS "analysisDataDefinitionId"
+
+          sqlPreparedStatement INSERT INTO analysisDataLimits (analysisDataDefinitionId, lowerLimit, upperLimit, eventId)
+            - VALUES (?, ?, ?, ?)
+            string {_:analysisDataDefinitionId}
+            float {thresholdValue}
+            float {thresholdValue}
+            long {_eventId}
+
+
+        jython
+          import json
+          from com.uniconnect.uniflow.exception import SystemException
+          from java.sql import SQLException
+
+          templatePreviousDataSource = r'''{loadPreviousDataJson}'''.encode("utf-8")
+          templateName = '{templateName}'
+
+          if templatePreviousDataSource:
+            try:
+              templatePreviousDataDefs = json.loads(templatePreviousDataSource, strict=False)
+
+              sqlInsertPrevDataAnalysisDataDefinition = "INSERT INTO analysisDataDefinition \
+                - (analysisMethodVersionsId, sequence, definerType, dataType, eventId, loadDataAnalysisDataDefinitionId) \
+                - VALUES (?, 0, ?, ?, ?, ?) "
+              psPrevDataAnalaysisDataDefinition = switchboard.connection.prepareStatement(sqlInsertPrevDataAnalysisDataDefinition)
+
+              print psPrevDataAnalaysisDataDefinition
+
+              print "------------- FINISHED SQL INSERT SETUP FOR PREVIOUS DATA -----------------"
+
+              analysisMethodVersionsId = '{_:analysisMethodVersionsId}'
+
+              for data in templatePreviousDataDefs:
+
+                loadDataStep = data['step']
+                if loadDataStep == '':
+                  loadDataStep = None
+
+                loadDataField = data['field']
+                if loadDataField == '':
+                  loadDataField = None
+
+                loadDataFieldId = data['id']
+                if loadDataFieldId == '':
+                  loadDataFieldId = None
+
+                loadDataFieldType = data['type']
+                if loadDataFieldType == '':
+                  loadDataFieldType = None
+
+                print loadDataStep
+                print loadDataField
+                print loadDataFieldId
+                print loadDataFieldType
+
+                print "------------- FINISHED SETTING PREVIOUS DATA VALUES -----------------"
+
+                psPrevDataAnalaysisDataDefinition.setString(1, analysisMethodVersionsId)
+                psPrevDataAnalaysisDataDefinition.setString(2, 'loadData')
+                psPrevDataAnalaysisDataDefinition.setString(3, loadDataFieldType)
+                psPrevDataAnalaysisDataDefinition.setLong(4, {_eventId})
+                psPrevDataAnalaysisDataDefinition.setString(5, loadDataFieldId)
+
+                print psPrevDataAnalaysisDataDefinition
+                print "LOOK HERE"
+                psPrevDataAnalaysisDataDefinition.execute()
+
+                print "------------- FINISHED INSERT TO PREV DATA DEF -----------------"
+
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+            except Exception as e:
+              switchboard.log("---*** Exception *** --- FAILURE TO INSERT LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except StandardError as e:
+              switchboard.log("---*** Standard Py Error *** ----FAILURE TO INSERT LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except SystemException as e:
+              switchboard.log("---*** UNIFlow SystemException ***---- LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except SQLException as e:
+              switchboard.log("---*** SQLException ***---- LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except BaseException as e:
+              switchboard.log("---*** PyException ***---- LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except TypeError as e:
+              switchboard.log("---*** TypeError ***---- LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except:
+              switchboard.log("*** Unspecified Error ***** LOAD DATA ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+
+        else
+          # This validate is to ensure an error when analysisMethodVersions fails
+          validateSql SELECT 1 from dual WHERE 1 = 2
+            errorMessage Template version not created
+
+      ## Validate that each Normalization Configuration has only one value as a concentration
+      validateSql ! SELECT 1 FROM dual WHERE EXISTS (SELECT a.value, COUNT(*) c
+        - FROM analysisDataDefinition a
+        - INNER JOIN analysisMethodVersions av ON a.analysisMethodVersionsId = av.id
+        - INNER JOIN analysisMethods am ON av.analysisMethodsId = am.id
+        - WHERE am.methodName = ? AND av.id = ? AND a.definerType = 'loadData'
+        - GROUP BY definerType HAVING c > 1)
+        string {templateName}
+        string  {_:analysisMethodVersionsId}
+        errorMessage Template cannot have multiple values for concentration. Ensure only one concentration value is selected.
+
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Template not created
+
+

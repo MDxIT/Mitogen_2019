@@ -1,0 +1,909 @@
+config
+  steps
+
+    stepGroup Accessioning Configuration
+
+    step Link Valid Values
+      accessLevel 10
+      form
+        include stepInstructions
+        vertical
+          select formConfigurablePartsId
+            screenLabel~ Form Input Name:
+            option
+            required~ true
+            sqlQuery~
+              - SELECT DISTINCT inputName, id
+              - FROM formConfigurableParts
+              - WHERE inputType = 'setName' OR inputType = 'userDef_select'
+              - OR inputType = 'column_setName'
+              - ORDER BY inputName
+
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT inputName
+          - FROM formConfigurableParts
+          - WHERE id = ?
+          int {formConfigurablePartsId}
+        hidden formConfigurablePartsId
+          value= {formConfigurablePartsId}
+        vertical
+          text formInputName
+            screenLabel~ Form Input Name:
+            readonly=
+            value= {_:inputName}
+
+        table
+          sqlPreparedQuery~
+            - SELECT DISTINCT
+            -   vv.setName AS "Set Name",
+            -   group_concat(vv.displayValue SEPARATOR '<br />') as "Set Values",
+            -   CASE isnull(vvl.setName)
+            -     WHEN 1 THEN 'false'
+            -     ELSE 'true'
+            -   END AS "Link"
+            - FROM validValues vv
+            - LEFT JOIN validValuesLinks vvl
+            - ON vv.setName = vvl.setName
+            - AND vvl.formConfigurablePartsId = ?
+            - GROUP BY vv.setName
+            - ORDER BY vv.setName
+            string {formConfigurablePartsId}
+          columnSpecs~ linkValidValues
+            allowChangesRecordIds
+            column 1
+              inputType text
+                readonly=
+            column 3
+              inputType checkbox
+
+      forRows linkValidValues
+
+        ifCondition {_columnInput_linkValidValues:3}
+          advanced~
+          equals~ true
+
+          ifCondition
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM validValuesLinks
+                - WHERE formConfigurablePartsId = ?
+                - AND setName = ?
+                string {formConfigurablePartsId}
+                string {_columnInput_linkValidValues:1}
+
+            sqlPreparedStatement~
+              - INSERT IGNORE INTO validValuesLinks (formConfigurablePartsId, setName, eventId)
+              - VALUES (?, ?, ?)
+              string {formConfigurablePartsId}
+              string {_columnInput_linkValidValues:1}
+              long {_eventId}
+
+        ifCondition {_columnInput_linkValidValues:3}
+          advanced~
+          equals~ false
+          sqlPreparedStatement~
+            - DELETE FROM validValuesLinks
+            - WHERE formConfigurablePartsId = ?
+            - AND setName = ?
+            string {formConfigurablePartsId}
+            string {_columnInput_linkValidValues:1}
+
+    step Accessioning Configuration
+      accessLevel 10
+      form
+        include stepInstructions
+        vertical
+
+          select workflow
+            setName~ workflows
+
+
+      cssLinks
+        link css/configuration/orderEntry.css
+
+      form
+        include stepInstructions
+        id= form1
+
+        script
+          src= js/configuration/orderEntry.js
+        script
+          src= js/configuration/userDefinedConfig.js
+
+
+
+        hidden workflow
+          value= {workflow}
+
+        vertical
+
+        div
+          id= configurationSettingsMasterTable
+          class= hiddenOnLoad
+
+          table
+            id= configurationSettings
+            sqlPreparedQuery~
+              - SELECT
+              -   fcp.section,
+              -   fcp.subSection,
+              -   fcp.inputType,
+              -   fcp.inputName,
+              -   IFNUll(q.instance, IFNULL(addRow.addInstance, 'Receiving')) as "instance",
+              -   q.showField AS "Include",
+              -   CASE ifnull(q.screenLabel,'')
+              -     WHEN '' THEN fcp.inputName
+              -     ELSE q.screenLabel
+              -   END AS "Screen Label",
+              -   q.placeHolder AS "Placeholder",
+              -   q.defaultValue AS "Default Value",
+              -   q.required AS "Required",
+              -   q.readonly AS "Read Only",
+              -   q.id,
+              -   q.formDefinitionId,
+              -   fcp.required,
+              -   fcp.placeholder,
+              -   fcp.defaultValue,
+              -   fcp.id,
+              -   fcp.screenLabel,
+              -   fcp.configSettingValue,
+              -   fcp.formType
+              - FROM formConfigurableParts fcp
+              - LEFT JOIN (
+              -             SELECT
+              -                     fis.formConfigurablePartsId,
+              -                     fd.instance,
+              -                     fis.showField,
+              -                     fis.required,
+              -                     fis.readonly,
+              -                     fis.screenLabel,
+              -                     fis.placeHolder,
+              -                     fis.defaultValue,
+              -                     fis.id,
+              -                     fd.id AS formDefinitionId
+              -             FROM formDefinition fd
+              -             INNER JOIN formInputSettings fis
+              -             on fd.id = fis.formDefinitionId
+              -             WHERE  (fd.formType = 'Accessioning' or fd.formType = 'Receiving')
+              -             AND fd.workflow = ?
+              -           ) q
+              -   ON fcp.id = q.formConfigurablePartsId
+              - LEFT JOIN (
+              -             SELECT 'New' as "addInstance"
+              -             UNION
+              -             SELECT 'QC'
+              -             UNION
+              -             SELECT 'Edit'
+              -             UNION
+              -             SELECT 'View') addRow
+              -   ON q.instance is null
+              -   AND fcp.formType = 'Accessioning'
+              - WHERE (fcp.formType = 'Accessioning' or fcp.formType = 'Receiving')
+              -   AND fcp.inputType NOT LIKE 'userDef_%'
+              - ORDER BY case inputType
+              -             when 'section' then 1
+              -             when 'subsection' then 2
+              -             else IFNUll(q.instance, addRow.addInstance)
+              -          end,
+              -          instance,
+              -          CAST(substring_index(fcp.order, '-', 1) AS UNSIGNED),
+              -          CAST(substring_index(substring_index(fcp.order, '-', 2), '-', -1) AS UNSIGNED),
+              -          CAST(substring_index(fcp.order, '-', -1) AS UNSIGNED)
+              string {workflow}
+            columnSpecs~ configurationSettings
+              allowChangesRecordIds
+              ### Hidden columns for display ux/ui
+              column 1
+                inputType text
+                  class= hideColumn accessioningConfiguration_section
+              column 2
+                inputType text
+                  class= hideColumn accessioningConfiguration_subSection
+              column 3
+                inputType text
+                  class= hideColumn accessioningConfiguration_inputType
+              column 4
+                inputType text
+                  class= hideColumn accessioningConfiguration_inputName
+              column 5
+                inputType text
+                  class= hideColumn accessioningConfiguration_instance
+              ### Visible columns used for determining configuration
+              column 6
+                inputType checkbox
+                  class= accessioningConfiguration_showField
+              column 7
+                inputType text
+                  class= accessioningConfiguration_screenLabel
+              column 8
+                inputType text
+                  class= accessioningConfiguration_placeHolder
+              column 9
+                inputType text
+                  class= accessioningConfiguration_defaultValue
+              column 10
+                inputType checkbox
+                  class= accessioningConfiguration_required
+              column 11
+                inputType checkbox
+                  class= accessioningConfiguration_readonly
+              ### hidden columns used for processing and display ux/ui
+              column 12
+                inputType text
+                  class= hideColumn accessioningConfiguration_settingRowId
+              column 13
+                inputType text
+                  class= hideColumn accessioningConfiguration_formDefinitionId
+              column 14
+                inputType text
+                  class= hideColumn accessioningConfiguration_isRequired
+              column 15
+                inputType text
+                  class= hideColumn accessioningConfiguration_allowPlaceholder
+              column 16
+                inputType text
+                  class= hideColumn accessioningConfiguration_allowDefaultValue
+              column 17
+                inputType text
+                  class= hideColumn accessioningConfiguration_configPartId
+              column 18
+                inputType text
+                  class= hideColumn accessioningConfiguration_allowScreenLabel
+              column 19
+                inputType text
+                  class= hideColumn accessioningConfiguration_configSettingValue
+              column 20
+                inputType text
+                  class= hideColumn
+
+        div
+          id= loadingProgress
+          img
+            src= images/loader.gif
+          span Loading Configuration Options...
+
+
+        fieldset
+          legend Order Forms Configuration
+          class= hiddenOnLoad showWhenLoaded
+
+
+          div
+            id= copyOptions
+            class= hiddenOnLoad
+            simpleTable
+              tbody
+                tr
+                  td From Instance
+                  td Copy Settings To
+                  td
+                tr
+                  td
+                    select fromInstance
+                      id= copyFrom
+                      screenLabel~
+                      option Order Entry
+                        value= New
+                      option Order Review
+                        value= QC
+                      option Edit Order
+                        value= Edit
+                      option View Order
+                        value= View
+                  td
+                    select instanceCopyOptions
+                      id= copyTo
+                      screenLabel~
+                      option
+                      option ALL
+                        value= New|QC|Edit|View
+                      option Order Entry
+                        value= New
+                      option Order Review
+                        value= QC
+                      option Edit Order
+                        value= Edit
+                      option View Order
+                        value= View
+                  td
+                    button copy
+                      id= copyButton
+                      value= Copy Settings
+
+          div
+            id= accessioningInstances
+            class= hiddenOnLoad
+
+            ul
+              li
+                a Order Entry
+                  href= #New
+              li
+                a Order Review
+                  href= #QC
+              li
+                a Edit Order
+                  href= #Edit
+              li
+                a View Order
+                  href= #View
+              li
+                a Specimen Receiving
+                  href= #ReceivingTab
+
+
+            div
+              id= New
+              class= accordion
+
+            div
+              id= QC
+              class= accordion
+            div
+              id= Edit
+              class= accordion
+            div
+              id= View
+              class= accordion
+            div
+              id= ReceivingTab
+              div
+                id= Receiving
+                class= accordion
+
+
+        ##################################
+        #### User Defined Fields Table ###
+        ##################################
+        fieldset
+          legend User Defined Fields Configuration
+          class= hiddenOnLoad showWhenLoaded
+
+          div
+            class= accordion
+            h3 User Defined Fields
+
+            div
+              class= accordionSection inheritOverflow
+              data-parsley-validate=
+              vertical
+                h3 Create User Defined Field
+                vertical
+                  select section
+                    screenLabel~ Section:
+                    option
+
+                    # NOTE: panelSelection and specimenInfo have merged into one accordion/selection.
+                    #   We'll remove panelSelection as we only need one userDef table per accordion
+                    # TODO: Update seed data and code to 'merge' panelSelection and specimenInfo configuration into one section
+                    sqlQuery~ SELECT DISTINCT inputName, id
+                      - FROM formConfigurableParts
+                      - WHERE inputType = 'section' AND section != 'panelSelection'
+                    id= userDefinedFields_section
+                  select inputType
+                    screenLabel~ Input Type:
+                    setName~ accessioningUserDefinedFields_InputTypes
+                    required~ false
+                    id= userDefinedFields_inputType
+                  text inputName
+                    screenLabel~ Input Name:
+                    id= userDefinedFields_inputName
+                    data-parsley-trigger= change
+                    data-parsley-required= true
+                    data-parsley-pattern= ^[-_\sa-zA-Z0-9]+$
+                    data-parsley-error-message= Only alphanumeric, space, dash, and underscore characters are allowed for user defined field.
+
+
+                span
+                  screenLabel~
+                  id= userDefinedFields_errorMessage
+
+                button Add New Field
+                  id= userDefinedFields_addFormPart
+
+                br
+                br
+                ##############################
+                ### User Defined Fields Table#
+                ##############################
+                h3 Select Instance For User Defined Fields
+                table
+                  id= userDefinedFields_table
+                  sqlPreparedQuery~ (SELECT
+                    - fis.id,
+                    - fd.instance AS 'Instance',
+                    - fcp.id  AS 'User Defined Field',
+                    - fis.showField AS 'Include',
+                    - fis.required AS 'Required',
+                    - fis.readonly AS 'Read Only',
+                    - fis.placeHolder AS 'Placeholder',
+                    - fis.defaultValue AS 'Default Value',
+                    - fis.screenLabel AS 'Screen Label',
+                    - '' AS ''
+                    - FROM formConfigurableParts fcp
+                    - INNER JOIN
+                    - formInputSettings fis
+                    -   ON fcp.id = fis.formConfigurablePartsId
+                    - INNER JOIN
+                    - formDefinition fd
+                    -   ON fd.id = fis.formDefinitionId
+                    - WHERE (fcp.formType = 'Accessioning' OR fcp.formType = 'Receiving')
+                    -   AND fcp.inputType like 'userDef_%' AND fd.workflow = ?
+                    - ORDER BY fcp.inputName, fcp.section, fcp.subSection)
+                    - UNION ALL (
+                    - SELECT 'NEW', '', '', '', '', '', '', '', '',''
+                    - )
+                    string {workflow}
+                  columnSpecs~ userDefTable
+                    column 1
+                      inputType text
+                        class= hideColumn userDefinedFields_formInputSettingsId
+                        readonly= true
+                    column 2
+                      inputType select
+                        required~ false
+                        class= userDefinedFields_instance
+                        setName~ instances
+                    column 3
+                      inputType select
+                        required~ false
+                        class= userDefinedFields_formPart
+                        #sqlPreparedQuery~
+                        #  - SELECT CONCAT(fcp2.inputName, ': ', fcp1.inputName), fcp1.id
+                        #  - FROM formConfigurableParts fcp1
+                        #  - INNER JOIN formConfigurableParts fcp2
+                        #  -   ON fcp1.section = fcp2.section AND fcp2.inputType = 'section'
+                        #  - WHERE fcp1.inputType LIKE 'userDef_%'
+                    column 4
+                      inputType checkbox
+                        class= accessioningConfiguration_showField
+                    column 5
+                      inputType checkbox
+                        class= accessioningConfiguration_required
+                    column 6
+                      inputType checkbox
+                        class= accessioningConfiguration_readonly
+                    column 7
+                      inputType text
+                        class= userDefinedFields_placeHolder
+                    column 8
+                      inputType text
+                        class= userDefinedFields_defaultValue
+                    column 9
+                      inputType text
+                        class= userDefinedFields_screenLabel
+
+              button Add New Row
+                id= userDefinedFields_addRow
+
+      ### create new formDefinition entires if not exist
+      forEach SELECT value as "instance"
+        - FROM validValues
+        - WHERE setName = 'instances'
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1
+              - FROM formDefinition
+              - WHERE workflow = ?
+              - AND instance = ?
+              string {workflow}
+              string {_:instance}
+
+          sqlPreparedStatement
+            - INSERT INTO formDefinition
+            - (
+            -   formType,
+            -   instance,
+            -   workflow,
+            -   displayStepName,
+            -   eventId
+            - )
+            - VALUES (
+            -   'Accessioning',
+            -   ?,
+            -   ?,
+            -   '',
+            -   ?)
+            string {_:instance}
+            string {workflow}
+            long {_eventId}
+
+      ### Set new formDefinitionId Variables
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT id as "newFormDefinitionId"
+          - FROM formDefinition
+          - WHERE instance = 'New'
+          - AND workflow = ?
+          - UNION
+          - SELECT ''
+          string {workflow}
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT id as "qcFormDefinitionId"
+          - FROM formDefinition
+          - WHERE instance = 'QC'
+          - AND workflow = ?
+          - UNION
+          - SELECT ''
+          string {workflow}
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT id as "editFormDefinitionId"
+          - FROM formDefinition
+          - WHERE instance = 'Edit'
+          - AND workflow = ?
+          - UNION
+          - SELECT ''
+          string {workflow}
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT id as "viewFormDefinitionId"
+          - FROM formDefinition
+          - WHERE instance = 'View'
+          - AND workflow = ?
+          - UNION
+          - SELECT ''
+          string {workflow}
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT id as "receivingFormDefinitionId"
+          - FROM formDefinition
+          - WHERE instance = 'Receiving'
+          - AND workflow = ?
+          - UNION
+          - SELECT ''
+          string {workflow}
+
+
+
+      ##### Insert Blank Form JSON Settings if none Exists ####
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1
+            - FROM formDefinition fd
+            - INNER JOIN formSettingsJSON fsj
+            -   ON fd.id = fsj.formDefinitionId
+            - WHERE fd.workflow = ?
+            string {workflow}
+
+        sqlPreparedStatement
+          - INSERT INTO formSettingsJSON
+          - (
+          -   formDefinitionId,
+          -   jsonObject,
+          -   eventId
+          - )
+          - SELECT fd.id,
+          -   '',
+          -   ?
+          - FROM formDefinition fd
+          - WHERE fd.workflow = ?
+          long {_eventId}
+          string {workflow}
+
+      ##### Clear Old JSON File #####
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ SELECT 1
+          - FROM formDefinition fd
+          - INNER JOIN formSettingsJSON fsj
+          -   ON fd.id = fsj.formDefinitionId
+          - WHERE fd.workflow = ?
+          string {workflow}
+
+        sqlPreparedStatement
+          - UPDATE formSettingsJSON fsj
+          - INNER JOIN formDefinition fd
+          -   ON fsj.formDefinitionId = fd.id
+          - SET fsj.jsonObject = '',
+          -   fsj.eventId = ?
+          - WHERE fd.workflow = ?
+          long {_eventId}
+          string {workflow}
+
+      #### User Defined Table Processing
+      ## NOTE: Can be improved
+      forRows userDefTable
+
+        setFormQueryResult
+          sqlPreparedQuery~ SELECT
+            -   CASE ?
+            -     WHEN 'New' THEN ?
+            -     WHEN 'QC' THEN ?
+            -     WHEN 'Edit' THEN ?
+            -     WHEN 'View' THEN ?
+            -     WHEN 'Receiving' THEN ?
+            -   END AS 'instance'
+            string {_columnInput_userDefTable:2}
+            int {_:newFormDefinitionId}
+            int {_:qcFormDefinitionId}
+            int {_:editFormDefinitionId}
+            int {_:viewFormDefinitionId}
+            int {_:receivingFormDefinitionId}
+
+
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 FROM formConfigurableParts WHERE ? <> '' AND ? <> ''
+            - AND id = ?
+            string {_columnInput_userDefTable:2}
+            string {_columnInput_userDefTable:3}
+            string {_columnInput_userDefTable:3}
+
+          ifCondition
+            advanced~
+            sqlPreparedQuery~ SELECT 1 FROM formInputSettings fis
+              - WHERE fis.id = ?
+              string {_columnInput_userDefTable:1}
+
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT 1 AS 'isDuplicate' FROM formInputSettings
+                -   WHERE formConfigurablePartsId = ?
+                -     AND formDefinitionId = ?
+                -     AND id <> ?
+                - UNION SELECT ''
+                string {_columnInput_userDefTable:3}
+                string {_:instance}
+                string {_columnInput_userDefTable:1}
+
+            sqlPreparedStatement~ UPDATE IGNORE formInputSettings
+              - SET
+              - formConfigurablePartsId = ?,
+              - showField = ?,
+              - required = ?,
+              - readonly = ?,
+              - screenLabel =  ?,
+              - placeHolder = ?,
+              - defaultValue = ?,
+              - eventId = ?,
+              - formDefinitionId = ?
+              - WHERE id = ? AND ? <> 1
+              string {_columnInput_userDefTable:3}
+              string {_columnInput_userDefTable:4}
+              string {_columnInput_userDefTable:5}
+              string {_columnInput_userDefTable:6}
+              string {_columnInput_userDefTable:9}
+              string {_columnInput_userDefTable:7}
+              string {_columnInput_userDefTable:8}
+              long {_eventId}
+              string {_:instance}
+              string {_columnInput_userDefTable:1}
+              string {_:isDuplicate}
+            else
+              ifCondition
+                advanced~
+                not~
+                  sqlPreparedQuery~ SELECT 1 FROM formInputSettings fis WHERE fis.formConfigurablePartsId = ?
+                    - AND fis.formDefinitionId = ?
+                    string {_columnInput_userDefTable:3}
+                    string {_:instance}
+                sqlPreparedStatement~
+                  - INSERT IGNORE INTO formInputSettings
+                  - (formConfigurablePartsId
+                  - , formDefinitionId
+                  - , showField
+                  - ,required
+                  - , readonly
+                  - , screenLabel
+                  - , placeHolder
+                  - , defaultValue
+                  - , eventId)
+                  - VALUES (?,
+                  - ?,
+                  - ?,
+                  - ?,
+                  - ?,
+                  - ?,
+                  - ?,
+                  - ?,
+                  - ?)
+                  string {_columnInput_userDefTable:3}
+                  string {_:instance}
+                  string {_columnInput_userDefTable:4}
+                  string {_columnInput_userDefTable:5}
+                  string {_columnInput_userDefTable:6}
+                  string {_columnInput_userDefTable:9}
+                  string {_columnInput_userDefTable:7}
+                  string {_columnInput_userDefTable:8}
+                  string {_eventId}
+
+      forEach SELECT
+        - fcp.inputName,
+        - fcp.inputType,
+        - fis.showField,
+        - fis.readOnly,
+        - fis.required,
+        - fis.placeHolder,
+        - fis.defaultValue,
+        - fis.screenLabel,
+        - fcp.section,
+        - fcp.subSection,
+        - fis.formDefinitionId
+        - FROM formConfigurableParts fcp
+        - INNER JOIN formInputSettings fis
+        -   ON fis.formConfigurablePartsId = fcp.id
+        - INNER JOIN formDefinition fd
+        -   ON fd.id = fis.formDefinitionId
+        - WHERE fcp.inputType LIKE 'userDef_%' AND fd.formType = 'Accessioning' AND fd.workflow = ?
+        string {workflow}
+
+        sqlPreparedStatement
+          - UPDATE formSettingsJSON fsj
+          - SET fsj.jsonObject = CONCAT(
+          -                         fsj.jsonObject,
+          -                         CASE fsj.jsonObject
+          -                           WHEN '' THEN ''
+          -                           ELSE ','
+          -                         END,
+          -     "~{\"inputType\": \"",?,"\", \"show\": \"",?,"\", \"readOnly\": \"",?,"\", \"required\": \"",?,"\", \"inputField\": \"",?,"\", \"placeHolder\": \"",?,"\", \"screenLabel\": \"",?,"\", \"defaultValue\": \"",?,"\", \"section\": \"",?, "\", \"subSection\": \"",?,"\" ~}"
+          -                       ),
+          -       fsj.eventId = ?
+          - WHERE fsj.formDefinitionId = ?
+          string {_:inputType}
+          string {_:showField}
+          string {_:readOnly}
+          string {_:required}
+          string {_:inputName}
+          string {_:placeHolder}
+          string {_:screenLabel}
+          string {_:defaultValue}
+          string {_:section}
+          string {_:subSection}
+          long {_eventId}
+          string {_:formDefinitionId}
+
+      ##### Update formInputSettings #####
+      forRows configurationSettings
+
+        ifCondition {_columnInput_configurationSettings:12}
+          advanced~
+          isBlank~
+
+          sqlPreparedStatement
+            - INSERT INTO formInputSettings (
+            -   formDefinitionId,
+            -   formConfigurablePartsId,
+            -   showField,
+            -   required,
+            -   readonly,
+            -   screenLabel,
+            -   placeHolder,
+            -   defaultValue,
+            -   eventId)
+            - SELECT
+            -   CASE ?
+            -     WHEN 'New' THEN ?
+            -     WHEN 'QC' THEN ?
+            -     WHEN 'Edit' THEN ?
+            -     WHEN 'View' THEN ?
+            -     WHEN 'Receiving' THEN ?
+            -   END,
+            -   ?,?,?,?,?,?,?,?
+            string {_columnInput_configurationSettings:5}
+            int {_:newFormDefinitionId}
+            int {_:qcFormDefinitionId}
+            int {_:editFormDefinitionId}
+            int {_:viewFormDefinitionId}
+            int {_:receivingFormDefinitionId}
+            string {_columnInput_configurationSettings:17}
+            string {_columnInput_configurationSettings:6}
+            string {_columnInput_configurationSettings:10}
+            string {_columnInput_configurationSettings:11}
+            string {_columnInput_configurationSettings:7}
+            string {_columnInput_configurationSettings:8}
+            string {_columnInput_configurationSettings:9}
+            long {_eventId}
+
+          else
+
+            sqlPreparedStatement
+              - UPDATE formInputSettings
+              - SET showField = ?,
+              -   required = ?,
+              -   readonly = ?,
+              -   screenLabel = ?,
+              -   placeHolder = ?,
+              -   defaultValue = ?,
+              -   eventId = ?
+              - WHERE id = ?
+              -   AND formDefinitionId = ?
+
+              string {_columnInput_configurationSettings:6}
+              string {_columnInput_configurationSettings:10}
+              string {_columnInput_configurationSettings:11}
+              string {_columnInput_configurationSettings:7}
+              string {_columnInput_configurationSettings:8}
+              string {_columnInput_configurationSettings:9}
+              long {_eventId}
+              string {_columnInput_configurationSettings:12}
+              string {_columnInput_configurationSettings:13}
+
+
+        ##### Update JSON Files #####
+        sqlPreparedStatement
+          - UPDATE formSettingsJSON fsj
+          - SET fsj.jsonObject = CONCAT(
+          -                         fsj.jsonObject,
+          -                         CASE fsj.jsonObject
+          -                           WHEN '' THEN ''
+          -                           ELSE ','
+          -                         END,
+          -                         "~{\"inputType\": \"",?,"\", \"show\": \"",?,"\", \"readOnly\": \"",?,"\", \"required\": \"",?,"\", \"inputField\": \"",?,"\", \"placeHolder\": \"",?,"\", \"screenLabel\": \"",?,"\", \"defaultValue\": \"",?,"\", \"section\": \"",?, "\", \"subSection\": \"",?,"\" ~}"
+          -                       ),
+          -       fsj.eventId = ?
+          - WHERE fsj.formDefinitionId = CASE ?
+          -                                 WHEN '' THEN CASE ?
+          -                                                 WHEN 'New' THEN ?
+          -                                                 WHEN 'QC' THEN ?
+          -                                                 WHEN 'Edit' THEN ?
+          -                                                 WHEN 'View' THEN ?
+          -                                             END
+          -                                 ELSE ?
+          -                               END
+          - AND ? = 'Accessioning'
+          string {_columnInput_configurationSettings:3}
+          string {_columnInput_configurationSettings:6}
+          string {_columnInput_configurationSettings:11}
+          string {_columnInput_configurationSettings:10}
+          string {_columnInput_configurationSettings:4}
+          string {_columnInput_configurationSettings:8}
+          string {_columnInput_configurationSettings:7}
+          string {_columnInput_configurationSettings:9}
+          string {_columnInput_configurationSettings:1}
+          string {_columnInput_configurationSettings:2}
+          long {_eventId}
+          int {_columnInput_configurationSettings:13}
+          string {_columnInput_configurationSettings:5}
+          int {_:newFormDefinitionId}
+          int {_:qcFormDefinitionId}
+          int {_:editFormDefinitionId}
+          int {_:viewFormDefinitionId}
+          int {_columnInput_configurationSettings:13}
+          string {_columnInput_configurationSettings:20}
+
+        sqlPreparedStatement
+          - UPDATE formSettingsJSON fsj
+          - SET fsj.jsonObject = CONCAT(
+          -                         fsj.jsonObject,
+          -                         CASE fsj.jsonObject
+          -                           WHEN '' THEN ''
+          -                           ELSE ','
+          -                         END,
+          -                         "~{\"inputType\": \"",?,"\", \"show\": \"",?,"\", \"readOnly\": \"",?,"\", \"required\": \"",?,"\", \"inputField\": \"",?,"\", \"placeHolder\": \"",?,"\", \"screenLabel\": \"",?,"\", \"defaultValue\": \"",?,"\", \"section\": \"",?, "\", \"subSection\": \"",?,"\" ~}"
+          -                       ),
+          -       fsj.eventId = ?
+          - WHERE fsj.formDefinitionId =  CASE ?
+          -                                 WHEN '' THEN ?
+          -                                 ELSE ?
+          -                               END
+          - AND ? = 'Receiving'
+          string {_columnInput_configurationSettings:3}
+          string {_columnInput_configurationSettings:6}
+          string {_columnInput_configurationSettings:11}
+          string {_columnInput_configurationSettings:10}
+          string {_columnInput_configurationSettings:4}
+          string {_columnInput_configurationSettings:8}
+          string {_columnInput_configurationSettings:7}
+          string {_columnInput_configurationSettings:9}
+          string {_columnInput_configurationSettings:1}
+          string {_columnInput_configurationSettings:2}
+          long {_eventId}
+          int {_columnInput_configurationSettings:13}
+          int {_:receivingFormDefinitionId}
+          int {_columnInput_configurationSettings:13}
+          string {_columnInput_configurationSettings:20}
+
+
+      ##### Add Square Brackets to JSON #####
+      sqlPreparedStatement
+        - UPDATE formSettingsJSON fsj
+        - INNER JOIN formDefinition fd
+        -   ON fsj.formDefinitionId = fd.id
+        - SET fsj.jsonObject = CONCAT('[',fsj.jsonObject,']')
+        - WHERE fd.workflow = ?
+        string {workflow}

@@ -1,0 +1,182 @@
+config
+  includes
+
+    includable groupingContainer_Form0
+
+
+      ### Includable for Form 0 of Batch Processing Steps
+      ###
+      ### PARAMETERS IN:
+      ###    groupingContainerScreenLabel - Screen Label for Batch :: [$$Batch_Screen_Label$$]
+      ###    currentStep - Step Name of Current Step :: [$$STEP_NAME$$]
+      ###    containerType - Container type :: Any grouping container type (batchId, trayId, poolTubeId, etc.)
+      ###
+      ### PARAMETERS OUT
+      ###   groupingContainerId - container scan field :: batchId
+      ###   _recId - table hyperlink :: column 1
+      ###
+      ### To get correct groupingContainerId on form 1
+      ###    make sure to update the name of your inputs
+      ### configurePreparedQuery~
+      ###   - SELECT
+      ###   -   CASE ?
+      ###   -     WHEN '' THEN ?
+      ###   -     WHEN 'null' THEN ?
+      ###   -     ELSE ?
+      ###   -   END AS "groupingContainerId"
+      ###   string {groupingContainerId}
+      ###   string {_recId}
+      ###   string {_recId}
+      ###   string {groupingContainerId}
+
+      script
+        src= js/components/groupingContainer.js
+
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+
+      hidden acceptQueue
+        id= acceptQueue
+        value= {_includeParm:acceptQueue} 
+
+      topVertical
+        container groupingContainerId
+          screenLabel~ {_includeParm:groupingContainerScreenLabel}
+          class= barcodeBackground
+          id= groupingContainerId
+          acceptQueue~ {_includeParm:acceptQueue}
+          containerType~ {_includeParm:containerType}
+          required~ true
+          data-parsley-required= true
+
+      br
+      br
+      div
+        id= processBatch_listDiv
+        vertical
+          table
+            id= groupingContainer_List
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   CONCAT('<a class="containerLink" href="/uniflow?lastForm=Y&stepName=', ?, '&recId=', q.containerId, '">', q.containerId, '</a>') AS "{_includeParm:groupingContainerScreenLabel}",
+              -   IFNULL(cp.value, '') AS "{_includeParm:groupingContainerScreenLabel} Category",
+              -   IFNULL(vv.displayValue, '') AS "{_includeParm:groupingContainerScreenLabel} Priority",
+              -   DATE(e.eventDate) AS "Queued Date",
+              -   e.userId AS "Queued By"
+              - FROM queues q
+              -   INNER JOIN events e
+              -     ON e.eventId = q.eventId
+              -   INNER JOIN contents c
+              -     ON q.containerId = c.containerId
+              -   LEFT JOIN containerProperties cp
+              -     ON q.containerId = cp.containerId
+              -     AND cp.property = 'Container Category'
+              -   LEFT JOIN containerProperties cp2
+              -     ON q.containerId = cp2.containerId
+              -     AND cp2.property = 'Container Priority'
+              -   LEFT JOIN validValues vv
+              -     ON cp2.value = vv.value
+              -     AND vv.setName = 'priority'
+              - WHERE q.step = ?
+              -   AND c.attribute <> 'self'
+              - GROUP BY q.containerId
+              string {_includeParm:currentStep}
+              string {_includeParm:currentStep}
+
+
+
+    includable poolTube_Form0
+
+
+      ### Includable for Form 0 of Batch Processing Steps
+      ###
+      ### PARAMETERS IN:
+      ###    groupingContainerScreenLabel - Screen Label for Batch :: [$$Batch_Screen_Label$$]
+      ###    currentStep - Step Name of Current Step :: [$$STEP_NAME$$]
+      ###    containerType - Container type :: Any grouping container type (batchId, trayId, poolTubeId, etc.)
+      ###
+      ### PARAMETERS OUT
+      ###   groupingContainerId - container scan field :: batchId
+      ###   _recId - table hyperlink :: column 1
+      ###
+      ### To get correct groupingContainerId on form 1
+      ###    make sure to update the name of your inputs
+      ### configurePreparedQuery~
+      ###   - SELECT
+      ###   -   CASE ?
+      ###   -     WHEN '' THEN ?
+      ###   -     WHEN 'null' THEN ?
+      ###   -     ELSE ?
+      ###   -   END AS "groupingContainerId"
+      ###   string {groupingContainerId}
+      ###   string {_recId}
+      ###   string {_recId}
+      ###   string {groupingContainerId}
+
+      script
+        src= js/components/groupingContainer.js
+
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+
+      hidden acceptQueue
+        id= acceptQueue
+        value= {_includeParm:acceptQueue} 
+
+      topVertical
+        container groupingContainerId
+          screenLabel~ {_includeParm:groupingContainerScreenLabel}
+          class= barcodeBackground
+          id= groupingContainerId
+          acceptQueue~ any
+          containerType~ {_includeParm:containerType}
+          required~ true
+          data-parsley-required= 
+          validate~ SELECT 1 FROM dual WHERE 
+            - EXISTS 
+            -   (SELECT 1 FROM poolRuns pr
+            -     INNER JOIN queues q on pr.poolRunId = q.containerId
+            -   WHERE q.step = ?
+            -   AND pr.currentContainerId = ?)
+            string {_step}
+            string {_thisInput}
+            errorMessage~ This {_includeParm:groupingContainerScreenLabel} is not queued for this step.
+
+      br
+      br
+      div
+        id= processBatch_listDiv
+        vertical
+          table
+            id= groupingContainer_List
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   CONCAT('<a class="containerLink" href="/uniflow?lastForm=Y&stepName=', ?, '&recId=', pr.currentContainerId, '">', pr.currentContainerId, '</a>') AS "{_includeParm:groupingContainerScreenLabel}",
+              -   IFNULL(cp.value, '') AS "{_includeParm:groupingContainerScreenLabel} Category",
+              -   IFNULL(vv.displayValue, '') AS "{_includeParm:groupingContainerScreenLabel} Priority",
+              -   DATE(e.eventDate) AS "Queued Date",
+              -   e.userId AS "Queued By"
+              - FROM queues q
+              -   INNER JOIN poolRuns pr
+              -     ON q.containerId = pr.poolRunId
+              -   INNER JOIN events e
+              -     ON e.eventId = q.eventId
+              -   LEFT JOIN containerProperties cp
+              -     ON pr.currentContainerId = cp.containerId
+              -     AND cp.property = 'Container Category'
+              -   LEFT JOIN containerProperties cp2
+              -     ON pr.currentContainerId = cp2.containerId
+              -     AND cp2.property = 'Container Priority'
+              -   LEFT JOIN validValues vv
+              -     ON cp2.value = vv.value
+              -     AND vv.setName = 'priority'
+              - WHERE q.step = ?
+              - GROUP BY q.containerId
+              string {_includeParm:currentStep}
+              string {_includeParm:currentStep}
+
+

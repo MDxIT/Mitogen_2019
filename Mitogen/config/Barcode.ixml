@@ -1,0 +1,358 @@
+# Mitogen LIMS
+# Barcode Label Printing
+#
+# @see config/available/BarcodePrinter.ixml
+# @see http://labelary.com/viewer.html
+#
+###
+# 1D Code 128
+# ^XA
+#
+# ^FO50,25
+# ^FD%freeText1%^FS
+#
+# ^FO250,25
+# ^FD%freeText2%^FS
+#
+# ^FO50,40
+# ^BCN,100,Y,N,N^FD%barcode%^FS
+#
+# ^XZ
+#
+# ^XA^FO50,25^FD%freeText1%^FS^FO250,25^FD%freeText2%^FS^FO50,40^BCN,100,Y,N,N^FD%barcode%^FS^XZ
+#
+###
+# 2D Data Matrix
+# ^XA
+#
+# ^FO100,25
+# ^FD%freeText1%^FS
+#
+# ^FO100,40^BXN,3,200
+# ^FD%barcode%^FS
+#
+# ^FO100,90^FD%barcode%^FS
+#
+# ^XZ
+#
+# ^XA^FO100,25^FD%freeText1%^FS^FO100,40^BXN,3,200^FD%barcode%^FS^FO100,90^FD%barcode%^FS^XZ
+#
+###
+# "tshirt" 1 Code 128 w/ 2 text rotated, 2 Data Matrix (cap)
+# ^XA
+#
+# ^FO50,100^BY1
+# ^BCN,50,N,N,N^FD%barcode%^FS
+#
+# ^FO125,25^FD%barcode%^FS
+# ^FO125,50^FD%freeText1%^FS
+# ^FO125,75^FD%freeText2%^FS
+#
+# ^FO125,185^FD%barcode%^FS
+# ^FO125,210^FD%freeText1%^FS
+# ^FO125,235^FD%freeText2%^FS
+#
+# ^FO30,25^BXN,3,200^FD%barcode%^FS
+# ^FO30,175^BXN,3,200^FD%barcode%^FS
+#
+# ^XZ
+#
+# ^XA^FO50,100^BY1^BCN,50,N,N,N^FD%barcode%^FS^FO125,25^FD%barcode%^FS^FO125,50^FD%freeText1%^FS^FO125,75^FD%freeText2%^FS^FO125,185^FD%barcode%^FS^FO125,210^FD%freeText1%^FS^FO125,235^FD%freeText2%^FS^FO30,25^BXN,3,200^FD%barcode%^FS^FO30,175^BXN,3,200^FD%barcode%^FS^XZ
+#
+config
+  steps
+    stepGroup Barcode Labels
+
+    step Print Barcode
+      accessLevel 10
+      form
+        include stepInstructions
+        label Barcode
+          for= printBarcode
+        text printBarcode
+          id= printBarcode
+        script
+          src= js/printlabels.js
+
+    step Barcode Printer
+      accessLevel 10
+      form
+        include stepInstructions
+        fieldset
+          legend Barcodes to Print
+            class= toggle
+          table
+            class= stdTableBasic
+            sqlPreparedQuery~ SELECT bp.barcode AS 'Barcode', bp.printerName AS 'Printer', e.eventDate AS 'Date', '' AS 'Delete' FROM queues q
+              - INNER JOIN barcodePrinter bp ON bp.barcode = q.containerId AND bp.eventId = q.eventId AND bp.printed IS NULL
+              - INNER JOIN events e ON e.eventId = bp.eventId
+              - WHERE q.step = ?
+              - ORDER BY eventDate DESC
+              string {_step}
+            columnSpecs~ barcodeLabels
+              column 1
+                inputType text
+                  readonly=
+                  class= readonly-input
+              column 4
+                inputType checkbox
+                  class= default
+          br
+
+        fieldset
+          legend Printed Barcodes
+            class= toggle
+          table
+            class= stdTableBasic
+            sqlPreparedQuery~ SELECT bp.barcode AS 'Barcode', bp.printerName AS 'Printer', e.eventDate AS 'Date' FROM barcodePrinter bp
+              - INNER JOIN events e ON e.eventId = bp.eventId
+              - WHERE bp.printed IS NOT NULL
+              - ORDER BY eventDate DESC LIMIT 1000
+
+      forRows barcodeLabels
+        ifCondition {_columnInput_barcodeLabels:4}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from queues where step = ? and containerId = ?
+            string {_step}
+            string {_columnInput_barcodeLabels:1}
+
+    step Barcode Labels
+      accessLevel 10
+      form
+        include stepInstructions
+        vertical
+          select printer
+            id= printer
+            screenLabel~ Printer
+            sqlPreparedQuery~ SELECT CASE WHEN COALESCE(i.name, '') <> '' THEN i.name ELSE i.instrumentId END AS 'name', i.instrumentId
+              - FROM instruments i WHERE i.instrumentType = 'printer'
+      form
+        include stepInstructions
+        label Printer
+          for= printer
+        text printer
+          id= printer
+          readonly=
+          value= {printer}
+        table
+          sqlPreparedQuery~ SELECT bl.printerId AS 'Printer', bl.label as 'Label', bl.type as 'Type', bl.default AS 'Default'
+            - FROM barcodeLabels bl WHERE bl.printerId = ?
+            string {printer}
+          columnSpecs~ barcodeLabels
+            column 3
+              inputType text
+                readonly=
+            column 4
+              inputType checkbox
+                class= default
+        script
+          src= js/barcodelabels.js
+
+      forRows barcodeLabels
+        ifCondition {_columnInput_barcodeLabels:4}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update barcodeLabels bl set bl.default = ? where bl.printerId = ? and bl.type = ?
+            string true
+            string {printer}
+            string {_columnInput_barcodeLabels:3}
+
+          sqlPreparedStatement update barcodeLabels bl set bl.default = ? where bl.printerId = ? and bl.type <> ?
+            string false
+            string {printer}
+            string {_columnInput_barcodeLabels:3}
+
+
+    stepGroup BarcodeAPI
+
+    step Print Dialog
+      accessLevel 10
+      form
+        div
+          id= dialogPrintBarcode
+
+          div
+            class= item-left
+            label Barcode
+              for= bcBarcode
+          div
+            class= item-right
+            text bcBarcode
+              id= bcBarcode
+              class= readonly-input
+              readonly=
+          br
+
+          div
+            class= item-left
+            label Printer
+              for= bcPrinter
+          div
+            class= item-right
+            select bcPrinter
+              id= bcPrinter
+            text bcType
+              id= bcType
+              class= readonly-input
+              readonly=
+          br
+
+          div
+            class= item-left
+            label Quantity
+              for= bcQuantity
+          div
+            class= item-right
+            select bcQuantity
+              id= bcQuantity
+              option 1
+                value= 1
+              option 2
+                value= 2
+              option 3
+                value= 3
+              option 4
+                value= 4
+              option 5
+                value= 5
+              option 6
+                value= 6
+              option 7
+                value= 7
+              option 8
+                value= 8
+              option 9
+                value= 9
+              option 10
+                value= 10
+          br
+
+          div
+            class= item-left
+            label Text Line 1
+              for= bcFreeText1
+          div
+            class= item-right
+            text bcFreeText1
+              id= bcFreeText1
+              maxlength= 15
+          br
+
+          div
+            class= item-left
+            label Text Line 2
+              for= bcFreeText2
+          div
+            class= item-right
+            text bcFreeText2
+              id= bcFreeText2
+              maxlength= 15
+
+    step GET Barcode Label
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSON
+      table
+        sqlPreparedQuery~ SELECT CASE WHEN COALESCE(i.name, '') <> '' THEN i.name ELSE i.instrumentId END AS 'name', i.instrumentId, bl.type, bl.label
+          - FROM instruments i INNER JOIN barcodeLabels bl ON bl.printerId = i.instrumentId
+          - WHERE i.instrumentType = 'printer' AND bl.default = 'true'
+
+    step GET Barcodes To Print
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSON
+      table
+        sqlPreparedQuery~ SELECT bp.id, bp.barcode, bp.zpl, bp.printerName, bp.printerIP, bp.printerPort FROM queues q
+          - INNER JOIN barcodePrinter bp ON bp.barcode = q.containerId AND bp.eventId = q.eventId AND bp.printed IS NULL
+          - INNER JOIN events e ON e.eventId = bp.eventId
+          - WHERE q.step = 'Barcode Printer'
+          - ORDER BY eventDate DESC
+
+    step POST Print Pending
+      form
+        vertical
+          textarea barcodes
+      jython
+        import json
+
+        switchboard.log('*** Print Pending ***')
+        switchboard.log('''{barcodes}''')
+        data = json.loads('''{barcodes}''')
+
+        sqlUpdateBarcode = 'UPDATE barcodePrinter SET printed = 1, eventId = ? WHERE id = ?'
+        sqlDeleteQ = 'DELETE FROM queues WHERE containerId = ? and step = ?'
+        sqlInsertHistory = 'INSERT INTO containerHistory (containerId, eventId) VALUES (?, ?)'
+
+        if data:
+          ps = switchboard.connection.prepareStatement(sqlUpdateBarcode)
+          for bc in data:
+            ps.setLong(1, {_eventId})
+            ps.setInt(2, bc[0])
+            ps.execute()
+
+          ps = switchboard.connection.prepareStatement(sqlDeleteQ)
+          for bc in data:
+            ps.setString(1, bc[1])
+            ps.setString(2, 'Barcode Printer')
+            ps.execute()
+
+          ps = switchboard.connection.prepareStatement(sqlInsertHistory)
+          for bc in data:
+            ps.setString(1, bc[1])
+            ps.setLong(2, {_eventId})
+            ps.execute()
+
+    step POST Print Barcode
+      form
+        vertical
+          text barcode
+            required~ true
+            value= {barcode}
+          text printer
+            required~ true
+            value= {printer}
+          text barcodeType
+            required~ true
+            value= {barcodeType}
+          text quantity
+            value= {quantity}
+          text freeText1
+            value= {freeText1}
+          text freeText2
+            value= {freeText2}
+
+      setFormQueryResult
+        sqlPreparedQuery SELECT i.instrumentId, i.ipAddress, i.port, bl.zpl AS 'zplCommand'
+          - FROM instruments i INNER JOIN barcodeLabels bl ON bl.printerId = i.instrumentId AND bl.type = ?
+          - WHERE instrumentId = ? AND i.instrumentType = 'printer'
+          string {barcodeType}
+          string {printer}
+
+      jython
+        switchboard.log('Print barcode: {barcode}')
+
+        bc = '''{zplCommand}'''.replace('%barcode%', '{barcode}').replace('%freeText1%', '{freeText1}').replace('%freeText2%', '{freeText2}')
+        bq = int('{quantity}')
+        bz = [bc]
+        if bq > 1:
+          switchboard.log("copies: %d" % bq)
+          for n in range (1, bq):
+            bz.append(bc)
+
+        sqlInsertBarcode = "INSERT INTO barcodePrinter(barcode, zpl, printerName, printerIP, printerPort, eventId) VALUES (?, ?, ?, ?, ?, ?)"
+        ps = switchboard.connection.prepareStatement(sqlInsertBarcode)
+        ps.setString(1, '{barcode}')
+        ps.setString(2, ' '.join(bz))
+        ps.setString(3, '{printer}')
+        ps.setString(4, '{ipAddress}')
+        ps.setInt(5, int('{port}'))
+        ps.setLong(6, {_eventId})
+        ps.execute()
+
+      sqlPreparedStatement insert into queues (containerId, step, eventId) values (?, ?, ?)
+        string {barcode}
+        string Barcode Printer
+        long {_eventId}
+
+      sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+        string {barcode}
+        long {_eventId}

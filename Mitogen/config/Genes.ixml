@@ -1,0 +1,334 @@
+##
+# Mitogen LIMS
+# Gene list filter
+#
+# @requires public/js/genes.js
+# @requires public/js/genes.utilities.js
+# @requires public/genes/gene_info.json
+# @requires public/genes/gene-disease.json
+# @requires public/genes/gene-phenotype.json
+##
+config
+  steps
+    stepGroup Gene List
+
+    step Create Gene List
+      cssLinks
+        link css/genes.css
+      jsScripts
+        src js/genes.utilities.js
+        src js/genes.js
+      form
+        vertical
+          text sampleId
+            id= sampleId
+            screenLabel~ Sample Id
+            validate~ SELECT 1 FROM requestSpecimens rs
+              - INNER JOIN requestForms rf ON rf.requestId = rs.requestId
+              - INNER JOIN reqPanels rp ON rf.requestId = rp.requestId
+              - INNER JOIN panels p ON rp.panelCode = p.panel
+              - AND p.isCustomGenePanel = 1
+              - WHERE rs.specimenId = ? OR ? = ''
+              - LIMIT 1
+              string {_thisInput}
+              string {_thisInput}
+              errorMessage~ Invalid sample id. Not assigned to a custom NGS panel.
+        br
+        table
+          class= stdTableBasic
+          sqlPreparedQuery~ (SELECT g.sampleId AS 'Sample',
+            - CONCAT('<a href="/uniflow?lastForm=Y&stepName=Create+Gene+List&sid=', g.sampleId, '">', g.name, IF(g.final = 'true', ' (Final)', ' (Draft)'),'</a>') AS 'Gene List',
+            - e.eventDate AS 'Date',
+            - rp.panelCode AS 'Panel',
+            - CONCAT(pa.firstName, ' ', pa.lastName) AS 'Patient',
+            - COALESCE(pa.mrn,'') AS 'MRN',
+            - COALESCE(rf.externalRequestId,'') AS 'Accession Id'
+            - FROM genelist g
+            - INNER JOIN events e ON g.eventId = e.eventId
+            - INNER JOIN requestSpecimens rs ON rs.specimenId = g.sampleId
+            - INNER JOIN requestForms rf ON rf.requestId = rs.requestId
+            - INNER JOIN patientSources pa ON pa.patientId = rf.patientId
+            - INNER JOIN reqPanels rp ON rp.requestId = rf.requestId
+            - GROUP BY g.name)
+            - UNION
+            - (SELECT q.containerId AS 'Sample',
+            - CONCAT('<a href="/uniflow?lastForm=Y&stepName=Create+Gene+List&sid=', q.containerId, '">Create New</a>') AS 'Gene List',
+            - e.eventDate AS 'Date',
+            - rp.panelCode AS 'Panel',
+            - CONCAT(pa.firstName, ' ', pa.lastName) AS 'Patient',
+            - COALESCE(pa.mrn,'') AS 'MRN',
+            - COALESCE(rf.externalRequestId,'') AS 'Accession Id'
+            - FROM queues q
+            - INNER JOIN events e ON q.eventId = e.eventId
+            - INNER JOIN requestSpecimens rs ON rs.specimenId = q.containerId
+            - INNER JOIN requestForms rf ON rf.requestId = rs.requestId
+            - INNER JOIN patientSources pa ON pa.patientId = rf.patientId
+            - INNER JOIN reqPanels rp ON rp.requestId = rf.requestId
+            - LEFT JOIN genelist g ON g.sampleId = q.containerId
+            - WHERE q.step = ?
+            - AND g.name IS NULL
+            - GROUP BY q.containerId) ORDER BY 3 DESC
+            string {_step}
+
+      form
+        data-parsley-validate=
+        formPreparedQuery~ SELECT
+          - CASE WHEN COALESCE(rf.externalSpecimenId, '') = '' THEN CONCAT(rs.specimenId, '_', rf.Id) ELSE CONCAT(rs.specimenId, '_', rf.externalSpecimenId) END AS 'gid',
+          - rs.specimenId AS 'sampleId',
+          - CONCAT(pa.firstName, ' ', pa.lastName) AS 'patient',
+          - COALESCE(pa.mrn,'') AS 'mrn'
+          - FROM requestSpecimens rs
+          - INNER JOIN requestForms rf on rf.requestId = rs.requestId
+          - INNER JOIN patientSources pa ON pa.patientId = rf.patientId
+          - WHERE rs.specimenId IN (?, ?)
+          - and rs.specimenId <> ''
+          - UNION (SELECT '' AS 'sampleId', '' AS 'gid', '' AS 'patient', '' AS 'mrn' FROM dual WHERE ? IN ('', 'null'))
+          string {sampleId}
+          string {sid}
+          string {sid}
+
+        formQuery~ select fastUrl as 'fastUrl' from client limit 1
+        hidden fastUrl
+          id= fastUrl
+          value= {_:fastUrl}
+
+        vertical2
+          text sampleId
+            screenLabel~ Sample Id
+            id= sampleId
+            value= {_:sampleId}
+            readonly=
+            class= readonly-input
+          output patient
+            screenLabel~ Patient
+            value= {_:patient}
+          text geneListId
+            screenLabel~ Gene List Id
+            id= geneListId
+            value= {_:gid}
+            readonly=
+            class= readonly-input
+          output mrn
+            screenLabel~ MRN
+            value= {_:mrn}
+        br
+        br
+        div
+          id= search_genes
+          div
+            div
+              label Predefined
+                for= predefined_search
+              br
+              text predefined_search
+                id= predefined_search
+            br
+            div
+              label Disease
+                for= disease_search
+              br
+              text disease_search
+                id= disease_search
+            br
+            div
+              label Phenotype
+                for= phenotype_search
+              br
+              text phenotype_search
+                id= phenotype_search
+          div
+            div
+              label Absence of Heterozygosity
+                for= aoh_search
+              br
+              text aoh_search
+                id= aoh_search
+              br
+              label AOH File
+                for= cmafile
+              file cmafile
+                required~ false
+                id= cmafile
+            br
+            div
+              label Gene List
+                for= gene_search
+              br
+              textarea
+                name= gene_search
+                id= gene_search
+        br
+          class= clearfix
+        br
+        div
+          fieldset
+            legend Gene List
+            hr
+            div
+              class= gene-counts
+              span Total:
+              span
+                id= totalGeneCount
+              span TSO:
+              span
+                id= tsoGeneCount
+              span Non-TSO:
+              span
+                id= nontsoGeneCount
+              span Low Cov:
+              span
+                id= lcGeneCount
+              span
+                id= status
+
+        div
+          fieldset
+            legend Filter Options
+            class= filterOptions
+            hr
+            div
+              class= filter-section1
+              div
+                div
+                  select selectOptions1
+                    id= selectOptions1
+                    multiple=
+                  select selectOptions2
+                    id= selectOptions2
+                    class= default-none
+                    multiple=
+                  select IPOptions
+                    class= default-none
+                    id= IPOptions
+                    multiple=
+            br
+            div
+              class= filter-section4
+              radio All
+                name= filterAll
+                id= filterAll
+                value= All
+              label All
+                for= filterAll
+              radio nonOverlap
+                name= filterAll
+                id= nonOverlap
+                value= non-overlap
+              label Non-overlapping
+                for= nonOverlap
+              radio grouping
+                name= filterAll
+                id= grouping
+                value= grouping
+              label Grouping
+                for= grouping
+              checkbox filterbyIp
+                name= filterbyIp
+                id= filterbyIp
+                value= filterbyIp
+              label Inheritance Pattern
+                for= filterbyIp
+            div
+              class= filter-section4
+              br
+              button Apply
+                id= applyFilter
+            br
+            hr
+            br
+            simpleTable
+              id= gene_list_table
+              class= display
+          div
+            id= notFoundDialog
+            class= default-none
+          br
+        script
+          - $(function() { initGenes(); });
+          -
+
+    stepGroup GenesAjax
+
+    step GET Predefined Genes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT
+          - CONCAT(name, ' (', panelCode, ')') AS 'name', panelCode AS 'code', genes AS 'genes'
+          - FROM panels
+          - WHERE disabled = 0
+          - AND ISNULL(genes,'') <> ''
+          - AND (name LIKE ? OR panelCode LIKE ?)
+          string {term}%
+          string {term}%
+
+    step GET CMA AOH Genes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        preQuerySql~ SET @@group_concat_max_len = 100000
+        sqlPreparedQuery~ SELECT
+          - sampleId AS 'name', sampleId AS 'code', GROUP_CONCAT(omimGenes) AS 'genes'
+          - FROM cmaRawResults
+          - WHERE cytoCall = 'High Percent AOH'
+          - AND type = 'LOH'
+          - AND sampleId LIKE ?
+          - GROUP BY sampleId
+          string {term}%
+
+    step GET Gene List By Name
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT gene,alias,predefined,disease,phenotype,aoh,ip,list,tso,lc,final
+          - FROM genelist WHERE name = ?
+          string {gid}
+
+    step POST Save Gene List
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        text sampleId
+          required~ true
+        text name
+          required~ true
+        text final
+          required~ false
+        textarea data
+      jython
+        import json
+
+        switchboard.log('Gene List: {name}')
+        data = json.loads(r'''{data}'''.encode("utf-8"), strict=False)
+
+        sqlDeleteGeneList = "DELETE FROM genelist WHERE sampleId = ?"
+        sqlInsertGeneList = "INSERT INTO genelist (sampleId,name,gene,alias,predefined,disease,phenotype,aoh,ip,list,tso,lc,eventId,final) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+        sqlDeleteFromQ = "DELETE FROM queues WHERE containerId = ? and step = ?"
+
+        ps = switchboard.connection.prepareStatement(sqlDeleteGeneList)
+        ps.setString(1, '{sampleId}')
+        ps.execute()
+
+        ps = switchboard.connection.prepareStatement(sqlInsertGeneList)
+        for g in data:
+          ps.setString(1, '{sampleId}')
+          ps.setString(2, '{name}')
+          ps.setString(3, g['Gene'])
+          ps.setString(4, g['Alias'])
+          ps.setString(5, g['Predefined'])
+          ps.setString(6, g['Disease'])
+          ps.setString(7, g['Phenotype'])
+          ps.setString(8, g['AOH'])
+          ps.setString(9, g['IP'])
+          ps.setString(10, g['List'])
+          ps.setString(11, g['TSO'])
+          ps.setString(12, g['LC'])
+          ps.setInt(13, {_eventId})
+          ps.setString(14, '{final}')
+          ps.execute()
+
+        if '{final}' == 'true':
+          ps = switchboard.connection.prepareStatement(sqlDeleteFromQ)
+          ps.setString(1, '{sampleId}')
+          ps.setString(2, 'Create Gene List')
+          ps.execute()
+

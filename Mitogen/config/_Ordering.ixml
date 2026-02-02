@@ -1,0 +1,3461 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Ajax Ordering
+    step Ajax POST Received Quantity
+      form
+        vertical
+          text poNumber
+            required~ true
+          text lineItemId  
+            required~ true
+          text lineItemQty
+      
+      #sql update orderLog set status = 'received', receivedDate = curDate(),
+        #- quantityReceived = (quantityReceived + {lineItemQty}), lastUpdateEventId = {_eventId}
+        #- where poNumber = '{poNumber}' and lineItemId = '{lineItemId}' and (quantityReceived + {lineItemQty}) >= quantity
+
+      ## update to received ONLY when quantity received is equal to or greater than quantity ordered, else still pending, update quantity received
+      sqlPreparedStatement update orderLog set status = 'received', receivedDate = curDate(),
+        - quantityReceived = (quantityReceived + ?), lastUpdateEventId = ?
+        - where poNumber = ? and lineItemId = ? and (quantityReceived + ?) >= quantity
+        string {lineItemQty}
+        long   {_eventId}
+        string {poNumber}
+        string {lineItemId}
+        string {lineItemQty}
+
+      #sql update orderLog set status = 'partially received', receivedDate = curDate(), 
+        #- quantityReceived = (quantityReceived + {lineItemQty}), lastUpdateEventId = {_eventId} 
+        #- where poNumber = '{poNumber}' and lineItemId = '{lineItemId}' and (quantityReceived + {lineItemQty}) < quantity
+      
+      sqlPreparedStatement update orderLog set status = 'partially received', receivedDate = curDate(), 
+        - quantityReceived = (quantityReceived + ?), lastUpdateEventId = ?
+        - where poNumber = ? and lineItemId = ? and (quantityReceived + ?) < quantity
+        string {lineItemQty}
+        long   {_eventId}
+        string {poNumber}
+        string {lineItemId}
+        string {lineItemQty}
+
+    step Ajax POST Received Inventory
+      form
+        vertical
+          text poNumber
+          text lineItemId
+          container itemId 
+            new~ true
+          text catalogNo
+          text item
+          text quantity
+          text units
+          text costPerUnit          
+          text quantityInside
+          text lotNumber
+          text parentLot
+          date recDate
+          date expDate
+          text qcType
+          text category
+          text vendor
+          text project
+          text lineItemCatNo
+ 
+      #containers and contents
+
+      
+      #sql update containers set containerType = 'Reagent', expirationDate = '{expDate}' where containerId = '{itemId}' and '{category}' = 'Received Reagent'
+      sqlPreparedStatement update containers set containerType = 'Reagent', expirationDate = ? where containerId = ? and ? = 'Received Reagent'
+        string {expDate}
+        string {itemId}
+        string {category}
+
+
+
+      #sql update containers set containerType = 'Consumable' where containerId = '{itemId}' and '{category}' = 'Consumable'
+      sqlPreparedStatement update containers set containerType = 'Consumable' where containerId = ? and ? = 'Consumable'
+        string {itemId}
+        string {category}
+
+
+      #sql update containers set containerType = 'Control' where containerId = '{itemId}' and ('{category}' = 'Received Control' or '{category}' = 'Prepared Control')
+      sqlPreparedStatement update containers set containerType = 'Control' where containerId = ? and (? = 'Received Control' or  = 'Prepared Control')
+        string {itemId}
+        string {category}
+        string {category}
+
+      #this insert into contents was already commented out; NOT commented out by Plagman
+      #sql insert into contents (containerId, attribute, contentType, content, eventId)
+      #  - SELECT '{itemId}', 'self', CASE WHEN '{category}' = 'Received Reagent' THEN 'Reagent Name' WHEN '{category}' = 'Consumable'
+      #  - THEN 'Consumable Name' WHEN '{category}' = 'Instrument' THEN 'Instrument Name' ELSE '{category}' END, '{item}', {_eventId}
+      #  - FROM dual 
+      ## reagents, inserts based on qctype     
+      
+      #sql insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        #- vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        #- SELECT '{itemId}', '{item}', '{catalogNo}', '{quantity}', '{quantityInside}', '{units}', '{lotNumber}', '{parentLot}','{vendor}', 
+        #- '{project}', '{costPerUnit}', '{poNumber}', '{recDate}', '{expDate}', '{qcType}','Pending', 'Pending QC', {_eventId}
+        #- FROM dual
+        #- WHERE '{category}' = 'Received Reagent' and '{qcType}' = 'Critical'
+
+      sqlPreparedStatement insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        - vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?,?, 
+        - ?, ?, ?, ?, ?, ?,'Pending', 'Pending QC', ?
+        - FROM dual
+        - WHERE ? = 'Received Reagent' and ? = 'Critical'
+        string {itemId}
+        string {item}
+        string {catalogNo}
+        float {quantity}
+        string {quantityInside}
+        string {units}
+        string {lotNumber}
+        string {parentLot}
+        string {vendor}
+        string {project}
+        string {parentLot}
+        string {vendor}
+        string {project}
+        string {costPerUnit}
+        string {poNumber}
+        string {recDate}
+        string {expDate}
+        long {_eventId}
+        string {category}
+        string {qcType}
+
+
+      #sql insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        #- vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        #- SELECT '{itemId}', '{item}', '{catalogNo}', '{quantity}', '{quantityInside}','{units}', '{lotNumber}', '{parentLot}','{vendor}', 
+        #- '{project}', '{costPerUnit}', '{poNumber}', '{recDate}', '{expDate}', '{qcType}','N/A', 'In Use', {_eventId}
+        #- FROM dual
+        #- WHERE '{category}' = 'Received Reagent' and '{qcType}' = 'Non-Critical'
+
+      sqlPreparedStatement insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        - vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+        - ?, ?, ?, ?, ?, ?,'N/A', 'In Use', ?
+        - FROM dual
+        - WHERE ? = 'Received Reagent' and ? = 'Non-Critical' 
+        string {itemId}
+        string {item}
+        string {catalogNo}
+        float {quantity}
+        string {quantityInside}
+        string {units}
+        string {lotNumber}
+        string {parentLot}
+        string {vendor}
+        string {project}
+        string {costPerUnit}
+        string {poNumber}
+        string {recDate}
+        string {expDate}
+        string {qcType}
+        long {_eventId}
+        string {category}
+        string {qcType}
+
+      #sql insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        #- vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        #- SELECT '{itemId}', '{item}', '{catalogNo}', '{quantity}', '{quantityInside}','{units}', '{lotNumber}', '{parentLot}','{vendor}', 
+        #- '{project}', '{costPerUnit}', '{poNumber}', '{recDate}', '{expDate}', '{qcType}','Unknown', 'Unknown', {_eventId}
+        #- FROM dual
+        #- WHERE '{category}' = 'Received Reagent' and '{qcType}' = 'Unknown'
+
+      sqlPreparedStatement insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        - vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        - ?, ?, ?, ?, ?, ?,'Unknown', 'Unknown', ?
+        - FROM dual
+        - WHERE ? = 'Received Reagent' and ? = 'Unknown'  
+        string {itemId}
+        string {item}
+        string {catalogNo}
+        float {quantity}
+        string {quantityInside}
+        string {units}
+        string {lotNumber}
+        string {parentLot}
+        string {vendor}
+        string {project}
+        string {costPerUnit}
+        string {poNumber}
+        string {recDate}
+        string {expDate}
+        string {qcType}
+        long {_eventId}
+        string {category}
+        string {qcType}
+
+
+      #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        #+ SELECT '{itemId}', 'Reagent QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), {_eventId}
+        #+ FROM dual
+        #+ WHERE '{qcType}' = 'Non-Critical' and '{category}' = 'Received Reagent' 
+
+      sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        + SELECT ?, 'Reagent QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), ?
+        + FROM dual
+        + WHERE ? = 'Non-Critical' and ? = 'Received Reagent'
+        string {itemId}
+        long {_eventId}
+        string {qcType}
+        string {category}
+
+      #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        #+ SELECT '{itemId}', 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), {_eventId}
+        #+ FROM dual
+        #+ WHERE '{qcType}' = 'Critical' and '{category}' = 'Received Reagent'
+
+      sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        + SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), ?
+        + FROM dual
+        + WHERE ? = 'Critical' and ? = 'Received Reagent'
+        string {itemId}
+        long {_eventId}
+        string {qcType}
+        string {category}
+      
+      #sql insert into controls (controlId, controlType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        #- vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, qcStatus, status, eventId, lastUpdateEventId)
+        #- SELECT '{itemId}', '{item}', '{catalogNo}', '{quantity}', '{quantityInside}', '{units}', '{lotNumber}', '{parentLot}',
+        #- '{vendor}', '{project}', '{costPerUnit}', '{poNumber}', '{recDate}', '{expDate}', '', 'Pending QC', {_eventId}, {_eventId}
+        #- FROM dual
+        #- WHERE '{category}' = 'Received Control'
+
+        ## controls
+      sqlPreparedStatement insert into controls (controlId, controlType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, parentLot,
+        - vendor, projectType, costPerUnit, poNumber, receivedDate, expirationDate, qcStatus, status, eventId, lastUpdateEventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?,
+        - ?, ?, ?, ?, ?, ?, '', 'Pending QC', ?, ?
+        - FROM dual
+        - WHERE ? = 'Received Control'
+        string {itemId}
+        string {item}
+        string {catalogNo}
+        float {quantity}
+        string {quantityInside}
+        string {units}
+        string {lotNumber}
+        string {parentLot}
+        string {vendor}
+        string {project}
+        string {costPerUnit}
+        string {poNumber}
+        string {recDate}
+        string {expDate}
+        long {_eventId}
+        long {_eventId}
+        string {category}
+        
+      #sql insert into queues (containerId, step, eventId)
+        #- SELECT '{itemId}', 'QC Control', {_eventId}
+        #- FROM dual
+        #- WHERE '{category}' = 'Received Control' and '{qcType}' = 'Critical'
+      
+      ## what about QCTYpe? 
+      sqlPreparedStatement insert into queues (containerId, step, eventId)
+        - SELECT ?, 'QC Control', ?
+        - FROM dual
+        - WHERE ? = 'Received Control' and ? = 'Critical'
+        string {itemId}
+        long {_eventId}
+        string {category}
+        string {qcType}
+
+      #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+       # + SELECT '{itemId}', 'Control QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), {_eventId}
+       # + FROM dual
+       # + WHERE '{qcType}' = 'Non-Critical' and '{category}' = 'Received Control'
+
+      sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        + SELECT ?, 'Control QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), ?
+        + FROM dual
+        + WHERE ? = 'Non-Critical' and ? = 'Received Control'  
+        string {itemId}
+        long {_eventId}
+        string {qcType}
+        string {category}
+
+      #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        #+ SELECT '{itemId}', 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), {_eventId}
+        #+ FROM dual
+        #+ WHERE '{qcType}' = 'Critical' and '{category}' = 'Received Control'
+
+      sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        + SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), ?
+        + FROM dual
+        + WHERE ? = 'Critical' and ? = 'Received Control'         
+        string {itemId}
+        long {_eventId}
+        string {qcType}
+        string {category}
+      
+      #sql insert into consumables (consumableId, consumableType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, 
+       # - vendor, projectType, costPerUnit, poNumber, receiveDate, expirationDate, status, eventId)
+       # - SELECT '{itemId}', '{item}', '{catalogNo}', '{quantity}', '{quantityInside}','{units}', '{lotNumber}',
+       # - '{vendor}', '{project}', '{costPerUnit}', '{poNumber}', '{recDate}', '{expDate}', 'In Use', {_eventId}
+       # - FROM dual
+       # - WHERE '{category}' = 'Consumable'
+
+      ## consumables 
+      sqlPreparedStatement insert into consumables (consumableId, consumableType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, 
+        - vendor, projectType, costPerUnit, poNumber, receiveDate, expirationDate, status, eventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?,
+        - ?, ?, ?, ?, ?, ?, 'In Use', ?
+        - FROM dual
+        - WHERE ? = 'Consumable'
+        string {itemId}
+        string {item}
+        string {catalogNo}
+        float {quantity}
+        string {quantityInside}
+        string {units}
+        string {lotNumber}
+        string {vendor}
+        string {project}
+        string {costPerUnit}
+        string {poNumber}
+        string {recDate}
+        string {expDate}
+        long {_eventId}
+        string {category}
+      
+      #sql insert into queues (containerId, step, eventId)
+       # - SELECT '{itemId}', 'QC Reagent', {_eventId}
+       # - FROM dual
+       # - WHERE '{category}' = 'Received Reagent' and '{qcType}' = 'Critical'
+
+      ## insert to qualify reagent if critical, insert to sort step if unknown
+      sqlPreparedStatement insert into queues (containerId, step, eventId)
+        - SELECT ?, 'QC Reagent', ?
+        - FROM dual
+        - WHERE ? = 'Received Reagent' and ? = 'Critical'
+        string {itemId}
+        long {_eventId}
+        string {category}
+        string {qcType}  
+
+      #sql insert into queues (containerId, step, eventId)
+       # - SELECT '{itemId}', 'Sort Reagents for QC', {_eventId}
+       # - FROM dual
+       # - WHERE '{category}' = 'Received Reagent' and '{qcType}' = 'Unknown'
+
+      sqlPreparedStatement insert into queues (containerId, step, eventId)
+        - SELECT ?, 'Sort Reagents for QC', ?
+        - FROM dual
+        - WHERE ? = 'Received Reagent' and ? = 'Unknown'
+        string {itemId}
+        long {_eventId}
+        string {category}
+        string {qcType}
+
+        #sql update inventoryItems 
+        #- set quantity = (quantity + '{quantity}') 
+        #- where catalogNumber = '{catalogNo}' and inventoryItem = '{item}'
+
+      ## update the quantity for the main item ordered,  barcoded items qty is updated in Ajax Post Received Quantity
+      sqlPreparedStatement update inventoryItems 
+        - set quantity = (quantity + ?) 
+        - where catalogNumber = ? and inventoryItem = ?
+        float {quantity}
+        string {catalogNo}
+        string {item}         
+
+    step Ajax Get Cost Per Unit
+      class uniflow.AjaxJSONObjects
+      table 
+        sqlQuery~ (select IFNULL(costPerUnit, '0.00') as 'cost'
+          - from orderLog
+          - where catalogNumber = '{catNo}'
+          - order by eventId desc)
+          - UNION select 0.00 from dual        
+          - limit 1
+
+    step Ajax Get Cost Per Unit By Item
+      class uniflow.AjaxJSONObjects
+      table 
+        sqlQuery~ (select costPerUnit as 'cost'
+          - from orderLog
+          - where inventoryItem = '{item}'
+          - order by eventId desc  ) 
+          - UNION select 0.00 from dual        
+          - limit 1
+
+    step Ajax Get PO Attributes
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select DISTINCT poNumber as 'po', vendor, projectType as 'project' 
+          - from orderLog
+          - where poNumber = '{poNumber}'
+
+    step Ajax Load Line Items
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select poNumber as 'POId',  
+          - inventoryItem as 'Inventory', catalogNumber as 'CatNo', 
+          - vendor as 'Vendor', projectType as 'Project', quantity as 'Qty',
+          - unitOfMeasure 'Units', costPerUnit 'Cost/Unit', requestDate, approveDate,
+          - CONCAT('$', quantity*costPerUnit) as 'Total Cost', 
+          - REPLACE(comments,"\r\n","<br/>") as 'comments', lineItemId
+          - from orderLog where poNumber = '{poNumber}'     
+
+    step Ajax Show Ordered
+      class uniflow.AjaxQuery
+      table
+        sqlQuery~ select catalogNumber as 'CatNo', 
+          - inventoryItem as 'Item',  quantity as 'Qty', 
+          - unitOfMeasure 'Units', costPerUnit 'Cost/Unit',
+          - CONCAT('$', quantity*costPerUnit) as 'Total Cost',
+          - confirmationNumber, comments
+          - from orderLog where poNumber = '{poNumber}' 
+
+    step Ajax Get PO Status Counts
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~  select COUNT(distinct poNumber) as 'Count', status as 'xValue'
+          - from orderLog
+          - where status <> 'Not Approved' and status <> 'Received'
+          - group by status
+
+    step Ajax Show Inventory Items 
+      class uniflow.AjaxQuery
+      table 
+        sqlQuery~ select o.poNumber as 'POId', o.catalogNumber as 'Cat#', o.inventoryItem as 'Item', 
+          - CONCAT(o.quantity, ' ', o.unitOfMeasure) as 'Qty',
+          - o.requestDate as 'Requested', o.status as 'Status', e.userId as 'Requestor'
+          - from orderLog o 
+          - inner join events e on o.eventId = e.eventId 
+          - where o.category LIKE '%{category}'
+          - AND o.requestDate BETWEEN '{start}' AND DATE_ADD('{end}', INTERVAL 1 DAY)
+
+    step Ajax Item Costs
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select SUM(o.costPerUnit * o.quantity) as 'Count', inventoryItem as 'xValue'
+          - from orderLog o 
+          - inner join events e on o.lastUpdateEventId = e.eventId 
+          - where o.status = 'received'
+          - AND e.eventDate BETWEEN '{startDate}' AND DATE_ADD('{endDate}', INTERVAL 1 DAY) 
+          - group by xValue
+          - order by Count desc
+          - limit 15
+
+    step Ajax Project Costs
+      class uniflow.AjaxJSONObjects
+      table 
+        sqlQuery~ select SUM(o.costPerUnit * o.quantity) as 'Count', o.projectType as 'xValue'
+          - from orderLog o 
+          - inner join events e on o.lastUpdateEventId = e.eventId 
+          - where o.status = 'received'
+          - and e.eventDate BETWEEN '{startDate}' AND DATE_ADD('{endDate}', INTERVAL 1 DAY)
+          - group by o.projectType
+
+    step Ajax Get Item Cost Info
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select SUM(o.costPerUnit * o.quantity) as 'TotalCost', 
+          - o.inventoryItem as 'Item', i.inventoryType as 'Category', i.vendor,
+          - i.quantity, i.threshold, i.units, i.catalogNumber as 'CatNo'
+          #- GROUP_CONCAT(r.reagentId SEPARATOR ',' ) as 'reagents',
+          #- GROUP_CONCAT(c.consumableId SEPARATOR ',') as 'consumable'
+          - from orderLog o 
+          - inner join inventoryItems i on o.inventoryItem = i.inventoryItem 
+          #- left outer join reagents r on i.inventoryItem = r.reagentType 
+          #- left outer join consumables c on i.inventoryItem = c.consumableType
+          - inner join events e on o.lastUpdateEventId = e.eventId 
+          - where o.inventoryItem IN ({items}) AND o.status = 'received' 
+          #- AND (r.status = 'In Use'or r.status = 'Pending QC')
+          #- AND c.status = 'In Use'
+          - and e.eventDate BETWEEN '{startDate}' AND DATE_ADD('{endDate}', INTERVAL 1 DAY)
+          - group by Item
+
+    step Ajax Get Item Cost By Date
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select o.costPerUnit as 'Cost', o.quantity as 'Quantity', 
+          - i.inventoryItem as 'Item', Date_Format(e.eventDate, '%m/%d/%Y') as 'Date'
+          - from orderLog o 
+          - inner join inventoryItems i on o.inventoryItem = i.inventoryItem
+          - inner join events e on o.eventId = e.eventId
+          - where o.inventoryItem = '{item}'
+          - AND e.eventDate BETWEEN '{startDate}' AND DATE_ADD('{endDate}', INTERVAL 1 DAY)
+          - group by Date 
+          - order by Date
+
+
+    step Ajax Get PO Status
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select DISTINCT status from orderLog where poNumber= '{poNumber}'
+
+
+    step Ajax Receive Inventory Items
+      class uniflow.AjaxQuery
+      table
+        id= receiveMe
+        sqlQuery~ select 
+          - '' as 'Copy',
+          - '' as 'Barcode', 
+          - '' as 'Cat#', 
+          - '' as 'Item', 
+          - '' as 'Lot#', 
+          - '' as 'Parent Lot', 
+          - '' as 'Qty', 
+          - '' as 'units',
+          - '' as 'Qty in Item', 
+          - '0.00' as 'Cost/Unit', 
+          - DATE_FORMAT(curDate(), '%m/%d/%Y') as 'Received', 
+          - DATE_FORMAT(DATE_ADD(curDate(), INTERVAL 10 YEAR), '%m/%d/%Y') as 'Exp Date', 
+          - '' as 'QCType', 
+          - '' as 'Category'
+          - FROM numbers
+          - limit {num}
+        columnSpecs~ {div}
+          allowChangedRecordIds
+          column 1
+            inputType checkbox
+              onChange= copyDown($(this).attr('name'),$(this).prop('checked'));
+              tabIndex= 3
+          column 2
+            inputType container
+              class= barcode 
+              style= background-color:#F5FAFF
+              new~ true
+              onBlur= setTableId($(this).attr('name'));
+              tabIndex= 1
+          column 3 
+            inputType text
+              class= catNo 
+              onChange= fillTable($(this).val(), $(this).attr('name'));
+              tabIndex= 2
+              size= 6
+          column 4
+            inputType select
+              class= item 
+              onChange= fillTableByItem($(this).val(), $(this).attr('name'));              
+              sqlQuery~ select inventoryItem from inventoryItems order by inventoryItem asc 
+              style= width:100px; 
+              tabIndex= 2
+          column 5
+            inputType text
+              class= lot 
+              tabIndex= 2
+              size= 6
+          column 6
+            inputType text
+              class= parent 
+              tabIndex= 2
+              size= 6
+          column 7
+            inputType text
+              class= qty 
+              size= 3
+              tabIndex= 2
+          column 8
+            inputType text
+              class= units
+              size= 5
+              readonly=
+              style= border:none; background:transparent;
+              tabIndex= 2
+          column 9
+            inputType text
+              class= indvQty
+              tabIndex= 2
+              size= 6
+          column 10
+            inputType text
+              size= 6
+              class= cost
+              tabIndex= 2
+              size= 5
+          column 11
+            inputType date 
+              class= dateRec
+              readonly=
+              style= border:none;background:transparent;
+              tabIndex= 2
+              size= 8
+          column 12
+            inputType date
+              class= expDate
+              tabIndex= 2
+              size= 8
+          column 13
+            inputType select
+              class= qcType
+              option Critical
+              option Non-Critical
+              option Unknown
+              tabIndex= 2
+          column 14
+            inputType text
+              class= category
+              readonly=
+              tabIndex= 2
+
+              
+## FOR RECEIVING ONE ITEM (USUALLY WHAT WAS DIRECTLY ORDERED NOT ITEMS IN A BOX)
+    step Ajax Receive Inventory Item
+      class uniflow.AjaxQuery
+      table
+        id= receiveMe
+        sqlQuery~ select '' as 'Barcode', 
+          - i.catalogNumber as 'Cat#', 
+          - i.inventoryItem as 'Item',  
+          - '' as 'Lot#', 
+          - '' as 'Parent Lot',
+          - o.quantity as 'Qty', 
+          - i.units as 'units',
+          - '' as 'Qty in Item', 
+          - DATE_FORMAT(curDate(), '%m/%d/%Y') as 'Received', 
+          - DATE_FORMAT(DATE_ADD(curDate(), INTERVAL 10 YEAR), '%m/%d/%Y') as 'Exp Date', 
+          - CASE WHEN i.inventoryType = 'Consumable' THEN 'N/A' ELSE '' END as 'QCType', 
+          -  o.costPerUnit as 'cost/unit', 
+          -  i.inventoryType as '', 
+          - o.lineItemId as ''
+          - from orderLog o 
+          - inner join inventoryItems i on o.catalogNumber = i.catalogNumber
+          - where o.catalogNumber = '{div}' and o.poNumber ='{poNumber}'
+          - limit 1
+        columnSpecs~ {div}
+          allowChangedRecordIds
+          column 1
+            inputType container
+              class= barcode 
+              new~ true
+              style= background-color:#F5FAFF
+              onBlur= setTableId($(this).attr('name'));
+          column 2 
+            inputType text
+              class= catNo 
+              #onChange= fillTable($(this).val(), $(this).attr('name'));
+              readonly=
+              size= 6
+          column 3
+            inputType select
+              class= item 
+              onChange= fillTableByItem($(this).val(), $(this).attr('name'));              
+              sqlQuery~ select inventoryItem from inventoryItems order by inventoryItem asc 
+              style= width:100px; 
+              readonly=
+          column 4
+            inputType text
+              class= lot 
+              size= 6
+          column 5
+            inputType text
+              class= parent
+              size= 6 
+          column 6 
+            inputType text
+              class= qty 
+              size= 3
+          column 7
+            inputType text
+              class= units
+              size= 4
+              readonly=
+              style= border:none; backgroud:transparent;
+          column 8
+            inputType text
+              class= indvQty
+              size= 6
+          column 9
+            inputType date 
+              class= dateRec
+              readonly=
+              style= border:none;background:transparent;
+              size= 8
+          column 10
+            inputType date
+              class= expDate
+              size= 8
+          column 11
+            inputType select
+              class= qcType
+              option Critical
+              option Non-Critical
+              option Unknown
+          column 12
+            inputType text
+              class= cost
+              readonly=
+              style= width:auto; border:none; background:transparent;
+              size= 6 
+          #column 12
+          #  inputType text  
+          #    size= 2
+          #    #onChange= loadInventoryTable($(this).val(), $(this).parent().siblings().children('.catNo').val());
+          column 13 
+            inputType text
+              class= category
+              readonly=  
+              #style= width:auto;border:none; background:transparent; 
+              style= display:none;
+              size= 7                           
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    stepGroup Ordering and Receiving
+    step Ordering Dashboard
+      form 
+        
+        include userAccountInfo
+        include highcharts
+        script
+          - $(document).ready(function(){
+          -   $('#stepFormSubmitButton').hide();
+          -   $('#tabs').tabs();
+          -   $('#accordion').accordion({
+          -   collapsible: true,
+          -   heightStyle: 'content'
+          -     });          
+          -   drawBarChart('statuses', 'Ajax Get PO Status Counts', 'Current PO Counts', '# of Purchase Orders', 'Totals', 'PO Count','','');
+          -   drawBarChart('projectBar', 'Ajax Project Costs', 'Project Costs', 'Total Cost', 'Project Type', 'Cost',$('#projectStart').val(), $('#projectEnd').val());
+          -   drawPieChart('projectPie', 'Ajax Project Costs','Project Pie', $('#projectStart').val(), $('#projectEnd').val()); 
+          -   drawBarChart('itemCostChart', 'Ajax Item Costs', 'Top 15 Item Costs', 'Total Cost', 'Inventory Item','Cost', $('#itemsStart').val(), $('#itemsEnd').val());
+          -   drawPieChart('itemCostPie', 'Ajax Item Costs', 'Item Pie', $('#itemsStart').val(), $('#itemsEnd').val());                    
+          - });
+          - function drawBarChart(div, step, title, yLabel, xLabel, seriesName, startDate, endDate)
+          - {
+          -     var barChart
+          -     var optionsChart
+          -     var sName = seriesName;
+          - 
+          -     optionsChart = jQuery.extend(true,{}, barchartOptions);
+          -     optionsChart.chart.renderTo= div;
+          -     optionsChart.chart.height= 400;
+          -     optionsChart.chart.width= 490;
+          -     if(div == 'itemCostChart') {optionsChart.chart.height= 400; optionsChart.chart.width= 900;}
+          -     optionsChart.title.text= title;
+          -     optionsChart.yAxis.title.text= yLabel;
+          -     optionsChart.xAxis.title.text= xLabel;
+          -     
+          #-     optionsChart.tooltip.valueSuffix= 'samples';          
+          -
+          -     $.getJSON('/uniflow?callback=?&stepName='+step+'&startDate='+startDate+'&endDate='+endDate,{},
+          -    function(data,status) 
+          -    {   
+          -
+          -         optionsChart.series[0]=[];
+          -         optionsChart.series[0].data=[];
+          -         optionsChart.series[0].name= sName;    
+          -         optionsChart.xAxis.categories=[];
+          -
+          -       for(var i=0; i<data.length; i++) {
+          -         optionsChart.xAxis.categories.push(data[i].xValue)
+          -         optionsChart.series[0].data.push(parseFloat(data[i].Count))
+          -       }
+          #-       optionsChart.chart.height=$('#resizer5').height()
+          -       barChart = new Highcharts.Chart(optionsChart); 
+          -
+          -          
+          -    });       
+          - } 
+          - function drawPieChart(div, step, title, startDate, endDate) {
+          -     var pieChart;
+          -     var optionsChart2;
+          -
+          -     optionsChart2 = jQuery.extend(true,{}, piechartOptions);
+          -     optionsChart2.chart.renderTo= div;
+          -     optionsChart2.chart.height= 400;
+          -     optionsChart2.chart.width= 420;
+          -     optionsChart2.title.text= title;  
+          -     if(div == 'itemCostPie') 
+          -       {optionsChart2.plotOptions.pie.dataLabels.formatter= function(){return Highcharts.numberFormat(this.percentage,2) +' %';}};
+          -
+          -     $.getJSON('/uniflow?callback=?&stepName='+step+'&startDate='+startDate+'&endDate='+endDate,{},
+          -    function(data,status) 
+          -    {  
+          -       var total=0
+          -       optionsChart2.series[0].data=[]
+          -       for(i=0; i<data.length; i++) {
+          -         total+=parseInt(data[i].Count)
+          -       }
+          -       for(i=0; i<data.length; i++) {
+          -         temp=((data[i].Count/total)*100).toFixed(2);
+          -         tempArray=[data[i].xValue,parseFloat(temp)]
+          -         optionsChart2.series[0].data.push(tempArray);
+          -       }
+          #-       optionsChart2.chart.height=$('#resizer2').height()
+          -       pieChart = new Highcharts.Chart(optionsChart2);
+          -    });        
+          -
+          -  }          
+
+          - function showInventoryResults(category, startDate, endDate) {
+          - $('#searchTable').load('/uniflow',{stepName: 'Ajax Show Inventory Items', category: category, start: startDate, end: endDate });
+          - }   
+
+          - function loadItemCostInfo(div, step, items, startDate, endDate) {
+          - var tik = "'";
+          - var num = items.length;
+          - for (var i = 0; i < num; i++) 
+          - {
+          -  items[i] = tik + items[i]+ tik;
+          - }
+          -    $('#perItemCostInfo').empty();
+          -     $.getJSON('/uniflow?callback=?&stepName='+step+'&items='+items+'&startDate='+startDate+'&endDate='+endDate,{},
+          -    function(data,status) 
+          -    { 
+          -       for(var i=0; i<data.length; i++) {
+          -          
+          -           $('#perItemCostInfo').append('<div id='+data[i].CatNo+' style=background-color:#CCFFCC;border-radius:3px;border:1px;border-color:#eeeeee;padding:10px;><span style=color:#000000;>'
+          -             + '<span><b>ITEM:</b> '+data[i].Item+' - '+data[i].CatNo+' - '+data[i].vendor+'</span></br>'
+          -             + '<span><b>TOTAL COST OVER GIVEN TIME PERIOD:</b> $'+data[i].TotalCost+'</span></div></br>');
+          -
+          -       }
+          -    });
+          -
+          - } 
+          - function drawLineBarChart(div, step, item, startDate, endDate) {
+          -    $('#perItemChart').empty();
+          -     var barLineChart
+          -     var optionsChart
+          - 
+          -     optionsChart = jQuery.extend(true,{}, lineBarOptions);
+          -     optionsChart.chart.renderTo= div;
+          -     optionsChart.chart.height= 400;
+          -     optionsChart.chart.width= 800;
+          -     optionsChart.title.text= 'Cost & Quantity Ordered Over Time';          
+          -     $.getJSON('/uniflow?callback=?&stepName='+step+'&item='+item+'&startDate='+startDate+'&endDate='+endDate,{},
+          -    function(data,status) 
+          -    { 
+          -         optionsChart.series[0]=[];
+          -         optionsChart.series[0].data=[];
+          -         optionsChart.series[0].name= 'Cost'; 
+          -         optionsChart.series[0].type= 'spline'; 
+          -         optionsChart.series[1]=[];
+          -         optionsChart.series[1].data=[];
+          -         optionsChart.series[1].name= 'Quantity';  
+          -         optionsChart.series[1].type= 'column';            
+          -         optionsChart.xAxis[0].categories=[];
+          -
+          -       for(var i=0; i<data.length; i++) {
+          -         optionsChart.xAxis[0].categories.push(data[i].Date);
+          -         optionsChart.series[0].data.push(parseFloat(data[i].Cost));
+          -         optionsChart.series[1].data.push(parseInt(data[i].Quantity));
+          -       }
+          #-       optionsChart.chart.height=$('#resizer5').height()
+          -       barLineChart = new Highcharts.Chart(optionsChart); 
+          -    });
+          -
+          - }
+        formQuery~ select COUNT(distinct poNumber) as 'requested' from orderLog where status = 'requested'
+        formQuery~ select IFNULL(SUM(quantity * costPerUnit), '0.00') as 'reqCost' from orderLog where status = 'requested'
+        formQuery~ select COUNT(distinct poNumber) as 'hold' from orderLog where status = 'on hold'
+        formQuery~ select IFNULL(SUM(quantity * costPerUnit), '0.00') as 'holdCost' from orderLog where status = 'on hold'
+        formQuery~ select COUNT(distinct poNumber) as 'half' from orderLog where status = 'half approved'
+        formQuery~ select IFNULL(SUM(quantity * costPerUnit),'0.00') as 'halfCost' from orderLog where status = 'half approved'
+        formQuery~ select COUNT(distinct poNumber) as 'approved' from orderLog where status = 'approved'
+        formQuery~ select IFNULL(SUM(quantity * costPerUnit), '0.00') as 'appCost' from orderLog where status = 'approved'
+        formQuery~ select COUNT(distinct poNumber) as 'pending' from orderLog where status = 'pending' 
+        formQuery~ select IFNULL(SUM(quantity * costPerUnit),'0.00') as 'pendCost' from orderLog where status = 'pending' 
+        formQuery~ select curDate() as 'today', DATE_SUB(curDate(), INTERVAL 90 DAY) as 'start' from dual                            
+        vertical
+          div 
+            div 
+              class= dashBlock
+              style= float:left; margin-right:20px;
+              vertical
+                span <b><u> REQUESTED</u></b>
+                span <b>{_resultSet:requested}</b>
+                span ${_resultSet:reqCost}
+            div
+              class= dashBlock
+              style= float:left; margin-right:20px;
+              vertical
+                span <b> <u>ON HOLD</u></b>
+                span <b>{_resultSet:hold}</b>
+                span ${_resultSet:holdCost}        
+            div
+              class= dashBlock
+              style= float:left; margin-right:20px;
+              vertical
+                span <b> <u>HALF APPROVED</u> </b>
+                span <b>{_resultSet:half}</b>
+                span ${_resultSet:halfCost}
+            div 
+              class= dashBlock
+              style= float:left; margin-right:20px;
+              vertical
+                span <b> <u>APPROVED </u></b>
+                span <b>{_resultSet:approved}</b>
+                span ${_resultSet:appCost}
+            div
+              class= dashBlock
+              style= float:left; margin-right:20px;
+              vertical
+                span <b> <u>PENDING </u></b>
+                span <b>{_resultSet:pending}</b>
+                span ${_resultSet:pendCost}
+          hr
+          vertical
+            div 
+              id= tabs 
+              ul
+                li 
+                  a Dashboard 
+                    href= #dash
+                li
+                  a Search Order Log 
+                    href= #search
+                li 
+                  a Recently Received 
+                    href= #received
+
+              div
+                id= dash 
+                vertical
+
+                  h3 Statuses Dashboard          
+                  div
+                    id= statuses
+                  hr
+                  h3 Project Costs for Ordered Items 
+                  div  
+                    id= projectCostAnalysis
+                    rowGroups
+                      rowGroup  
+                        text Start Date
+                          id= projectStart
+                          value= {_resultSet:start}
+                        text End Date
+                          id= projectEnd
+                          value= {_resultSet:today}
+                        button 
+                          value= Load Chart
+                          onClick= drawBarChart('projectBar', 'Ajax Project Costs', 'Project Costs', 'Total Cost', 'Project Type', 'Cost',$('#projectStart').val(), $('#projectEnd').val());
+                            - drawPieChart('projectPie', 'Ajax Project Costs', 'Project Pie', $('#projectStart').val(), $('#projectEnd').val());
+                            #- drawLineChart('projectLine', $('#projectStart').val(), $('#projectEnd').val());
+                    vertical
+                      div
+                        div
+                          id= projectBar 
+                          style= float:left;
+                        div  
+                          id= projectPie 
+                          style= float:left;
+                        div
+                          id= projectLine 
+                          style= float:left;
+
+                  hr
+                  h3 Top 15 Ordered Item Costs
+                  h4 (From Order Log with Received Status)
+                  div  
+                    id= itemCostAnalysis
+                    rowGroups
+                      rowGroup  
+                        text Start Date
+                          id= itemsStart
+                          value= {_resultSet:start}
+                        text End Date
+                          id= itemsEnd
+                          value= {_resultSet:today}
+                        button 
+                          value= Load Chart
+                          onClick= drawBarChart('itemCostChart', 'Ajax Item Costs', 'Top 15 Item Costs', 'Total Cost', 'Inventory Item', $('#itemsStart').val(), $('#itemsEnd').val()); 
+                            - drawPieChart('itemCostPie', 'Ajax Item Costs', 'Item Pie', $('#itemsStart').val(), $('#itemsEnd').val()); 
+                    vertical
+                      div 
+                        id= itemCostChart
+                      div
+                        id= itemCostPie
+                  hr
+                  h3 Ordered Item Information and Cost  
+                  div  
+                    id= perItemCostAnalysis
+                    rowGroups
+                      rowGroup  
+                        select Ordered Item
+                          id= invItem 
+                          multiple=
+                          sqlQuery~ select DISTINCT inventoryItem from orderLog where status = 'received' order by inventoryItem asc 
+                          style= width:500px;
+                      rowGroup
+                        text Start Date
+                          id= perItemStart
+                          value= {_resultSet:start}
+                        text End Date
+                          id= perItemEnd
+                          value= {_resultSet:today}
+                        button 
+                          value= Load Info
+                          onClick= loadItemCostInfo('perItemCostInfo', 'Ajax Get Item Cost Info', $('#invItem').val(),$('#perItemStart').val(), $('#perItemEnd').val());
+                    vertical
+                      br
+                      div
+                        id= perItemCostInfo   
+                  hr
+                  h3 Per Ordered Item Cost & Quantity Chart
+                  div  
+                    id= perItemCostandQuantity
+                    rowGroups
+                      rowGroup  
+                        select Inventory Item
+                          id= invItem2 
+                          sqlQuery~ select DISTINCT inventoryItem from orderLog where status = 'received' order by inventoryItem  
+                      rowGroup
+                        text Start Date
+                          id= perItemStart2
+                          value= {_resultSet:start}
+                        text End Date
+                          id= perItemEnd2
+                          value= {_resultSet:today}
+                        button 
+                          value= Load Info
+                          onClick= drawLineBarChart('perItemChart', 'Ajax Get Item Cost By Date', $('#invItem2').val(),$('#perItemStart2').val(), $('#perItemEnd2').val());
+                    vertical
+                      br
+                      div 
+                        id= perItemChart                                                                     
+
+              div
+                id= search
+                rowGroups
+                  rowGroup 
+                    select Category
+                      id= category 
+                      option Reagent
+                      option Consumable
+                      option Control
+                    text Start Date
+                      id= itemStart
+                      value= {_resultSet:start}
+                    text End Date
+                      id= itemEnd
+                      value= {_resultSet:today}
+                    button
+                      value= Search
+                      onClick= showInventoryResults($('#category').val(), $('#itemStart').val(), $('#itemEnd').val());
+                vertical
+                  div
+                    id= searchTable
+              div
+                id= received 
+                vertical
+                  table
+                    sqlQuery~ select o.poNumber as 'PO', o.catalogNumber as 'Cat#', 
+                      - o.inventoryItem as 'Item', CONCAT(o.quantity, ' ', o.unitOfMeasure) as 'Qty', o.costPerUnit as '$', 
+                      - o.vendor as 'Vendor', o.projectType as 'Project', o.receivedDate as 'Received'
+                      - from orderLog o
+                      - inner join events e on o.lastUpdateEventId = e.eventId 
+                      - where o.status = 'received'
+                      - and e.eventDate BETWEEN DATE_SUB(curDate(), INTERVAL 14 DAY) AND DATE_ADD(curDate(), INTERVAL 1 DAY) 
+
+
+
+##################################################################################################################################
+
+    step Create Order Request
+      form
+        
+        include userAccountInfo
+        vertical
+          text num 
+            screenLabel~ Number of Line Items in Purchase Order Request
+            size= 3
+      form
+        
+        include userAccountInfo
+        script
+          - function fillTableByCatalog(catalogNo, name){
+          -
+          -     var catNo = catalogNo;
+          -     var cellName = name;
+          -     var item;
+          -     var category;
+          -     var vendor;
+          -     var units;
+          -     var cost;
+
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       item = data[0].item;
+          -       category = data[0].type;
+          -       vendor = data[0].vendor;
+          -       units = data[0].units; 
+          -
+          -
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.item').val(item);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);
+          -         $('#vendor option:selected').text(vendor);
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units); 
+          -         $('[name^='+cellName+']').parent().siblings().children('.vendor').val(vendor);             
+          -         $('[name^='+cellName+']').parent().siblings().children('.quantity').css("background-color", "yellow");           
+          -
+          -    });
+          - 
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });  
+          -
+          - }           
+          -
+          - function fillTableByItem(itemName, name){
+          -
+          -     var catNo;
+          -     var cellName = name;
+          -     var item = itemName;
+          -     var category;
+          -     var vendor;
+          -     var units;
+          -     var cost;
+
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       catNo = data[0].catNo;
+          -       category = data[0].type;
+          -       vendor = data[0].vendor;
+          -       units = data[0].units; 
+          -
+          -
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.catNo').val(catNo);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);
+          -         $('#vendor option:selected').text(vendor);
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units);  
+          -         $('[name^='+cellName+']').parent().siblings().children('.vendor').val(vendor);            
+          -         $('[name^='+cellName+']').parent().siblings().children('.quantity').css("background-color", "yellow");           
+          -
+          -    });
+          - 
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });  
+          -
+          - }            
+                                    
+       
+
+        formQuery~ select substring(curdate() FROM -8 FOR 2) as 'poStart'
+
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Each Purchase Order should be for a single vendor.  Do not select items from multiple vendors.
+              li Select the associated project (if any)
+              li Enter catalog number or Select the item name
+              li By entering in the catalog number or selecting the item followed by hitting TAB, most of the table fields will auto-populate
+              li If the item does not exist, you MUST first enter it in the database through the <i>Manage Inventory Items</i> step
+
+        vertical
+          container po 
+            screenLabel~ Purchase Order Number
+            new~ true
+            containerType~ purchaseOrderNumber
+            contentType~ Purchase Order Number 
+            value= {poStart}{_getNextSequence:purchaseOrderId}
+            readonly=
+        vertical
+          select project
+            screenLabel~ Project
+            option 
+            option Project 1
+            option Project 2
+            option Project 3
+            option Project 4
+            option Project 5
+            #sqlQuery~ SELECT CONCAT(lp.projectName, '-', lp.projectCode) from labProjects lp where status = 'open'
+            required~ true
+          select Vendor
+            id= vendor
+            option
+            #sqlQuery~ select vendor from vendors order by vendor asc 
+            required~ true
+            style= display:none
+            screenLabel~ 
+          text num
+            value= {num}
+            style= display:none;
+            screenLabel~
+
+        vertical
+          table
+            sqlQuery~ select '' as 'CatNo', '' as 'Item Name', '' as 'Qty',
+              - '' as 'Units', '' as 'Cost/Unit', '' as 'Type', '' as 'Vendor', '' as 'Comments'
+              - FROM numbers
+              - limit {num}
+            columnSpecs~ poLineItems
+              allowChangedRecordIds
+              column 1
+                inputType text 
+                  class= text catNo 
+                  required~ true
+                  onChange= fillTableByCatalog($(this).val(), $(this).attr('name'));
+              column 2
+                inputType select
+                  sqlQuery~ select inventoryItem from inventoryItems order by inventoryItem asc  
+                  class= select item 
+                  #size= 50
+                  required~ true
+                  onChange= fillTableByItem($(this).val(), $(this).attr('name'));
+                  #sql insert into orderLog (poNumber, category, inventoryItem, catalogNumber, vendor, projectType, quantity, 
+                  #  - unitOfMeasure, costPerUnit, status, requestDate, comments, eventId, lastUpdateEventId)
+                  #  - SELECT '{po}', '{_columnInput:6}', '{_columnInput:2}', '{_columnInput:1}', '{_columnInput:7}', 
+                  #  - '{project}', '{_columnInput:3}', '{_columnInput:4}',
+                  #  - '{_columnInput:5}', 'requested', curDate(), '{_columnInput:8}', {_eventId}, {_eventId}
+                  #  - FROM DUAL 
+                  #  - WHERE '{_columnInput:1}' <> ''
+
+              column 3
+                inputType text 
+                  class= text quantity
+                  value= 1
+                  size= 3
+                  required~ true
+              column 4
+                inputType select 
+                  class= select units 
+                  #readonly=
+                  #style= border:none; background:transparent;
+                  required~ true 
+                  sqlQuery~ select displayValue from validValues where setName = 'inventoryUnits'                    
+              column 5           
+                inputType text
+                  class= text cost  
+                  required~ true
+                  size= 6
+              column 6
+                inputType text
+                  class= text category
+                  style= background:transparent; border:none;
+                  readonly=
+              column 7
+                inputType text
+                  class= text vendor
+                  style= background:transparent; border:none;
+                  readonly=
+                  validate~ select 1 from dual where '{_columnInput:7}' = '{Vendor}'
+                    errorMessage~ Items must be from the same vendor.  Multiple vendors have been selected.
+              column 8
+                inputType textArea
+                  class= textArea
+
+      forRows poLineItems
+        ifCondition {_columnInput_poLineItems:1}
+          advanced~
+          not~ 
+            isBlank~
+          sqlPreparedStatement insert into orderLog (poNumber, category, inventoryItem, catalogNumber, vendor, projectType, quantity, 
+            - unitOfMeasure, costPerUnit, status, requestDate, comments, eventId, lastUpdateEventId)
+            - SELECT ?, ?, ?, ?, ?, 
+            - ?, ?, ?,
+            - ?, 'requested', curDate(), ?, ?, ?
+            - FROM DUAL
+            string {po}
+            string {_columnInput_poLineItems:6}
+            string {_columnInput_poLineItems:2}
+            string {_columnInput_poLineItems:1}
+            string {_columnInput_poLineItems:7}
+            string {project}
+            string {_columnInput_poLineItems:3}
+            string {_columnInput_poLineItems:4}
+            string {_columnInput_poLineItems:5}
+            string {_columnInput_poLineItems:8}
+            long {_eventId}
+            long {_eventId}
+
+                    
+
+
+
+################################################################################################################################
+
+    step Edit Order Requests
+      form
+         
+        include userAccountInfo
+        script        
+          - $(document).ready(function() {
+          -   $('#poTabs').tabs();   
+          -   $('.formDiv').css("width", "1400px");   
+          - });
+          - function fillTable(catalogNo, name){
+          -
+          -     var catNo = catalogNo;
+          -     var cellName = name;
+          -     var item;
+          -     var category;
+          -     var vendor;
+          -     var units;
+          -     var cost;
+
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       item = data[0].item;
+          -       category = data[0].type;
+          -       vendor = data[0].vendor;
+          -       units = data[0].units; 
+          -
+          -
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.item').val(item);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);
+          -         $('#vendor option:selected').text(vendor);
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units);   
+          -         $('[name^='+cellName+']').parent().siblings().children('.quantity').css("background-color", "yellow");           
+          -
+          -    });
+          - 
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });  
+          -
+          - }  
+          - function fillSelected(poNumber){
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+PO+Attributes&poNumber='+ poNumber,{},
+          -    function(data,status) 
+          -    { 
+          -       $('#vendor option:selected').text(data[0].vendor);
+          -       $('#project option:selected').text(data[0].project);
+          -
+          -     });
+          -
+          - }  
+          - function fillTableByItem(itemName, name){
+          -
+          -     var catNo;
+          -     var cellName = name;
+          -     var item = itemName;
+          -     var category;
+          -     var vendor;
+          -     var units;
+          -     var cost;
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       catNo = data[0].catNo;
+          -       category = data[0].type;
+          -       vendor = data[0].vendor;
+          -       units = data[0].units; 
+          -
+          -
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.catNo').val(catNo);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);
+          -         $('#vendor option:selected').text(vendor);
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units);   
+          -         $('[name^='+cellName+']').parent().siblings().children('.quantity').css("background-color", "yellow");           
+          -
+          -    });
+          - 
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });  
+          -
+          - }                  
+        vertical
+        div
+          id= poTabs
+          ul
+            li 
+              a Edit Line Items
+                href= #edit
+            li
+              a Add Line Item
+                href= #add
+            li
+              a Delete Line Item
+                href= #delete    
+
+          div
+            id= edit
+
+            vertical
+              table
+                sqlQuery~ select '' as 'Update', o.poNumber as 'PO#', o.catalogNumber as 'CatNo', o.inventoryItem as 'Item Name', o.quantity as 'Qty',
+                  - o.unitOfMeasure as 'Units', o.costPerUnit as 'Cost/Unit', o.category as 'Type', o.lineItemId as 'Id', e.userId as 'Requested By'
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId
+                  - where (o.status = 'requested' or o.status = 'on hold' or o.status = 'approved' 
+                  - or o.status = 'pending' or o.status = 'partially received' or o.status = 'half-approved')
+                  - order by poNumber
+                columnSpecs~ poEditLineItems
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 3
+                    inputType text 
+                      class= text catNo 
+                      onChange= fillTable($(this).val(), $(this).attr('name'));
+                  column 4
+                    inputType select
+                      sqlQuery~ select inventoryItem from inventoryItems order by inventoryItem asc 
+                      class= select item 
+                      #size= 50
+                      onChange= fillTableByItem($(this).val(), $(this).attr('name'));
+                      #sql update orderLog 
+                       # - SET catalogNumber = '{_columnInput:3}', inventoryItem = '{_columnInput:4}',
+                       # - quantity = '{_columnInput:5}', unitOfMeasure = '{_columnInput:6}',
+                       # - costPerUnit = '{_columnInput:7}', category = '{_columnInput:8}', lastUpdateEventId = {_eventId}
+                       # - WHERE '{_columnInput:1}' = 'true'
+                       # - AND lineItemId = '{_columnInput:9}'
+                      #sql insert into orderLogHistory (lineItemId, poNumber, catalogNumber, vendor, projectType,
+                      #  - inventoryItem, quantity, unitOfMeasure, costPerUnit, category, status, requestDate, eventId)
+                      #  - SELECT '{_columnInput:9}', '{_columnInput:2}', '{_columnInput:3}', o.vendor, o.projectType,
+                      #  - '{_columnInput:4}', '{_columnInput:5}', '{_columnInput:6}', '{_columnInput:7}', '{_columnInput:8}',
+                      #  - 'requested', o.requestDate, {_eventId}
+                      ##  - FROM orderLog o
+                      # - WHERE '{_columnInput:1}' = 'true'
+                      #  - AND lineItemId = '{_columnInput:9}'
+
+                  column 5
+                    inputType text 
+                      class= text quantity
+                      value= 1
+                      size= 3
+                  column 6
+                    inputType select 
+                      class= select units 
+                      sqlQuery~ select displayValue from validValues where setName = 'inventoryUnits' 
+                      required~ true
+                  column 7           
+                    inputType text
+                      class= text cost  
+                  column 8
+                    inputType text
+                      class= text category
+                      style= background:transparent; border:none;
+                      readonly=
+                  column 9
+                    inputType text
+                      readonly=
+                      style= background:transparent; border:none; display:none; 
+
+      
+
+
+
+          div
+            id= add
+            vertical
+              select po 
+                screenLabel~ Purchase Order Number
+                #asContainer~
+                option
+                sqlQuery~ select distinct poNumber from orderLog 
+                  - where status = 'requested'
+                  - or status = 'approved'
+                  - or status = 'half-approved'
+                  - or status = 'pending'
+                  - or status = 'partially received'
+                onChange= fillSelected($(this).val());
+            vertical
+              select project
+                id= project
+                screenLabel~ Project
+                option Project 1
+                option Project 2
+                option Project 3
+                option Project 4
+                option Project 5
+                #sqlQuery~ SELECT CONCAT(lp.projectName, '-', lp.projectCode) from labProjects lp where status = 'open'
+              select Vendor
+                id= vendor
+                option
+                sqlQuery~ select vendor from vendors order by vendor asc 
+            vertical
+              table
+                sqlQuery~ select '' as 'Add','' as 'CatNo', '' as 'Item Name', '' as 'Qty',
+                  - '' as 'Units', '' as 'Cost/Unit', '' as 'Type'
+                  - FROM numbers
+                  - limit 5
+                columnSpecs~ poAddLineItems
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text 
+                      class= text catNo 
+                      onChange= fillTable($(this).val(), $(this).attr('name'));
+                  column 3
+                    inputType select
+                      sqlQuery~ select inventoryItem from inventoryItems order by inventoryItem asc  
+                      class= select item 
+                      #size= 50
+                      #sql insert into orderLog (poNumber, category, inventoryItem, catalogNumber, vendor, projectType, quantity, 
+                       # - unitOfMeasure, costPerUnit, status, requestDate, eventId, lastUpdateEventId)
+                       # - SELECT ?, '{_columnInput:7}', '{_columnInput:3}', '{_columnInput:2}', '{Vendor}', 
+                       # - '{project}', '{_columnInput:4}', '{_columnInput:5}',
+                       # - '{_columnInput:6}', 'requested', curDate(), {_eventId}, {_eventId}
+                       # - FROM DUAL 
+                       # - WHERE '{_columnInput:1}' = 'true'
+
+                  column 4
+                    inputType text 
+                      class= text quantity
+                      value= 1
+                      size= 3
+                  column 5
+                    inputType select 
+                      class= select units 
+                      sqlQuery~ select displayValue from validValues where setName = 'inventoryUnits' 
+                  column 6           
+                    inputType text
+                      class= text cost  
+                  column 7
+                    inputType text
+                      class= text category
+                      style= background:transparent; border:none;
+                      readonly=
+
+
+          div
+            id= delete      
+            vertical
+              table
+                sqlQuery~ select '' as 'Delete', o.poNumber as 'PO#', o.catalogNumber as 'CatNo',
+                  - o.inventoryItem as 'Item Name', o.quantity as 'Qty',
+                  - o.unitOfMeasure as 'Units', o.costPerUnit as 'Cost/Unit', o.category as 'Type', 
+                  - o.lineItemId as 'Id', e.userId as 'Requested By', o.status as 'Status'
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId 
+                  - where (o.status = 'requested' or o.status = 'pending' or o.status = 'approved' or o.status = 'half-approved')
+                  - order by poNumber
+                columnSpecs~ poDelLineItems
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent
+                  column 3
+                    inputType text 
+                      class= text catNo 
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 4
+                    inputType select 
+                      class= select item 
+                      #size= 50
+                      #sql update orderLog set status = 'cancelled', lastUpdateEventId = {_eventId}
+                      #  - where '{_columnInput:1}' = 'true' and lineItemId = '{_columnInput:9}'
+                      #sql delete from orderLog where '{_columnInput:1}' = 'true'
+                      #  - and lineItemId = '{_columnInput:9}'
+                      readonly=
+                      style= border:none; background:transparent
+
+                  column 5
+                    inputType text 
+                      class= text quantity
+                      size= 3
+                      readonly=
+                      style= border:none; background:transparent
+                  column 6
+                    inputType select 
+                      class= select units 
+                      readonly=
+                      style= border:none; background:transparent
+
+                  column 7           
+                    inputType text
+                      class= text cost 
+                      readonly=
+                      style= border:none; background:transparent
+                  column 8
+                    inputType text
+                      class= text category
+                      style= background:transparent; border:none;
+                      readonly=
+                  column 9
+                    inputType text
+                      readonly=
+                      style= background:transparent; border:none; display:none;
+
+      forRows poEditLineItems
+        sqlPreparedStatement update orderLog 
+          - SET catalogNumber = ?, inventoryItem = ?,
+          - quantity = ?, unitOfMeasure = ?,
+          - costPerUnit = ?, category = ?, lastUpdateEventId = ?
+          - WHERE ? = 'true'
+          - AND lineItemId = ?                
+          string {_columnInput_poEditLineItems:3}
+          string {_columnInput_poEditLineItems:4}
+          string {_columnInput_poEditLineItems:5}
+          string {_columnInput_poEditLineItems:6}
+          string {_columnInput_poEditLineItems:7}
+          string {_columnInput_poEditLineItems:8}
+          long {_eventId}
+          string {_columnInput_poEditLineItems:1}
+          string {_columnInput_poEditLineItems:9}
+
+      forRows poAddLineItems
+        sqlPreparedStatement insert into orderLog (poNumber, category, inventoryItem, catalogNumber, vendor, projectType, quantity, 
+          - unitOfMeasure, costPerUnit, status, requestDate, eventId, lastUpdateEventId)
+          - SELECT ?, ?, ?, ?, ?, 
+          - ?, ?, ?,
+          - ?, 'requested', curDate(), ?, ?
+          - FROM DUAL 
+          - WHERE ? = 'true'
+          string {po}
+          string {_columnInput_poAddLineItems:7}
+          string {_columnInput_poAddLineItems:3}
+          string {_columnInput_poAddLineItems:2}
+          string {Vendor}
+          string {project}
+          string {_columnInput_poAddLineItems:4}
+          string {_columnInput_poAddLineItems:5}
+          string {_columnInput_poAddLineItems:6}
+          long {_eventId}
+          long {_eventId}
+          string {_columnInput_poAddLineItems:1}
+
+      forRows poDelLineItems
+        sqlPreparedStatement update orderLog set status = 'cancelled', lastUpdateEventId = ?
+          - where ? = 'true' and lineItemId = ?
+          long {_eventId}
+          string {_columnInput_poDelLineItems:1}
+          string {_columnInput_poDelLineItems:9}
+        sqlPreparedStatement delete from orderLog where ? = 'true'
+          - and lineItemId = ?
+          string {_columnInput_poDelLineItems:1}
+          string {_columnInput_poDelLineItems:9}
+
+################################################################################################################################
+
+    step Order Approval Log M1
+      accessLevel 8
+      form
+        
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#poTabs').tabs();   
+          -   
+          - });
+        ## GET ARRAY OF PO#, COLOR DETAIL TABLE FROM ARRAY .each(tr:) find(.poNumber).val(array[i]) and color ##
+        vertical        
+
+        formQuery~ SELECT COUNT(distinct poNumber) as 'totalPO' from orderLog where status = 'requested'       
+        vertical        
+        div
+          id= poTabs
+          ul
+            li 
+              a Requested 
+                href= #requested
+                span - {_resultSet:totalPO}
+            li
+              a Detailed View
+                href= #detailed
+
+          div
+            id= requested
+            vertical
+              table
+                sqlQuery~ select DISTINCT o.poNumber as 'requestedPOId', 
+                  - GROUP_CONCAT(DISTINCT o.inventoryItem SEPARATOR ' | ') as 'Items', 
+                  - o.requestDate as 'Requested', 
+                  - o.projectType as 'Project', o.vendor as 'Vendor', 
+                  - e.userId as 'RequestedBy', o.poNumber as ''
+                  - from orderLog o 
+                  - inner join events e on e.eventId = o.eventId
+                  - where o.status  = 'requested'
+                  - group by o.poNumber
+                  - order by poNumber
+                columnSpecs~ requested
+                  allowChangedRecordIds
+                  column 7
+                    inputType text
+                      class= poNumber
+                      readonly=
+                      style= display:none  
+ 
+          div
+            id= detailed   
+            vertical 
+              table
+                sqlQuery~ select o.poNumber as 'requestedPOId', o.status as 'Status', o.inventoryItem as 'Inventory', 
+                  - o.catalogNumber as 'CatNo', o.vendor as 'Vendor', projectType as 'Project', quantity as 'Qty',
+                  - o.unitOfMeasure 'Units', o.costPerUnit 'Cost/Unit', o.requestDate, 
+                  - CONCAT('$', o.quantity*o.costPerUnit) as 'Total Cost', o.comments, e.userId as 'Requested By',
+                  - o.poNumber as ''
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId
+                  - where o.status = 'requested' 
+                  - order by poNumber
+                columnSpecs~ detailed 
+                  allowChangedRecordIds
+                  column 14
+                    inputType text
+                      class= poNumber 
+                      readonly=
+                      style= display:none; 
+
+
+
+      form
+        autocomplete= off
+        include userAccountInfo 
+        script
+          - $(document).ready(function() {
+          -   $('.formDiv').css("width", "1400px");   
+          - });         
+          - function approveAll(checkValue) {
+          - var count = parseInt($('#itemCount').val());
+          #-  alert(checkValue);
+          -  if (checkValue == true) {          
+          -   for(var i=0; i < count; i++){
+          -    $('[name^=poLineItems_'+i+'_1]').parent().siblings().children('.lineStatus').val('Approve');
+          -    }
+          -   }
+          -  if (checkValue == false) {          
+          -   for(var i=0; i < count; i++){
+          -    $('[name^=poLineItems_'+i+'_1]').parent().siblings().children('.lineStatus').val('');
+          -    }
+          -   }          
+          - }
+
+         
+        formQuery~ SELECT SUM(quantity*costPerUnit) as 'TotalCost' FROM orderLog WHERE poNumber = '{_recId}' and status = 'requested'
+        formQuery~ select substring(curdate() FROM -8 FOR 2) as 'poStart'
+        formQuery~ select COUNT(poNumber) as 'itemCount' from orderLog where poNumber = '{_recId}' and status = 'requested'
+
+        hr
+        vertical
+
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Please enter your password
+              li Approve, Not Approve, or Update each line item as needed
+              li Select 'Approve All' to set each item to <i>Approve</i>
+        vertical
+          password_input Password
+            validate~ select password from userInfo where password = '{Password}' and userId = '{_userId}'
+              errorMessage~ Incorrect Password!!  
+            ## SUSAN AND JEREMY USERIDS AND KEN
+        hr        
+        vertical
+          container poNumber
+            screenLabel~ PO Number: 
+            value= {_recId}
+            readonly=
+            style= border:none; background:transparent;
+            acceptQueue~ any
+        vertical
+          span Total Cost: ${_resultSet:TotalCost}
+        vertical
+          number total
+            value= {_resultSet:TotalCost}
+            readonly=
+            style= display:none
+            screenLabel~
+          hidden nextPO
+            screenLabel~
+            value= {_resultSet:poStart}{_getNextSequence:purchaseOrderId}
+          hidden itemCount
+            value= {_resultSet:itemCount}
+            id= itemCount
+            screenLabel~
+          checkbox Approve All
+            id= appAll
+            onChange= approveAll(document.getElementById('appAll').checked);
+
+          
+        vertical
+          table
+            id= poTable
+            sqlQuery~ select '' as 'Action', inventoryItem as 'Item', catalogNumber as 'CatNo', vendor as 'Vendor', 
+              - quantity as 'Qty', unitOfMeasure as 'Units', costPerUnit as 'Cost/Unit', requestDate,
+              - CONCAT('$', quantity*costPerUnit) as 'Total Cost', status as 'Status', projectType as 'Project', comments as Comments, 
+              - lineItemId as ''
+              - from orderLog
+              - where poNumber = '{_recId}'
+            columnSpecs~ poLineItems
+              allowChangedRecordIds
+              column 1
+                inputType select
+                  class= lineStatus
+                  option Approve
+                  option Not Approved
+                  option On Hold
+                  option Update Item
+                  #required~ true
+              column 2
+                inputType text
+                  class= item
+                  readonly=
+                  size= 55
+                  style= border:none; background:transparent;
+                  #sql update orderLog set quantity = '{_columnInput:5}', unitOfMeasure = '{_columnInput:6}', 
+                  #  - costPerUnit = '{_columnInput:7}', comments = '{_columnInput:12}', lastUpdateEventId = {_eventId}, 
+                  #  - status = CASE '{_columnInput:1}' WHEN 'Approve' THEN 'approved' WHEN 'Not Approved' THEN 'not approved'
+                  #  - WHEN 'On Hold' THEN 'on hold' ELSE status END, approveDate = CASE '{_columnInput:1}' WHEN 'Approve' THEN curDate()
+                  #  - ELSE approveDate END, poNumber = CASE '{_columnInput:1}' WHEN 'On Hold' THEN '{nextPO}' ELSE poNumber END
+                  #  - where ('{_columnInput:1}' <> '')
+                  #  - and lineItemId = '{_columnInput:13}'
+                  #  - and {total} < 2000
+
+                  #sql update orderLog set quantity = '{_columnInput:5}', unitOfMeasure = '{_columnInput:6}', 
+                   # - costPerUnit = '{_columnInput:7}', comments = '{_columnInput:12}', lastUpdateEventId = {_eventId}, 
+                   # - status = CASE '{_columnInput:1}' WHEN 'Approve' THEN 'half approved' WHEN 'Not Approved' THEN 'not approved'
+                   # - WHEN 'On Hold' THEN 'on hold' ELSE status END, approveDate = CASE '{_columnInput:1}' WHEN 'Approve' THEN curDate()
+                   # - ELSE approveDate END 
+                   # - where ('{_columnInput:1}' <> '')
+                   # - and lineItemId = '{_columnInput:13}'
+                   # - and {total} >= 2000
+
+                  #sql insert into containers (containerId, eventId)
+                   # - select '{nextPO}', {_eventId}
+                   # - from dual
+                   # - where '{_columnInput:1}' = 'On Hold' 
+                   # - and NOT EXISTS (select containerId from containers where containerId = '{nextPO}')
+
+              column 5
+                inputType text
+                  size= 3
+                  required~ true
+              column 6
+                inputType select
+                  required~ true
+                  sqlQuery~ select displayValue from validValues where setName = 'inventoryUnits'                 
+              column 7
+                inputType text
+                  size= 4
+                  required~ true
+              column 12
+                inputType textArea
+              column 13
+                inputType text
+                  style= display:none
+      allowDuplicateContainerIds true
+
+      forRows poLineItems
+        sqlPreparedStatement update orderLog set quantity = ?, unitOfMeasure = ?, 
+          - costPerUnit = ?, comments = ?, lastUpdateEventId = ?, 
+          - status = CASE ? WHEN 'Approve' THEN 'approved' WHEN 'Not Approved' THEN 'not approved'
+          - WHEN 'On Hold' THEN 'on hold' ELSE status END, approveDate = CASE ? WHEN 'Approve' THEN curDate()
+          - ELSE approveDate END, poNumber = CASE ? WHEN 'On Hold' THEN ? ELSE poNumber END
+          - where (? <> '')
+          - and lineItemId = ?
+          - and ? < 2000
+          string {_columnInput_poLineItems:5}
+          string {_columnInput_poLineItems:6}
+          string {_columnInput_poLineItems:7}
+          string {_columnInput_poLineItems:12}
+          long {_eventId}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {nextPO}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:13}
+          string {total}
+
+        sqlPreparedStatement update orderLog set quantity = ?, unitOfMeasure = ?, 
+          - costPerUnit = ?, comments = ?, lastUpdateEventId = ?, 
+          - status = CASE ? WHEN 'Approve' THEN 'half approved' WHEN 'Not Approved' THEN 'not approved'
+          - WHEN 'On Hold' THEN 'on hold' ELSE status END, approveDate = CASE ? WHEN 'Approve' THEN curDate()
+          - ELSE approveDate END 
+          - where (? <> '')
+          - and lineItemId = ?
+          - and ? >= 2000  
+          string {_columnInput_poLineItems:5}
+          string {_columnInput_poLineItems:6}
+          string {_columnInput_poLineItems:7}
+          string {_columnInput_poLineItems:12}
+          long {_eventId}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:13}
+          string {total}
+
+        sqlPreparedStatement insert into containers (containerId, eventId)
+          - select ?, ?
+          - from dual
+          - where ? = 'On Hold' 
+          - and NOT EXISTS (select containerId from containers where containerId = ?)
+          string {nextPO}
+          long {_eventId}
+          string {_columnInput:1}
+          string {nextPO}
+
+###########################################################################################################################     
+
+    step Order Approval Log M2
+      accessLevel 8
+      queueQuery select COUNT(o.poNumber) 
+        - from orderLog o 
+        - left outer join queues q on o.poNumber = q.containerId and q.step = 'Order Approval Log M2'
+        - where o.status = 'half approved'
+      form
+        
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#poTabs').tabs();   
+          -   
+          - });         
+        formQuery~ SELECT COUNT(distinct poNumber) as 'totalPO' from orderLog where status = 'half approved'
+
+        vertical        
+        div
+          id= poTabs
+          ul
+            li 
+              a Requested 
+                href= #requested  
+                span - {_resultSet:totalPO}
+            li
+              a Detailed View
+                href= #detailed
+
+          div
+            id= requested 
+            vertical
+              table
+                sqlQuery~ select DISTINCT o.poNumber as 'halfApprovedPOId', 
+                  - GROUP_CONCAT(DISTINCT o.inventoryItem SEPARATOR ' | ') as 'Items', 
+                  - o.requestDate as 'Requested', o.projectType as 'Project',
+                  - o.vendor as 'Vendor', e.userId as 'RequestedBy'
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId 
+                  - where o.status = 'half approved'
+                  - group by o.poNumber
+                  - order by poNumber
+          div
+            id= detailed   
+            vertical 
+              table
+                sqlQuery~ select o.poNumber as 'halfApprovedPOId', o.status as 'Status', 
+                  - o.inventoryItem as 'Inventory', o.catalogNumber as 'CatNo', 
+                  - o.vendor as 'Vendor', o.projectType as 'Project', o.quantity as 'Qty',
+                  - o.unitOfMeasure 'Units', o.costPerUnit 'Cost/Unit', o.requestDate, 
+                  - CONCAT('$', o.quantity*o.costPerUnit) as 'Total Cost', o.comments as 'Comments',
+                  - e.userId as 'Requested By'
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId
+                  - where o.status = 'half approved' 
+                  - order by poNumber 
+ 
+      form
+        autocomplete= off
+        include userAccountInfo
+        script
+          - $(document).ready(function() {        
+          -   $('.formDiv').css("width", "1400px");  
+          - });         
+          - function approveAll(checkValue) {
+          - var count = parseInt($('#itemCount').val());
+          #-  alert(checkValue);
+          -  if (checkValue == true) {          
+          -   for(var i=0; i < count; i++){
+          -    $('[name^=poLineItems_'+i+'_1]').parent().siblings().children('.lineStatus').val('Approve');
+          -    }
+          -   }
+          -  if (checkValue == false) {          
+          -   for(var i=0; i < count; i++){
+          -    $('[name^=poLineItems_'+i+'_1]').parent().siblings().children('.lineStatus').val('');
+          -    }
+          -   }          
+          - }        
+        formQuery~ SELECT SUM(quantity*costPerUnit) as 'TotalCost' FROM orderLog WHERE poNumber = '{_recId}' and status = 'half approved'
+        formQuery~ select substring(curdate() FROM -8 FOR 2) as 'poStart' 
+        formQuery~ select COUNT(poNumber) as 'lineCount' from orderLog where poNumber = '{_recId}' and status = 'half approved'        
+        hr
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Please enter your password
+              li Approve, Not Approve, or Update each line item.  The status will be updated for each.
+              li Approve or Not Approve of the PO - this will move the PO# forward or remove it from this step
+              li If you Approve/Not Approve the entire PO, the line items will be updated to that status              
+        vertical
+          password_input Password
+            validate~ select password from userInfo where password = '{Password}' and userId = '{_userId}'
+              errorMessage~ Incorrect Password!!  
+              ##KEN AND MICHAEL
+        hr        
+        vertical
+          container poNumber
+            screenLabel~ PO Number: 
+            value= {_recId}
+            style= border:none; background:transparent;
+            readonly=
+            acceptQueue~ any
+        vertical
+          span Total Cost: ${_resultSet:TotalCost}
+        vertical
+          text total
+            screenLabel~ 
+            value= {_resultSet:TotalCost}
+            readonly=
+            style= display:none
+          hidden itemCount
+            id= itemCount
+            value= {_resultSet:lineCount}
+            screenLabel~
+          hidden nextPO
+            screenLabel~
+            value= {_resultSet:poStart}{_getNextSequence:purchaseOrderId}  
+          checkbox Approve All
+            id= appAll
+            onChange= approveAll(document.getElementById('appAll').checked);          
+          
+        vertical
+          table
+            sqlQuery~ select '' as 'Action', inventoryItem as 'Item', catalogNumber as 'CatNo', vendor as 'Vendor', 
+              - quantity as 'Qty', unitOfMeasure as 'Units', costPerUnit as 'Cost/Unit', requestDate,
+              - CONCAT('$', quantity*costPerUnit) as 'Total Cost', status as 'Status', projectType, comments as Comments, lineItemId as ''
+              - from orderLog
+              - where poNumber = '{_recId}'
+            columnSpecs~ poLineItems
+              allowChangedRecordIds
+              column 1
+                inputType select
+                  class= lineStatus 
+                  option Approve
+                  option Not Approved
+                  option On Hold
+                  option Update Item
+                  #required~ true
+              column 2
+                inputType text
+                  readonly=
+                  size= 55
+                  style= border:none; background:transparent;
+                  #sql update orderLog set quantity = '{_columnInput:5}', unitOfMeasure = '{_columnInput:6}', 
+                    #- costPerUnit = '{_columnInput:7}', comments = '{_columnInput:12}', lastUpdateEventId = {_eventId}, 
+                    #- status = CASE '{_columnInput:1}' WHEN 'Approve' THEN 'approved' WHEN 'Not Approved' THEN 'not approved'
+                    #- WHEN 'On Hold' THEN 'on hold' ELSE status END, approveDate = CASE '{_columnInput:1}' WHEN 'Approve' THEN curDate()
+                    #- ELSE approveDate END, poNumber = CASE '{_columnInput:1}' WHEN 'On Hold' THEN '{nextPO}' ELSE poNumber END 
+                    #- where ('{_columnInput:1}' <> '')
+                    #- and lineItemId = '{_columnInput:13}'
+
+                  #sql insert into containers (containerId, eventId)
+                   # - select '{nextPO}', {_eventId}
+                   # - from dual
+                   # - where '{_columnInput:1}' = 'On Hold' 
+                   # - and NOT EXISTS (select containerId from containers where containerId = '{nextPO}')                     
+                                    
+                  #ORDERLOG HISTORY HERE
+                  
+              column 5
+                inputType text
+                  size= 3
+                  required~ true
+              column 6
+                inputType select
+                  required~ true
+                  sqlQuery~ select displayValue from validValues where setName = 'inventoryUnits'                 
+              column 7
+                inputType text
+                  size= 4
+                  required~ true
+              column 12
+                inputType textArea
+              column 13
+                inputType text
+                  style= display:none;
+      allowDuplicateContainerIds true
+
+      forRows poLineItems
+        sqlPreparedStatement update orderLog set quantity = ?, unitOfMeasure = ?, 
+          - costPerUnit = ?, comments = ?, lastUpdateEventId = ?, 
+          - status = CASE ? Wed'
+          - WHEN 'On Hold' THEN 'on hold' ELSE status HEN 'Approve' THEN 'approved' WHEN 'Not Approved' THEN 'not approvEND, approveDate = CASE ? WHEN 'Approve' THEN curDate()
+          - ELSE approveDate END, poNumber = CASE ? WHEN 'On Hold' THEN ? ELSE poNumber END 
+          - where (? <> '')
+          - and lineItemId = ?
+          string {_columnInput_poLineItems:5}
+          string {_columnInput_poLineItems:6}
+          string {_columnInput_poLineItems:7}
+          string {_columnInput_poLineItems:12}
+          long {_eventId}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {nextPO}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:13}
+
+        sqlPreparedStatement insert into containers (containerId, eventId)
+          - select ?, ?
+          - from dual
+          - where ? = 'On Hold' 
+          - and NOT EXISTS (select containerId from containers where containerId = ?)    
+          string {nextPO}
+          long {_eventId}
+          string {_columnInput_poLineItems:1}
+          string {nextPO}
+
+
+
+
+
+
+##########################################################################################################################
+    step On Hold PO
+      form
+        autocomplete= off
+        include userAccountInfo
+        formQuery~ SELECT COUNT(distinct poNumber) as 'totalPO' from orderLog where status = 'on hold'
+        vertical
+          span TOTAL ON HOLD: <b>{_resultSet:totalPO}</b>                 
+        vertical
+          password_input Password:
+            validate~ select password from userInfo where password = '{Password:}' and userId = '{_userId}'
+              errorMessage~ Incorrect Password!!         
+ 
+        hr
+        vertical
+          div 
+            id= hold
+            vertical
+              table
+                sqlQuery~ select '' as 'Action', poNumber as 'POId', inventoryItem as 'Inventory', catalogNumber as 'CatNo', 
+                  - vendor as 'Vendor', projectType as 'Project', quantity as 'Qty',
+                  - unitOfMeasure 'Units', costPerUnit 'Cost/Unit', requestDate,  (quantity*costPerUnit) as 'Total Cost', comments, lineItemId as ''
+                  - from orderLog where status = 'on hold' 
+                  - order by requestDate   
+                columnSpecs~ onhold
+                  allowChangedRecordIds
+                  column 1
+                    inputType select
+                      option Approve
+                      option Not Approved
+                      option Update
+                  column 2
+                    inputType text
+                      style= border:none; background:transparent;
+                      readonly=
+                     # sql insert into containerHistory (containerId, eventId)
+                      #  - select '{_columnInput:2}', {_eventId}
+                       # - from dual
+                        #- where '{_columnInput:1}' = 'Approve' or '{_columnInput:1}' = 'Not Approve'
+                  column 11
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 12
+                    inputType textArea
+                  column 13
+                    inputType text
+                      readonly=
+                      style= display:none;
+
+                     # sql update orderLog set comments = '{_columnInput:12}', lastUpdateEventId = {_eventId},
+                      #  - status = CASE '{_columnInput:1}' WHEN 'Approve' THEN 'approved' WHEN 'Not Approved' THEN 'not approved'
+                       # - ELSE status END, approveDate = CASE '{_columnInput:1}' WHEN 'Approve' THEN curDate() ELSE approveDate END
+                        #- where lineItemId = '{_columnInput:13}' and '{_columnInput:1}' <> '' and {_columnInput:11} < 2000
+
+                     # sql update orderLog set comments = '{_columnInput:12}', lastUpdateEventId = {_eventId},
+                       # - status = CASE '{_columnInput:1}' WHEN 'Approve' THEN 'half approved' WHEN 'Not Approved' THEN 'not approved'
+                        #- ELSE status END, approveDate = CASE '{_columnInput:1}' WHEN 'Approve' THEN curDate() ELSE approveDate END
+                        #- where lineItemId = '{_columnInput:13}' and '{_columnInput:1}' <> '' and {_columnInput:11} >= 2000
+      forRows onhold
+        sqlPreparedStatement insert into containerHistory (containerId, eventId)
+          - select ?, ?
+          - from dual
+          - where ? = 'Approve' or ? = 'Not Approve'
+          string {_columnInput_onhold:2}                                       
+          long {_eventId}
+          string {_columnInput_onhold:1}
+          {_columnInput_onhold:1}
+
+        sqlPreparedStatement update orderLog set comments = ?, lastUpdateEventId = ?,
+          - status = CASE ? WHEN 'Approve' THEN 'approved' WHEN 'Not Approved' THEN 'not approved'
+          - ELSE status END, approveDate = CASE ? WHEN 'Approve' THEN curDate() ELSE approveDate END
+          - where lineItemId = ? and ? <> '' and ? < 2000
+          string {_columnInput_onhold:12}
+          long {_eventId}
+          string {_columnInput_onhold:1}
+          string {_columnInput_onhold:1}
+          string {_columnInput_onhold:13}
+          string {_columnInput_onhold:1}
+          string {_columnInput_onhold:11}
+
+        sqlPreparedStatement update orderLog set comments = ?, lastUpdateEventId = ?,
+          - status = CASE ? WHEN 'Approve' THEN 'half approved' WHEN 'Not Approved' THEN 'not approved'
+          - ELSE status END, approveDate = CASE ? WHEN 'Approve' THEN curDate() ELSE approveDate END
+          - where lineItemId = ? and ? <> '' and ? >= 2000
+          string {_columnInput_onhold:12}
+          long {_eventId}
+          string {_columnInput_onhold:1}
+          string {_columnInput_onhold:1}
+          string {_columnInput_onhold:13}
+          string {_columnInput_onhold:1}
+          string {_columnInput_onhold:11}
+
+
+##########################################################################################################################        
+
+    step Order Request Log
+      form
+        
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#poTabs').tabs();   
+          -   
+          - });     
+          - function colorTableByContainerId() {
+          -  var colorArray = ['#90ed7d'];
+          - 
+          -  
+          - }    
+        formQuery~ SELECT COUNT(distinct poNumber) as 'totalPO' from orderLog where status = 'approved'
+   
+        vertical    
+        div
+          id= poTabs
+          ul
+            li 
+              a Approved 
+                href= #approved
+                span - {_resultSet:totalPO}
+            li
+              a Detailed View
+                href= #detailed
+          div
+            id= approved
+            vertical
+              table
+                sqlQuery~ select DISTINCT o.poNumber as 'approvedPOId', 
+                  - GROUP_CONCAT(DISTINCT o.inventoryItem SEPARATOR ' | ') as 'Items',
+                  - o.approveDate as 'Approved',
+                  - o.requestDate as 'Requested', o.projectType as 'Project', o.vendor as 'Vendor', e.userId as 'RequestedBy'
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId
+                  - where o.status = 'approved'
+                  - group by o.poNumber
+                  - order by poNumber
+
+          div 
+            id= detailed
+            vertical
+              table
+                sqlQuery~ select o.poNumber as 'approvedPOId', o.status as 'Status', 
+                  - o.inventoryItem as 'Inventory', o.catalogNumber as 'CatNo', 
+                  - o.vendor as 'Vendor', o.projectType as 'Project', o.quantity as 'Qty',
+                  - o.unitOfMeasure 'Units', o.costPerUnit 'Cost/Unit', o.requestDate, o.approveDate,
+                  - CONCAT('$', o.quantity*o.costPerUnit) as 'Total Cost', o.comments, e.userId as 'Ordered By'
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId
+                  - where status = 'approved'  
+                  - order by poNumber, approveDate       
+      form
+         
+        include userAccountInfo 
+        script
+          - function approveAll(checkValue) {
+          - var count = parseInt($('#itemCount').val());
+          -  if (checkValue == true) {          
+          -   for(var i=0; i < count; i++){
+          -    $('[name^=poLineItems_'+i+'_1]').parent().siblings().children('.lineStatus').val('Ready to Receive');
+          -    }
+          -   }
+          -  if (checkValue == false) {          
+          -   for(var i=0; i < count; i++){
+          -    $('[name^=poLineItems_'+i+'_1]').parent().siblings().children('.lineStatus').val('');
+          -    }
+          -   }          
+          - }         
+        formQuery~ SELECT SUM(quantity*costPerUnit) as 'TotalCost' FROM orderLog WHERE poNumber = '{_recId}' and status = 'approved'
+        formQuery~ select substring(curdate() FROM -8 FOR 2) as 'poStart'   
+        formQuery~ select COUNT(poNumber) as 'itemCount' from orderLog where poNumber = '{_recId}' and status = 'approved'       
+        vertical
+          container poNumber
+            screenLabel~ PO Number:
+            value= {_recId}
+            readonly=
+            style= border:none; background:transparent; 
+            acceptQueue~ any
+        vertical   
+          span Total Cost: ${_resultSet:TotalCost}
+        vertical
+          text total
+            screenLabel~
+            value= {_resultSet:TotalCost}
+            readonly=
+            style= display:none
+          hidden itemCount
+            id= itemCount
+            value= {_resultSet:itemCount}
+            screenLabel~
+          hidden nextPO
+            screenLabel~
+            value= {_resultSet:poStart}{_getNextSequence:purchaseOrderId}   
+          checkbox All Confirmed
+            id= appAll 
+            onChange= approveAll(document.getElementById('appAll').checked)                   
+        vertical
+          table
+            sqlQuery~ select '' as 'Action', 
+              - o.inventoryItem as 'Item', o.catalogNumber as 'CatNo', o.vendor as 'Vendor', 
+              - o.quantity as 'Qty', o.unitOfMeasure as 'Units', o.costPerUnit as 'Cost/Unit', 
+              - o.requestDate, o.approveDate,
+              - CONCAT('$', o.quantity*o.costPerUnit) as 'Total Cost', o.status as 'Status', 
+              - o.confirmationNumber as 'Confirmation #', o.comments, lineItemId as ''
+              - from orderLog o
+              - where o.poNumber = '{_recId}' and o.status = 'approved'
+            columnSpecs~ poLineItems
+              allowChangedRecordIds
+              column 1
+                inputType select
+                  class= lineStatus
+                  option Ready to Receive
+                  option Back to Approval
+                  option Update 
+              column 2
+                inputType text
+                  readonly=
+                  style= border:none; background:transparent;
+                  #sql update orderLog set costPerUnit = '{_columnInput:7}', confirmationNumber = '{_columnInput:12}', 
+                  #  - lastUpdateEventId = {_eventId}, status = CASE '{_columnInput:1}' WHEN 'Ready to Receive' THEN 'pending'
+                  #  - WHEN 'Back to Approval' THEN 'requested' ELSE status END, orderDate = CASE '{_columnInput:1}' WHEN 'Ready to Receive'
+                  #  - THEN curDate() ELSE orderDate END, comments = '{_columnInput:13}', poNumber = CASE '{_columnInput:1}' WHEN 'Back to Approval'
+                  #  - THEN '{nextPO}' ELSE poNumber END
+                  #  - where lineItemId = '{_columnInput:14}' 
+                  #  - and ('{_columnInput:1}' <> '')
+
+                 # sql insert into containers (containerId, eventId)
+                   # - select '{nextPO}', {_eventId}
+                   # - from dual
+                   # - where '{_columnInput:1}' = 'Back to Approval' 
+                   # - and NOT EXISTS (select containerId from containers where containerId = '{nextPO}')                     
+
+
+              column 7
+                inputType text
+                  size= 6
+              column 12
+                inputType text
+              column 13
+                inputType textArea
+              column 14
+                inputType text
+                  style= display:none;
+
+      forRows poLineItems
+        sqlPreparedStatement update orderLog set costPerUnit = ?, confirmationNumber = ?, 
+          - lastUpdateEventId = ?, status = CASE ? WHEN 'Ready to Receive' THEN 'pending'
+          - WHEN 'Back to Approval' THEN 'requested' ELSE status END, orderDate = CASE ? WHEN 'Ready to Receive'
+          - THEN curDate() ELSE orderDate END, comments = ?, poNumber = CASE ? WHEN 'Back to Approval'
+          - THEN ? ELSE poNumber END
+          - where lineItemId = ? 
+          - and (? <> '')    
+          string {_columnInput_poLineItems:7}
+          string {_columnInput_poLineItems:12}
+          long {_eventId}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:1}
+          string {_columnInput_poLineItems:13}
+          string {_columnInput_poLineItems:1}
+          string {nextPO}
+          string {_columnInput_poLineItems:14}
+          string {_columnInput_poLineItems:1}
+
+        sqlPreparedStatement insert into containers (containerId, eventId)
+          - select ?, ?
+          - from dual
+          - where ? = 'Back to Approval' 
+          - and NOT EXISTS (select containerId from containers where containerId = ?)
+          string {nextPO}
+          long {_eventId}
+          string {_columnInput_poLineItems:1}
+          string {nextPO}
+
+
+
+
+################################################################################################################################################################
+
+    step Pending Receiving
+      form
+        
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#poTabs').tabs();   
+          -   
+          - });   
+        formQuery~ select COUNT(distinct poNumber) as 'pendCount' from orderLog where status = 'pending' 
+        formQuery~ select COUNT(distinct poNumber) as 'partCount' from orderLog where status = 'partially received' 
+        formQuery~ select COUNT(distinct o.poNumber) as 'myCount' from orderLog o 
+          - inner join events e on o.eventId = e.eventId 
+          - where (o.status = 'pending' or o.status = 'partially received') 
+          - and e.userId = '{_userId}'           
+        vertical
+        div
+          id= poTabs
+          ul
+            li 
+              a MY REQUESTS 
+                href= #myRequests
+                span - {_userId} - {_resultSet:myCount}    
+            li        
+              a PENDING 
+                href= #approved
+                span - {_resultSet:pendCount} | PARTIALLY RECEIVED - {_resultSet:partCount}
+            li
+              a DETAILED VIEW 
+                href= #detailed  
+          div 
+            id= myRequests
+            vertical
+              table
+                sqlQuery~ select o.poNumber as 'POId', o.status,
+                  - o.inventoryItem as 'Inventory', o.catalogNumber as 'CatNo', 
+                  - o.vendor as 'Vendor', o.projectType as 'Project', o.quantity as 'QtyOrdered', 
+                  - IFNULL(o.quantityReceived, '0') as 'QtyReceived',
+                  - o.unitOfMeasure 'Units', o.costPerUnit 'Cost/Unit', o.requestDate, o.approveDate,
+                  - CONCAT('$', o.quantity*o.costPerUnit) as 'Total Cost', o.comments, e.userId 
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId 
+                  - where (o.status = 'pending' or o.status = 'partially received') and e.userId = '{_userId}'
+                  - order by poNumber  
+          div
+            id= approved 
+            vertical
+              table
+                sqlQuery~ select DISTINCT o.poNumber as 'POId', o.vendor as 'Vendor', 
+                  - o.projectType as 'Project', e.userId
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId
+                  - where (o.status = 'pending' or o.status = 'partially received')
+                  - order by poNumber                            
+          div 
+            id= detailed
+            vertical
+              table
+                sqlQuery~ select o.poNumber as 'POId', o.status,
+                  - o.inventoryItem as 'Inventory', o.catalogNumber as 'CatNo', 
+                  - o.vendor as 'Vendor', o.projectType as 'Project', o.quantity as 'QtyOrdered', 
+                  - IFNULL(o.quantityReceived, '0') as 'QtyReceived',
+                  - o.unitOfMeasure 'Units', o.costPerUnit 'Cost/Unit', o.requestDate, o.approveDate,
+                  - CONCAT('$', o.quantity*o.costPerUnit) as 'Total Cost', o.comments, e.userId 
+                  - from orderLog o 
+                  - inner join events e on o.eventId = e.eventId 
+                  - where (o.status = 'pending' or o.status = 'partially received')
+                  - order by poNumber    
+
+
+    step Receive Inventory
+      form 
+        
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#stepFormSubmitButton').hide(); 
+          -   $('.formDiv').css("width", "1400px");   
+          - });          
+          - function showOrdered(poNumber) {
+          - $('#showOrdered').load('/uniflow',{stepName: 'Ajax Show Ordered', poNumber: poNumber});
+          -
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+PO+Attributes&poNumber='+poNumber,{},
+          -    function(data,status) 
+          -    {  var vendor = data[0].vendor;
+          -       var project = data[0].project;      
+          #-       $('#poAttributes').append('VENDOR: <input type=text id=vendor style=border:none; background:transparent; />'
+          #-         + '   PROJECT: <input type=text id=project style=border:none; background:transparent; />');
+          -       $('#vendor').val(vendor);
+          -       $('#project').val(project);
+          -
+          -     });        
+          - }
+          - function loadLineItems(poNumber) {
+         # - alert("in load line items");
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Line+Items&poNumber='+poNumber,{},
+          -    function(data,status) 
+          -    { 
+         # -   alert("inside function");
+          -       for(var i=0; i < data.length; i++) {
+         # -          var catNo = '"' + data[i].CatNo + '"';     
+         # -   alert("insidefor");       
+          -         $('#enterReceived').append('<div id= Receive_'+data[i].CatNo+' style=background-color:#CCFFCC;border-radius:3px;border:1px;border-color:#eeeeee;><span style=color:#000000;>'
+          -         + '<input type=text id=lineItemId_'+data[i].CatNo+' value=' + data[i].lineItemId +' style=border:none;background:transparent; size=3 readonly/> | '
+          -         + '<input type=text class=catalog name= CatalogNum_'+data[i].CatNo+' style=color:#000000;border:none;background:transparent; value='+ data[i].CatNo +' readonly/>'  
+          -         + '<span style=color:#000000;>  | ' + data[i].Inventory + '</span>'  
+          -         + ' | Qty Received: <input type=text size=3 id=lineItemQty_'+data[i].CatNo+' value='+data[i].Qty+' /><span> '+data[i].Units+'</span>'       
+          -         + ' | Qty to Barcode: <input type=text name=barcodeItems value="" size=3 onChange=loadInventoryTable($(this).val(),"'+data[i].CatNo+'") /> '         
+          -         +  '</br></br></div><div id=submit_'+data[i].CatNo+'></div><div id='+data[i].CatNo+'_1><span> Consisting Of... </span><p></p></div>');
+          -      }
+          -
+          -     }); 
+          - }
+          - function loadInventoryTable(qty, div) {
+          -     var num = 0;
+          -     num = parseInt(qty);  
+          -   if (num == 1) { 
+          -     var po = $('#poNumber').val();
+          -     $('#' + div+'_1').load('/uniflow',{stepName: 'Ajax Receive Inventory Item', div: div, num: 1, poNumber:po});  
+          -     $('#submit_' + div).empty().append('<input type=button name='+ div +'_button class=button value="Submit Item(s) for '+div+'" onClick=submitInventory("'+div+'") />');
+          -    }
+          -   if(num > 1) {
+          -     $('#' + div+'_1').load('/uniflow',{stepName: 'Ajax Receive Inventory Items', div: div, num: num});  
+          -     $('#submit_' + div).empty().append('<input type=button name='+ div + '_button class=button value="Submit Item(s) for '+div+'" onClick=submitInventory("'+div+'") />');         
+          -   }
+          -
+          - }
+          - function setTableId (cellName) {
+          -  var nameSplit = cellName.split('_');
+          #-  alert(nameSplit[0]);
+          -  var id = nameSplit[0];
+          -  $('#receiveMe').attr("id", id);
+          # can only submit after all tables have been filled in
+          -  }
+          - function fillTable(catalogNo, name){
+          -
+          -     var catNo = catalogNo;
+          -     var cellName = name;
+          -     var item;
+          -     var category;
+          -     var units;
+          -     
+          #-     $('[name^='+cellName+']').parent().parent().css("border", "red");
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       item = data[0].item;
+          -       category = data[0].type;
+          -       units = data[0].units;
+          -
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.item').val(item);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);    
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units);    
+          -      if(category == 'Consumable'){$('[name^='+cellName+']').parent().siblings().children('.qcType').val('Non-Critical');}               
+          -
+          -    });  
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });          
+          -  } 
+          - function submitInventory(catNo) {
+          -      $('#'+ catNo).hide();
+          - 
+          -      var lineItemId = $('#lineItemId_' + catNo).val();
+          -      var po = $('#poNumber').val();
+          -      var lineItemQty = $('#lineItemQty_' + catNo).val();
+          -         
+          -
+          -  $("#"+catNo+" tr:gt(0)").each(function(index) {
+          #-      alert("here!");          
+          -       var poNumber = $('#poNumber').val();
+          -       var catalogNo =  $(this).find('.catNo').val(); 
+          -       var itemId = $(this).find('.barcode').val();
+          -       var item = $(this).find('.item').val();
+          -       var units = $(this).find('.units').val(); 
+          -       var quantity = $(this).find('.qty').val();
+          -       var inside = $(this).find('.indvQty').val();
+          -       var cost = $(this).find('.cost').val();
+          -       var lot = $(this).find('.lot').val();
+          -       var parent = $(this).find('.parent').val();
+          -       var recDate = $(this).find('.dateRec').val();
+          -       var expDate = $(this).find('.expDate').val();
+          -       var qcType = $(this).find('.qcType').val();
+          -       var category = $(this).find('.category').val();
+          -       var vendor = $('#vendor').val();
+          -       var project = $('#project').val();
+          -       var lineId = $('#lineItemId_' + catNo).val();
+          -       var lineItemCatNo = catNo;
+          - 
+          #-       alert(poNumber + ',' + catalogNo + ',' + itemId + ',' + item +','+ lineItemId);          
+          -       $.post('/uniflow',{ poNumber:poNumber, lineItemId:lineId, itemId:itemId, catalogNo:catalogNo, item:item, 
+          -         quantity:quantity, units:units, costPerUnit:cost, quantityInside:inside, lotNumber:lot, parentLot:parent, 
+          -         recDate:recDate, expDate:expDate, qcType:qcType, category:category, vendor:vendor, project:project, lineItemCatNo:lineItemCatNo,
+          -          stepName:'Ajax POST Received Inventory', Submit:true, formNumber:0 });
+          -       });
+          #-   ## this must be after the barcodes are uploaded in case something goes wrong, then the status won't be updated to receive when something wasn't actually received...
+          -       $.post('/uniflow',{ poNumber:po, lineItemId:lineItemId, lineItemQty:lineItemQty,
+          -          stepName:'Ajax POST Received Quantity', Submit:true, formNumber:0 }); 
+          #-      alert("Submitted item(s) for " + catNo);
+          -       $('#submit_' + catNo).empty().append('<span style=color:red; >COMPLETE. SUBMITTED ITEMS FOR '+catNo+'</span>');
+          - }
+          - function fillTableByItem(itemName, name){
+          -
+          -     var catNo;
+          -     var cellName = name;
+          -     var item = itemName;
+          -     var category;
+          -     var units;
+          -     var cost;
+
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       catNo = data[0].catNo;
+          -       category = data[0].type;
+          -       units = data[0].units; 
+          -
+          -
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.catNo').val(catNo);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units); 
+          -     if(category == 'Consumable'){$('[name^='+cellName+']').parent().siblings().children('.qcType').val('Non-Critical');}            
+          -
+          -    });
+          - 
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });  
+          -
+          - }  
+          - function checkPending(poNumber) {
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+PO+Status&poNumber='+ poNumber,{},
+          -    function(data,status) 
+          -    { 
+          -       if(data[0].status != 'pending') {
+          -           $('#poAttributes').append("</br><span style=color:red;font-size:1.3em; >** This PO is NOT Pending. Please ensure your PO has been approved and confirmed through the Order Request Log. **</span></br>");
+          -           $('#showOrdered').hide();
+          -           $('#enterReceived').hide();
+          -         }
+          -
+          -    });
+          -  }   
+          - function copyDown(cellName, checked) {
+          -   var array = cellName.split("_");
+          -   var name = array[0];
+          -   var row = array[1];
+          -   var nextrow = 0;
+          -   nextrow = parseInt(parseInt(row) + 1);
+          -
+          -   if(checked == true) {
+          -
+          -          for(var i = 3; i < 15; i++)
+          -          { $('[name^='+name+'_'+nextrow+'_'+i+ ']').val($('[name^='+name+'_'+row+'_' +i+ ']').val()); }
+          -
+          -     }   
+          -   
+          -   if(checked == false) {
+          -
+          -          for(var i = 3; i < 15; i++)
+          -          {  $('[name^='+name+'_'+nextrow+'_' +i+']').val(''); } 
+          -    }
+          - }                
+
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Enter PO# and TAB
+              li Enter the qty to receive for each line item (what will be barcoded)
+              li Enter 1 if you are barcoding the item received, if you are barcoding items inside the item received then enter that amount
+              li Fill out the tables and submit each one
+              li QC Type for Consumables will default to N/A and expiration date will be recorded as 10 years out
+              li QC Type for Reagents will need to be selected - Critical = Needs QC, Non-Critical = No QC, Unknown = Queued for Sorting
+              li Critical Reagents will be immediately queued to Qualify Reagent
+
+
+        vertical
+          div
+            id= poAttributes
+            rowGroups
+              rowGroup
+                text PO Number
+                  id= poNumber
+                  onChange= showOrdered($(this).val()); loadLineItems($(this).val()); 
+                    #- checkPending($(this).val());
+                  validate~ select status from orderLog where poNumber='{PO Number}' and status = 'pending'
+                    errorMessage~ This PO is not pending receving.  Check to be sure it has been approved.
+                  style= color:green;
+                text Vendor:
+                  id= vendor
+                  style= background:transparent; border:none; font-size:1.2em; color:blue;
+                  readonly=
+                  size= 50
+                text Project:
+                  id= project
+                  style= background:transparent; border:none; font-size:1.2em; color:blue;
+                  readonly=
+
+        hr
+        vertical
+          fieldset
+            legend ORDERED
+              class= legend
+            vertical
+              div
+                id= showOrdered
+        vertical
+          fieldset
+            legend RECEIVED
+              class= legend
+            vertical
+
+              div
+                id= enterReceived
+                vertical
+  
+
+##################################################################################################################
+    step Lookup Purchase Order
+      form
+         
+        include userAccountInfo 
+        vertical
+          text _recId
+            screenLabel~ Purchase Order Number
+      form
+         
+        include userAccountInfo 
+        script
+          - $(document).ready(function() {
+          -   $('#stepFormSubmitButton').hide(); 
+          -   $('.formDiv').css("width", "1400px");   
+          - });         
+        formQuery~ select poNumber, vendor, projectType from orderLog where poNumber = '{_recId}'
+        formQuery~ select e.userId as 'requestor' 
+          - from orderLog o 
+          - inner join events e on o.eventId = e.eventId 
+          - where o.poNumber = '{_recId}'
+        vertical
+          span PO NUMBER: {_resultSet:poNumber}
+          span VENDOR: {_resultSet:vendor}
+          span PROJECT: {_resultSet:projectType}
+          span OWNER: {_resultSet:requestor}
+        vertical
+          h2 ORDERED ITEMS
+        vertical
+          table
+            sqlQuery~ select catalogNumber as 'Cat#', inventoryItem as 'Item', 
+              - CONCAT(quantity, ' ', unitOfMeasure) as 'Qty', 
+              - CONCAT(quantityReceived, ' ', unitOfMeasure) as 'Qty Rec', 
+              - CONCAT('$',costPerUnit) as 'Cost/Unit', confirmationNumber as 'Conf#', status as 'Status',
+              - requestDate as 'ReqDate', approveDate as 'ApprDate', orderDate as 'OrdDate',
+              - receivedDate as 'RecvDate', comments
+              -  from orderLog 
+              - where poNumber = '{_recId}'
+        vertical
+          h2 ITEMS BARCODED & RECEIVED
+        vertical
+          table
+            caption Consumables
+            sqlQuery~ select consumableId as 'ID', consumableType as 'Consumable', catalogNo as 'Cat#',
+              - CONCAT(quantity, ' ', unitOfMeasure) as 'Qty', quantityInside as 'QtyInside', 
+              - lotNumber as 'Lot#', storageId as 'Storage', CONCAT('$', costPerUnit) as 'Cost/Unit', status as 'Status'
+              - from consumables 
+              - where poNumber = '{_recId}'
+        vertical
+          table
+            caption Reagents
+            sqlQuery~ select reagentId as 'ID', reagentType as 'Reagent', catalogNo as 'Cat#',
+              - CONCAT(quantity, ' ', unitOfMeasure) as 'Qty', quantityInside as 'QtyInsdie',
+              - lotNumber as 'Lot#', storageId as 'Storage', CONCAT('$', costPerUnit) as 'Cost/Unit', 
+              - expirationDate as 'ExpDate', QCStatus, status as 'Status'
+              - from reagents 
+              - where poNumber = '{_recId}'
+        vertical
+          table
+            caption Controls
+            sqlQuery~ select controlId as 'ID', controlType as 'Consumable', catalogNo as 'Cat#',
+              - CONCAT(quantity, ' ', unitOfMeasure) as 'Qty', quantityInside as 'QtyInside', 
+              - lotNumber as 'Lot#', storageId as 'Storage', CONCAT('$', costPerUnit) as 'Cost/Unit', status as 'Status'
+              - from controls 
+              - where poNumber = '{_recId}'              
+        vertical
+          h2 ORDER LOG HISTORY
+        vertical
+          table
+            sqlQuery~ select oh.poNumber as 'PO#', oh.catalogNumber as 'Cat#', oh.inventoryItem as 'Item', 
+              - CONCAT(oh.quantity, ' ', oh.unitOfMeasure) as 'Qty', 
+              - CONCAT(oh.quantityReceived, ' ', oh.unitOfMeasure) as 'Qty Rec', 
+              - CONCAT('$',oh.costPerUnit) as 'Cost/Unit', oh.confirmationNumber as 'Conf#', oh.status as 'Status',
+              - oh.requestDate as 'ReqDate', oh.approveDate as 'ApprDate', oh.orderDate as 'OrdDate',
+              - oh.receivedDate as 'RecvDate', oh.comments, e.step, e.userId
+              -  from orderLogHistory oh 
+              #-  inner join orderLogHistory oh on o.lineItemId = oh.lineItemId
+              -  inner join events e on oh.eventId = e.eventId
+              - where oh.poNumber = '{_recId}'
+              - order by oh.lineItemId, oh.eventId
+
+
+    step Create PO Excel Sheet
+      form
+         
+        include userAccountInfo
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Enter the PO# and submit.  An Excel File will appear in the table below.
+
+        hr
+        vertical
+          text PONumber
+            screenLabel~ PO Number
+        hr
+        vertical
+          table
+            caption 100 Most Recent PO Excel Sheets Created
+            sqlQuery~ select 
+              - DISTINCT CONCAT('<a href="',cf.fileName,'">', cf.fileName, '</a>') as 'PO Excel Files'
+              - from containerFiles cf
+              - where fileType = 'Purchase Order'
+              - order by eventId desc
+              - limit 100
+
+
+      sqlPreparedStatement insert into containerFiles (containerId, fileType, fileName, location, eventId)
+        - select ?, 'Purchase Order', CONCAT(?,'.xls'), 'public', ?
+        - from dual
+        string {PONumber}
+        string {PONumber}
+        long {_eventId}
+
+
+      #sql insert into containerFiles (containerId, fileType, fileName, location, eventId)
+       # - select '{PONumber}', 'Purchase Order', CONCAT('{PONumber}','.xls'), 'public', {_eventId}
+       # - from dual 
+      exportSpreadsheet
+        #The templateSpreadsheet tag allows beginning with a spreadsheet that is 
+        #pre-populated with formulas, formats and boilerplate. This is a powerful way for our customesr 
+        #to deliver a formatted file to their clients with graphs, charts, and ability to work with the data. 
+        #BDI is using this I believe to deliver their product to seed companies.
+        #The .xls file must be placed in the uniflow.home folder (not public)
+        templateSpreadsheet POTemplate.xls
+        destinationFileName {PONumber}.xls
+        destinationFolderName public/
+        sheet Purchase Order 
+          sqlQuery select catalogNumber, inventoryItem, quantity, unitOfMeasure, costPerUnit
+            - from orderLog
+            - where poNumber = '{PONumber}'
+          #includeColumnHeads
+          startRow 23
+          #startColumn
+        sheet Purchase Order
+          #This populates specified cells
+          useColumnHeadsAsCellReferences
+          sqlQuery select '{PONumber}' as 'F9', o.orderDate as 'F11', o.vendor as 'F15', o.projectType as 'D41', 
+            - u.name as 'B41',v.accountNumber as 'F13' 
+            - from orderLog o 
+            - left outer join vendors v on o.vendor = v.vendor
+            - inner join events e on o.eventId = e.eventId
+            - inner join userInfo u on e.userId = u.userId
+            - where o.poNumber = '{PONumber}'
+            - limit 1
+        sheet Purchase Order
+          #This populates specified cells
+          useColumnHeadsAsCellReferences
+          sqlQuery select DISTINCT IFNULL(e.eventDate,'') as 'D44', IFNULL(u.name,'') as 'B44'
+            - from orderLogHistory oh  
+            - inner join events e on e.eventId = oh.eventId
+            - inner join userInfo u on e.userId = u.userId 
+            - where (e.step = 'Order Approval Log M1' or e.step = 'On Hold')
+            - and oh.approveDate <> '' and oh.poNumber = '{PONumber}'
+        sheet Purchase Order
+          #This populates specified cells
+          useColumnHeadsAsCellReferences
+          sqlQuery select DISTINCT IFNULL(e.eventDate,'') as 'D45', IFNULL(u.name,'') as 'B45'
+            - from orderLogHistory oh 
+            - inner join events e on e.eventId = oh.eventId and e.step = 'Order Approval Log M2'            
+            - inner join userInfo u on e.userId = u.userId 
+            - where oh.approveDate <> '' and oh.poNumber = '{PONumber}'            
+
+    step Remove PO Excel Sheet
+      accessLevel 8
+      form
+         
+        include userAccountInfo
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Select the files you want to delete from the database.
+              li This will NOT delete the actual file from the public folder.
+              li Please inform a process engineer of the files you need deleted from the server
+              li ** Coming soon: ability to delete PO files from the server using this step.
+        vertical
+          table
+            sqlQuery~ select 
+              - DISTINCT containerId as 'PoId', '' as 'Delete' 
+              - from containerFiles cf
+              - where fileType = 'Purchase Order'
+              - order by eventId desc
+              - limit 100
+            columnSpecs~ delPO
+              allowChangedRecordIds
+              column 1
+                inputType text
+                  style= border:none; background:transparent;
+                  readonly=
+              column 2
+                inputType checkbox
+                  #sql insert into queues select fileName, '_removePOSheet', {_eventId} 
+                   # - from containerFiles where containerId = '{_columnInput:1}' and  '{_columnInput:2}' = 'true'
+                  #sql delete from containerFiles 
+                   # - where containerId = '{_columnInput:1}' 
+                    #- and fileType = 'Purchase Order' and '{_columnInput:2}' = 'true'
+
+      forRows delPO
+        sqlPreparedStatement insert into queues select fileName, '_removePOSheet', ? 
+          - from containerFiles where containerId = ? and ? = 'true'
+          long {_eventId}
+          string {_columnInput_delPO:1}
+          string {_columnInput_delPO:2}
+
+        sqlPreparedStatement delete from containerFiles 
+          - where containerId = ? 
+          - and fileType = 'Purchase Order' and ? = 'true'
+          string {_columnInput_delPO:1}
+          string {_columnInput_delPO:2}
+
+      forEach select containerId from queues where step = '_removePOSheet' and eventId = {_eventId}
+        exec rm {_configPath}public/{_:containerId}
+
+      #sql delete from queues where step = '_removePOSheet' and eventId = {_eventId}
+
+      sqlPreparedStatement delete from queues where step = '_removePOSheet' and eventId = ?
+        long {_eventId}
+
+            
+    step Ad Hoc Receiving
+      form
+         
+        include userAccountInfo
+        vertical
+          text num 
+            screenLabel~ How Many Items to Receive?
+            size= 2
+      form
+         
+        include userAccountInfo
+        script
+          - function fillTable(catalogNo, name){
+          -
+          -     var catNo = catalogNo;
+          -     var cellName = name;
+          -     var item;
+          -     var category;
+          -     var units;
+          -     var vendor;
+          #-     $('[name^='+cellName+']').parent().parent().css("border", "red");
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       item = data[0].item;
+          -       category = data[0].type;
+          -       units = data[0].units;
+          -       vendor = data[0].vendor;
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.item').val(item);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);    
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units);    
+          -         $('[name^='+cellName+']').parent().siblings().children('.vendor').val(vendor);            
+          -      if(category == 'Consumable'){$('[name^='+cellName+']').parent().siblings().children('.qcType').val('Non-Critical');}               
+          -
+          -    });  
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit&catNo='+ catNo,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });          
+          -  }         
+          - function fillTableByItem(itemName, name){
+          -
+          -     var catNo;
+          -     var cellName = name;
+          -     var item = itemName;
+          -     var category;
+          -     var units;
+          -     var cost;
+          -     var vendor;
+          -     
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Inventory+Attributes+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         
+          -          
+          -       catNo = data[0].catNo;
+          -       category = data[0].type;
+          -       units = data[0].units; 
+          -       vendor = data[0].vendor;
+          -       
+          -
+          -         $('[name^='+cellName+']').parent().siblings().children('.catNo').val(catNo);
+          -         $('[name^='+cellName+']').parent().siblings().children('.category').val(category);
+          -         $('[name^='+cellName+']').parent().siblings().children('.units').val(units); 
+          -         $('[name^='+cellName+']').parent().siblings().children('.vendor').val(vendor);   
+          -        
+          -     if(category == 'Consumable'){$('[name^='+cellName+']').parent().siblings().children('.qcType').val('Non-Critical');}            
+          -
+          -    });
+          - 
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Cost+Per+Unit+By+Item&item='+ item,{},
+          -    function(data,status) 
+          -    {  
+          -         cost = data[0].cost; 
+          -         $('[name^='+cellName+']').parent().siblings().children('.cost').val(cost);           
+          -    });  
+          -
+          - }             
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li This step is for items received that were not ordered through the ordering system
+              li If you enter the catalog number, or the item cannot be found in the drop-down list, please enter it under <i>Manage Inventory Items</i> before submitting here
+#test
+        vertical
+          hidden num
+            screenLabel~
+            value= {num}
+            readonly=
+        vertical
+          table
+            sqlQuery~  select 
+              - '' as 'Barcode', 
+              - '' as 'Cat#', 
+              - '' as 'Item', 
+              - '' as 'Vendor', 
+              - '' as 'Project', 
+              - '' as 'Lot#', 
+              - '' as 'Parent Lot',
+              - '0.00' as 'Qty', 
+              - '' as 'units',
+              - '' as 'Qty in Item', 
+              - '0.00' as 'Cost/Unit', 
+              - DATE_FORMAT(curDate(), '%m/%d/%Y') as 'Received', 
+              - DATE_FORMAT(DATE_ADD(curDate(), INTERVAL 10 YEAR), '%m/%d/%Y') as 'Exp Date', 
+              - '' as 'QCType', 
+              - '' as 'Category'
+              - FROM numbers
+              - limit {num}
+            columnSpecs~ receiveItems
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  class= barcode 
+                  style= background-color:#F5FAFF
+                  new~ true
+                  required~ true
+                  containerType~ {_columnInput:15}
+                  size= 7
+              column 2 
+                inputType text
+                  class= catNo 
+                  onChange= fillTable($(this).val(), $(this).attr('name'));
+                  required~ true
+                  size= 6
+              column 3
+                inputType select
+                  class= item
+                  required~ true
+                  onChange= fillTableByItem($(this).val(), $(this).attr('name'));              
+                  sqlQuery~ select inventoryItem from inventoryItems order by inventoryItem asc 
+                  style= width:125px;
+                  #containers
+                  #sql update containers set containerType = 'Reagent' where containerId = '{_columnInput:1}' and '{_columnInput:15}' = 'Received Reagent'
+                  #sql update containers set containerType = 'Consumable' where containerId = '{_columnInput:1}' and '{_columnInput:15}' = 'Consumable'
+                  #reagents
+                  #sql insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, 
+                    #- unitOfMeasure, lotNumber, parentLot, vendor, projectType, costPerUnit, poNumber, receivedDate,
+                    #- expirationDate, QCType, QCStatus, status, eventId)
+                    #- SELECT '{_columnInput:1}', '{_columnInput:3}', '{_columnInput:2}', 
+                    #- '{_columnInput:8}', '{_columnInput:10}', '{_columnInput:9}', '{_columnInput:6}', '{_columnInput:7}',
+                    #- '{_columnInput:4}', '{_columnInput:5}', '{_columnInput:11}', 'Not Ordered','{_columnInput:12}',
+                    #- '{_columnInput:13}', '{_columnInput:14}', CASE WHEN '{_columnInput:14}' = 'Critical' THEN 'Pending'
+                    #- WHEN '{_columnInput:14}' = 'Non-Critical' THEN 'N/A' WHEN '{_columnInput:14}' = 'Unknown' THEN 'Unknown' ELSE 'Unknown' END,
+                    #- CASE WHEN '{_columnInput:14}' = 'Critical' THEN 'Pending QC' WHEN '{_columnInput:14}' = 'Non-Critical' THEN 'In Use'
+                    #- WHEN '{_columnInput:14}' = 'Unknown' THEN 'Unknown' END, {_eventId}
+                    #- FROM dual
+                    #- WHERE '{_columnInput:15}' = 'Received Reagent'
+                  #qualification record for non-critical
+                  #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+                   # + SELECT '{_columnInput:1}', 'Reagent QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), {_eventId}
+                   # + FROM dual
+                   # + WHERE '{_columnInput:14}' = 'Non-Critical' and '{_columnInput:15}' = 'Received Reagent' 
+                  #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+                   # + SELECT '{_columnInput:1}', 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 DAY), {_eventId}
+                   # + FROM dual
+                   # + WHERE '{_columnInput:14}' = 'Critical' and '{_columnInput:15}' = 'Received Reagent'   
+
+                  ## controls
+              #    sql insert into controls (controlId, controlType, catalogNo, 
+                 #   - quantity, quantityInside,
+                 #   - unitOfMeasure, lotNumber, parentLot,
+                 #   - vendor, projectType, costPerUnit, poNumber, 
+                 #   - receivedDate, expirationDate, qcStatus, 
+                 #   - status, eventId, lastUpdateEventId)
+                 #   - SELECT '{_columnInput:1}', '{_columnInput:3}', '{_columnInput:2}', 
+                 #   - '{_columnInput:8}', '{_columnInput:10}', 
+                 #   - '{_columnInput:9}', '{_columnInput:6}', '{_columnInput:7}',
+                 #   - '{_columnInput:4}', '{_columnInput:5}', '{_columnInput:11}', 'Not Ordered', 
+                 #   - '{_columnInput:12}', '{_columnInput:13}', 'Pending', 'Pending QC', {_eventId}, {_eventId}
+                 #   - FROM dual
+                 #   - WHERE '{_columnInput:15}' = 'Received Control' 
+                 # sql insert into queues (containerId, step, eventId)
+                  #  - SELECT '{_columnInput:1}', 'QC Control', {_eventId}
+                   # - FROM dual
+                    #- WHERE '{_columnInput:15}' = 'Received Control' and '{_columnInput:14}' = 'Critical'
+                  #sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+                   # + SELECT '{_columnInput:1}', 'Control QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), {_eventId}
+                   # + FROM dual
+                   # + WHERE '{_columnInput:14}' = 'Non-Critical' and '{_columnInput:15}' = 'Received Control' 
+                 # sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+                 #   + SELECT '{_columnInput:1}', 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), {_eventId}
+                 #   + FROM dual
+                 #   + WHERE '{_columnInput:14}' = 'Critical' and '{_columnInput:15}' = 'Received Control'                     
+
+                  ## consumables
+                 # sql insert into consumables (consumableId, consumableType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, 
+                 #   - vendor, projectType, costPerUnit, poNumber, receiveDate, expirationDate, status, eventId)
+                 #   - SELECT '{_columnInput:1}', '{_columnInput:3}', '{_columnInput:2}', '{_columnInput:8}', 
+                 #   - '{_columnInput:10}','{_columnInput:9}', '{_columnInput:6}',
+                 #   - '{_columnInput:4}', '{_columnInput:5}', '{_columnInput:11}', 'Not Ordered', 
+                 #   - '{_columnInput:12}', '{_columnInput:13}', 'In Use', {_eventId}
+                 #   - FROM dual
+                 #   - WHERE '{_columnInput:15}' = 'Consumable'       
+
+                  ## insert to qualify reagent if critical, insert to sort step if unknown
+                 # sql insert into queues (containerId, step, eventId)
+                  #  - SELECT '{_columnInput:1}', 'QC Reagent', {_eventId}
+                  #  - FROM dual
+                  #  - WHERE '{_columnInput:15}' = 'Received Reagent' and '{_columnInput:14}' = 'Critical'
+
+                 # sql insert into queues (containerId, step, eventId)
+#                    - SELECT '{_columnInput:1}', 'Sort Reagents for QC', {_eventId}
+ #                   - FROM dual
+  #                  - WHERE '{_columnInput:15}' = 'Received Reagent' and '{_columnInput:14}' = 'Unknown'
+
+                  ## update the quantities for items received, both barcoded items and line items
+                #  sql update inventoryItems set quantity = (quantity + '{_columnInput:8}') 
+                #    - where catalogNumber = '{_columnInput:2}' and inventoryItem = '{_columnInput:3}'                                 
+
+              column 4
+                inputType text
+                  class= vendor
+                  readonly=
+                  style= border:none; background:transparent;
+                  size= 10
+              column 5
+                inputType select
+                  class= select project 
+                  option Project 1
+                  option Project 2
+                  option Project 3
+                  option Project 4
+                  option Project 5
+                  #sqlQuery~ SELECT CONCAT(lp.projectName, '-', lp.projectCode) from labProjects lp where status = 'open'
+              column 6
+                inputType text
+                  class= lot 
+                  size= 6
+                  validate~ ! select 1 from dual where '{_columnInput:6}' = '' and  ('{_columnInput:15}' = 'Received Reagent' or  '{_columnInput:15}' = 'Received Control' )
+                    errorMessage~ Lot is required for Received Reagents and Controls
+              column 7
+                inputType text
+                  class= parent 
+                  size= 6
+              column 8
+                inputType text
+                  class= qty 
+                  size= 3
+              column 9
+                inputType text
+                  class= units
+                  size= 5
+                  readonly=
+                  style= border:none; background:transparent;
+              column 10
+                inputType text
+                  class= indvQty
+                  size= 6
+              column 11
+                inputType text
+                  size= 6
+                  class= cost
+              column 12
+                inputType date
+                  class= dateRec
+                  #readonly=
+                  style= border:none;background:transparent;
+                  size= 8
+              column 13
+                inputType date
+                  class= expDate
+                  size= 8
+              column 14
+                inputType select
+                  class= qcType
+                  option Critical
+                  option Non-Critical
+                  option Unknown
+                  required~ true
+              column 15
+                inputType select
+                  class= category
+                  option Consumable
+                  option Received Reagent
+                  option Received Control
+                  required~ true
+
+      forRows receiveItems
+        #containers
+        sqlPreparedStatement update containers set containerType = 'Reagent' where containerId = ? and ? = 'Received Reagent'
+          string {_columnInput_receiveItems:1}
+          string {_columnInput_receiveItems:15}
+        sqlPreparedStatement update containers set containerType = 'Consumable' where containerId = ? and ? = 'Consumable'
+          string {_columnInput_receiveItems:1}
+          string {_columnInput_receiveItems:15}
+        ##reagents
+        sqlPreparedStatement insert into reagents (reagentId, reagentType, catalogNo, quantity, quantityInside, 
+          - unitOfMeasure, lotNumber, parentLot, vendor, projectType, costPerUnit, poNumber, receivedDate,
+          - expirationDate, QCType, QCStatus, status, eventId)
+          - SELECT ?, ?, ?, 
+          - ?,?,?,?,?,
+          - ?,?,?, 'Not Ordered',?,
+          - ?, ?, CASE WHEN ? = 'Critical' THEN 'Pending'
+          - WHEN ? = 'Non-Critical' THEN 'N/A' WHEN ? = 'Unknown' THEN 'Unknown' ELSE 'Unknown' END,
+          - CASE WHEN ? = 'Critical' THEN 'Pending QC' WHEN ? = 'Non-Critical' THEN 'In Use'
+          - WHEN ? = 'Unknown' THEN 'Unknown' END, ?
+          - FROM dual
+          - WHERE ? = 'Received Reagent'
+          string {_columnInput_receiveItems:1}
+          string {_columnInput_receiveItems:3}
+          string {_columnInput_receiveItems:2}
+          string {_columnInput_receiveItems:8}
+          string {_columnInput_receiveItems:10}
+          string {_columnInput_receiveItems:9}
+          string {_columnInput_receiveItems:6}
+          string {_columnInput_receiveItems:7}
+          string {_columnInput_receiveItems:4}
+          string {_columnInput_receiveItems:5}
+          string {_columnInput_receiveItems:11}
+          string {_columnInput_receiveItems:12}
+          string {_columnInput_receiveItems:13}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:14}
+          long {_eventId}
+          string {_columnInput_receiveItems:15}
+
+#qualification record for non-critical
+        sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+          + SELECT ?, 'Reagent QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), ?
+          + FROM dual
+          + WHERE ? = 'Non-Critical' and ? = 'Received Reagent' 
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:15}
+        
+        sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+          + SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 DAY), ?
+          + FROM dual
+          + WHERE ? = 'Critical' and ? = 'Received Reagent' 
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:15}
+
+#controls
+        sqlPreparedStatement insert into controls (controlId, controlType, catalogNo, 
+          - quantity, quantityInside,
+          - unitOfMeasure, lotNumber, parentLot,
+          - vendor, projectType, costPerUnit, poNumber, 
+          - receivedDate, expirationDate, qcStatus, 
+          - status, eventId, lastUpdateEventId)
+          - SELECT ?,?,?, 
+          - ?,?, 
+          - ?,?,?,
+          - ?,?,?, 'Not Ordered', 
+          - ?,?, 'Pending', 'Pending QC', ?, ?
+          - FROM dual
+          - WHERE ? = 'Received Control' 
+          string {_columnInput_receiveItems:1}
+          string {_columnInput_receiveItems:3}
+          string {_columnInput_receiveItems:2}
+          string {_columnInput_receiveItems:8}
+          string {_columnInput_receiveItems:10}
+          string {_columnInput_receiveItems:9}
+          string {_columnInput_receiveItems:6}
+          string {_columnInput_receiveItems:7}
+          string {_columnInput_receiveItems:4}
+          string {_columnInput_receiveItems:5}
+          string {_columnInput_receiveItems:11}
+          string {_columnInput_receiveItems:12}
+          string {_columnInput_receiveItems:13}
+          long {_eventId}
+          long {_eventId}
+          string {_columnInput_receiveItems:15}
+
+        sqlPreparedStatement insert into queues (containerId, step, eventId)
+          - SELECT ?, 'QC Control', ?
+          - FROM dual
+          - WHERE ? = 'Received Control' and ? = 'Critical'
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:15}
+          string {_columnInput_receiveItems:14}
+
+        sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+          + SELECT '{_columnInput:1}', 'Control QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 10 YEAR), {_eventId}
+          + FROM dual
+          + WHERE '{_columnInput:14}' = 'Non-Critical' and '{_columnInput:15}' = 'Received Control'   
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:15}
+
+        sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+          + SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), ?
+          + FROM dual
+          + WHERE ? = 'Critical' and ? = 'Received Control'  
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:14}
+          string {_columnInput_receiveItems:15}
+
+##consumables
+        sqlPreparedStatement insert into consumables (consumableId, consumableType, catalogNo, quantity, quantityInside, unitOfMeasure, lotNumber, 
+          - vendor, projectType, costPerUnit, poNumber, receiveDate, expirationDate, status, eventId)
+          - SELECT ?,?,?,?, 
+          - ?,?,?,
+          - ?,?,?, 'Not Ordered', 
+          - ?,?, 'In Use', ?
+          - FROM dual
+          - WHERE ? = 'Consumable'
+          string {_columnInput_receiveItems:1}
+          string {_columnInput_receiveItems:3}
+          string {_columnInput_receiveItems:2}
+          string {_columnInput_receiveItems:8}
+          string {_columnInput_receiveItems:10}
+          string {_columnInput_receiveItems:9}
+          string {_columnInput_receiveItems:6}
+          string {_columnInput_receiveItems:4}
+          string {_columnInput_receiveItems:5}
+          string {_columnInput_receiveItems:11}
+          string {_columnInput_receiveItems:12}
+          string {_columnInput_receiveItems:13}
+          long {_eventId}
+          string {_columnInput_receiveItems:15}
+
+## insert to qualify reagent if critical, insert to sort step if unknown
+        sqlPreparedStatement insert into queues (containerId, step, eventId)
+          - SELECT ?, 'QC Reagent', ?
+          - FROM dual
+          - WHERE ? = 'Received Reagent' and ? = 'Critical'
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:15}
+          string {_columnInput_receiveItems:14}
+
+        sqlPreparedStatement insert into queues (containerId, step, eventId)
+          - SELECT ?, 'Sort Reagents for QC', ?
+          - FROM dual
+          - WHERE ? = 'Received Reagent' and ? = 'Unknown'
+          string {_columnInput_receiveItems:1}
+          long {_eventId}
+          string {_columnInput_receiveItems:15}
+          string {_columnInput_receiveItems:14}
+
+## update the quantities for items received, both barcoded items and line items
+        sqlPreparedStatement update inventoryItems set quantity = (quantity + ?) 
+          - where catalogNumber = ? and inventoryItem = ?
+          string {_columnInput_receiveItems:8} 
+          string {_columnInput_receiveItems:2}
+          string {_columnInput_receiveItems:3}
+
+
+
+        ###
+            
+
+
+
+
+
+
+
+
+
+
+
+
+     
+
+
+
+
+

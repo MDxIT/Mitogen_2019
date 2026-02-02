@@ -1,0 +1,29 @@
+config
+  _ldapConfigs
+    ldapConfig server 1
+      providerURL ldap://DTW12-UNIConAD1.UCAD1.com:389/dc=UCAD1,dc=com
+      initContextFactory com.sun.jndi.ldap.LdapCtxFactory
+      securityAuthentication simple
+      connectionTimeout 5000
+      newUserAccessLevel 2
+      #searchFilter (objectclass=group)
+      searchFilter (objectclass=simpleSecurityObject)
+      followReferences follow
+      loginUserPrefix UCAD1\
+      #mapping of attributes to local database 
+      mappingsLDAP
+        mapping
+          attributeLDAP person
+          columnUniflow userId
+        mapping
+          attributeLDAP person_name
+          columnUniflow name
+        mapping
+          attributeLDAP email_address
+          columnUniflow email
+        mapping
+          attributeLDAP telephone
+          columnUniflow phone
+        mapping
+          attributeLDAP department
+          columnUniflow accountId

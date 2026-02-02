@@ -1,0 +1,6 @@
+    step [$$STEP_NAME$$]
+      form
+        vertical
+          text Text1
+            value= [$$tbd$$]
+

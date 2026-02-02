@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="https://frameshift.uniconnect.com/" />
+<title>New Test</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">New Test</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/uniflow?stepQueue=FISH%20-%20Liquid%20Slide%20Preparation</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=FISH</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=FISH - Liquid Slide Preparation</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=_recId</td>
+	<td>${specimenId}</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=numberOfSlides</td>
+	<td>2</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>id=stepFormSubmitButton</td>
+	<td></td>
+</tr>
+<tr>
+	<td>store</td>
+	<td>${specimenId}-1</td>
+	<td>slideId1</td>
+</tr>
+<tr>
+	<td>store</td>
+	<td>${specimenId}-2</td>
+	<td>slideId2</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=slides_0_2</td>
+	<td>${slideId1}</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>name=slides_0_3</td>
+	<td>label=FISH, BCR/ABL t(9;22), CML/ALL (Philadelphia Chromosome)</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=slides_1_2</td>
+	<td>${slideId2}</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>name=slides_1_3</td>
+	<td>label=FISH, BCR/ABL t(9;22), CML/ALL</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>id=stepFormSubmitButton</td>
+	<td></td>
+</tr>
+</tbody></table>
+</body>
+</html>

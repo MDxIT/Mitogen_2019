@@ -1,0 +1,1331 @@
+    step [$$STEP_NAME$$]
+      cssLinks
+        link css/fishAnalysis.css
+        link css/fontawesome/css/all.min.css
+        link css/orderBanner.css
+        link css/sampleInfoBanner.css
+      jsScripts
+        src js/niceedit/nicEdit.js
+        src js/fontawesome/js/all.min.js
+        src js/fishAnalysis.js
+      form
+        include stepInstructions
+        include fishForm0
+          parameter~ nameOfStep
+            value= {_step}
+      form
+        id= myForm
+        include stepInstructions
+        include combobox
+        include nicEditor
+
+        formQuery~
+          - SELECT date_format(curDate(), '%m/%d/%Y') AS 'currentDate' FROM DUAL
+
+        formPreparedQuery~
+          - SELECT
+          -   co.content AS 'specimenId'
+          - FROM specimenRuns s
+          -   INNER JOIN queues q ON s.runId = q.containerId
+          -   INNER JOIN containers c ON s.currentContainerId = c.containerId
+          -   INNER JOIN contents co ON c.containerId = co.containerId AND co.contentType = 'specimenId'
+          - WHERE runId = ?
+          string {_recId}
+
+        formPreparedQuery~
+          - SELECT
+          -   patientId,
+          -   rs.requestId
+          - FROM requestSpecimens rs
+          - WHERE rs.specimenId = ?
+          string {_:specimenId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   interpretationComments,
+          -   selectedInterpretation,
+          -   comments AS 'techComments',
+          -   fishComments
+          - FROM fishCaseResultsFinal
+          - WHERE runId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   value AS 'diagnosis'
+          - FROM containerProperties
+          - WHERE property = ?
+          -   AND containerId = ?
+          string diagnosis
+          string {_:specimenId}
+          allowEmptyResults~
+
+        div
+          id= spinnerDiv
+          img
+            src= images/spinner.gif
+            id= imageSpinerDiv
+
+        hidden extCaseNumber
+          value= {_:requestId}
+          id= extCaseNumber
+        hidden runId
+          id= runId
+          value= {_recId}
+        hidden saveImages
+          id= saveImages
+        hidden specimenId
+          value= {_:specimenId}
+        table
+          id= probesUsed
+          class= displayNone
+          sqlPreparedQuery~ SELECT DISTINCT probeName FROM fishCaseResults WHERE runId = ?
+            string {_recId}
+          columnSpecs~ fishImageListTable
+            column 1
+              inputType text
+                class= probes
+
+        table
+          id= fishTable
+          class= displayNone
+          sqlPreparedQuery~
+            - SELECT DISTINCT
+            -   f.probeName AS 'Probe Name',
+            -   CASE isnull(ff.eventId) WHEN 1 THEN CASE WHEN f.region = '2' THEN f.region2Results ELSE f.region1Results END ELSE ff.slideResults END AS 'FISH Score',
+            -   '' AS "Select Interpretation(s)",
+            -   CASE isnull(ff.eventId) WHEN 1 THEN '' else ff.iscn END AS 'ISCN',
+            -   CASE isnull(ff.eventId) WHEN 1 THEN '' else ff.result END AS 'Result',
+            -   f.runId AS 'Hidden',
+            -   f.slideName AS 'Hidden',
+            -   f.region AS 'Hidden',
+            -   f.probeName AS 'Hidden'
+            -  FROM fishCaseResults f
+            -    LEFT JOIN fishCaseResultsFinal ff ON f.runId = ff.runId AND ff.probeName = f.probeName
+            -  WHERE f.runId = ?
+            -  ORDER BY f.slideName
+            string {_recId}
+          columnSpecs~ FishResults
+            allowChangedRecIds
+            column 1
+              inputType text
+                readonly=
+                class= resultProbeName backgroundStyle
+            column 2
+              inputType textArea
+                class= textAreaStyle
+            column 3
+              inputType select
+                option
+                required~ false
+                class= interpChoice selectStyle
+            column 4
+              inputType textArea
+                class= iscn clearFields textAreaStyle
+            column 5
+              inputType textArea
+                class= results clearFields textAreaStyle
+            column 6
+              inputType text
+                class= hide
+            column 7
+              inputType text
+                class= hide
+            column 8
+              inputType text
+                class= hide
+            column 9
+              inputType text
+                class= hide resultProbeDisplay
+
+
+        table
+          id= fishImageList
+          class= displayNone
+          sqlPreparedQuery~
+            - SELECT DISTINCT
+            -   CONCAT(f.probeName,', ',f.className,' ',round(f.coordX,2),', ',round(f.coordY,2)) AS 'Image Label',
+            -   CONCAT(location, '',fileName) as "Images",
+            -   fi.fileName,
+            -   fi.includeInReport,
+            -   f.probeName,
+            -   f.className,
+            -   f.id
+            - FROM fishCaseResults f
+            -  INNER JOIN fishImages fi ON fi.fishCaseResultsId = f.Id
+            - WHERE f.runId = ?
+            - ORDER BY f.slideName*1, f.cellLabel*1
+            string {_recId}
+          columnSpecs~ fishImageList
+            column 1
+              inputType text
+                class= imageLabel
+            column 2
+              inputType text
+                class= imagePath
+            column 3
+              inputType text
+                class= imageName
+            column 4
+              inputType text
+                class= reportAdd
+            column 5
+              inputType text
+                class= probeName
+            column 6
+              inputType text
+                class= className
+            column 7
+              inputType text
+
+        div
+          class= displayNone
+
+          ## Probe KMT2A
+          div
+            id= KMT2A-referenceTable
+            table
+              id= KMT2AclassName
+              class= signalPattern tableSize
+              caption KMT2A(G/R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string KMT2A
+                string KMT2A
+
+          ## Probe D8Z2
+          div
+            id= D8Z2-referenceTable
+            table
+              id= D8Z2className
+              class= signalPattern tableSize
+              caption D8Z2(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string D8Z2
+                string D8Z2
+
+          ## Probe 5p15-EGR1
+          div
+            id= 5p15-EGR1-referenceTable
+            table
+              id= 5p15-EGR1className
+              class= signalPattern tableSize
+              caption 5p15.31(G)/EGR1(R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string 5p15-EGR1
+                string 5p15-EGR1
+          ## 20q12-20q13
+          div
+            id= 20q12-20q13-referenceTable
+            table
+              id= 20q12-20q13className
+              class= signalPattern tableSize
+              caption 20q12(R)/20q13(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string 20q12-20q13
+                string 20q12-20q13
+
+          ## D7Z1-7q31
+          div
+            id= D7Z1-7q31-referenceTable
+            table
+              id= D7Z1-7q31className
+              class= signalPattern tableSize
+              caption D7Z1(G)/7q31(R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string D7Z1-7q31
+                string D7Z1-7q31
+          ## MECOM
+          div
+            id= MECOM-referenceTable
+            table
+              id= MECOMclassName
+              class= signalPattern tableSize
+              caption MECOM(G/R/A) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string MECOM
+                string MECOM
+
+          ## BCR-ABL1
+          div
+            id= BCR-ABL1-ASS1-referenceTable
+            table
+              id= BCR-ABL1className
+              class= signalPattern tableSize
+              caption BCR(G)/ABL1(R)/ASS1(A) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string BCR-ABL1-ASS1
+                string BCR-ABL1-ASS1
+          ## PML-RARA
+          div
+            id= PML-RARA-referenceTable
+            table
+              id= PML-RARAclassName
+              class= signalPattern tableSize
+              caption PML(R)/RARA(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string PML-RARA
+                string PML-RARA
+          ## CBFB
+          div
+            id= CBFB-referenceTable
+            table
+              id= CBFBclassName
+              class= signalPattern tableSize
+              caption CBFB(G/R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string CBFB
+                string CBFB
+          ## RARA
+          div
+            id= RARA-referenceTable
+            table
+              id= RARAclassName
+              class= signalPattern tableSize
+              caption RARA(G/R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string RARA
+                string RARA
+          ## RUNX1-RUNX1T1
+          div
+            id= RUNX1T1-RUNX1-referenceTable
+            table
+              id= RUNX1T1-RUNX1className
+              class= signalPattern tableSize
+              caption RUNX1(R)/RUNX1T1(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string RUNX1T1-RUNX1
+                string RUNX1T1-RUNX1
+
+          ## CCND3-SEC63-MYB
+          div
+            id= CCND3-SEC63-MYB-referenceTable
+            table
+              id= CCND3-SEC63-MYBclassName
+              class= signalPattern tableSize
+              caption CCND3(A)/SEC63(G)/MYB(R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string CCND3-SEC63-MYB
+                string CCND3-SEC63-MYB
+          ## D11Z1-ATM
+          div
+            id= D11Z1-ATM-referenceTable
+            table
+              id= D11Z1-ATMclassName
+              class= signalPattern tableSize
+              caption D11Z1(G)/ATM(R) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string D11Z1-ATM
+                string D11Z1-ATM
+
+          ## CCND1-IGH
+          div
+            id= CCND1-IGH-referenceTable
+            table
+              id= CCND1-IGHclassName
+              class= signalPattern tableSize
+              caption CCND1(R)/IGH(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string CCND1-IGH
+                string CCND1-IGH
+
+          ## D12Z3
+          div
+            id= D12Z3-referenceTable
+            table
+              id= D12Z3className
+              class= signalPattern tableSize
+              caption D12Z3(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string D12Z3
+                string D12Z3
+          ## D13S319-LAMP1
+          div
+            id= D13S319-LAMP1-referenceTable
+            table
+              id= D13S319-LAMP1className
+              class= signalPattern tableSize
+              caption D13S319(R)/D13S1825(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string D13S319-LAMP1
+                string D13S319-LAMP1
+
+          ## TP53-D17Z1
+          div
+            id= TP53-D17Z1-referenceTable
+            table
+              id= TP53-D17Z1className
+              class= signalPattern tableSize
+              caption TP53(R)/D17Z1(G) Cut-Off Value
+              sqlPreparedQuery~
+                - SELECT 'Signal Pattern' as ''
+                - , f1.signalPattern01 as ''
+                - , f1.signalPattern02 as ''
+                - , f1.signalPattern03 as ''
+                - , f1.signalPattern04 as ''
+                - , f1.signalPattern05 as ''
+                - , f1.signalPattern06 as ''
+                - , f1.signalPattern07 as ''
+                - , f1.signalPattern08 as ''
+                - , f1.signalPattern09 as ''
+                - , f1.signalPattern10 as ''
+                - , f1.signalPattern11 as ''
+                - , f1.signalPattern12 as ''
+                - , f1.signalPattern13 as ''
+                - , f1.signalPattern14 as ''
+                - , f1.signalPattern15 as ''
+                - FROM fishProbeCutOff f1
+                - WHERE f1.probe = ?
+                - UNION ALL
+                - SELECT 'CutOff Value' as ''
+                - , f2.cutOffValue01 as ''
+                - , f2.cutOffValue02 as ''
+                - , f2.cutOffValue03 as ''
+                - , f2.cutOffValue04 as ''
+                - , f2.cutOffValue05 as ''
+                - , f2.cutOffValue06 as ''
+                - , f2.cutOffValue07 as ''
+                - , f2.cutOffValue08 as ''
+                - , f2.cutOffValue09 as ''
+                - , f2.cutOffValue10 as ''
+                - , f2.cutOffValue11 as ''
+                - , f2.cutOffValue12 as ''
+                - , f2.cutOffValue13 as ''
+                - , f2.cutOffValue14 as ''
+                - , f2.cutOffValue15 as ''
+                - FROM fishProbeCutOff f2
+                - WHERE f2.probe = ?
+                string TP53-D17Z1
+                string TP53-D17Z1
+
+
+        div
+          span Analysis for: {_:specimenId}
+            class= fontSize
+        br
+        div
+          ## patient banner
+          div
+            id= patientInfo
+            include halfPatientCard
+              parameter~ patientId
+                value= {_:patientId}
+
+          ## order banner
+          div
+            id= orderInfo
+            include orderCardHalf
+              parameter~ requestId
+                value= {_:requestId}
+
+          ## specimenInfo
+        div
+          id= specimenInfoDiv
+          include runCard
+            parameter~ runId
+              value= {_recId}
+
+
+
+
+        fieldset
+          legend Internal Analysis Comments
+          vertical2
+            topVertical
+              textArea comments
+                screenLabel~ Add Internal Comment
+                class= mediumTextArea
+            fieldset
+              class= commentFieldset
+              legend Previous Comments
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   cn.note as 'Comment',
+                    -   e.userId as 'User',
+                    -   date_format(e.eventDate, '%m/%d/%Y') as 'Date'
+                    - FROM containerNotes cn
+                    - INNER JOIN events e On cn.eventId = e.eventId
+                    - WHERE cn.containerId = ?
+                    string {_recId}
+
+        fieldset
+          legend Clinical Indication
+          vertical2
+            vertical
+              textArea diagnosis
+                class= largeTextArea
+                screenLabel~
+                value= {_:diagnosis}
+
+        fieldset
+          legend Report Probe Order
+          vertical
+            table
+              sqlPreparedQuery~
+                - SELECT distinct
+                -   fr.probeName as 'Probe Name',
+                -   ff.reportOrder as 'Order on Report'
+                - FROM fishCaseResults fr
+                - LEFT JOIN fishCaseResultsFinal ff ON fr.probeName = ff.probeName
+                -   AND fr.runId = ff.runId
+                - WHERE fr.runId = ?
+                string {_recId}
+              columnSpecs~ fishReportOrder
+                column 1
+                  inputType text
+                    readonly=
+                    class= backgroundStyle
+                column 2
+                  inputType text
+                    class= orderField
+
+        fieldset
+          legend FISH Analysis Worksheet
+
+          div
+            class= clearBoth
+
+          div
+            class= divHeight
+          div
+            class= amendCorrectComments
+            vertical2
+              fieldset
+                legend Amended/Corrected Comments
+                  class= legend
+                textArea commentAmendCorrect
+                  class= clearFields displayNone
+                  id= commentAmendCorrect
+
+                div
+                  id= fancyTextPanel5
+                  class= fancyTextPanel5 fancyTextPanels
+
+          div
+            vertical2
+              fieldset
+                legend Interpretation
+                  class= legend
+                textArea interpretationFISH
+                  class= clearFields displayNone
+                  id= interpretationFISH
+                  value= {_:interpretationComments}
+                div
+                  id= fancyTextPanel3
+                  class= fancyTextPanel3 fancyTextPanels
+                div {_:interpretationComments}
+                  id= fancyFishInterp
+                  class= fancyFishInterp fancyTextDiv
+          div
+            vertical2
+              fieldset
+                legend FISH Comments
+                  class= legend
+                textArea commentFISH
+                  class= clearFields displayNone
+                  id= commentFISH
+                  value= {_:fishComments}
+                div
+                  id= fancyTextPanel4
+                  class= fancyTextPanel4 fancyTextPanels
+                div {_:fishComments}
+                  id= fancyFishComment
+                  class= fancyFishComment fancyTextDiv
+          div
+            vertical
+              fieldset
+                legend Cytogenetic Technologist Comments
+                  class= legend
+                textArea techComments
+                  value= {_:techComments}
+                  class= largeTextArea
+
+          div
+            class= divHeight
+            vertical2
+              button Filter Images
+                id= testclick
+              vertical2
+                button Clear Filter
+                  id= clearMe
+                button Clear ISCN Data
+                  id= clearISCN
+              text testInput
+                screenLabel~
+                id= testInput
+                class= displayNone
+
+          div
+            id= tabs
+            ul
+              id= probeTabs
+
+        vertical
+          select Action
+            id= action
+            required~ true
+            option
+            option Save Changes
+            option Complete Review
+        br
+        br
+        br
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ SELECT 1 FROM containerProperties WHERE property = 'diagnosis' AND containerId = ?
+          string {specimenId}
+        sqlPreparedStatement
+          - UPDATE containerProperties
+          - SET value = ?
+          - WHERE containerId = ?
+          -   AND property = ?
+          string {diagnosis}
+          string {specimenId}
+          string diagnosis
+        else
+          sqlPreparedStatement
+            - INSERT INTO containerProperties(containerId,property,value,eventId)
+            - VALUES(?,?,?,?)
+            string {specimenId}
+            string diagnosis
+            string {diagnosis}
+            long {_eventId}
+
+      ifCondition {comments}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement INSERT INTO containerNotes (containerId, noteType, note, eventId)
+          - VALUES (?, ?, ?, ?)
+          string {runId}
+          string Internal Case Notes
+          string {comments}
+          long {_eventId}
+
+      forRows FishResults
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 FROM fishCaseResultsFinal WHERE runId = ? AND probeName = ? AND slideName = ?
+            string {runId}
+            string {_columnInput_FishResults:1}
+            string {_columnInput_FishResults:7}
+          sqlPreparedStatement
+            - UPDATE fishCaseResultsFinal
+            -   SET iscn = ?,
+            -   slideResults = ?,
+            -   result = ?,
+            -   interpretationComments = ?,
+            -   selectedInterpretation = ?,
+            -   comments = ?,
+            -   fishComments = ?,
+            -   eventId = ?
+            - WHERE runId = ?
+            -  AND probeName = ?
+            -  AND slideName = ?
+            string {_columnInput_FishResults:4}
+            string {_columnInput_FishResults:2}
+            string {_columnInput_FishResults:5}
+            string {interpretationFISH}
+            string {_columnInput_FishResults:3}
+            string {techComments}
+            string {commentFISH}
+            long {_eventId}
+            string {runId}
+            string {_columnInput_FishResults:1}
+            string {_columnInput_FishResults:7}
+          else
+            sqlPreparedStatement
+              - INSERT INTO fishCaseResultsFinal(runId, probeName, probeDisplay, iscn, slideResults, result, slideName, region, interpretationComments, selectedInterpretation, comments, fishComments, eventId)
+              - VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+              string {runId}
+              string {_columnInput_FishResults:1}
+              string {_columnInput_FishResults:9}
+              string {_columnInput_FishResults:4}
+              string {_columnInput_FishResults:2}
+              string {_columnInput_FishResults:5}
+              string {_columnInput_FishResults:7}
+              string {_columnInput_FishResults:8}
+              string {interpretationFISH}
+              string {_columnInput_FishResults:3}
+              string {techComments}
+              string {commentFISH}
+              long {_eventId}
+
+      forRows fishReportOrder
+        sqlPreparedStatement
+          - UPDATE fishCaseResultsFinal
+          - SET reportOrder = ?,
+          -   eventId = ?
+          - WHERE runId = ?
+          -   AND probeName = ?
+          string {_columnInput_fishReportOrder:2}
+          long {_eventId}
+          string {runId}
+          string {_columnInput_fishReportOrder:1}
+
+      forRows fishImageList
+        sqlPreparedStatement
+          - UPDATE fishImages
+          -   SET includeInReport = ?,
+          -   eventId = ?
+          - WHERE fishCaseResultsId = ?
+          int 0
+          long {_eventId}
+          string {_columnInput_fishImageList:7}
+
+      sql
+        - UPDATE fishImages
+        -   SET includeInReport = 1
+        - WHERE fileName IN (""{saveImages})
+        -   AND eventId = {_eventId}
+
+      allowDuplicateContainerIds true
+
+
+      sqlPreparedStatement
+        - UPDATE specimenRuns
+        - SET lastUpdatedEventId = ?
+        - WHERE runId = ?
+        long {_eventId}
+        string {runId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory(containerId,eventId)
+        - VALUES(?,?)
+        string {runId}
+        long {_eventId}
+
+      ifCondition {Action}
+        advanced~
+        equals~ Complete Review
+        include routeContainer
+          parameter~ processContainerId
+            value= {runId}
+          parameter~ result
+            value=
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= [$$NEXT_STEP$$]
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= run
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+      setFormQueryResult
+        sqlPreparedQuery
+          -  SELECT
+          -   CASE ?
+          -     WHEN 'Save Changes' THEN ?
+          -     WHEN 'Complete Review' THEN ?
+          -   END AS "nextStep"
+          string {Action}
+          string {_step}
+          string [$$NEXT_STEP$$]
+
+      nextStep {_:nextStep}
+        formNumber 0
+        recId {runId}
+
+
+

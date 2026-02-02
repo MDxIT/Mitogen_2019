@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="reports/css/template2_reportPrint.css">
+  <script src="js/handlebars/handlebars-v4.5.3.js"></script>
+  <title></title>
+</head>
+<body>
+​  <div id="reportBody" class="letterSize">
+  </div>
+  <script id="headerTemplate" type="text/s-handlebars-template">
+    <section id="reportHeader"></section>
+    <section id="reportContent">
+      <div class="headerSection">
+        <span id="primarySiteName_id" class="primarySiteName">{{primarySiteName}}</span>
+        <br>
+        <span id="departmentName_id" class="departmentName">{{departmentName}}</span>
+        <br>
+        <span id="locationName_id" class="locationName">{{locationName}}</span>
+        <br>
+        <div class="primaryAddressBar">
+          <span id="primarySiteAddress1_id" class="primarySiteAddress1">{{primarySiteAddress1}}</span>
+          <span id="primarySiteAddress2_id" class="primarySiteAddress2">{{primarySiteAddress2}}</span>
+          <span id="primarySiteCity_id" class="primarySiteCity">{{primarySiteCity}},</span>
+          <span id="primarySiteState_id" class="primarySiteState">{{primarySiteState}}</span>
+          <span id="primarySiteZip_id" class="primarySiteZip">{{primarySiteZip}}</span>
+          <span id="primarySitePhone_id" class="primarySitePhone">Phone: {{primarySitePhone}}</span>
+          <span id="primarySiteFax_id" class="primarySiteFax">Fax: {{primarySiteFax}}</span>
+        </div>
+        <div class="qualificationNums">
+          <span id="cap_id" class="cap">CAP #: {{metadata.cap.value}}</span>
+          <span id="clia_id" class="clia">CLIA #: {{metadata.clia.value}}</span>
+        </div>
+      </div>
+      <div class="metaDataSection">
+        {{#with metadata}}
+        <div class="metaDataDiv">
+          <div id="patientFullName">
+            <span id="patientNameLabel" class="metaDataLabel">Patient Name: </span>
+            <span id="patientName_id" class="metaDataValue"> {{firstName.value}} {{middleName.value}} {{lastName.value}} </span>
+          </div>
+          <div id="patientDOB">
+            <span id="dobLabel" class="dob_label metaDataLabel">{{dob.label}}</span>
+            <span id="dob_id" class="dob metaDataValue">{{dob.value}}</span>
+          </div>
+          <div id="patientGender">
+            <span id="genderLabel" class="gender_label metaDataLabel">Gender:</span>
+            <span id="gender_id" class="gender metaDataValue">{{gender.value}}</span>
+          </div>
+          <div id="patientMRN">
+            <span id="mrnLabel" class="mrn_label metaDataLabel">Medical Record #:</span>
+            <span id="mrn_id" class="mrn metaDataValue">{{mrn.value}}</span>
+          </div>
+          <div id="labId">
+            <span id="familyNumberLabel" class="metaDataLabel">Family #:</span>
+            <span id="familyNumber_id" class="familyNumber metaDataValue">{{familyNumber.value}}</span>
+          </div>
+          <div id="patientSpecimenType">
+            <span id="specimenTypeLabel" class="specimenType_label metaDataLabel">Specimen Type:</span>
+            <span id="specimenType_id" class="specimenType metaDataValue">{{specimenType.value}}</span>
+          </div>
+        </div>
+        <div class="metaDataDiv">
+
+          <div id="requestIdNumber">
+            <span id="requestIdLabel" class="requestId_label metaDataLabel">{{requestId.label}}</span>
+            <span id="requestId_id" class="requestId metaDataValue">{{requestId.value}}</span>
+          </div>
+          <div id="physicianName">
+            <span id="physician_label" class="physician_label metaDataLabel">Ordering Physician:</span>
+            <span id="physician_id" class="physician metaDataValue">{{physician.value}}</span>
+          </div>
+
+          <div id="specimenCollectionDate">
+            <span id="collectionDateLabel" class="collectionDate_label metaDataLabel">Date of Collection:</span>
+            <span id="collectionDate_id" class="collectionDate metaDataValue">{{collectionDate.value}}</span>
+          </div>
+          <div id="specimenReceivedDate">
+            <span id="receivedDateLabel" class="receivedDate_label metaDataLabel">Date of Receipt:</span>
+            <span id="receivedDate_id" class="receivedDate metaDataValue">{{receivedDate.value}}</span>
+          </div>
+          <div id="patientReportDate">
+            <span id="reportDateLabel" class="reportDate_label metaDataLabel">Date of Report:</span>
+            <span id="reportDate_id" class="reportDate metaDataValue">{{../reportDate}}</span>
+          </div>
+        </div>
+        {{/with}}
+      </div>
+      <div class="referralReason">
+        <span id="referralReasonText">Reason for Referral:</span>
+      </div>
+      <div class="reportTitleSection">
+        <span class="reportTitle">{{reportTitle}}</span>
+      </div>
+      <hr class="titlehr">
+      <div class="overallResultSection reportSection">
+        <span class="sectionLabel">Diagnosis:</span>
+        <p class="overallResult">{{overallResult}}</p>
+      </div>
+      <hr class="titlehr">
+      <div class="resultsSection">
+        <span class="sectionLabel">Results:</span>
+        <div class="reportResults">
+          <table id="resultTable_fish">
+            <tr>
+              <th>Probe</th>
+              <th>Result</th>
+            </tr>
+            {{#each panels}}
+              {{#each tests}}
+                {{#each results}}
+                  <tr>
+                    <td>{{resultLabel}}</td>
+                    <td>{{result}}</td>
+                  </tr>
+                {{/each}}
+              {{/each}}
+            {{/each}}
+          </table>
+        </div>
+      </div>
+      <div class="nomenclature">
+        <span>Nomenclature:</span>
+        <br>
+        {{!  we need to discuss this area }}
+        <span>nuc ish(D5S23,EGR1)x2[#],(ELN,D7S486)x2[#],(D8Z2x2,D20S108x1)[#],(KMT2Ax2)[#]</body</span>
+      </div>
+      <div class="overallReportInterpretation reportSection">
+        <span class="sectionLabel">Interpretation:</span>
+        <span class="overallInterpretation">{{overallInterpretation}}</span>
+      <div>
+      <div class="reportReferences reportSection">
+        <span class="sectionLabel">References:</span>
+        {{#each references}}
+          <p class="referenceText">{{this}}</span>
+         {{/each}}
+      <div>
+      <div class="methodsSection reportSection">
+        <span class="sectionLabel">Method:</span>
+        <p class="methodWording">{{methodWording}}</p>
+        <table class="methodTable">
+          <tr>
+            <th>Probe</th>
+            <th>Locus and Markers</th>
+            <th>Source</th>
+            <th>Strategy</th>
+          </tr>
+          <tr>
+            <td>5p/5q</td>
+            <td>D5S23 (5p15.3; SpectrumGreen) and EGR1 (5q31.2; SpectrumOrange). The D5S23 probe includes the markers D5S721 and D5S23.</td>
+            <td>Abbott/Vysis</td>
+            <td>dual-color enumeration</td>
+          </tr>
+          <tr>
+            <td>7q</td>
+            <td>ELN (7q11.2; SpectrumOrange) and D7S486 (7q31.2; SpectrumGreen)</td>
+            <td>Abbott/Vysis</td>
+            <td>dual-color enumeration</td>
+          </tr>
+          <tr>
+            <td>8 cen</td>
+            <td>CEP 8 (D8Z2, 8 centromere; SpectrumGreen)</td>
+            <td>Abbott/Vysis</td>
+            <td>dual-color enumeration</td>
+          </tr>
+          <tr>
+            <td>KMT2A (MLL)</td>
+            <td>KMT2A (11q23.3; 5’ SpectrumGreen, 3’ SpectrumOrange)</td>
+            <td>Abbott/Vysis</td>
+            <td>dual-color enumeration</td>
+          </tr>
+          <tr>
+            <td>20q</td>
+            <td>D20S108 (20q12; SpectrumOrange)</td>
+            <td>Abbott/Vysis</td>
+            <td> </td>
+          </tr>
+        </table>
+        <div class="methodExplanation">
+          <p>These tests were developed and their performance characteristics determined by the Indiana University School of Medicine Cytogenetic Laboratories. They have not been cleared or approved by the U.S. Food and Drug Administration. They are used for clinical purposes and should not be regarded as investigational or for research. This laboratory is certified under the Clinical Laboratory Improvement Amendments of 1988 (“CLIA”) as qualified to perform high-complexity clinical testing. Pursuant to the requirements of CLIA, this laboratory has established and verified these tests’ accuracy and precision. Additional information about this type of test is available upon request.</p>
+        </div>
+      </div>
+    </section>
+    <section id="reportFooter">
+      {{#with metadata}}
+        <span>Patient Name: {{lastName.value}}, {{firstName.value}} </span>
+        <span>Accession #: {{requestId.value}}</span>
+        <span>Page: </span>
+      {{/with}}
+    </section>
+  </script>
+  <script src="reports/js/template2_handlebars.js" type="text/javascript"></script>
+  <script src="reports/js/separateFile.js" type="text/javascript"></script>
+</body>
+</html>

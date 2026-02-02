@@ -1,0 +1,159 @@
+config
+  steps
+    step PoolTubeTest
+      allowDuplicateContainerIds true
+      form
+        vertical
+          select col1
+            option Priority
+              value= Priority
+            option Category
+              value= Category
+            option Storage Location
+              value= Storage Location
+            option Queued By
+              value= Queued By
+
+          select col2
+            option Category
+              value= Category
+            option Priority
+              value= Priority
+            option Storage Location
+              value= Storage Location
+            option Queued By
+              value= Queued By
+
+
+          select col3
+            option Storage Location
+              value= Storage Location
+            option Priority
+              value= Priority
+            option Category
+              value= Category
+            option Queued By
+              value= Queued By
+
+
+          select col4
+            option Queued By
+              value= Queued By
+            option Priority
+              value= Priority
+            option Category
+              value= Category
+            option Storage Location
+              value= Storage Location
+
+
+          select col5
+            option Priority
+              value= Priority
+            option Category
+              value= Category
+            option Storage Location
+              value= Storage Location
+            option Queued By
+              value= Queued By
+
+
+          select col6
+            option Priority
+              value= Priority
+            option Category
+              value= Category
+            option Storage Location
+              value= Storage Location
+            option Queued By
+              value= Queued By
+
+        vertical
+          select print
+            setName~ yesno
+            value= Yes
+
+          select action
+            setName~ yesno
+            value= Yes
+
+          select comments
+            setName~ yesno
+            value= Yes
+
+          select commentHistory
+            setName~ yesno
+            value= Yes
+
+          select counter
+            option On
+              value= On
+            option Off
+              value= Off
+            value= On
+
+          select printAll
+            option Print All
+              value= Print All
+            option Selected
+              value= Selected
+            value= Print All
+
+          select containerIdGen
+            option Auto Generated
+              value= Auto Generated
+            option User Generated
+              value= User Generated
+
+          select validateOrTransfer
+            option Validate
+              value= Validate
+            option Transfer
+              value= Transfer
+            value= Validate
+
+      form
+        data-parsley-validate=
+
+        hidden validateOrTransfer
+          value= {validateOrTransfer}
+
+        include poolTubeList_table
+          parameter~ col1
+            value= {col1}
+          parameter~ col2
+            value= {col2}
+          parameter~ col3
+            value= {col3}
+          parameter~ col4
+            value= {col4}
+          parameter~ col5
+            value= {col5}
+          parameter~ col6
+            value= {col6}
+          parameter~ prioritySetName
+            value= priority
+          parameter~ print
+            value= {print}
+          parameter~ action
+            value= {action}
+          parameter~ comments
+            value= {comments}
+          parameter~ commentHistory
+            value= {commentHistory}
+          parameter~ actionSetName
+            value= passfail
+          parameter~ counter
+            value= {counter}
+          parameter~ validateOrTransfer
+            value= {validateOrTransfer}
+          parameter~ printAll
+            value= {printAll}
+          parameter~ scanAll
+            value= false
+          parameter~ containerIdGen
+            value= {containerIdGen}
+          
+      include poolTubeList_SQL
+        parameter~ validateOrTransfer
+          value= {validateOrTransfer}

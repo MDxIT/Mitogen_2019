@@ -1,0 +1,23 @@
+config
+  applicationServers
+    additionalServers
+    ##value of server can be anything
+      server defaultREST
+        servlet org.jboss.resteasy.plugins.server.servlet.HttpServletDispatcher
+        ##required parameters
+        bindPath /*
+        className com.uniconnect.uniflow.api.RestApplication
+        ##optional, if not specified default is javax.ws.rs.Application
+        classType javax.ws.rs.Application
+      server instrumentServer
+        servlet com.uniconnect.uniflow.InstrumentServlet
+        bindPath /instrument
+
+    ##defines configuration loaded by the com.uniconnect.uniflow.api.RestApplication class
+    ##singletons are the only current supported configuration option
+    defaultRESTServerConfig
+      singletons
+        singleton com.uniconnect.uniflow.api.QueuesService
+        singleton com.uniconnect.uniflow.api.ContainersService
+        singleton com.uniconnect.uniflow.api.GenericRESTService
+        singleton com.uniconnect.uniflow.api.printing.PrintingRESTService

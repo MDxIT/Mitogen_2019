@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="../reports/css/defaultReportStyle.css">
+  <script src="js/handlebars/handlebars-v4.5.3.js"></script>
+  <script src="js/handlebars/handlebars-intl/dist/handlebars-intl.min.js"></script>
+  <script src="../reports/js/handlebarHelpers.js"></script>
+  <title></title>
+</head>
+<body>
+  <div id="reportBody" class="letterSize"></div> <!--THIS MUST BE HERE FOR HANDLEBARS TO APPEND TO -->
+  <div
+    id="pdf_arguments"
+    data-page-size= "Letter"
+    data-orientation="Portrait"
+    data-margin-top= "15mm"
+    data-margin-right= "6mm"
+    data-margin-bottom= "15mm"
+    data-margin-left= "6mm"
+    data-header-spacing= "10"
+    data-footer-spacing= "10">
+  </div>
+  <script id="template" type="text/s-handlebars-template">
+    {{#with report}}
+      <section id="reportHeader">
+        <div id="reportPageHeader">
+          <div id="headerTitle" class= "pageHeaderData">
+            <span class="pageHeaderLabel"> </span>
+            <span class="pageHeaderValue"> {{reportTitle}}</span>
+          </div>
+          {{#with siteInfo}}
+            <div id="headerLabName" class="pageHeaderData">
+              <span class="pageHeaderLabel"> </span>
+              <span class="pageHeaderValue"> {{primarySiteName}}</span>
+            </div>
+          {{/with}}
+          {{#with metaData}}
+            {{#with patientInformation}}
+              <div id="headerPatientName" class="pageHeaderData">
+                <span class="pageHeaderLabel"> </span>
+                <span class="pageHeaderValue">{{firstName.value}} {{middleName.value}} {{lastName.value}} </span>
+              </div>
+            {{/with}}
+          {{/with}}
+        </div>
+      </section>
+
+      <section id="reportContent">
+
+        <div id="topHeader">
+          <div id="primaryLogo">
+            <img id="primarySiteLogo" src="images/logo-login.png">
+          </div>
+
+        <div id="titleBlock">
+          <span id="reportTitleValue" class="headerTitleValue">{{reportTitle}}</span>
+        </div>
+
+        {{#with siteInfo}}
+          <div id="primarySiteBlock">
+            <div id="primarySiteId">
+              <span id="primarySiteIdLabel" class="headerLabel"></span>
+              <span id="primarySiteIdValue" class="headerValue">{{primarySiteName}} </span>
+            </div>
+            <div id="primarySiteAddressUS" class= "usaPrimaryAddressBlock">
+              <span id="primarySiteAddressLabel" class="headerLabel"></span>
+              <span id="primarySiteAddress1Value" class="headerValue">{{primarySiteAddress1}}</span><br>
+              <span id="primarySiteAddress2Value" class="headerValue">{{primarySitetAddress2}}</span>
+              <span id="primarySiteCityValue" class="headerValue">{{primarySiteCity}} </span>
+              <span class="headerValue">, </span>
+              <span id="primarySiteStateValue" class="headerValue">{{primarySiteState}}</span>
+              <span id="primarySiteZipValue" class="headerValue">{{primarySiteZip}}</span><br>
+              <span id="primarySitePhone" class="headerValue">{{primarySitePhone1}}</span>
+            </div>
+          </div>
+        {{/with}}
+        </div>
+      {{#if reportDescription}}
+        <div id="reportDescription">
+          <span id="reportDescriptionLabel" class="headerLabel"></span>
+          <span id="reportDescriptionValue" class="headerValue"> {{reportDescription}}</span>
+        </div>
+      {{/if}}
+       <hr>
+        <div class="metaDataBlock">
+        <!-- ORDER INFORMATION -->
+        {{#with metaData}}
+          {{#with orderInformation}}
+            <div id="orderInformation" class="metaDataSection">
+              <div class="metaLabelHeader">
+                <span>Order Information</span>
+              </div>
+              <div class="metaDataData">
+                <div class="dataBlock" id="requestId">
+                  <span class="metaLabel">Order ID:</span>
+                  <span class="metaValue">{{requestId.value}}</span>
+                </div>
+                <div class="dataBlock" id="physician">
+                  <span class="metaLabel">Physician:</span>
+                  <span class="metaValue">{{physicianInformation.firstName.value}} {{physicianInformation.middleName.value}}</span>
+                </div>
+                <div class="dataBlock" id="receivedDate">
+                  <span class="metaLabel">Received Date:</span>
+                  <span class="metaValue">{{receivedDate.value}}</span>
+                </div>
+                {{#each additionalFields}}
+                  <div class="dataBlock">
+                    <span class="metaLabel">{{this.label}}:</span>
+                    <span class="metaValue">{{this.value}}</span>
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+          {{/with}}
+
+          {{#with patientInformation}}
+            <div id="patientIdentification" class="metaDataSection">
+              <!-- Combine firstName, middleName, lastName data points -->
+              <div class="metaLabelHeader">
+                <span>Patient Identification</span>
+              </div>
+              <div class="metaDataData">
+                <div class="dataBlock" id="patientFullName">
+                  <span class="metaLabel">Patient:</span>
+                  <span class="metaValue">{{firstName.value}} {{middleName.value}} {{lastName.value}}</span>
+                </div>
+                <div class="dataBlock" id="dob">
+                  <span class="metaLabel">DOB:</span>
+                  <span class="metaValue">{{dob.value}}</span>
+                </div>
+                {{#if mrn.value}}
+                  <div class="dataBlock" id="mrn">
+                    <span class="metaLabel">MRN:</span>
+                    <span class="metaValue">{{mrn.value}}</span>
+                  </div>
+                {{/if}}
+                {{#if geneticGender.value}}
+                  <div class="dataBlock" id="geneticGender">
+                    <span class="metaLabel">Gender:</span>
+                    <span class="metaValue">{{geneticGender.value}}</span>
+                  </div>
+                {{/if}}
+                {{#if ethnicity.value}}
+                  <div class="dataBlock" id="ethnicity">
+                    <span class="metaLabel">Ethnicity:</span>
+                    <span class="metaValue">{{ethnicity.value}}</span>
+                  </div>
+                {{/if}}
+              </div>
+            </div>
+          {{/with}}
+
+            <!-- SPECIMEN INFORMATION -->
+          {{#iff ../reportType '!=' 'canceled'}}
+            <div id="specimenInfo" class="metaDataSection">
+              <div class="metaLabelHeader">
+                <span>Specimen Info</span>
+              </div>
+
+              <div class="specimen metaDataData">
+              {{#each specimenInfo}}
+                <div class="specimenDataContainer">
+                  <div class="dataBlock" id="specimenId">
+                    <span class="metaLabel">Specimen ID:</span>
+                    <span class="metaValue">{{this.specimenId.value}}</span>
+                  </div>
+                  <div class="dataBlock" id="specimenType">
+                    <span class="metaLabel">Specimen Type:</span>
+                    <span class="metaValue">{{this.specimenType.value}}</span>
+                  </div>
+                  {{#if this.collectionDate.value}}
+                    <div class="dataBlock" id="collectionDate">
+                      <span class="metaLabel">Collection Date:</span>
+                      <span class="metaValue">{{this.collectionDate.value}}</span>
+                    </div>
+                  {{/if}}
+                  {{#if this.receivedDate.value}}
+                    <div class="dataBlock" id="receivedDate">
+                      <span class="metaLabel">Received Date:</span>
+                      <span class="metaValue">{{this.receivedDate.value}}</span>
+                    </div>
+                  {{/if}}
+                </div>
+              {{/each}}
+              </div>
+            </div>
+          {{/iff}}
+          </div>
+        {{/with}}
+        </div>
+        {{#if canceledText}}
+          <div class="canceledReport">
+            <span class="canceledHeader">Cancelled Report Information</span>
+          {{#each canceledText}}
+            <p class="wordingValue">{{{this}}}</p>
+          {{/each}}
+          </div>
+        {{/if}}
+        {{#if rejectedText}}
+          <div class="rejectedReport">
+            <span class="rejectedHeader">Rejected Report Information</span>
+          {{#each rejectedText}}
+            <p class="wordingValue">{{{this}}}</p>
+          {{/each}}
+          </div>
+        {{/if}}
+        {{#if correctedText}}
+          <div class="correctedReport">
+            <span class="correctedHeader">Corrected Report Information</span>
+          {{#each correctedText}}
+            <p class="wordingValue">{{{this}}}</p>
+          {{/each}}
+          </div>
+        {{/if}}
+        {{#if amendedText}}
+          <div class="amendedReport">
+            <span class="amendedHeader">Amended Results</span>
+            {{#each amendedText}}
+              <p class="wordingValue">{{this}}</p>
+            {{/each}}
+          </div>
+        {{/if}}
+
+
+
+        <!-- REPORT INTERPRETATIONS -->
+        <div id="reportInterpretations">
+          <div id="overallInterpretationHeader">
+            <span>Results</span>
+          </div>
+         {{#if imageResults}}
+          <div class="resultImages">
+          {{#each imageResults}}
+             <div class="imageContainer">
+               <div class="defaultImage">{{{imageResult}}}</div>
+               <div class="imageInterpretation"><span>{{interpretation}}</span></div>
+               <div class="imageWording"><span>{{wording}}</span></div>
+             </div>
+          {{/each}}
+          </div>
+         {{/if}}
+         {{#if overallResult}}
+            <div id= "overallReportResult">
+              <span class="overallResultLabel">Overall Result:</span>
+              <span class="overallResult"> {{overallResult}}</span>
+            </div>
+          {{/if}}
+          {{#if overallInterpretation}}
+            <div id="overallReportInterpretation">
+              <span class="reportOverallInterpretationLabel">Overall Interpretation:</span>
+              <span class="reportOverallInterpretation"> {{overallInterpretation}}</span>
+            </div>
+          {{/if}}
+          {{#if overallWording}}
+            <div id="overallWording">
+              <span class="reportOverallWordingLabel">Overall Wording:</span>
+              <span class="reportOverallWording"> {{overallWording}}</span>
+            </div>
+          {{/if}}
+          {{#each specimens}}
+            {{#each panels}}
+              <div id= "reportInterpretationPanelSpecimen_{{@index}}" class="reportInterpretationPanel">
+                <span class="specimenHeader resultHeader">Specimen: {{../this.specimen}}</span>
+                {{#if this.name}}
+                  <span class="panelInterpretationHeader resultHeader">Panel: {{this.name}}</span>
+                  {{#each tests}}
+                      {{#if this.name}}
+                        <span class="testInterpretationHeader resultHeader">Test: {{this.name}}</span>
+                      {{/if}}
+                  {{/each}}
+                {{/if}}
+                  <hr>
+                  {{#if this.overallResult}}
+                    <div class="panelInterpretationOverallResult">
+                      <span class="panelInterpretationHeader">Panel Overall Result:</span>
+                      <span class="interpretationValue">{{this.overallResult}}</span>
+                    </div>
+                  {{/if}}
+                  {{#if this.overallInterpretation}}
+                    <div class="panelOverallInterpretation">
+                      <span class="panelInterpretationHeader">Panel Overall Interpretation:</span>
+                      <span class="interpretationValue">{{this.overallInterpretation}}</span>
+                    </div>
+                  {{/if}}
+                  {{#if this.overallWording}}
+                    <div class="panelOverallInterpretation">
+                      <span class="panelInterpretationHeader"></span>
+                      <span class="interpretationValue">{{this.overallWording}}</span>
+                    </div>
+                  {{/if}}
+                  {{#each tests}}
+                    <span><b>Test: {{this.name}}</b></span>
+                    {{#each results}}
+                      {{#if this.result}}
+                        <div class="testResuts">
+                          <div><b>Result:</b> {{this.resultLabel}} - {{this.result}} {{this.units}}</div>
+                          {{#if this.limit}}
+                            <div><b>Limit:</b>{{this.limit}}</div>
+                          {{/if}}
+                          {{#if this.interpretation}}
+                            <div><b>Interpretation:</b> {{this.interpretation}}</div>
+                          {{/if}}
+                          {{#if this.wording}}
+                            <div><i>{{this.wording}}</i></div>
+                          {{/if}}
+                        </div>
+                      {{/if}}
+                      {{#unless this.result}}
+                        <div class="testResuts">
+                          <div><b>No Results Available</b></div>
+                        </div>
+                      {{/unless}}
+                    {{/each}}
+                  {{/each}}
+                </div>
+              {{/each}}
+            {{/each}}
+        </div>
+
+        {{#with wording}}
+          {{#each panel}}
+            <div class="panelReportWording wordingSection">
+              <span class="wordingLabel">{{this.header}}</span>
+              <span class="wordingValue">{{{this.wording}}}</span>
+            </div>
+          {{/each}}
+          {{#each test}}
+            <div class="testReportWording wordingSection">
+              <span class="wordingLabel">{{this.header}}</span>
+              <span class="wordingValue">{{{this.wording}}}</span>
+            </div>
+          {{/each}}
+          {{#each method}}
+            <div class="methodReportWording wordingSection">
+              <span class="wordingLabel">{{this.header}}</span>
+              <span class="wordingValue">{{{this.wording}}}</span>
+            </div>
+          {{/each}}
+        {{/with}}
+
+        <!--REFERENCES-->
+        {{#if references}}
+          <div id="references">
+            <span class="referencesHeader">References</span>
+            <div class="referenceData">
+            {{#each references}}
+              <p class="reportReferencesData">{{{this.reference}}}</p>
+            {{/each}}
+            </div>
+          </div>
+        {{/if}}
+
+
+        {{#if addendedText}}
+          <div class="addendReport">
+            <span class="addendedHeader"> Addended: </span>
+            {{#each addendedText}}
+              <p class="wordingValue">{{{this}}}</p>
+            {{/each}}
+          </div>
+        {{/if}}
+        <hr>
+        <p> This report was reviewed and approved by: </p>
+        <div class="signatureArea">
+          <span class="signatureName">{{signatureTitle}} {{signatureName}}</span>
+          {{#if signatureImagePath}}
+           <img class="signatureImage" src={{signatureImagePath}}>
+          {{/if}}
+          {{#unless signatureImagePath}}
+            <span>Please configure a signature image in "Manage Signatures"</span>
+          {{/unless}}
+          <span id="signatureReportDate" class="reportDate">{{reportDate}}</span>
+        </div>
+      </section>
+      <section id="reportFooter">
+        <div class="pageNumbers">
+          <span>Page <span class="page">1</span> of <span class="topage">1</span></span>
+        </div>
+      </section>
+    {{/with}}
+  </script>
+  <script src="reports/js/fillTemplate_default.js" type="text/javascript"></script>
+  <script src="reports/js/separateFile.js" type="text/javascript"></script>
+</body>
+</html>

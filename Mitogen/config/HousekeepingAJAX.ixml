@@ -1,0 +1,83 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+
+    stepGroup Uniflow Ajax Servers
+    step Ajax Get FilePath 
+      class uniflow.AjaxJSONObjects
+      table 
+        sqlQuery~ select stepName, 
+          - substring_index(fileName,':', 1) as 'filePath', 
+          - substring_index(fileName,':', -1) as 'lineNumber'
+          - from stepList 
+          - where stepName = '{stepN}'    
+    step Ajax List Server
+      class uniflow.AjaxQuery
+      table
+        id= myTable
+        class= stdTableSort
+        style= width:300px
+        sqlQuery~
+          - select  displayValue "Display Value", value "Recorded Value", displayOrder "Display Order"
+          -  from validValues where setName = '{ListName}' order by displayOrder, displayValue
+
+
+    step Ajax Container Types
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ SELECT DISTINCT c.containerType, (select count(*)  from containers where containerType=c.containerType) 'count' from containers c
+
+
+    step Ajax Events For User
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ SELECT DISTINCT e.userId, (select count(*)  from events where userId=e.userId) 'count' from events e
+
+
+    step Ajax Time on Queue
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select qh.containerid,qh.step
+          - , (e2.eventDate-e.eventDate) 'queueTime'
+          - from queuehistory qh
+          - INNER JOIN events e ON e.eventId=qh.eventId
+          - INNER JOIN events e2 ON e2.eventId=qh.deleteEventId
+
+
+    step Ajax Time on Queue for container
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select qh.containerid,qh.step
+          - , (e2.eventDate-e.eventDate) 'queueTime'
+          - from queuehistory qh
+          - INNER JOIN events e ON e.eventId=qh.eventId
+          - INNER JOIN events e2 ON e2.eventId=qh.deleteEventId
+          - WHERE containerId='{containerid}'
+
+
+    step Ajax Dashboard
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select distinct (e.step)
+          - ,(select count(eventId) from events where step=e.step) 'eventCount'
+          - ,(select count(containerId) from queues where step=e.step) 'queueCount'
+          - ,(select count(containerId) from queuehistory where step=e.step) 'queue history Count'
+          - ,(select count(distinct(userid)) from events where step=e.step) 'userCount'
+          - ,(
+          -    select sum(e2.eventDate-e1.eventDate) from queuehistory qh1
+          -      INNER JOIN events e1 ON e1.eventId=qh1.eventId
+          -      INNER JOIN events e2 ON e2.eventId=qh1.eventid
+          -      WHERE qh1.step=e.step
+          -   ) 'total time on step'
+          - from events e
+
+
+    step Ajax Add List Member
+      form
+        include userAccountInfo
+        sqlQuery~ insert into validValues (setName,displayValue,recordedValue,displayOrder,eventId) VALUES ('affected status','{displayValue}','{recordedValue}','{displayOrder}',{_eventId});

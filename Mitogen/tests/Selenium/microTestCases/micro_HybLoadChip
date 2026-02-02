@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="https://frameshift.uniconnect.com/" />
+<title>micro_HybLoadChip</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">micro_HybLoadChip</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/uniflow?stepName=Microarray%20-%20Hybridization%20Prep</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=Microarray - Hybridization Load Chip</td>
+	<td></td>
+</tr>
+<tr>
+	<td>storeElementIndex</td>
+	<td>//table[@id='sampleTable']//tr/td/input[@value=&quot;${extractionId}&quot;]/../..</td>
+	<td>chipSampleRow</td>
+</tr>
+<tr>
+	<td>echo</td>
+	<td>${chipSampleRow}</td>
+	<td></td>
+</tr>
+<tr>
+	<td>store</td>
+	<td>${specimenId}-CHP</td>
+	<td>chipId</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=loadChip_${chipSampleRow}_4</td>
+	<td>chipId</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=loadChip_${chipSampleRow}_5</td>
+	<td>OVEN1</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>id=stepFormSubmitButton</td>
+	<td></td>
+</tr>
+
+</tbody></table>
+</body>
+</html>

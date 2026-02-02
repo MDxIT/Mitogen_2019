@@ -1,0 +1,75 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        vertical
+          text Text1
+            value= [$$select_sample$$]
+
+          text Text2
+            value= [$$sample_Comments$$]
+
+          text Text3
+            value= [$$Sample_comment_History$$]
+
+          text Text4
+            value= [$$sample_counter$$]
+
+          text Text5
+            value= [$$sample_display_column_1$$]
+
+          text Text6
+            value= [$$sample_display_column_2$$]
+
+          text Text7
+            value= [$$sample_display_column_3$$]
+
+          text Text8
+            value= [$$sample_display_column_4$$]
+
+          text Text9
+            value= [$$order_by_1$$]
+
+          text Text10
+            value= [$$order_by_2$$]
+
+          text Text11
+            value= [$$order_by_3$$]
+
+          text Text12
+            value= [$$order_by_4$$]
+
+          text Text13
+            value= [$$generate_plate_id$$]
+
+          text Text14
+            value= [$$print_plate_barcode$$]
+
+          text Text15
+            value= [$$plate_comments$$]
+
+          text Text16
+            value= [$$plate_comments_history$$]
+
+          text Text17
+            value= [$$print_plate_layout$$]
+
+          text Text18
+            value= [$$allow_sample_duplication$$]
+
+          text Text19
+            value= [$$scan_samples_into_plate$$]
+
+          text Text20
+            value= [$$qc_resources$$]
+
+          text Text21
+            value= [$$master_mix$$]
+
+          text Text22
+            value= [$$add_plate_controls$$]
+
+          text Text23
+            value= [$$Source_Sample_Routing$$]
+
+          text Text24
+            value= [$$destination_plate_routing$$]

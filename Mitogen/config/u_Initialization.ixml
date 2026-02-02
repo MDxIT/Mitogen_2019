@@ -1,0 +1,15 @@
+config
+  initClasses
+    class uniflow.TimerTaskManager
+    class uniflow.NotificationManager 
+    class uniflow.FutureEventManager
+      cycleMilliseconds 180000
+
+  _notifications
+    intervalMinutes 1
+    notification Review Ready Notification
+      conditionQuery select * from sequences where sequenceName = 'eventId'
+      subject Sequence {1} Number {2}
+      message
+        html
+          h3 Body: Sequence {1} Number {2}

@@ -1,0 +1,376 @@
+config
+  timerTask processProblemFiles
+    intervalMinutes 5
+    conditionalTransactionInstructions
+      jython
+        import java.io.File
+        import java.lang.String
+        srcPath="%problemFilePath%" 
+        dirList = java.io.File(srcPath).list()
+        if dirList:
+          switchboard.isUpdateTransaction = True
+    jython
+      import os
+      import time
+      import sys
+      path = "%problemFilePath%"
+      procPath = '%notifiedFilePath'
+      now = time.time()
+      # mvTime is to find files older than 10 minutes.
+      mvTime = now - 600
+      for f in os.listdir(path):
+        # the path is not implied in os.listdir, so it has to be joined.  Use a new variable because raw filename is needed in move.
+        f_p = os.path.join(path, f)
+        # timestamp of creation of file
+        createtime =  os.stat(f_p).st_mtime
+        if createtime < mvTime:
+          # if file is older than 10 min, move to procPath (notified directory) and place it on the queue for the engineer to see.  
+          os.rename(f_p, procPath + f)
+          ps = switchboard.connection.prepareStatement("insert into queues (containerId, step, eventId) values (?, ?, ?)")
+          ps.setString(1, str(f))
+          ps.setString(2, '_problemVCFFiles')
+          ps.setLong(3, switchboard.eventId)
+          ps.executeUpdate()
+
+  timerTask notifyProblemFiles
+    intervalMinutes 10
+    conditionalTransactionInstructions
+      ifCondition select containerId from queues where step = '_problemVCFFiles'
+        jython
+          switchboard.isUpdateTransaction = True
+    notification vcfFilesNotification
+      conditionQuery select group_concat(concat(containerId,': ', eventDate) separator '<br />'), q.step, '%systemAdminEmail%', '%systemAdmin%'
+        - from queues q 
+        - join events e on e.eventId = q.eventId
+        - where q.step = '_problemVCFFiles'
+        - group by q.step
+      emailAddressColumn 3
+        recipientIdColumn 4
+      subject VCF Files Need Attention
+      message
+        html
+          body The following files need attention on %serverName%: <br /><br /> {1}
+
+
+
+
+  timerTask incomingNGSFiles
+    intervalMinutes 1
+    conditionalTransactionInstructions
+      jython
+        import java.io.File
+        import java.lang.String
+        srcPath="%incomingPath%" 
+        dirList = java.io.File(srcPath).list()
+        if dirList:
+          switchboard.isUpdateTransaction = True
+
+    sql
+      - delete from queues where step = '_vcfFileUpload'
+
+    jython
+      import java.io.File
+      import java.lang.String
+      srcPath="%incomingPath%"
+      dirList = java.io.File(srcPath).list()
+      for fileName in dirList:
+        sampleId = fileName.replace('TSVC_variants_IonXpress_', '')
+        sampleId = sampleId.replace('.vcf','')
+        fileType = 'vcfFile'
+        filePath = '%vcfStoragePath%'
+        fileStep = '_vcfFileUpload'
+        ps = switchboard.connection.prepareStatement("insert ignore into containerFiles (containerId, fileType, fileName, location, eventId) values (?,?,?,?,?)")
+        ps.setString(1, sampleId)
+        ps.setString(2, fileType)
+        ps.setString(3, fileName)
+        ps.setString(4, filePath)
+        ps.setLong(5, switchboard.eventId)
+        ps.executeUpdate()
+
+        ps = switchboard.connection.prepareStatement("insert into queues (containerId, step, eventId) values (?,?,?)")
+        ps.setString(1, fileName)
+        ps.setString(2, fileStep)
+        ps.setLong(3, switchboard.eventId)
+        ps.executeUpdate()
+
+#         ps = switchboard.connection.prepareStatement("insert into containerHistory (containerId, eventId) values (?,?)")
+#         ps.setString(1, sampleId)
+#         ps.setLong(2, switchboard.eventId)
+#         ps.executeUpdate()
+
+  timerTask vcfFileUpload
+    intervalMinutes 1
+    conditionalTransactionInstructions
+      ifCondition select 1 from queues where step = '_vcfFileUpload'
+        jython 
+          switchboard.isUpdateTransaction = True 
+    setFormQueryResult
+      sqlQuery~ select cf.fileName, cf.containerId 
+        - from containerFiles cf
+        - inner join queues q
+        - on cf.fileName = q.containerId
+        - where q.step = '_vcfFileUpload'
+#         - and cf.eventId = q.eventId
+        - limit 1
+    setFormQueryResult
+      sqlQuery~ select rf.Id as 'requestId' 
+        - from contents co 
+        - inner join requestForms rf 
+        - on rf.Id = co.content 
+        - where co.containerId = '{_:containerId}'
+        - union select  '' 
+    jython
+      import subprocess
+      import base64
+      fh = open("%incomingPath%{_:fileName}", "rb")
+      content = fh.read()
+      e_b64 = base64.b64encode(content)
+      switchboard.formResults.put('BASE64',e_b64)
+      #Moves file to a problem hold area to be cleaned up if the call succeeds. 
+      command = ["mv", "%incomingPath%{_:fileName}", "%problemFilePath%{_:fileName}"]
+      subprocess.call(command)
+      #removes file from queue so it will move to the next one.  addis it to problem hold to be cleaned up if this succeeds.  
+      ps = switchboard.connection.prepareStatement("update queues set step = '_vcfFileUpload_HOLD' where step = '_vcfFileUpload' and containerId = '{_:fileName}'")
+      ps.executeUpdate()
+    sendSOAPMultipart startUrlDataLoad
+      usePackedXML true
+      keyStore %keystorePath%
+      keyStorePassword h8wkEy3
+      keystoreType pkcs12
+      sslMode true
+      host mcc-fast-ws.geneinsight.com
+      hostURI https://mcc-fast-ws.geneinsight.com/fast/api/v1/ws/DataLoadService
+      _ socketTimeout 3000
+      passwordType password 
+      soapenv:Envelope
+        xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+        xmlns:v1= http://www.geneinsight.com/fast/api/v1
+        soapenv:Header
+          wsse:Security
+            xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+            xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+            soapenv:mustUnderstand= 1
+            wsse:UsernameToken
+              wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+              wsse:Username %GIuserName%
+              wsse:Password %GIPassword%
+                Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+        soapenv:Body 
+          v1:startFileDataLoad
+            simpleFile
+              name {_:fileName}
+              data {_:BASE64}
+            referenceBuild GRCh37
+            target SAMPLE_DATA
+            emailNoticeTo %systemAdminEmail%
+            sampleDataName {_:containerId}
+            loadConfig
+              name Sample VCF
+              recordErrorLimit 1000
+      responseInstructions
+        forSubtrees soap:Body.ns2:startFileDataLoadResponse
+          jython
+            print '{_n:return}'
+          #update queues here.  Save return value???#
+          sql insert into queues (containerId, step, eventId) 
+            - select '{_:requestId}','Upload NGS PHI', {_eventId} from dual
+            - where '{_:requestId}' <> ''
+          sql update requestForms set geneInsightVcfEventId = {_eventId} where Id = '{_:requestId}'
+          sql insert into containerHistory (containerId, eventId) values 
+            - ('{_:requestId}', {_eventId}), 
+            - ('{_:fileName}', {_eventId})
+          sql delete from queues where step = 'View GeneInsight Errors' 
+            - and containerId = '{_:requestId}'
+
+        forSubtrees soap:Body.soap:Fault
+          jython
+            print '{_n:faultcode}'
+            print '{_n:faultstring}'
+          sql insert into requestProperties (requestId, property, value, eventId) 
+            - select '{_:requestId}', 'GeneInsight File Upload Fault', '{_n:faultcode}: {_n:faultstring}', {_eventId}
+            - from dual where '{_:requestId}' <> ''
+          sql insert into queues (containerId, step, eventId) VALUES
+            - '{_:requestId}', 'View GeneInsight Errors', {_eventId}
+
+        
+    sql
+      - delete from queues
+      - where step = '_vcfFileUpload_HOLD'
+      - and containerId = '{_:fileName}'
+
+
+    exec mv %problemFilePath%{_:fileName} {_configPath}%vcfStoragePath%{_:fileName} 
+
+  timerTask GeneInsight PHI 
+    intervalMinutes 1
+    conditionalTransactionInstructions
+      ifCondition select containerId from queues where step = 'Upload NGS PHI'
+        jython 
+          switchboard.isUpdateTransaction = True 
+    forEach select containerId from queues where step = 'Upload NGS PHI' limit 1
+      setFormQueryResult
+        sqlQuery select curDate() as 'todayDate' from dual
+      setFormQueryResult
+        sqlQuery~ select c.containerId as 'specimenId' from contents co 
+          - join containers c on c.containerId = co.containerId
+          - join requestForms rf on rf.Id = co.content
+          - where rf.Id = '{_:containerId}' and c.containerType = 'elutionTubeId'
+      ### Patient Info
+      setFormQueryResult
+        sqlQuery~ select pa.entityId as 'patientId', pa.firstName as 'patientFirst', pa.lastName as 'patientLast'
+          - , str_to_date(pat.dob, '%m/%d/%Y') as 'DOB', pat.gender, pat.ethnicity as 'ethnicity' , rf.collectionDate, rf.receivedDate
+          - from requestForms rf 
+          - join entities pa on pa.entityId = rf.patientId and pa.entityType = 'Patient'
+          - join patients pat on pat.patientId = rf.patientId
+          - where rf.Id = '{_:containerId}'
+      ### Physician Info
+      setFormQueryResult
+        sqlQuery~ select phy.firstName as 'physicianFirst', phy.lastName as 'physicianLast'
+          - from requestForms rf 
+          - join entities phy on phy.entityId = rf.physicianId and phy.entityType = 'Physician'
+          - where rf.Id = '{_:containerId}'
+      ### Practice Info
+      setFormQueryResult
+        sqlQuery~ select org.firstName as 'practiceName', fax.number as 'faxNumber'
+          - ,phone.number as 'phoneNumber', ad.address1 as 'orgAddress1'
+          - ,ad.postalCode as 'zipCode',ad.state as 'state',ad.city as 'city'
+          - ,em.email as 'emailAddress'
+          - from entities org
+          - join entityAddresses ad on ad.entityId = org.entityId
+          - join entityPhones phone on phone.entityId = org.entityId and phone.type = 'Primary'
+          - join entityPhones fax on fax.entityId = org.entityId and fax.type = 'Primary Fax'
+          - join entityEmails em on em.entityId = org.entityId
+          - join requestForms rf on rf.organizationId = org.entityId and org.entityType = 'Organization'
+          - where rf.Id = '{_:containerId}'
+
+      sendSOAPMultipart startUrlDataLoad
+        keyStore %keystorePath%
+        keyStorePassword h8wkEy3
+        keystoreType pkcs12
+        sslMode true
+        host mcc-lab-ws.geneinsight.com
+        hostURI https://mcc-lab-ws.geneinsight.com/services/Report
+        passwordType password 
+        soapenv:Envelope
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:v1= http://pcpgm.partners.org/gvie
+          xmlns:ns2= http://www.geneinsight.com/v4/fedmsg
+          soapenv:Header
+            wsse:Security
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              soapenv:mustUnderstand= 1
+              wsse:UsernameToken
+                wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+                wsse:Username %GIuserName%
+                wsse:Password %GIPassword%
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+          soapenv:Body 
+            v1:transmitTestResultInformation4
+              report
+                patient
+                  dateOfBirth {_n:DOB}
+                  firstName {_n:patientFirst}
+                  identifier {_n:patientId}
+                  lastName {_n:patientLast}
+                  racesOrEthnicities
+                    raceOrEthnicity {_n:ethnicity}
+                  sex {_n:gender}
+                order 
+                  localOrderNumber {_:containerId}
+                  orderDate {_n:todayDate}
+                physicians
+                  physician
+                    deliveryLocations
+                      deliveryLocation
+                        city {_n:city}
+                        emailAddress {_n:emailAddress}
+                        faxNumber {_n:faxNumber}
+                        name {_n:practiceName}
+                        phoneNumber {_n:phoneNumber}
+                        state {_n:state}
+                        streetAddr1 {_n:orgAddress1}
+                        zipCode {_n:zipCode}
+                    firstName {_n:physicianFirst} 
+                    identifiers 
+                      identifier 123456789
+                    lastName {_n:physicianLast} 
+                specimens
+                  specimen 
+                    collectionDate {_n:collectionDate}
+                    label {_n:specimenId}
+                    receivedDate {_n:receivedDate}
+                    type Buccal Swab
+                reportIdentifier {_n:specimenId}
+                testType Disease (Diagnostic/Presymptomatic)
+
+        responseInstructions
+          forSubtrees soap:Body.ns3:transmitTestResultInformation4Response 
+            jython
+              print 'OK TO GO'
+            #update queues here.  There is no return value???#
+            sql delete from queues where step = 'Upload NGS PHI' and containerId = '{_:containerId}'
+            sql update requestForms set geneInsightPhiEventId = {_eventId} where Id = '{_:containerId}'
+            sql delete from queues where step = 'View GeneInsight Errors' 
+              - and containerId = '{_:containerId}'
+            sql insert into queues (containerId, step, eventId) VALUES
+              - ('{_:containerId}', 'Waiting for GI Report', {_eventId})
+            
+          forSubtrees soap:Body.soap:Fault
+            jython
+              print '{_n:faultcode}'
+              print '{_n:faultstring}'
+            sql delete from queues where step = 'Upload NGS PHI' and containerId = '{_:containerId}'
+            sql insert into requestProperties (requestId, property, value, eventId) values
+              - ('{_:containerId}', 'GeneInsight PHI Upload Fault', '{_n:faultcode}: {_n:faultstring}', {_eventId})
+            sql insert into queues (containerId, step, eventId) VALUES
+              - ('{_:containerId}', 'View GeneInsight Errors', {_eventId})
+
+
+    step receiveGIReport
+      form
+        go
+      setFormQueryResult patientName
+      respondSOAP 
+        userIdPath soap:Header.wsse:Security.wsse:UsernameToken.wsse:Username
+        passwordPath soap:Header.wsse:Security.wsse:UsernameToken.wsse:Password
+        soap:Envelope
+          xmlns:soap= http://schemas.xmlsoap.org/soap/envelope/
+          soap:Body
+            ns2:reportSaved4Response
+              xmlns:ns2= %uniflowURL%
+        requestInstructions
+          jython
+#             print "request:"
+            content =  switchboard.resultForest.toString()
+            print content
+            f = open('%XMLStoragePath%GIResponse_{_eventId}.xml', 'w')
+            f.write(content)
+            f.close()
+          forSubtrees soap:Body.ns3:reportSaved4.report
+            jython
+              print "****************************************"
+              import base64
+              import subprocess
+#               b_64 = 'VGhpcyBpcyBhIHRlc3Q='
+              sampleName = '{_n:reportIdentifier}'
+              b_64 = "{_n:reportDoc}"
+              pdfContent =  base64.b64decode(b_64)
+              report = open('%reportSavePath%' + sampleName + '.pdf', 'wb')
+              report.write(pdfContent)
+              report.close()
+              queueInsert = switchboard.connection.prepareStatement( "insert into queues (containerId, step , eventId) select content, 'Receive Report from Translational', ? from contents co join containers c on c.containerId = co.content where co.containerId = ? and c.containerType = 'requestId' " )
+              queueInsert.setLong(1,switchboard.eventId)
+              queueInsert.setString(2,sampleName)
+              queueInsert.executeUpdate()
+              command =["mv", "%XMLStoragePath%GIResponse_{_eventId}.xml", "%XMLStoragePathComplete%GIResponse_{_eventId}.xml"]
+              subprocess.call(command)
+            setFormQueryResult 
+              sqlQuery select content as 'requestId' from contents co join containers c on c.containerId = co.content where co.containerId = '{_n:reportIdentifier}' and c.containerType = 'requestId' 
+            sql delete from queues where step = 'Waiting for GI Report' and containerId = '{_:requestId}'
+        responseInstructions
+          jython
+            print switchboard.responseTree
+
+            ###The above does exactly what we need it to do if the file isnt' too big.  The jython throws an error if the base64 is too long.  this is a known bug since 2011
+            ###  need a java solution most likely.  probably write a small jython utility to decode and save the pdf with a couple of parameters.  

@@ -1,0 +1,149 @@
+config
+  steps
+    stepGroup Inquiry
+
+    step Lookup Sample Report
+
+      cssLinks
+        link css/fontawesome/css/all.min.css
+      jsScripts
+        src js/dashboards/lookupSampleReport.js
+        src js/fontawesome/js/all.min.js
+
+      form
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          container _recId
+            screenLabel~ Sample Id
+            containerType~ specimenId
+            acceptQueue~ any
+
+        br
+        br
+        vertical
+          fieldset
+            id= searchSampleFieldset
+            legend Find Sample ID(s)
+            vertical
+              simpleTable
+                tr
+                  td &nbsp;Patient MRN
+                  td &nbsp;Last Name
+                  td &nbsp;First Name
+                  td &nbsp;DOB
+                  td &nbsp;Gender
+                  td
+                  td
+                tr
+                  style= display: none;
+                  td sampleId
+                    colspan= 3
+                    text sampleId
+                tr
+                  td
+                    text patientMRN
+                      id= patientMRN
+                      class= clearPatient
+                  td
+                    text patientLastName
+                      id= patientLastName
+                      class= clearPatient
+                  td
+                    text patientFirstName
+                      id= patientFirstName
+                      class= clearPatient
+                  td
+                    date patientDOB
+                      id= patientDOB
+                      placeholder= &#128197;
+                      class= clearPatient datePickerDOB
+                  td
+                    select patientGender
+                      id= patientType
+                      class= clearPatient
+                      setName~ gender
+                      required~ false
+                      option Male
+                        value= M
+                      option Female
+                        value= F
+                      option Unknown
+                        value= U
+                    colspan= 2
+                    td
+                      button
+                        value= Search
+                        id= searchButton
+                        class= button
+
+                      button Clear Search
+                        id= clearButton
+                  div
+                    id= sampleIdCandidates
+
+      form
+        include stepInstructions
+
+        # orderCard
+        formPreparedQuery~
+          - SELECT
+          -   rs.requestId
+          -  FROM requestSpecimens rs
+          -  WHERE rs.specimenId = ?
+          -  ORDER BY eventId DESC
+          string {_recId}
+          allowEmptyResults~
+
+        # specimenCard
+        formPreparedQuery~
+          - SELECT
+          -  srh.runId AS 'latestRunId'
+          - FROM specimenRunsHistory srh
+          -   INNER JOIN containerHistory ch ON srh.runId = ch.containerId
+          -   INNER JOIN events e ON  srh.lastUpdatedEventId = e.eventId
+          - WHERE srh.currentContainerId = ?
+          - GROUP BY e.eventId, srh.currentContainerId
+          - ORDER BY e.eventId DESC
+          - LIMIT 1
+          string {_recId}
+          allowEmptyResults~
+
+        hidden _recId
+          value= {_recId}
+        hidden requestId
+          id= requestId
+          value= {_:requestId}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= verticalFlex
+          div
+            class= horizontalFlex
+            include orderCardHalf
+              parameter~ requestId
+                value= {_:requestId}
+            include halfPatientCard
+              id= patientInfoDiv
+              parameter~ patientId
+                value= {_:patientId}
+          div
+            include runCard
+              parameter~ runId
+                value= {_:latestRunId}
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Processing History
+            div
+              class= sectionContent  verticalFlex
+              include AuditTrail
+                parameter~ specimenId
+                  value= {_recId}
+

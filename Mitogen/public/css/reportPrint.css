@@ -1,0 +1,177 @@
+
+body {
+  font-family:arial;
+  font-size: 10pt;
+}
+
+.reporttable{
+  border-collapse:collapse;
+  border: 1px solid black;
+  font-family:arial;
+  font-size:9pt;
+}
+
+td.reporttable {
+  border: 1px solid black;
+  padding: 2px;
+}
+
+td.reporttablehead {
+  font-weight:700;
+  border: 1px solid black;
+  padding: 2px;
+}
+.report_spacer {
+  border:1px solid blue;
+  width:100px;
+  height:20px;
+}
+.main_report {
+  border:0px solid red;
+  width: 800px;
+  float:left;
+  padding-top:0px;
+
+}
+.report_section_header {
+  font-size:10pt;
+  font-weight:bold;
+  text-align:left;
+}
+
+.report_section {
+  border:0px solid blue;
+  width: 100%;
+  float:left;
+  page-break-inside: avoid;
+}
+
+.report_header {
+  border-bottom:3px solid blue;
+  border-color: #2ECCFA;
+  float:left;
+  width:100%;
+  align:center;
+}
+
+.header_middle {
+  border:0px solid red;
+  margin-right:auto;
+  margin-left:220px;
+  width:250px;
+  color:#2ECCFA;
+  font-size:16pt;
+}
+
+.header_right {
+  border:0px solid blue;
+  float:right;
+  font-size:9pt;
+  vertical-align:top;
+  margin-top:-40px;
+}
+
+
+table.patientInfo {
+  font-family:arial;
+  border-collapse:collapse;
+  margin:10px 0pt 15px;
+  font-size: 10pt;
+  width: 100%;
+  text-align: left;
+
+}
+
+.page {
+
+  height:1050px;
+  border:0px solid blue;
+}
+
+.pageBreak {
+  height:20px;
+}
+
+
+table.patientInfo tbody td {
+  color: black;
+  padding-left: 4px;
+  border-top: 1px solid black;
+  border-right: 1px solid black;
+  border-bottom:1px solid black;
+  padding-right: 4px;
+  padding-top: 2px;
+  padding-bottom: 1px;
+  background-color: #FFF;
+  vertical-align: top;
+}
+table.patientInfo tbody tr {
+
+
+}
+table.patientInfo td.patientInfoHeader {
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+  border-bottom:1px solid black;
+  border-right:none;
+  color:black;
+  font-size:10;
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-top: 2px;
+  padding-bottom: 1px;
+  background-color: #FFF;
+  vertical-align: top;
+
+}
+table.stdTableSort {
+  border: 1px solid black;
+  font-family:arial;
+  padding-right: 0px;
+  background-color: #CDCDCD;
+  margin:10px 0pt 10px;
+  font-size: 9pt;
+  width: 100%;
+  text-align: left;
+}
+
+
+table.references {
+  font-size:9px
+}
+
+
+table.stdTableSort thead tr th, table.stdTableSort tfoot tr th {
+  background-color: #e6EEEE;
+  border: 1px solid #FFF;
+  font-size: 9pt;
+  padding: 4px;
+  padding-right:5px;
+}
+table.stdTableSort thead tr .stdTh {
+  background-image: url(images/bg.gif);
+  background-repeat: no-repeat;
+  background-position: center right;
+  cursor: pointer;
+}
+table.stdTableSort tbody td {
+  color: #3D3D3D;
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-top: 2px;
+  padding-bottom: 1px;
+
+  background-color: #FFF;
+  vertical-align: top;
+}
+table.stdTableSort tbody tr.odd td {
+  background-color:#F0F0F6;
+}
+table.stdTableSort thead tr .headerSortUp {
+  background-image: url(images/asc.gif);
+}
+table.stdTableSort thead tr .headerSortDown {
+  background-image: url(images/desc.gif);
+}
+table.stdTableSort thead tr .headerSortDown, table.stdTableSort thead tr .headerSortUp {
+background-color: #8dbdd8;

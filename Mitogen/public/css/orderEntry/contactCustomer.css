@@ -1,0 +1,17 @@
+#contactCustomerForm0 #stepFormSubmitButton {
+  position: absolute !important;
+  top:  145px;
+  left: 400px;
+}
+
+#errorId {
+  position: absolute;
+  top: 10px;
+  left: 230px;
+}
+table.stdTable td {
+    white-space: normal;
+}
+.spacer {
+  width: 15px;
+}

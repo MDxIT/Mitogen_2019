@@ -1,0 +1,159 @@
+config
+  steps
+    stepGroup Sample ID Configuration
+    step Generated ID Configuration
+      accessLevel 10
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/nextStepPopup.js
+        src js/GeneratedIDConfig.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link /css/GeneratedIDConfig.css
+      form
+        data-parsley-validate= true
+
+        div
+          id= hiddenSelects
+          style= display: none
+
+          select hiddenDateFormat
+            id= hiddenDateFormat
+            required~ false
+            option
+            option YY
+            option YYYY
+            option MMYY
+
+          select hiddenDelimiter
+            id= hiddenDelimiter
+            required~ false
+            option
+            option -
+            option --
+            option /
+        div
+          id= idTypeHeader
+          h2 Generated ID Configuration
+            class= stepName
+          br
+          span Configuration changes will apply to newly generated IDs. Previously generated IDs will retain their original ID value.
+          br
+          br
+          div
+            class= horizontalFlex
+            vertical
+              select idType
+                id= idType
+                required~ false
+                screenLabel~ ID Type
+                option
+                option Specimen Receiving
+                option Sample Transfer
+                option Sample Subsampling
+              br
+            div
+              id= sampleIDDiv
+              table
+                tr
+                  td
+                    span Sample ID Generated
+                      id= sampleIDLabel
+                  td
+                    span
+                      id= sampleIDValue
+                tr
+                  td
+                    span Example
+                      id= exampleIDLabel
+                  td
+                    span
+                      id= exampleIDValue
+        div
+          id= selectedGeneratedIDConfigurationDiv
+          fieldset
+            id= prefixTableFieldset
+            legend Sample ID Prefix
+            div
+              id= prefixTableDiv
+            br
+            button
+              value= Add Prefix
+              id= addPrefixButton
+            br
+          fieldset
+            legend Sample ID Base
+            vertical
+              id= inheritParentDiv
+              checkbox inheritParent
+                id= inheritParent
+                screenLabel~ Inherit From Parent
+              text baseSampleID
+                id= baseSampleID
+                screenLabel~ Base Sample ID
+                data-parsley-trigger= keyup
+                data-parsley-validation-threshold= 0
+                data-parsley-pattern= ^[^|^&~\\]*$
+                data-parsley-error-message= Base sample ID cannnot contain any of | ^ & ~ \
+                value= 
+          fieldset
+            legend Sample ID Suffix
+            div
+              id= suffixTableDiv
+            br
+            button
+              value= Add Suffix
+              id= addPrefixButton
+            br
+          fieldset
+            legend Sample ID Increment
+            vertical
+              id= sampleIDIncrementDiv
+              select delimiter
+                id= delimiter
+                screenLabel~ Delimiter
+                option 
+                option -
+                option _
+              text incStartValue
+                screenLabel~ Increment Start Value
+                id= incStartValue
+                data-parsley-trigger= keyup
+                data-parsley-validation-threshold= 0
+                data-parsley-type= integer
+              text zeroPadding
+                screenLabel~ Zero Padding (# digits)
+                id= zeroPadding
+                data-parsley-trigger= keyup
+                data-parsley-validation-threshold= 0
+                data-parsley-type= integer
+          fieldset
+            legend Handle Invalid Generated Sample ID
+            div
+              span During workflow, if a generated sample ID during workflow is invalid due to exceeding the maximum character limit (80 characters) or exceeding the allotted number of attempts to generate a unique ID, users will need to stop the workflow and request administrative assistance. Having the system replace the invalid ID with a system-generated valid ID will allow the user to continue their workflow uninterrupted.
+              vertical
+                id= handleInvalidIDDiv
+                select handleInvalidID
+                  id= handleInvalidID
+                  data-parsley-required= true
+                  data-parsley-trigger= change
+                  data-parsley-validate-if-empty= true
+                  screenLabel~ System generates new sample ID if the configured sample ID generated during workflow is invalid.
+                  option 
+                  option Yes
+                  option No
+                select handleInvalidIDAfterAttempts
+                  id= handleInvalidIDAfterAttempts
+                  data-parsley-required= true
+                  data-parsley-trigger= change
+                  data-parsley-validate-if-empty= true
+                  screenLabel~ System generates new sample ID if the maximum number of attempts to generate a unique ID is exceeded.
+                  option 
+                  option Yes
+                  option No
+                text invalidIDAttempts
+                  screenLabel~ Maximum number of attempts
+                  id= invalidIDAttempts
+                  data-parsley-trigger= keyup
+                  data-parsley-validation-threshold= 0
+                  data-parsley-type= integer

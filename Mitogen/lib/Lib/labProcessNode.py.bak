@@ -1,0 +1,190 @@
+class labProcess(object):
+
+
+  def __init__(self, switchboard, uniflow, runId, step, runIndex, specimenIndex, panelIndex):
+    self.runId = runId
+    self.step = step
+    self.runIndex = runIndex
+    self.specimenIndex = specimenIndex
+    self.runIndex = runIndex
+    self.panelIndex = panelIndex
+    self.uniflow = uniflow
+    self.switchboard = switchboard
+
+
+  def getLabProcess(self):
+
+    try:
+
+      query = """ SELECT
+                    sr.runId,
+                    sr.runType,
+                    IFNULL(sr.currentContainerId, '') AS "currentContainerId",
+                    IFNULL(sr.currentParentId, '') AS "currentParentId",
+                    IFNULL(sr.currentParentPosition, '') AS "currentParentPosition",
+                    IFNULL(sr.completedResult, 'In Lab') AS "status",
+                    IFNULL(e.eventDate, '') AS "statusDate"
+                  FROM specimenRuns sr
+                  INNER JOIN events e
+                    ON sr.lastUpdatedEventId = e.eventId
+                  WHERE sr.runId = '%s' """ % self.runId
+
+      stmt = self.switchboard.connection.createStatement()
+      rs = stmt.executeQuery(query)
+      while rs.next():
+
+        runTree = self.uniflow.Node("run", str(self.runIndex))
+
+        runTree.add("runId", self.runId)
+        runTree.add("type", rs.getString('runType'))
+        runTree.add("currentContainerId", rs.getString('currentContainerId'))
+        runTree.add("currentParentId", rs.getString('currentParentId'))
+        runTree.add("currentParentPosition", rs.getString('currentParentPosition'))
+        runTree.add("currentStep", self.step)
+        runTree.add("status", rs.getString('status'))
+        runTree.add("statusDate", rs.getString('statusDate'))
+        runTree.add("specimen_link", str(self.specimenIndex))
+        runTree.add("panel_link", str(self.panelIndex))
+        runTree.add("runData", "")
+
+
+      rs.close()
+
+      query = """ SELECT DISTINCT am.methodName
+                  FROM analysisDataDefinition adef
+                  INNER JOIN analysisMethodVersions aver
+                    ON adef. analysisMethodVersionsId = aver.id
+                  INNER JOIN analysisMethods am
+                    ON aver.analysisMethodsId = am.id
+                  WHERE adef.stepName = '%s' """ % self.step
+
+      stmt = self.switchboard.connection.createStatement()
+      rs = stmt.executeQuery(query)
+
+      while rs.next():
+
+        analysisMethod = rs.getString('methodName')
+        analysisMethodTree = runTree.get("runData").add('analysisMethods', analysisMethod)
+
+        loadData =  self.getLoadData(analysisMethod)
+
+        analysisMethodTree.add(loadData)
+
+        resultData =  self.getResultData(analysisMethod)
+
+        analysisMethodTree.add(resultData)
+
+      rs.close()
+
+
+
+      self.switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+    except Exception as e:
+      self.switchboard.log("---FAILURE TO INSERT/UPDATE ANALYSIS DATA----")
+      self.switchboard.log(str(e.message))
+      self.switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      runTree = self.uniflow.Node("ERROR", '---FAILURE TO INSERT/UPDATE ANALYSIS DATA----')
+
+    except StandardError as e:
+      self.switchboard.log("---*** Standard Py Error *** ")
+      self.switchboard.log(str(e.message))
+      self.switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      runTree = self.uniflow.Node("ERROR", '---*** Standard Py Error *** ')
+
+    # except SystemException as e:
+    #   switchboard.log("---*** UNIFlow SystemException ***----")
+    #   switchboard.log(str(e.message))
+    #   switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+    # except java.sql.SQLException as e:
+    #   switchboard.log("---*** SQLException ***----")
+    #   switchboard.log(str(e.message))
+    #   switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+    except BaseException as e:
+      self.switchboard.log("---*** PyException ***----")
+      self.switchboard.log(str(e.message))
+      self.switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      runTree = self.uniflow.Node("ERROR", '---*** PyException ***----')
+
+    except TypeError as e:
+      self.switchboard.log("---*** TypeError ***----")
+      self.switchboard.log(str(e.message))
+      self.switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      runTree = self.uniflow.Node("ERROR", '---*** TypeError ***----')
+
+    except:
+      self.switchboard.log("*** Unspecified Error *****")
+      # switchboard.log(str(e.message))
+      self.switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      runTree = self.uniflow.Node("ERROR", "*** Unspecified Error *****")
+
+    return runTree
+
+
+  def getResultData(self, analysisMethod):
+
+    resultData = self.uniflow.Node("resultData", "")
+
+    query = """ SELECT
+                  adef.value AS "name",
+                  IFNULL(adef.resultCode, '') AS "resultCode"
+                FROM analysisDataDefinition adef
+                INNER JOIN analysisMethodVersions aver
+                  ON adef.analysisMethodVersionsId = aver.id
+                INNER JOIN analysisMethods am
+                  ON aver.analysisMethodsId = am.id
+                WHERE adef.stepName = '%s'
+                  AND adef.definerType = 'data'
+                  AND aver.active = 1
+                  AND am.methodName = '%s' """ % (self.step, analysisMethod)
+
+    stmt = self.switchboard.connection.createStatement()
+    rs = stmt.executeQuery(query)
+
+    while rs.next():
+
+      resultDatum = resultData.add("resultDatum", "")
+
+      resultDatum.add("name", rs.getString('name'))
+      resultDatum.add("resultCode", rs.getString('resultCode'))
+
+
+    rs.close()
+
+    return resultData
+
+
+  def getLoadData(self,analysisMethod):
+
+    loadData = self.uniflow.Node("loadData", "")
+
+    query = """ SELECT
+                  ld.value AS "name",
+                  IFNULL(ld.resultCode, '') AS "resultCode"
+                FROM analysisDataDefinition adef
+                INNER JOIN analysisMethodVersions aver
+                  ON adef.analysisMethodVersionsId = aver.id
+                INNER JOIN analysisDataDefinition ld
+                  ON adef.loadDataAnalysisDataDefinitionId = ld.id
+                INNER JOIN analysisMethods am
+                  ON aver.analysisMethodsId = am.id
+                WHERE adef.stepName = '%s'
+                  AND adef.definerType = 'loadData'
+                  AND aver.active = 1
+                  AND am.methodName = '%s' """ % (self.step, analysisMethod)
+
+    stmt = self.switchboard.connection.createStatement()
+    rs = stmt.executeQuery(query)
+    while rs.next():
+
+      loadDatum = loadData.add("loadDatum", "")
+
+      loadDatum.add("name", rs.getString('name'))
+      loadDatum.add("resultCode", rs.getString('resultCode'))
+
+
+    rs.close()
+
+    return loadData

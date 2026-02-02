@@ -1,0 +1,267 @@
+#btnCreateNewAnalysisMethod {
+	float: right;
+	margin-top: 10px;
+}
+
+#btnCreateNewNormalizationMethod {
+  float: right;
+  margin-top: 10px;
+}
+
+.editRow {
+	margin-left: 5px;
+}
+
+.halfWidth {
+	width: 50%;
+}
+
+.goLeft {
+	clear: both;
+	float: left;
+}
+
+
+.goRight {
+	float: right;
+	display: flex;
+}
+
+#templateName{
+	width: 230px;
+}
+#templateVersionNumber {
+	width: auto;
+	display:none;
+}
+
+#templateDescription {
+	min-width: 500px;
+	border-radius: 5px;
+}
+
+#topSectionFieldset {
+	border: 0px;
+}
+
+.dataFieldSection {
+	margin-bottom: 20px;
+}
+
+.dataFieldSectionsArea {
+	clear: both;
+	display: flow-root;
+	margin-top:
+}
+
+
+.deleteSectionBtnDiv {
+	float: right;
+}
+
+.numTypeTop {
+	clear: both;
+}
+
+.fieldGrouping {
+    margin: 10px 25px;
+}
+
+.reviewResult{
+    margin: 10px 25px;
+}
+
+
+
+input[type=text]{
+     width: 150px;
+     height: 30px;
+     border-radius: 5px;
+     border: 1px solid #B5B5B5;
+     margin-bottom: 10px;
+     padding-left: 15px;
+     font-family: 'Roboto', sans-serif;
+ }
+input[type=number] {
+     width: 120px;
+     height: 30px;
+     border-radius: 5px;
+     border: 1px solid #B5B5B5;
+     margin-bottom: 10px;
+     padding-left: 15px;
+     font-family: 'Roboto', sans-serif;
+}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+		font-size: 16px;
+	}
+select {
+     width: auto;
+     min-width: 120px;
+     max-width: auto;
+     height: 35px;
+     border: 1px solid #B5B5B5;
+     border-radius: 10px !important;
+     margin-bottom: 10px;
+     background: transparent;
+     padding-left: 15px;
+     font-size: 12px;
+     font-family: 'Roboto', sans-serif;
+ }
+
+.dataTables_wrapper select {
+        height: auto;
+        width: auto;
+  }
+
+label {
+    font-size: 12px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700 !important;
+    color: #2b2b2b;
+    margin-left: 8px;
+    background-color: #ffffff;
+    margin-bottom: -5px;
+    z-index: 100;
+    padding: 0px 5px 0px 5px;
+  }
+
+td.label {
+	text-transform: uppercase;
+	font-weight: 500 !important;
+  font-family: 'Montserrat', sans-serif;
+  letter-spacing: 0.5px;
+  color: #2b2b2b;
+  font-size: 12px;
+}
+
+
+.alwaysShow, .fieldResultRules, .fieldExplanationRules, .fieldCSSRules, .hideOnLoadDataOption, .hideOnLoadModifyOption, .hideOnLoadLoadDataOption, .hideOnLoadLimitOption {
+	display:inline-block;
+	width: 100%;
+	clear: both;
+}
+
+.verticalFlex {
+	padding: 0px !important;
+}
+input[type=button], a.button, table input[type="button"] {
+    background-color: #ffffff;
+    color: #1E88E5 !important;
+    margin-left: 20px;
+    text-decoration: none;
+    border: 1px solid #1E88E5;
+}
+
+.analysisWarningMessage {
+	color:red;
+}
+.analysisWarningMessage:before {
+	content: "*";
+}
+.sectionTitle{
+	text-transform: uppercase;
+	font-weight: 700px;
+  font-family: 'Montserrat', sans-serif;
+  letter-spacing: 0.5px;
+  color: #2b2b2b;
+  font-size: 12px;
+}
+
+.reportWording{
+    margin: 0px; 
+    width: 200px; 
+    height: 36px; 
+    border-radius: 10px; 
+    border: 1px 
+        solid rgba(25, 25, 25, 0.32);
+    margin-bottom: 10px;
+    padding-left: 15px;
+}
+
+#metaDataTable, #loadDataTable{
+    width: 100%;
+}
+
+.table-scroll {
+  height:250px;
+  width: auto;
+  overflow:auto;  
+}
+.orderClass{
+  width: 45px !important;
+  height: 34px !important;
+}
+
+.fieldSpace {
+  margin-top: 80px;
+}
+
+.dataModifierFieldSection {
+  margin-left: 50px;
+  border: 1px solid #eaeaea;
+  padding: 10px;
+  margin-bottom: 20px;
+  clear: both;
+  background: #ffffff;
+  box-shadow: 0px 3px 6px 0px rgba(0,0,0,0.12);
+} 
+
+.focusSection:focus-within,.focusSection:hover {
+  border: 1px solid #1976D2;
+}
+
+
+.focusSubsection:focus-within,.focusSubsection:hover {
+  background: #F1F1F1;
+  border: 1px solid #1976D2;
+}
+
+.dataModifierFieldSection:focus-within,.dataModifierFieldSection:hover {
+  background: #F1F1F1;
+  /*border: 1px solid #1976D2;*/
+}
+
+.dataModifierFieldSection .focusSubsection:focus-within,.dataModifierFieldSection .focusSubsection:hover {
+  background: #FFFFFF;
+  border: 1px solid #1976D2;
+}
+
+.reportWording {
+  max-width: 323px;
+}
+
+.deleteDiscreteSectionBtnDiv {
+  margin-bottom: 10px;
+}
+
+.button {
+  display: inline-block;
+  font-size: 14px !important;
+  padding: 5px 12px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #1E88E5 !important;
+  margin-left: 20px;
+  text-decoration: none;
+  border: 1px solid #1E88E5;
+}
+
+.fa-edit {
+  margin-right: 5px;
+}
+
+.verticalFlex select {
+  background: #ffffff;
+}
+
+.panelsOption:focus-within,.panelsOption:hover {
+  outline: -webkit-focus-ring-color auto 1px;
+}
+
+.panelsOption option:focus-within,.panelsOption option:hover, .panelsOption option::selection {
+  outline: -webkit-focus-ring-color auto 1px;
+}
+

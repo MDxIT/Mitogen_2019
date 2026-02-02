@@ -1,0 +1,39 @@
+
+
+.well {
+  text-align: center;
+  margin-left: auto;
+  margin-left: auto;
+  padding-left: 5px;
+  padding-right: 5px;
+  cursor: pointer ! important;
+}
+
+.wellParent {
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  cursor: pointer ! important;
+}
+
+.viewButton {
+  background: #5BE5DA ! important;
+  border-style: solid ! important;
+  border-width: 1px ! important;
+  text-align: center;
+  margin-left: auto;
+  margin-left: auto;
+  cursor: pointer ! important;
+  width: 10px;
+}
+.viewButtonParent {
+  background: #5BE5DA ! important;
+  border-style: solid ! important;
+  border-width: 1px ! important;
+  text-align: center;
+  margin-left: auto;
+  margin-left: auto;
+  cursor: pointer ! important;
+  width: 10px;
+}

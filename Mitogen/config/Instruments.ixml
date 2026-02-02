@@ -1,0 +1,3301 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+### INSTRUMENT MANAGEMENT ALLOWS A USER TO ENTER LAB INSTRUMENTS INTO THE SYSTEM WITH A UNIQUE BARCODE.  THE USER CAN THEN ASSIGN TASKS
+### SUCH AS MAINTENANCE AND CALIBRATIONS TO EACH INSTRUMENT.  WHEN ASSIGNING THE TASKS THE USER CAN ENTER THE FIRST DUE DATE FOR THAT TASK
+### AS WELL AS A FREQUENCY FOR HOW OFTEN THAT TASK SHOULD BE COMPLETED.  USERS CAN THEN LOOK UP A TASK LIST WHICH CAN TELL THEM WHEN TASKS
+### ARE OVERDUE OR WHAT THEY SHOULD BE WORKING ON FOR THE COMING WEEKS.  WHEN THEY HAVE PERFORMED OR ARE PERFORMING THE TASKS TO THE INSTRUMENT THEY CAN RECORD
+### ITS COMPLETION IN THE RECORD TASK STEP.  ANYTHING THAT USERS NEED TO TRACK WHEN RECORDING A TASK CAN BE ADDED BOTH TO THE STEP AND TO THE
+### THE TASK MANAGEMENT AND HISTORY TABLES, THIS IS JUST A START.  ALSO, THE INTRUMENTS ARE LINKED TO A QUALIFICATIONS SYSTEM USING THE
+### QUALIFICATIONS TABLE AND TAG.  SO, FOR EXAMPLE, IF AN INSTRUMENT HAS TASKS THAT ARE OVERDUE AND A USER SCANS IN THE BARCODE
+### OF THE INSTRUMENT TO USE DURING A PROCESS, UNIFLOW CAN IDENTIFY THAT INSTRUMENT (RESOURCE) AS UNQUALIFIED AND NOT ALLOW THE STEP TO BE SUBMITTED
+### TABLES NEEDED - INSTRUMENTS, INSTRUMENTCONTACTS, CONTAINERFILES, TASKMANAGEMENT, TASKHISTORY, ROWS (dummy table with lots of rows for building dynamic input tables).
+
+    stepGroup Instrument Management
+    step View Instruments
+      jsScripts
+        src js/resources/instruments.js
+      form
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(instrumentId) AS "inService"
+          - FROM instruments
+          - WHERE status = 'In Service'
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(containerId) AS "calibrationDue"
+          - FROM taskManagement
+          - WHERE taskType = 'Calibration'
+          -   AND dueDate <= DATE_ADD(curDate(), INTERVAL 14 DAY)
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(containerId) AS "maintenanceDue"
+          - FROM taskManagement
+          - WHERE taskType = 'Maintenance'
+          -   AND dueDate <= DATE_ADD(curDate(), INTERVAL 14 DAY)
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(instrumentId) AS "outOfService"
+          - FROM instruments
+          - WHERE status = 'Out of Service'
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Status Report
+          div
+            class= sectionContent horizontalFlex-spaceevenly
+            div
+              id= showInstrumentsInUse
+              class= inventoryStatBlock verticalFlex-center
+              span In Use
+                class= statusLabel
+              span {_:inService}
+                class= statusCount
+            div
+              id= showCalibrationOverdue
+              class= inventoryStatBlock verticalFlex-center
+              span Calibrations Due
+                class= statusLabel
+              span {_:calibrationDue}
+                class= statusCount
+            div
+              id= showMaintenanceOverdue
+              class= inventoryStatBlock verticalFlex-center
+              span Maintenance Due
+                class= statusLabel
+              span {_:maintenanceDue}
+                class= statusCount
+            div
+              id= showInstrumentsOOS
+              class= inventoryStatBlock verticalFlex-center
+              span Out of Service
+                class= statusLabel
+              span {_:outOfService}
+                class= statusCount
+
+        vertical
+          div
+            id= statusTable
+            title= Instrument Information
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Details
+          div
+            class= sectionContent
+            div
+              id= lists
+
+              ul
+                li
+                  a Search Instruments
+                    href= #searchList
+                li
+                  a !!!In Service ({_:inService})
+                    href= #currentList
+                li
+                  a Overdue List
+                    href= #overdueList
+                li
+                  a Current Qualifications
+                    href= #quals
+
+
+              div
+                id= searchList
+                vertical2
+                #### INSTRUMENT TYPES SHOULD BE A VALID VALUE IN THE VALID VALUES TABLE, THE SELECT CAN THEN QUERY FROM THERE#####
+                  select Instrument Type
+                    id= instrumentType
+                    option
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      -   instrumentType
+                      - FROM instruments
+                      - ORDER BY instrumentType
+                  button
+                    class= button
+                    value= Search
+                    onclick= loadInstrumentsTable();
+                vertical
+                  div
+                    id= searchTable
+              div
+                id= currentList
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   instrumentId AS "instrumentID",
+                    -   instrumentType AS "Instrument",
+                    -   status AS "Status"
+                    - FROM instruments
+                    - WHERE status = 'In Service'
+
+              div
+                id= overdueList
+                table
+                  class= formatDateTable stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   containerId AS "InstrumentId",
+                    -   task AS "Task",
+                    -   taskType AS "Type",
+                    -   dueDate AS "Due",
+                    -   DATEDIFF(curDate(), dueDate) AS "Days Overdue"
+                    - FROM taskManagement
+                    - WHERE dueDate < curDate()
+                    - ORDER BY dueDate DESC
+              div
+                id= quals
+                table
+                  class= formatDateTable stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS "InstrumentId",
+                    -   q.qualification AS "Qualification",
+                    -   q.step AS "Step",
+                    -   q.expirationDate AS "Expiration"
+                    - FROM qualifications q
+                    -   INNER JOIN instruments i ON q.containerId = i.instrumentId
+                    - WHERE q.expirationDate > curDate()
+
+#############################################################################################################
+    step Add Instrument
+      jsScripts
+        src js/resources/editInstruments.js
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        data-parsley-validate=
+        vertical
+
+          div
+            fieldset
+              legend  Instructions
+              ul
+                li Fill out the following form to register an instrument with the system.
+                li Once the instrument is registered, the barcode can be used throughout the system.
+                li If an instrument is marked critical, the maintenance and/or calibration tasks must be complete and recorded for the instrument to be used.
+                li More Instrument Contacts can be added in the <a href=/uniflow?stepName=Edit+Instrument>Edit Instrument</a> task.
+                li If the instrument type needed is not found in the selection, new types can be added in <a href=/uniflow?stepName=Manage+Instrument+Lists>Manage Instrument Lists</a>
+        hr
+        vertical
+          div
+            class= horizontalFlex
+            div
+              class= verticalFlex
+              h3  Instrument Info
+              vertical
+                select Instrument Type
+                  title= SETNAME:instrumentType
+                  setName~ instrumentType
+                  class= required
+                select Location
+                  option
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   storageContainerId
+                    - FROM storageContainerInfo
+                    - WHERE model = 'Room'
+                  title= SETNAME:location
+                  sqlPreparedQuery~ select value from validValues where setName = 'instrumentLocation'
+                  setName~ location
+                  required~ false
+                text Make
+                  required~ true
+                  class= required
+                text Model
+                  required~ true
+                  class= required
+                text Manufacturer
+                text Serial Number
+                  required~ true
+                  class= required
+                container Instrument ID
+                  new~ true
+                  addContent~
+                  if~ {Queue to Task Assignments}
+                    advanced~
+                    equals~ true
+                    insertQueue~ Assign Tasks to Instrument
+                  required~ true
+                  class= required barcodeBackground
+                text Name
+                  validate~
+                    - ! SELECT
+                    -   name
+                    - FROM instruments
+                    - WHERE instrumentId = ? and name = ?
+                    string {Instrument ID}
+                    string {Name}
+                    errorMessage~ This name has already been used for another instrument!
+            ### THIS IS JUST TO BE SURE LAB INSTRUMENTS ARE NAMED UNIQUELY IN CASE THE NAME IS WHAT USERS WANT TO USE OR SEE TO LOOKUP INSTRUMENTS
+            div
+              class= verticalFlex
+              h3 Network & QC Info
+              vertical
+                text ipAddress
+                  screenLabel~ IP Address
+                number networkPort
+                  screenLabel~ Network Port
+                  min~ 0
+                  data-parsley-type= integer
+                select Status
+                  option
+                  option In Service
+                  option Out of Service
+                  required~ true
+                  class= required
+                select QC Status
+                  option
+                  option Critical
+                  option Non-Critical
+                  required~ true
+                  class= required
+              vertical
+                checkbox Queue to Task Assignments
+              vertical
+                file newImg
+                  screenLabel~ Upload Picture
+                  destinationFolderName~ InstrumentImages
+                  required~ false
+            div
+              class= verticalFlex
+              h3 Contact Info
+              vertical
+                text Contact Name
+                text Contact Type
+                text Address
+                text City
+                text State
+                text Zip
+                text Office Phone
+                text Mobile Phone
+                text Email
+
+
+      ifCondition {Instrument ID}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - INSERT INTO instruments (instrumentId, instrumentType,  make, model, serialNumber, manufacturer, name, location, QCType, status, eventId, ipAddress, port)
+          - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          - ?, ?, IF(? = '', NULL, CAST(? AS UNSIGNED))
+          - FROM dual
+          string {Instrument ID}
+          string {Instrument Type}
+          string {Make}
+          string {Model}
+          string {Serial Number}
+          string {Manufacturer}
+          string {Name}
+          string {Location}
+          string {QC Status}
+          string {Status}
+          long {_eventId}
+          string {ipAddress}
+          long {networkPort}
+          long {networkPort}
+        sqlPreparedStatement
+          - INSERT INTO inventoryItems (inventoryItem, inventoryType, vendor, eventId)
+          - SELECT ?, 'Instrument', 0, ?
+          - WHERE NOT EXISTS (SELECT 1 FROM inventoryItems WHERE inventoryType = 'Instrument' AND inventoryItem = ?)
+          string {Instrument Type}
+          long {_eventId}
+          string {Instrument Type}
+
+        sqlPreparedStatement
+          - UPDATE containers SET
+          -   manufacturerBarcode = ?
+          - WHERE containerId = ?
+          string {Serial Number}
+          string {Instrument ID}
+        ## IF A CONTACTS SYSTEM IS ALREADY IN PLACE THIS TABLE CAN BE REPLACED   ####
+        sqlPreparedStatement
+          - INSERT INTO instrumentContacts (instrumentId, contactType, name, address, city, state, postalCode, office, mobile, email, eventId)
+          - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          - FROM dual
+          - WHERE (? <> '' OR ? <> '')
+          string {Instrument ID}
+          string {Contact Type}
+          string {Contact Name}
+          string {Address}
+          string {City}
+          string {State}
+          string {Zip}
+          string {Office Phone}
+          string {Mobile Phone}
+          string {Email}
+          long {_eventId}
+          string {Contact Name}
+          string {Email}
+        sqlPreparedStatement
+          - INSERT INTO containerFiles (containerId, fileType, fileName, location, eventId)
+          - SELECT ?, 'Instrument Image', ?, 'InstrumentImages', ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {Instrument ID}
+          string {newImg}
+          long {_eventId}
+          string {newImg}
+        ifCondition {QC Status}
+          advanced~
+          equals~ Non-Critical
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - SELECT ?, 'Instrument Non-Critical', '*ALL*', DATE_ADD(curDate(), INTERVAL 50 YEAR), ?
+            string {Instrument ID}
+            long {_eventId}
+
+##################################################################################################
+    step Assign Tasks to Instrument
+      jsScripts
+        src js/resources/instruments.js
+      queueQuery
+        - SELECT
+        -   q.containerId AS "InstrumentID",
+        -   i.name AS "Name",
+        -   i.instrumentType AS "Instrument Type",
+        -   e.eventDate,
+        -   e.userId
+        - FROM queues q
+        -   LEFT OUTER JOIN instruments i ON q.containerId = i.instrumentId
+        -   LEFT OUTER JOIN events e ON q.eventId = e.eventId
+        - WHERE q.step = 'Assign Tasks to Instrument'
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li This step is used to assign Calibration and Maintenace tasks to an instrument
+              li Scan the instrument and enter the total number of tasks for each category
+        vertical
+          text instrumentId
+            screenLabel~ Instrument ID
+            required~ true
+            validate~
+              - SELECT 1
+              - FROM instruments
+              - WHERE instrumentId = ?
+              string {instrumentId}
+              errorMessage~ THIS INSTRUMENT BARCODE DOES NOT EXIST. PLEASE SCAN AGAIN.
+          number calibrationTaskCount
+            screenLabel~ Number of Calibration Tasks to Assign
+            size= 2
+            value= 5
+            min~ 0
+            required= true
+            data-parsley-required= true
+            data-parsley-type= integer
+            validate~ ! SELECT 1 FROM dual WHERE (? = 0 AND ? = 0)
+              string {calibrationTaskCount}
+              string {maintenanceTaskCount}
+              errorMessage~ Both Calibration & Maintenance tasks cannot be 0.
+          number maintenanceTaskCount
+            screenLabel~ Number of Maintenance Tasks to Assign
+            size= 2
+            value= 5
+            min~ 0
+            required= true
+            data-parsley-type= integer
+            data-parsley-required= true
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   id,
+          -   instrumentId,
+          -   instrumentType,
+          -   description,
+          -   make,
+          -   model,
+          -   serialNumber,
+          -   manufacturer,
+          -   name,
+          -   location,
+          -   QCType,
+          -   status,
+          -   eventId,
+          -   ipAddress,
+          -   port
+          - FROM instruments
+          - WHERE instrumentId = ?
+          string {instrumentId}
+        formPreparedQuery~
+          - SELECT
+          -   fileName AS "image"
+          - FROM containerFiles
+          - WHERE containerId = ?
+          -   AND fileType = 'Instrument Image'
+          - UNION distinct
+          - SELECT
+          -   'file' AS "fileName"
+          - FROM validValues
+          - LIMIT 1
+          string {instrumentId}
+
+        hidden calibrationTaskCount
+          value= {calibrationTaskCount}
+        hidden maintenanceTaskCount
+          value= {maintenanceTaskCount}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          container instrumentId
+            value= {instrumentId}
+            acceptQueue~ any
+            deleteQueue~ Assign Tasks to Instrument
+            readonly=
+            screenLabel~ Instrument ID
+          text Type
+            value= {_:instrumentType}
+            readonly=
+          text Name
+            value= {_:name}
+            readonly=
+        div
+          id= currentTasks
+          vertical
+            table
+              caption Assigned Tasks
+              class= formatDateTable stdTable
+              sqlPreparedQuery~
+                - SELECT
+                -   t.task AS "Task",
+                -   t.taskType AS "Task Type",
+                -   t.assignedTo AS "Assigned To",
+                -   t.dueDate AS "Due Date",
+                -   t.frequency AS "Frequency",
+                -   e.userId AS "Entered By"
+                - FROM taskManagement t
+                -   INNER JOIN events e ON t.eventId = e.eventId
+                - WHERE t.containerId = ?
+                string {instrumentId}
+
+        div
+          id= taskTabs
+          ul
+            li
+              a Calibration Tasks
+                href= #cal
+            li
+              a Maintenance Tasks
+                href= #main
+
+          div
+            id= cal
+            vertical
+            table
+              caption Assign Calibration Tasks
+              sqlPreparedQuery~
+                - SELECT
+                -   '' AS "Task",
+                -   '' AS "Assigned To",
+                -   DATE_ADD(curDate(), INTERVAL 30 DAY) AS "Due Date",
+                -   '' AS "Task Frequency",
+                -   '*ALL*' AS "Qualified Steps"
+                - FROM numbers
+                - LIMIT ?
+                long {calibrationTaskCount}
+              columnSpecs~ calibrationTasks
+                allowChangedRecordIds
+                column 1
+                  inputType select
+                    required~ false
+                    setName~ Calibration Task
+                    validate~
+                      - ! SELECT
+                      -   containerId,
+                      -   task
+                      - FROM taskManagement
+                      - WHERE containerId = ?
+                      -   AND task = ?
+                      string {instrumentId}
+                      string {_columnInput:1}
+                      errorMessage~ THIS TASK HAS ALREADY BEEN ASSIGNED TO THE INSTRUMENT!
+                column 2
+                  inputType select
+                    required~ false
+                    setName~ instrumentGroups
+                    sqlPreparedQuery~ select distinct userId from userInfo
+                    title= SETNAME: instrumentGroups
+                column 3
+                  inputType date
+                    class= date datePicker
+                    convert~ false
+                column 4
+                  inputType select
+                    required~ false
+                    setName~ instrumentQCFrequencies
+                    title= SETNAME: instrumentQCFrequencies
+                column 5
+                  inputType select
+                    option *ALL*
+                    sqlQuery~
+                      - SELECT
+                      -   stepName
+                      - FROM stepList
+                      - ORDER BY stepName
+
+          div
+            id= main
+            vertical
+            table
+              caption Assign Maintenance Tasks
+              sqlPreparedQuery~
+                - SELECT
+                -   '' AS "Task",
+                -   '' AS "Assigned To",
+                -   DATE_ADD(curDate(), INTERVAL 30 DAY) AS "Due Date",
+                -   '' AS "Task Frequency",
+                -   '*ALL*' AS "Qualfied Steps"
+                - FROM numbers
+                - LIMIT ?
+                long {maintenanceTaskCount}
+              columnSpecs~ maintenanceTasks
+                allowChangedRecordIds
+                column 1
+                  inputType select
+                    required~ false
+                    setName~ Maintenance Task
+                    validate~
+                      - ! SELECT
+                      -   containerId,
+                      -   task
+                      - FROM taskManagement
+                      - WHERE containerId = ?
+                      -   AND task = ?
+                      string {instrumentId}
+                      string {_columnInput:1}
+                      errorMessage~ THIS TASK HAS ALREADY BEEN ASSIGNED TO THE INSTRUMENT!
+                column 2
+                  inputType select
+                    required~ false
+                    setName~ instrumentGroups
+                    sqlPreparedQuery~ select distinct userId from userInfo
+                    title= SETNAME: instrumentGroups
+                column 3
+                  inputType date
+                    class= date datePicker
+                    convert~ false
+                column 4
+                  inputType select
+                    required~ false
+                    setName~ instrumentQCFrequencies
+                    title= SETNAME: instrumentQCFrequencies
+                column 5
+                  inputType select
+                    option *ALL*
+                    sqlQuery~
+                      - SELECT
+                      -   stepName
+                      - FROM stepList
+                      - ORDER BY stepName
+
+      forRows calibrationTasks
+        sqlPreparedStatement
+          - INSERT INTO taskManagement (containerId, task, taskType, assignedTo, dueDate, frequency, eventId)
+          - SELECT
+          -   ?, ?, 'Calibration', ?,
+          -   ?, ?, ?
+          - FROM dual
+          - WHERE (? <> '' AND ? <> '' AND ? <> ''
+          - AND ? <> '' AND ? <> '')
+          string {instrumentId}
+          string {_columnInput_calibrationTasks:1}
+          string {_columnInput_calibrationTasks:2}
+          string {_columnInput_calibrationTasks:3}
+          string {_columnInput_calibrationTasks:4}
+          long {_eventId}
+          string {_columnInput_calibrationTasks:1}
+          string {_columnInput_calibrationTasks:2}
+          string {_columnInput_calibrationTasks:3}
+          string {_columnInput_calibrationTasks:4}
+          string {_columnInput_calibrationTasks:5}
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT ?, ?, ?, ?, ?
+          - FROM dual
+          - WHERE (? <> '' AND ? <> '' AND ? <> ''
+          - AND ? <> '' AND ? <> '')
+          string {instrumentId}
+          string {_columnInput_calibrationTasks:1}
+          string {_columnInput_calibrationTasks:5}
+          string {_columnInput_calibrationTasks:3}
+          long {_eventId}
+          string {_columnInput_calibrationTasks:1}
+          string {_columnInput_calibrationTasks:2}
+          string {_columnInput_calibrationTasks:3}
+          string {_columnInput_calibrationTasks:4}
+          string {_columnInput_calibrationTasks:5}
+
+      forRows maintenanceTasks
+        sqlPreparedStatement
+          - INSERT INTO taskManagement (containerId, task, taskType, assignedTo, dueDate, frequency, eventId)
+          - SELECT
+          -   ?, ?, 'Maintenance', ?,
+          -   ?, ?, ?
+          - FROM dual
+          - WHERE (? <> '' AND ? <> '' AND ? <> ''
+          - AND ? <> '' AND ? <> '')
+          string {instrumentId}
+          string {_columnInput_maintenanceTasks:1}
+          string {_columnInput_maintenanceTasks:2}
+          string {_columnInput_maintenanceTasks:3}
+          string {_columnInput_maintenanceTasks:4}
+          long {_eventId}
+          string {_columnInput_maintenanceTasks:1}
+          string {_columnInput_maintenanceTasks:2}
+          string {_columnInput_maintenanceTasks:3}
+          string {_columnInput_maintenanceTasks:4}
+          string {_columnInput_maintenanceTasks:5}
+
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -   ?, ?, ?, ?, ?
+          - FROM dual
+          - WHERE (? <> '' AND ? <> '' AND ? <> ''
+          -   AND ? <> '' AND ? <> '')
+          string {instrumentId}
+          string {_columnInput_maintenanceTasks:1}
+          string {_columnInput_maintenanceTasks:5}
+          string {_columnInput_maintenanceTasks:3}
+          long {_eventId}
+          string {_columnInput_maintenanceTasks:1}
+          string {_columnInput_maintenanceTasks:2}
+          string {_columnInput_maintenanceTasks:3}
+          string {_columnInput_maintenanceTasks:4}
+          string {_columnInput_maintenanceTasks:5}
+
+#########################################################################################################################
+    step Record Task
+      jsScripts
+        src js/resources/instruments.js
+
+      form
+        include stepInstructions
+        vertical
+          container _recId
+            containerType~ Instrument ID
+            recordContainerHistory~ false
+            screenLabel~ Instrument Id
+            acceptQueue~ any
+            new~ false
+            required~ true
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        ENCTYPE= multipart/form-data
+        formPreparedQuery~
+          - SELECT
+          -   id,
+          -   instrumentId,
+          -   instrumentType,
+          -   description,
+          -   make,
+          -   model,
+          -   serialNumber,
+          -   manufacturer,
+          -   name,
+          -   location,
+          -   QCType,
+          -   status,
+          -   eventId,
+          -   ipAddress,
+          -   port
+          - FROM instruments
+          - WHERE instrumentId = ?
+          string {_recId}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          container instrumentId
+            screenLabel~
+            acceptQueue~ any
+            readonly=
+            value= {_recId}
+            style= display:none;
+        vertical
+          fieldset
+            legend Instructions
+            vertical
+              li Please double check you are recording results for the correct instrument
+              li Select the Maintenance/Calibration tasks you are recording
+              li Please put all images, outputs, etc. (if any) into one file and upload it with the task completion
+              li The qualifications, taskHistory, and taskManagement tables will be updated
+        hr
+        vertical
+          div
+            id= lists
+            ul
+              li
+                a
+                  span Instrument Info
+                  href= #instrumentInfo
+              li
+                a
+                  span Maintain Instrument
+                  href= #maintenance
+              li
+                a
+                  span Calibrate Instrument
+                  href= #calibrate
+
+            #### tab 1
+            div
+              id= instrumentInfo
+              div
+                class= dashBlock
+                vertical
+                  span <b>Instrument ID:</b> {_recId}
+                  span <b>Instrument Type:</b> {_:instrumentType}
+                  span <b>Make:</b> {_:make}
+                  span <b>Model:</b> {_:model}
+                  span <b>Serial#:</b> {_:serialNumber}
+                  span <b>Name:</b> {_:name}
+
+            ### tab 2
+            div
+              id= maintenance
+              vertical
+                span Select the completed task(s).
+              vertical
+                table
+                  caption Maintenance Performed
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "DONE",
+                    -   task AS "Maintenance",
+                    -   curdate() AS "Date Performed",
+                    -   '' AS "Comments",
+                    -   frequency AS "Frequency",
+                    -   '' AS "File (Optional)"
+                    - FROM taskManagement
+                    - WHERE containerId = ?
+                    -   AND taskType = 'Maintenance'
+                    string {_recId}
+                  columnSpecs~ maintenance
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType text
+                        readonly=
+                        size= 40
+                    column 3
+                      inputType date
+                        class= date datePicker
+                        convert~ false
+                    column 4
+                      inputType textArea
+                    column 5
+                      inputType text
+                        readonly=
+                    column 6
+                      inputType files
+                        required~ false
+                        destinationFolderName~ documents/QC_Files
+                        multiple=
+                        containerId~ {instrumentId}
+                        fileType~ Maintenance File
+
+              hr
+              vertical
+                span Please enter any results associated with the task completed.
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   tp.task AS "Task",
+                    -   tp.property AS "Property",
+                    -   '' AS "Result",
+                    -   tp.units AS "Units",
+                    -   '' AS "Comments",
+                    -   CONCAT(tp.lowerLimit, '-', tp.upperLimit) AS "Acceptable Range"
+                    - FROM taskProperties tp
+                    -   INNER JOIN taskManagement tm ON tp.task = tm.task
+                    - WHERE tm.containerId = ?
+                    -   AND tm.taskType = 'Maintenance'
+                    string {_recId}
+                  columnSpecs~ mainProps
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                        readonly=
+                        size= 40
+                    column 2
+                      inputType text
+                        readonly=
+                        size= 30
+                    column 3
+                      inputType text
+                    column 4
+                      inputType select
+                    column 5
+                      inputType textArea
+              hr
+              vertical
+                span If instrument results are not compliant and the instrument needs to be taken out of service, please do so below.
+              vertical
+                checkbox mainOOS
+                  screenLabel~ Out of Service
+
+
+            ### tab 3
+            div
+              id= calibrate
+              vertical
+                span Select the completed task(s).
+              vertical
+                table
+                  caption Calibration Results
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "DONE",
+                    -   t.task AS "Calibration",
+                    -   curdate() AS "Date Performed",
+                    -   '' AS "Comments",
+                    -   t.frequency AS "Frequency",
+                    -   '' AS "P/F",
+                    -   '' AS "File"
+                    - FROM taskManagement t
+                    - WHERE t.containerId = ?
+                    -   AND t.taskType = 'Calibration'
+                    string {_recId}
+                  columnSpecs~ calibrate
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType text
+                        readonly=
+                        size= 40
+                    column 3
+                      inputType date
+                        class= date datePicker
+                        convert~ false
+                    column 4
+                      inputType textArea
+                    column 5
+                      inputType text
+                        readonly=
+                    column 6
+                      inputType select
+                        setName~ passFail
+                        title= SETNAME: passFail
+                        required~ false
+                    column 7
+                      inputType files
+                        required~ false
+                        destinationFolderName~ documents/QC_Files
+                        multiple=
+                        containerId~ {instrumentId}
+                        fileType~ Calibration File
+
+              hr
+              vertical
+                span Please enter any results associated with the task completed.
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   tp.task AS "Task",
+                    -   tp.property AS "Property",
+                    -   '' AS "Result",
+                    -   tp.units AS "Units",
+                    -   '' AS "Comments",
+                    -   CONCAT(tp.lowerLimit, '-', tp.upperLimit) AS "Acceptable Range"
+                    - FROM taskProperties tp
+                    -   INNER JOIN taskManagement tm on tp.task = tm.task
+                    - WHERE tm.containerId = ?
+                    -   AND tm.taskType = 'Calibration'
+                    string {_recId}
+                  columnSpecs~ calProps
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                        readonly=
+                        size= 30
+                    column 2
+                      inputType text
+                        readonly=
+                        size= 30
+                    column 3
+                      inputType text
+                    column 4
+                      inputType select
+                    column 5
+                      inputType textArea
+              hr
+              vertical
+                span If instrument results are not compliant and the instrument needs to be taken out of service, please do so below.
+              vertical
+                checkbox calOOS
+                  screenLabel~ Out of Service
+
+      forRows maintenance
+        ifCondition {_columnInput_maintenance:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - INSERT INTO taskHistory (containerId, task, taskType, datePerformed, taskNotes, eventId)
+            - SELECT
+            -   ?, ?, 'Maintenance',?, ?, ?
+            - FROM dual
+            string {instrumentId}
+            string {_columnInput_maintenance:2}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:4}
+            long {_eventId}
+          ## SETTING THE NEW DUE DATE IN TASKMANAGEMENT BASED UPON THE FREQUENCY THE TASK SHOULD BE PERFORMED
+          sqlPreparedStatement
+            - UPDATE taskManagement SET
+            -   dueDate = (SELECT CASE WHEN ? = 'Daily' THEN DATE_ADD(?, INTERVAL 1 DAY)
+            -     WHEN ? = 'Weekly' THEN DATE_ADD(?, INTERVAL 1 WEEK)
+            -     WHEN ? = 'Monthly' THEN DATE_ADD(?, INTERVAL 1 MONTH)
+            -     WHEN ? = 'Quarterly' THEN DATE_ADD(?, INTERVAL 3 MONTH)
+            -     WHEN ? = 'Semi-Annually' THEN DATE_ADD(?, INTERVAL 6 MONTH)
+            -     WHEN ? = 'Annually' THEN DATE_ADD(?, INTERVAL 1 YEAR) END
+            -     from dual),
+            -   eventId = ?
+            - WHERE containerId = ?
+            -   AND taskType = 'Maintenance'
+            -   AND task = ?
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            long {_eventId}
+            string {instrumentId}
+            string {_columnInput_maintenance:2}
+          ## SETTING THE NEW EXPIRATION DATE IN QUALIFICATIONS BASED UPON THE FREQUENCY OF TASK
+          sqlPreparedStatement
+            - UPDATE qualifications SET
+            -   expirationDate = (SELECT CASE WHEN ? = 'Daily' THEN DATE_ADD(?, INTERVAL 1 DAY)
+            -     WHEN ? = 'Weekly' THEN DATE_ADD(?, INTERVAL 1 WEEK)
+            -     WHEN ? = 'Monthly' THEN DATE_ADD(?, INTERVAL 1 MONTH)
+            -     WHEN ? = 'Quarterly' THEN DATE_ADD(?, INTERVAL 3 MONTH)
+            -     WHEN ? = 'Semi-Annually' THEN DATE_ADD(?, INTERVAL 6 MONTH)
+            -     WHEN ? = 'Annually' THEN DATE_ADD(?, INTERVAL 1 YEAR) END
+            -     from dual),
+            -   eventId = ?
+            - WHERE containerId = ?
+            -   AND qualification = ?
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            string {_columnInput_maintenance:5}
+            string {_columnInput_maintenance:3}
+            long {_eventId}
+            string {instrumentId}
+            string {_columnInput_maintenance:2}
+
+      forRows mainProps
+        ifCondition {_columnInput_mainProps:3}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO instrumentResults (instrumentId, task, property, result, units, comments,  eventId)
+            - SELECT
+            -   ?, ?, ?, ?, ?,?, ?
+            - FROM dual
+            string {instrumentId}
+            string {_columnInput_mainProps:1}
+            string {_columnInput_mainProps:2}
+            string {_columnInput_mainProps:3}
+            string {_columnInput_mainProps:4}
+            string {_columnInput_mainProps:5}
+            long {_eventId}
+
+      forRows calibrate
+        ifCondition {_columnInput_calibrate:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - INSERT INTO taskHistory (containerId, task, taskType, datePerformed, taskNotes, eventId)
+            - SELECT
+            -   ?, ?, 'Calibration', ?, ?, ?
+            - FROM dual
+            string {instrumentId}
+            string {_columnInput_calibrate:2}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:4}
+            long {_eventId}
+          ## SETTING THE NEW DUE DATE IN TASKMANAGEMENT BASED UPON THE FREQUENCY THE TASK SHOULD BE PERFORMED
+          sqlPreparedStatement
+            - UPDATE taskManagement SET
+            -   dueDate = (SELECT CASE WHEN ? = 'Daily' THEN DATE_ADD(?, INTERVAL 1 DAY)
+            -     WHEN ? = 'Weekly' THEN DATE_ADD(?, INTERVAL 1 WEEK)
+            -     WHEN ? = 'Monthly' THEN DATE_ADD(?, INTERVAL 1 MONTH)
+            -     WHEN ? = 'Quarterly' THEN DATE_ADD(?, INTERVAL 3 MONTH)
+            -     WHEN ? = 'Semi-Annually' THEN DATE_ADD(?, INTERVAL 6 MONTH)
+            -     WHEN ? = 'Annually' THEN DATE_ADD(?, INTERVAL 1 YEAR) END
+            -     from dual),
+            -   eventId = ?
+            - WHERE containerId = ?
+            -   AND taskType = 'Calibration'
+            -   AND task = ?
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            long {_eventId}
+            string {instrumentId}
+            string {_columnInput_calibrate:2}
+          ## SETTING THE NEW EXPIRATION DATE IN QUALIFICATIONS BASED UPON THE FREQUENCY OF TASK
+          sqlPreparedStatement
+            - UPDATE qualifications SET
+            -   expirationDate = (SELECT CASE WHEN ? = 'Daily' THEN DATE_ADD(?, INTERVAL 1 DAY)
+            -     WHEN ? = 'Weekly' THEN DATE_ADD(?, INTERVAL 1 WEEK)
+            -     WHEN ? = 'Monthly' THEN DATE_ADD(?, INTERVAL 1 MONTH)
+            -     WHEN ? = 'Quarterly' THEN DATE_ADD(?, INTERVAL 3 MONTH)
+            -     WHEN ? = 'Semi-Annually' THEN DATE_ADD(?, INTERVAL 6 MONTH)
+            -     WHEN ? = 'Annually' THEN DATE_ADD(?, INTERVAL 1 YEAR) END
+            -     FROM dual ),
+            -   eventId = ?
+            - WHERE containerId = ?
+            -   AND qualification = ?
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            string {_columnInput_calibrate:5}
+            string {_columnInput_calibrate:3}
+            long {_eventId}
+            string {instrumentId}
+            string {_columnInput_calibrate:2}
+
+          sqlPreparedStatement
+            - INSERT INTO instrumentResults (instrumentId, task, property, result, comments, eventId)
+            - SELECT
+            -   ?, ?,
+            -   'Calibration Result', ?,
+            -   ?, ?
+            - FROM dual
+            - WHERE ? <> ''
+            string {instrumentId}
+            string {_columnInput_calibrate:2}
+            string {_columnInput_calibrate:6}
+            string {_columnInput_calibrate:4}
+            long {_eventId}
+            string {_columnInput_calibrate:6}
+
+      forRows calProps
+        ifCondition {_columnInput_calProps:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO instrumentResults (instrumentId, task, property, result, units, comments, eventId)
+            - SELECT ?, ?, ?, ?, ?, ?, ?
+            - FROM dual
+            string {instrumentId}
+            string {_columnInput_calProps:1}
+            string {_columnInput_calProps:2}
+            string {_columnInput_calProps:3}
+            string {_columnInput_calProps:4}
+            string {_columnInput_calProps:5}
+            long {_eventId}
+
+      sqlPreparedStatement
+        - UPDATE instruments SET
+        -   status = 'Out of Service'
+        - WHERE instrumentId = ?
+        -   AND (? = 'true' OR ? = 'true')
+        string {instrumentId}
+        string {calOOS}
+        string {mainOOS}
+
+###############################################################################################################################################
+    step Lookup Tasks Due
+      jsScripts
+        src js/resources/editInstruments.js
+
+      queueQuery
+        - SELECT
+        -   tm.containerId AS "Instrument Id",
+        -   i.instrumentType AS "Instrument",
+        -   i.make AS "Make",
+        -   tm.task AS "Task",
+        -   tm.dueDate AS "Due Date",
+        -   tm.frequency AS "Frequency",
+        -   tm.assignedTo AS "Assigned To",
+        -   i.name AS "Name"
+        - FROM taskManagement tm
+        -   LEFT OUTER JOIN instruments i ON tm.containerId = i.instrumentId
+        - WHERE (tm.taskType = 'Maintenance' or tm.taskType = 'Calibration')
+        -   AND tm.dueDate = curDate()
+        - ORDER BY tm.assignedTo
+      form
+        include stepInstructions
+        include userAccountInfo
+
+        formPreparedQuery~ SELECT DATE_ADD(curDate(), INTERVAL 60 DAY) as 'Future', curDate() as 'today';
+
+        hidden today
+          id= today
+          value= {_:today}
+        hidden In 60 Days
+          id= twoMonths
+          value= {_:Future}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+
+        vertical2
+          select Group
+            id= list
+            multiple=
+            size= 7
+            setName~ instrumentGroups
+            required~ false
+            title= SETNAME: instrumentGroups
+            sqlPreparedQuery~ select distinct userId from userInfo
+          button
+            value= View Tasks
+            id= viewTasksButton
+
+        hr
+        vertical
+          div
+            id= due
+            ul
+              li
+                a
+                  span Maintenance
+                  href= #maintenance
+              li
+                a
+                  span Calibration
+                  href= #calibration
+            div
+              id= maintenance
+              vertical
+                fieldset
+                  legend Tasks OVERDUE
+                  vertical
+                  div
+                    id= overdueMain
+
+                fieldset
+                  legend Tasks Due Within 60 Days
+                  vertical
+                  div
+                    id= maint
+
+            div
+              id= calibration
+              vertical
+                fieldset
+                  legend Tasks OVERDUE
+                  vertical
+                  div
+                    id= overdueCal
+
+                fieldset
+                  legend Tasks Due Within 60 Days
+                  vertical
+                  div
+                    id= cal
+
+##############################################################################################################################3
+    step Lookup Instrument History
+      jsScripts
+        src js/resources/instruments.js
+      form
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -  DATE_SUB(curDate(), INTERVAL 365 DAY) AS 'startDate'
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        vertical
+          date Start Date
+            value= {_:startDate}
+            class= date datePicker
+          date End Date
+            value= {_currentDateFormatted}
+            class= date datePicker
+          container _recId
+            screenLabel~ Instrument ID
+            recordContainerHistory~ false
+            containerType~ Instrument ID
+            acceptQueue~ any
+            required~ true
+            new~ false
+
+      ### YOU CAN DISPLAY THE INSTRUMENT ID AS WELL AS ANY OTHER FIELDS YOU'D LIKE TO FILTER BY
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        formPreparedQuery~
+          - SELECT
+          -   id,
+          -   instrumentId,
+          -   instrumentType,
+          -   description,
+          -   make,
+          -   model,
+          -   serialNumber,
+          -   manufacturer,
+          -   name,
+          -   location,
+          -   QCType,
+          -   status,
+          -   eventId,
+          -   ipAddress,
+          -   port
+          - FROM instruments
+          - WHERE instrumentId = ?
+          string {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          div
+            class= dashBlock
+            vertical
+              span <b>Instrument Type:</b> {_:instrumentType}
+              span <b>Make:</b> {_:make}
+              span <b>Model:</b> {_:model}
+              span <b>Name:</b> {_:name}
+
+
+        hr
+        vertical
+          div
+            id= history
+            ul
+              li
+                a
+                  span Maintenance History
+                  href= #maintenance
+              li
+                a
+                  span Calibration History
+                  href= #calibrate
+              li
+                a
+                  span Mitogen History
+                  href= #other
+      #### tab 1
+            div
+              id= maintenance
+              vertical
+                table
+                  class= formatDateTable stdTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   th.containerId AS 'InstrId',
+                    -   th.task AS 'Task',
+                    -   th.datePerformed AS 'Date Performed',
+                    -   th.taskNotes AS 'Notes',
+                    -   e.userId AS 'User'
+                    - FROM taskHistory th
+                    -   INNER JOIN events e ON th.eventId = e.eventId
+                    -   LEFT JOIN containerFiles cf on th.eventId = cf.eventId
+                    - WHERE (th.datePerformed BETWEEN ? AND ?)
+                    -   AND th.containerId = ?
+                    -   AND th.taskType = 'Maintenance'
+                    - ORDER BY th.datePerformed DESC
+                    string {Start Date}
+                    string {End Date}
+                    string {_recId}
+                table
+                  class= stdTable
+                  caption Maintenance Results
+                  sqlPreparedQuery~
+                    - SELECT DISTINCT
+                    -   ir.instrumentId AS 'InstrId',
+                    -   ir.task AS 'Task',
+                    -   ir.property AS 'Property',
+                    -   ir.result AS 'Result',
+                    -   ir.units AS 'Units',
+                    -   ir.comments AS 'Comments',
+                    -   cf.fileName as 'downloadInstrumentFileId'
+                    - FROM instrumentResults ir
+                    -   INNER JOIN events e on ir.eventId = e.eventId
+                    -   INNER JOIN taskManagement tm on ir.task = tm.task
+                    -   LEFT JOIN containerFiles cf on ir.eventId = cf.eventId
+                    -     AND cf.fileType = 'Maintenance File'
+                    - WHERE ir.instrumentId = ?
+                    -   AND tm.taskType = 'Maintenance'
+                    -   AND (e.eventDate BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY))
+                    - ORDER BY e.eventDate DESC
+                    string {_recId}
+                    string {Start Date}
+                    string {End Date}
+
+      #### tab 2
+            div
+              id= calibrate
+              vertical
+                table
+                  class= formatDateTable stdTable
+                  caption Calibration Tasks
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   th.containerId AS 'InstrId',
+                    -   th.task AS 'Task',
+                    -   th.datePerformed AS 'Date Performed',
+                    -   th.taskNotes AS 'Notes',
+                    -   e.userId AS 'User'
+                    - FROM taskHistory th
+                    -   INNER JOIN events e on th.eventId = e.eventId
+                    - WHERE (th.datePerformed BETWEEN ? AND ?)
+                    -   AND th.containerId = ?
+                    -   AND th.taskType = 'Calibration'
+                    - ORDER BY th.datePerformed DESC
+                    string {Start Date}
+                    string {End Date}
+                    string {_recId}
+                table
+                  class= stdTable
+                  caption Calibration Results
+                  sqlPreparedQuery~
+                    - SELECT DISTINCT
+                    -   ir.instrumentId AS 'InstrId',
+                    -   ir.task AS 'Task',
+                    -   ir.property AS 'Property',
+                    -   ir.result AS 'Result',
+                    -   ir.units AS 'Units',
+                    -   ir.comments AS 'Comments',
+                    -   cf.fileName as 'downloadInstrumentFileId'
+                    - FROM instrumentResults ir
+                    -   INNER JOIN events e on ir.eventId = e.eventId
+                    -   INNER JOIN taskManagement tm on ir.task = tm.task
+                    -   LEFT JOIN containerFiles cf on ir.eventId = cf.eventId
+                    -     AND cf.fileType = 'Calibration File'
+                    - WHERE ir.instrumentId = ?
+                    -   AND tm.taskType = 'Calibration'
+                    -   AND (e.eventDate BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY))
+                    - ORDER BY e.eventDate DESC
+                    string {_recId}
+                    string {Start Date}
+                    string {End Date}
+
+        #### tab 3
+            div
+              id= other
+              vertical
+                table
+                  caption Container History
+                  class= stdTableBasic formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   ch.containerId AS 'Container ID',
+                    -   e.step AS 'Step',
+                    -   e.userId AS 'User',
+                    -   DATE(e.eventDate) AS 'Date',
+                    -   e.comments AS 'Comments'
+                    - FROM containerHistory ch
+                    -   INNER JOIN events e ON e.eventId = ch.eventId
+                    - WHERE ch.containerId = ?
+                    - ORDER BY e.eventDate DESC
+                    - LIMIT 50
+                    string {_recId}
+
+                table
+                  caption Resource History
+                  class= stdTableBasic formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -  rh.containerId AS 'Container ID',
+                    -  e.step AS 'Step',
+                    -  e.userId AS 'User',
+                    -  DATE(e.eventDate) AS 'Date',
+                    -  e.comments AS 'Comments'
+                    - FROM resourceHistory rh
+                    -   INNER JOIN events e ON e.eventId = rh.eventId
+                    - WHERE rh.containerId = ?
+                    - ORDER BY e.eventDate DESC
+                    - LIMIT 50
+                    string {_recId}
+                  ## show past 50 containerHistory records with step, userId etc.
+
+##############################################################################################################################
+    step Lookup Instrument Details
+      jsScripts
+        src js/resources/instruments.js
+
+      form
+        include stepInstructions
+        vertical
+          container _recId
+            screenLabel~ Instrument ID
+            containerType~ Instrument ID
+            recordContainerHistory~ false
+            acceptQueue~ any
+            required~ true
+            new~ false
+      form
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT
+          -   fileName AS 'image'
+          - FROM containerFiles
+          - WHERE containerId = ?
+          -   AND fileType = 'Instrument Image'
+          - UNION
+          - SELECT ''
+          string {_recId}
+
+
+        formPreparedQuery~
+          - SELECT
+          -   id,
+          -   instrumentId,
+          -   instrumentType,
+          -   description,
+          -   make,
+          -   model,
+          -   serialNumber,
+          -   manufacturer,
+          -   name,
+          -   location,
+          -   QCType,
+          -   status,
+          -   eventId,
+          -   ipAddress,
+          -   port
+          - FROM instruments
+          - WHERE instrumentId = ?
+          string {_recId}
+
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        vertical
+          div
+            class= header
+            span Instrument Report for {_recId}
+        hr
+        vertical
+          div
+            h3 Instrument Information
+            vertical
+              div
+                vertical2
+                div
+                  vertical
+                    span <b>Instrument Id:</b> {_recId}
+                    span <b>Instrument Type:</b> {_:instrumentType}
+                    span <b>Description:</b> {_:description}
+                    span <b>Make:</b> {_:Make}
+                    span <b>Model:</b> {_:Model}
+                    span <b>IP Address:</b> {_:ipAddress}
+                    span <b>Serial Number:</b> {_:serialNumber}
+                div
+                  vertical
+                    span <b>Manufacturer:</b> {_:manufacturer}
+                    span <b>Name:</b> {_:name}
+                    span <b>Location:</b> {_:location}
+                    span <b>QC Type:</b> {_:QCType}
+                    span <b>Status:</b> {_:status}
+                    span <b>Network Port:</b> {_:port}
+                    span <b>Image:</b> <a href=/InstrumentImages/{_:image}> Image</a>
+                      configureIf~ {_:image}
+                        advanced~
+                        not~
+                          isBlank~
+
+        hr
+        vertical
+          div
+            h3 Instrument Contact Info
+            vertical
+              table
+                sqlPreparedQuery~
+                  - SELECT
+                  -   instrumentId AS 'ID',
+                  -   contactType AS 'Type',
+                  -   name AS 'Name',
+                  -   address AS 'Address',
+                  -   city AS 'City',
+                  -   state AS 'State',
+                  -   postalCode AS 'Zip',
+                  -   office AS 'Office',
+                  -   mobile AS 'Mobile',
+                  -   email AS 'Email'
+                  - FROM instrumentContacts
+                  - WHERE instrumentId = ?
+                  string {_recId}
+        hr
+        vertical
+          div
+            h3 Instrument Tasks
+            vertical
+              table
+                class= formatDateTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   containerId AS 'ID',
+                  -   task AS 'Task',
+                  -   taskType AS 'Task Type',
+                  -   assignedTo AS 'Responsible',
+                  -   frequency AS 'Frequency',
+                  -   dueDate AS 'Due Date'
+                  - FROM taskManagement
+                  - WHERE containerId = ?
+                  string {_recId}
+        hr
+        vertical
+          div
+            h3 Calibration History
+            vertical
+              table
+                class= formatDateTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   th.containerId AS 'ID',
+                  -   th.task AS 'Task',
+                  -   th.datePerformed AS 'Completed',
+                  -   th.taskNotes AS 'Notes'
+                  - FROM taskHistory th
+                  - WHERE th.containerId = ?
+                  -   AND th.taskType = 'Calibration'
+                  - ORDER BY th.datePerformed
+                  - LIMIT 30
+                  string {_recId}
+              table
+                caption Calibration Results
+                sqlPreparedQuery~
+                  - SELECT DISTINCT
+                  -   ir.instrumentId AS 'ID',
+                  -   ir.task AS 'Task',
+                  -   ir.property AS 'Property',
+                  -   ir.result AS 'Result',
+                  -   ir.units AS 'Units',
+                  -   ir.comments AS 'Comments',
+                  -   cf.fileName AS 'downloadInstrumentFileId'
+                  - FROM instrumentResults ir
+                  -   INNER JOIN events e ON ir.eventId = e.eventId
+                  -   INNER JOIN taskManagement tm ON ir.task = tm.task
+                  -   LEFT JOIN containerFiles cf ON ir.eventId = cf.eventId
+                  -     AND cf.fileType = 'Calibration File'
+                  - WHERE ir.instrumentId = ?
+                  -   AND tm.taskType = 'Calibration'
+                  - ORDER BY e.eventDate DESC
+                  - LIMIT 30
+                  string {_recId}
+        hr
+        vertical
+          div
+            h3 Maintenance History
+            vertical
+              table
+                class= formatDateTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   th.containerId AS 'ID',
+                  -   th.task AS 'Task',
+                  -   th.datePerformed AS 'Completed',
+                  -   th.taskNotes AS 'Notes'
+                  - FROM taskHistory th
+                  - WHERE th.containerId = ?
+                  -   AND th.taskType = 'Maintenance'
+                  - ORDER BY th.datePerformed
+                  - LIMIT 30
+                  string {_recId}
+              table
+                caption Maintenance Results
+                sqlPreparedQuery~
+                  - SELECT DISTINCT
+                  -   ir.instrumentId AS 'ID',
+                  -   ir.task AS 'Task',
+                  -   ir.property AS 'Property',
+                  -   ir.result AS 'Results',
+                  -   ir.units AS 'Units',
+                  -   ir.comments AS 'Coments',
+                  -   cf.fileName AS 'downloadInstrumentFileId'
+                  - FROM instrumentResults ir
+                  -   INNER JOIN events e ON ir.eventId = e.eventId
+                  -   INNER JOIN taskManagement tm ON ir.task = tm.task
+                  -   LEFT JOIN containerFiles cf ON ir.eventId = cf.eventId
+                  -     AND cf.fileType = 'Maintenance File'
+                  - WHERE ir.instrumentId = ?
+                  -   AND tm.taskType = 'Maintenance'
+                  - ORDER BY e.eventDate DESC
+                  - LIMIT 30
+                  string {_recId}
+        hr
+        vertical
+          div
+            h3 Mitogen History
+            vertical
+              table
+                class= formatDateTable stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ch.containerId AS 'ID',
+                  -   e.step AS 'Step',
+                  -   e.comments AS 'Comments',
+                  -   DATE(e.eventDate) AS 'Date',
+                  -   e.userId AS 'User'
+                  - FROM containerHistory ch
+                  -   INNER JOIN events e ON e.eventId = ch.eventId
+                  - WHERE ch.containerId = ?
+                  -   AND ch.containerId <> ''
+                  - ORDER BY e.eventDate DESC
+                  string {_recId}
+        vertical
+          div
+            h3 Instrument Information History
+            vertical
+              table
+                class= formatDateTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   instrumentId AS 'ID',
+                  -   instrumentType AS 'Type',
+                  -   description AS 'Description',
+                  -   make AS 'Make',
+                  -   model AS 'Model',
+                  -   serialNumber AS 'Serial Number',
+                  -   manufacturer AS 'Manufacturer',
+                  -   name AS 'Name',
+                  -   location AS 'Location',
+                  -   QCType AS 'QC Type',
+                  -   status AS 'Status',
+                  -   ipAddress AS 'IP Address',
+                  -   port AS 'Port',
+                  -   historyStartDate,
+                  -   historyEndDate,
+                  -   historyAction,
+                  -   historyUser,
+                  -   historyId
+                  - FROM instrumentHistory
+                  - WHERE instrumentId = ?
+                  string {_recId}
+
+#######################################################################################################
+    step Edit Instrument
+      jsScripts
+        src js/resources/editInstruments.js
+      form
+        include stepInstructions
+        autocomplete= off
+        vertical
+          div
+            fieldset
+              legend  Instructions
+                class= legend
+              vertical
+                li Enter an Instrument ID or select from the list below.
+        vertical
+          container _recId
+            containerType~ Instrument ID
+            recordContainerHistory~ false
+            new~ false
+            acceptQueue~ any
+            screenLabel~ Instrument ID
+            class= barcode
+            required~ true
+        hr
+        vertical
+          table
+            class= stdTableBasic
+            sqlQuery~ select instrumentId as 'Instrument ID'
+              - , instrumentType as 'Type'
+              - , make as 'Make'
+              - , model as 'Model'
+              - , serialNumber as 'Serial #'
+              - , manufacturer as 'Manufacturer'
+              - , name as 'Name'
+              - , location as 'Location'
+              - , status as 'Status'
+              - from instruments
+              - order by eventId desc
+      form
+        data-parsley-validate=
+        include stepInstructions
+        formPreparedQuery~ select * from instruments where instrumentId = ?
+          string {_recId}
+        hidden Instrument ID
+          value= {_:instrumentId}
+        hidden _recId
+          value= {_recId}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        vertical
+          div
+            fieldset
+              legend  Instructions
+                class= legend
+              vertical
+                li Edit Instrument Details and hit Save.
+                li Click <a href= /uniflow?stepName=Edit+Instrument> HERE</a> to go back to instrument list.
+
+        vertical
+          container num
+            screenLabel~ Instrument ID
+            acceptQueue~ any
+            value= {_recId}
+            readonly=
+            if~ {add}
+              advanced~
+              equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO queues(containerId,step,eventId)
+                - SELECT ?,?,?
+                - WHERE NOT EXISTS(SELECT 1 FROM queues WHERE containerId = ? AND step = ?)
+                string {num}
+                string Assign Tasks to Instrument
+                long {_eventId}
+                string {num}
+                string Assign Tasks to Instrument
+        vertical
+          div
+            class= tabs
+            ul
+              li
+                a Edit Instrument
+                  href= #editInstrument
+              li
+                a Add Contacts
+                  href= #addContacts
+              li
+                a Edit Contacts
+                  href= #editContacts
+              li
+                a Remove Tasks
+                  href= #removeTasks
+              li
+                a Update Tasks
+                  href= #updateTasks
+              li
+                a Alter Task Due Date
+                  href= #updateDueDates
+            div
+              id= editInstrument
+              vertical
+                select Instrument Type
+                  value= {_resultSet:instrumentType}
+                  sqlPreparedQuery~ select value from validValues where setName = 'instrumentType'
+                    - AND value <> ?
+                    string {_resultSet:instrumentType}
+                select Location
+                  title= SETNAME:location
+                  value= {_resultSet:location}
+                  sqlPreparedQuery~
+                    - select storageContainerId
+                    - from storageContainerInfo
+                    - where model = 'Room'
+                  sqlPreparedQuery~ select value from validValues where setName = 'instrumentLocation'
+                  setName~ location
+                  required~ false
+                select QC Type
+                  value= {_resultSet:QCType}
+                  option Critical
+                  option Non-Critical
+                text Make
+                  value= {_resultSet:make}
+                text Model
+                  value= {_resultSet:model}
+                text Serial Number
+                  value= {_resultSet:serialNumber}
+                text Manufacturer
+                  value= {_resultSet:manufacturer}
+                text Name
+                  value= {_resultSet:name}
+                text ipAddress
+                  screenLabel~ IP Address
+                  value= {_resultSet:ipAddress}
+                number networkPort
+                  screenLabel~ Network Port
+                  value= {_resultSet:port}
+                  data-parsley-type= integer
+                file newImg
+                  screenLabel~ Upload New Picture
+                  destinationFolderName~ InstrumentImages
+                  destinationFilePrefix~ 000000000000
+                  required~ false
+              vertical
+                checkbox add
+                  screenLabel~ Add Maintenance or Calibration Tasks to Instrument
+            div
+              id= addContacts
+              vertical
+                table
+                  sqlPreparedQuery~ select '' as 'Name'
+                    - , '' as 'Address'
+                    - , '' as 'City'
+                    - , '' as 'State'
+                    - , '' as 'Zip'
+                    - , '' as 'Office Phone'
+                    - , '' as 'Cell Phone'
+                    - , '' as 'Contact Type'
+                    - , '' as 'Email'
+                    - from numbers
+                    - limit 10
+                  columnSpecs~ instrumentContacts
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                        validate~
+                          - ! SELECT
+                          -   instrumentId,
+                          -   name
+                          - FROM instrumentContacts
+                          - WHERE instrumentId = ?
+                          -   AND (name = ?
+                          -       AND address = ?
+                          -       AND city = ?
+                          -       AND state = ?
+                          -       AND postalCode = ?
+                          -       AND office = ?
+                          -       AND mobile = ?
+                          -       AND contactType = ?
+                          -       AND email = ?)
+                          -   AND ? <> ''
+                          string {num}
+                          string {_columnInput:1}
+                          string {_columnInput:2}
+                          string {_columnInput:3}
+                          string {_columnInput:4}
+                          string {_columnInput:5}
+                          string {_columnInput:6}
+                          string {_columnInput:7}
+                          string {_columnInput:8}
+                          string {_columnInput:9}
+                          string {_columnInput:1}
+                          errorMessage~ This contact has already been added to this Instrument.
+                    column 2
+                      inputType text
+                    column 3
+                      inputType text
+                    column 4
+                      inputType text
+                        size= 4
+                    column 5
+                      inputType text
+                        size= 6
+                    column 6
+                      inputType text
+                        size= 12
+                    column 7
+                      inputType text
+                        size= 12
+                    column 8
+                      inputType text
+                        title= e.g. engineer, salesman, tech...
+                    column 9
+                      inputType text
+            div
+              id= editContacts
+              table
+                id= editContactsTable
+                sqlPreparedQuery~
+                  - SELECT
+                  - '' AS 'Update'
+                  - , name AS 'Name'
+                  - , address AS 'Address'
+                  - , city AS 'City'
+                  - , state AS 'State'
+                  - , postalCode AS 'Zip'
+                  - , office AS 'Office Phone'
+                  - , mobile AS 'Cell Phone'
+                  - , contactType AS 'Contact Type'
+                  - , email AS 'Email'
+                  - , contactId AS "Hidden"
+                  - , '' AS 'Remove'
+                  - from instrumentContacts
+                  - where instrumentId = ?
+                  string {_resultSet:instrumentId}
+                columnSpecs~ editContacts
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                  column 4
+                    inputType text
+                  column 5
+                    inputType text
+                      size= 4
+                  column 6
+                    inputType text
+                      size= 7
+                  column 7
+                    inputType text
+                      size= 12
+                  column 8
+                    inputType text
+                      size= 12
+                  column 9
+                    inputType text
+                  column 10
+                    inputType text
+                  column 11
+                    inputType text
+                      class= hideColumn
+                  column 12
+                    inputType checkbox
+            div
+              id= removeTasks
+              table
+                style= width:auto;
+                sqlPreparedQuery~ select '' as 'Remove'
+                  - , task as 'Task'
+                  - , taskType as 'Type'
+                  - , assignedTo as 'Assigned To'
+                  - , DATE_FORMAT(dueDate, '%m/%d/%Y') as 'Due Date'
+                  - , frequency as 'Frequency'
+                  - from taskManagement
+                  - where containerId = ?
+                  string {_resultSet:instrumentId}
+                columnSpecs~ removeTasks
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      readonly=
+                      size= 40
+                      style= border:none; background:transparent;
+                  column 3
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+
+            div
+              id= updateTasks
+              table
+                style= width:auto;
+                sqlPreparedQuery~ select '' as 'Update'
+                  - , task as 'Task'
+                  - , taskType as 'Type'
+                  - , assignedTo as 'Assigned To'
+                  - , frequency as 'Frequency'
+                  - from taskManagement
+                  - where containerId = ?
+                  string {_resultSet:instrumentId}
+                columnSpecs~ updateTasks
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      style= border:none; background:transparent;
+                      readonly=
+                      size= 40
+                  column 3
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 4
+                    inputType select
+                      sqlPreparedQuery~ select value from validValues where setName = 'instrumentGroups'
+                      sqlPreparedQuery~ select distinct userId from userInfo
+
+                  column 5
+                    inputType select
+                      option Daily
+                      option Weekly
+                      option Monthly
+                      option Quarterly
+                      option Semi-Annually
+                      option Annually
+            div
+              id= updateDueDates
+              table
+                style= width:auto;
+                sqlPreparedQuery~ select '' as 'Alter', task as 'Task', taskType as 'Type', assignedTo as 'Assigned To',
+                  - frequency as 'Frequency', dueDate as 'Due Date'
+                  - from taskManagement
+                  - where containerId = ?
+                  string {_resultSet:instrumentId}
+                columnSpecs~ alterTask
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      style= border:none; background:transparent;
+                      readonly=
+                      size= 40
+                  column 3
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 4
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 5
+                    inputType text
+                      readonly=
+                      style= border:none; background:transparent;
+                  column 6
+                    inputType date
+                      class= date datePicker
+                      convert~ false
+
+      forRows instrumentContacts
+        ifCondition {_columnInput_instrumentContacts:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement INSERT INTO instrumentContacts (
+            - instrumentId
+            - , contactType
+            - , name
+            - , address
+            - , city
+            - , state
+            - , postalCode
+            - , office
+            - , mobile
+            - , email
+            - , eventId)
+            - SELECT ?,?,?,?,?,?,?,?,?,?,?
+            - FROM dual
+            - WHERE (? <> '' OR ? <> '' OR ? <> '')
+            string {num}
+            string {_columnInput_instrumentContacts:8}
+            string {_columnInput_instrumentContacts:1}
+            string {_columnInput_instrumentContacts:2}
+            string {_columnInput_instrumentContacts:3}
+            string {_columnInput_instrumentContacts:4}
+            string {_columnInput_instrumentContacts:5}
+            string {_columnInput_instrumentContacts:6}
+            string {_columnInput_instrumentContacts:7}
+            string {_columnInput_instrumentContacts:9}
+            long {_eventId}
+            string {_columnInput_instrumentContacts:1}
+            string {_columnInput_instrumentContacts:9}
+            string {_columnInput_instrumentContacts:7}
+
+      forRows editContacts
+        ifCondition {_columnInput_editContacts:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update instrumentContacts
+            - set name = ?
+            - , address = ?
+            - , city = ?
+            - , state = ?
+            - , postalCode = ?
+            - , office = ?
+            - , mobile = ?
+            - , contactType = ?
+            - , email = ?
+            - , eventId = ?
+            - where instrumentId = ? and contactId = ?
+            string {_columnInput_editContacts:2}
+            string {_columnInput_editContacts:3}
+            string {_columnInput_editContacts:4}
+            string {_columnInput_editContacts:5}
+            string {_columnInput_editContacts:6}
+            string {_columnInput_editContacts:7}
+            string {_columnInput_editContacts:8}
+            string {_columnInput_editContacts:9}
+            string {_columnInput_editContacts:10}
+            long {_eventId}
+            string {num}
+            string {_columnInput_editContacts:11}
+
+
+        ifCondition {_columnInput_editContacts:12}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - DELETE FROM instrumentContacts
+            - WHERE  instrumentId = ? and contactId = ?
+            string {num}
+            string {_columnInput_editContacts:11}
+
+
+      forRows removeTasks
+        ifCondition {_columnInput_removeTasks:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from taskManagement
+            - where containerId = ?
+            - and task = ? and taskType = ?
+            string {num}
+            string {_columnInput_removeTasks:2}
+            string {_columnInput_removeTasks:3}
+
+      forRows updateTasks
+        ifCondition {_columnInput_updateTasks:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update taskManagement
+            - set assignedTo = ?,
+            - frequency = ?
+            - where containerId = ? and task = ?
+            - and taskType = ?
+            string {_columnInput_updateTasks:4}
+            string {_columnInput_updateTasks:5}
+            string {num}
+            string {_columnInput_updateTasks:2}
+            string {_columnInput_updateTasks:3}
+
+      forRows alterTask
+        ifCondition {_columnInput_alterTask:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update taskManagement
+            - set dueDate = ?
+            - where containerId = ? and task = ?
+            - and taskType = ?
+            string {_columnInput_alterTask:6}
+            string {num}
+            string {_columnInput_alterTask:2}
+            string {_columnInput_alterTask:3}
+
+      sqlPreparedStatement update instruments
+        - set instrumentType = ?,
+        - make = ?,
+        - model = ?,
+        - serialNumber = ?,
+        - manufacturer = ?,
+        - name = ?,
+        - location = ?,
+        - QCType = ?,
+        - ipAddress = ?,
+        - port = IF( ? = '', NULL, CAST(? AS UNSIGNED)),
+        - eventId = ?
+        - where instrumentId = ?
+        - and (instrumentType <> ?
+        - or make <> ?
+        - or  model <> ?
+        - or serialNumber <> ?
+        - or manufacturer <> ?
+        - or name <> ?
+        - or location <> ?
+        - or QCType <> ?
+        - or ipAddress <> ?
+        - or port <> ?)
+        string {Instrument Type}
+        string {Make}
+        string {Model}
+        string {Serial Number}
+        string {Manufacturer}
+        string {Name}
+        string {Location}
+        string {QC Type}
+        string {ipAddress}
+        long {networkPort}
+        long {networkPort}
+        long {_eventId}
+        string {num}
+        string {Instrument Type}
+        string {Make}
+        string {Model}
+        string {Serial Number}
+        string {Manufacturer}
+        string {Name}
+        string {Location}
+        string {QC Type}
+        string {ipAddress}
+        long {networkPort}
+
+      sqlPreparedStatement delete from containerFiles where containerId = ?
+        - and fileType = 'Instrument Image'
+        - and ? <> ''
+        - and ? <> ''
+        string {num}
+        string {num}
+        string {newImg}
+      sqlPreparedStatement insert into containerFiles (containerId, fileType, fileName, location, eventId)
+        - SELECT ?, 'Instrument Image', ?, 'InstrumentImages', ?
+        - FROM dual
+        - WHERE ? <> '' AND ? <> ''
+        string {num}
+        string {newImg}
+        long {_eventId}
+        string {num}
+        string {newImg}
+
+      nextStep Edit Instrument
+        recId {num}
+        formNumber 1
+
+############################################################################################################
+    step Change Instrument Status
+      jsScripts
+        src js/resources/instruments.js
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li ** Warning ** : Select Status with caution,
+              li A <i>Decommissioned</i> instrument is one that will not likely be used again, ALL tasks associated with the instrument will be deleted.
+              li Select <i>In Service</i> to put an instrument back in service.
+              li Select <i>Out of Service</i> if an instrument is down for repairs or not currently in use.
+
+        hr
+        vertical
+          container Instrument ID
+            containerType~ Instrument ID
+            new~ false
+            acceptQueue~ any
+            required~ true
+
+          select Status
+            option
+            option In Service
+            option Out of Service
+            option Decommissioned
+          comments Explanation
+
+      sqlPreparedStatement
+        - UPDATE instruments SET
+        -   status = ?
+        - WHERE instrumentId = ?
+        string {Status}
+        string {Instrument ID}
+      sqlPreparedStatement
+        - UPDATE qualifications SET
+        -   expirationDate = curDate()
+        - WHERE containerId = ?
+        -   AND ? = 'Out of Service'
+        string {Instrument ID}
+        string {Status}
+      sqlPreparedStatement
+        - DELETE FROM taskManagement
+        - WHERE containerId = ?
+        -   AND ? = 'Decommissioned'
+        string {Instrument ID}
+        string {Status}
+
+### YOU CAN ADD FUTURE EVENTS TO THE SYSTEM THAT CAN CHANGE THE EQUIPMENT STATUS TO OUT OF SERVICE AUTOMATICALLY WHEN THINGS ARE PAST DUE
+
+################################################################################################################
+    step Manage Tasks
+      jsScripts
+        src js/resources/instruments.js
+      form
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        vertical
+          div
+            id= accordion
+            h3 Add Task
+            div
+              vertical
+                fieldset
+                  legend Instructions
+                  ul
+                    li ** IF the task is outsourced, be sure to add '- Outsourced' in the task name. **
+                    li Example: Calibration Task 1 - Outsourced
+              vertical
+                text Task Name
+                  size= 50
+                select Task Type
+                  option Calibration Task
+                  option Maintenance Task
+            h3 Remove Calibration Task
+            div
+              vertical
+                span Caution: This will delete the task from <i>ALL</i> instruments it is currently assigned to
+              vertical
+                checkbox delCalib
+                  screenLabel~ Delete the selected tasks
+              vertical
+                select CalibrationTasks
+                  multiple=
+                  size= 7
+                  setName~ Calibration Task
+                  required~ false
+
+            h3 Remove Maintenance Task
+            div
+              vertical
+                span Caution: This will delete the task from <i>ALL</i> instruments it is currently assigned to
+              vertical
+                checkbox delMain
+                  screenLabel~ Delete the selected tasks
+              vertical
+                select MaintenanceTasks
+                  multiple=
+                  size= 7
+                  setName~ Maintenance Task
+                  required~ false
+            h3 Add Calibration Task Properties
+            div
+              vertical
+                li If the user needs to record specific values associated with the calibration task, this is where that can be setup.
+                li The user can edit the units available in the drop-down in the <a href=/uniflow?stepName=Manage+SELECT+Lists> Manage Select Lists </a> task.
+              vertical
+                select calTasks
+                  screenLabel~ Calibration Task List
+                  setName~ Calibration Task
+                  required~ false
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' as 'Property/Recording Value',
+                    -   '' as 'Upper Limit',
+                    -   '' as 'Lower Limit',
+                    -   '' as 'Expected Units'
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ calProps
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                    column 2
+                      inputType text
+                    column 3
+                      inputType text
+                    column 4
+                      inputType select
+                        setName~ taskResultUnits
+                        required~ false
+            h3 Add Maintenance Task Properties
+            div
+              vertical
+                li If the user needs to record specific values associated with the maintenance task, this is where that can be setup.
+                li The user can edit the units available in the drop-down in the <a href=/uniflow?stepName=Manage+SELECT+Lists> Manage Select Lists </a> task.
+              vertical
+                select mainTasks
+                  screenLabel~ Maintenance Task List
+                  setName~ Maintenance Task
+                  required~ false
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' as 'Property/Recording Value',
+                    -   '' as 'Upper Limit',
+                    -   '' as 'Lower Limit',
+                    -   '' as 'Expected Units'
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ mainProps
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                    column 2
+                      inputType text
+                    column 3
+                      inputType text
+                    column 4
+                      inputType select
+                        setName~ taskResultUnits
+                        required~ false
+            h3 Update Task Properties
+            div
+              vertical
+                table
+                  id= taskProperties
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' as 'Update',
+                    -   '' as 'Remove',
+                    -   task,
+                    -   property,
+                    -   upperLimit,
+                    -   lowerLimit,
+                    -   units,
+                    -   id AS "Hidden"
+                    - FROM taskProperties
+                    - ORDER BY task ASC
+                  columnSpecs~ updateProps
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType checkbox
+                    column 3
+                      inputType select
+                        setName~ Calibration Tasks
+                        setName~ Maintenance Tasks
+                        required~ false
+                    column 4
+                      inputType text
+                    column 5
+                      inputType text
+                    column 6
+                      inputType text
+                    column 7
+                      inputType select
+                        setName~ taskResultUnits
+                        required~ false
+                    column 8
+                      inputType text
+                        class= hideColumn
+
+
+
+      forRows calProps
+        ifCondition {_columnInput_calProps:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO taskProperties (task, property, upperLimit, lowerLimit, units, eventId)
+            - SELECT ?, ?, ?, ?, ?, ?
+            - FROM dual
+            string {calTasks}
+            string {_columnInput_calProps:1}
+            string {_columnInput_calProps:2}
+            string {_columnInput_calProps:3}
+            string {_columnInput_calProps:4}
+            long {_eventId}
+
+      forRows mainProps
+        ifCondition {_columnInput_mainProps:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO taskProperties (task, property, upperLimit, lowerLimit, units, eventId)
+            - SELECT ?, ?, ?, ?, ?, ?
+            - FROM dual
+            string {mainTasks}
+            string {_columnInput_mainProps:1}
+            string {_columnInput_mainProps:2}
+            string {_columnInput_mainProps:3}
+            string {_columnInput_mainProps:4}
+            long {_eventId}
+
+      forRows updateProps
+        ifCondition {_columnInput_updateProps:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - UPDATE taskProperties SET
+            -   task = ?,
+            -   property = ?,
+            -   upperLimit = ?,
+            -   lowerLimit = ?,
+            -   units = ?
+            - WHERE id = ?
+            string {_columnInput_updateProps:3}
+            string {_columnInput_updateProps:4}
+            string {_columnInput_updateProps:5}
+            string {_columnInput_updateProps:6}
+            string {_columnInput_updateProps:7}
+            long {_columnInput_updateProps:8}
+        ifCondition {_columnInput_updateProps:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - DELETE FROM taskProperties
+            - WHERE id = ?
+            long {_columnInput_updateProps:8}
+
+      sqlPreparedStatement
+        - INSERT INTO validValues (setName, displayValue, value, displayOrder, eventId)
+        - SELECT ?, ?, ?,'6', ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {Task Type}
+        string {Task Name}
+        string {Task Name}
+        long {_eventId}
+        string {Task Name}
+      forEachSelectedOption CalibrationTasks
+        sqlPreparedStatement
+          - DELETE FROM validValues
+          - WHERE setName = 'Calibration Task'
+          -   AND value = ?
+          -   AND ? = 'true'
+          string {_:CalibrationTasks}
+          string {delCalib}
+        sqlPreparedStatement
+          - DELETE FROM taskManagement
+          - WHERE task = ?
+          -   AND ? = 'true'
+          string {_:CalibrationTasks}
+          string {delCalib}
+      forEachSelectedOption MaintenanceTasks
+        sqlPreparedStatement
+          - DELETE FROM validValues
+          - WHERE setName = 'Maintenance Task'
+          -   AND value = ?
+          -   AND ? = 'true'
+          string {_:MaintenanceTasks}
+          string {delMain}
+        sqlPreparedStatement delete from taskManagement where task = ? and ? = 'true'
+          string {_:MaintenanceTasks}
+          string {delMain}
+
+#######################################################################################################################################
+    step Manage Instrument Service
+      jsScripts
+        src js/resources/instruments.js
+      form
+        include stepInstructions
+        include userAccountInfo
+        vertical
+          div
+            id= accordion
+            h3 Create Service Ticket
+            div
+              vertical
+                span ** Note: The instrument status will be set to <i>Out of Serivce</i> **
+                span The task due dates can be updated in the Edit Instrument step with a manager's password, if needed.
+              vertical
+                container inst
+                  screenLabel~ Instrument ID
+                  containerType~ Instrument ID
+                  acceptQueue~ any
+                  required~ false
+                container ticket
+                  screenLabel~ Service Ticket ID
+                  new~ true
+                  containerType~ Ticket
+                  required~ false
+                  value= ST{_getNextSequence:serviceTicketId}
+                select Contact
+                  option
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   CONCAT(instrumentId, '-', name,', ', office,', ', email, ' -- ', contactId),
+                    -   contactId
+                    - FROM instrumentContacts
+                textArea Explanation
+
+
+            h3 Edit Service Ticket
+            div
+              vertical
+                table
+                  id= service
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' as 'Update',
+                    -   i.instrumentId as 'InstrumentId',
+                    -   i.ticketId,
+                    -   i.description,
+                    -   CONCAT(i.contactId, '-', c.name,', ', c.office,', ', c.email) as 'contact',
+                    -   i.status,
+                    -   i.contactId as "Hidden"
+                    - FROM instrumentService i
+                    -   INNER JOIN instrumentContacts c ON i.contactId = c.contactId
+                    - WHERE (i.status = 'Open' or i.status = 'On Hold')
+                  columnSpecs~ service
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType container
+                        acceptQueue~ any
+                        readonly=
+                        required~ false
+                    column 3
+                      inputType text
+                        readonly=
+                    column 4
+                      inputType textArea
+                    column 5
+                      inputType select
+                        class= contactSelect
+                        sqlPreparedQuery~
+                          - SELECT
+                          -   CONCAT(contactId, '-', name,', ', office,', ', email),
+                          -   contactId
+                          - FROM instrumentContacts
+                    column 6
+                      inputType select
+                        option Open
+                        option On Hold
+                        option Closed
+                    column 7
+                      inputType text
+                        class= hideColumn contactValue
+
+            h3 View Closed Tickets
+            div
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   ins.instrumentId AS "InstId"
+                    -   , ins.ticketId AS "Service Ticket Id"
+                    -   , ins.description AS "Description"
+                    -   , ins.status AS "Status"
+                    -   , concat(ic.name, '</br>', ic.address, '</br>', ic.city, ', ', ic.state, ' ', ic.postalCode, '</br>', ic.office, '</br>', ic.email) AS "Contact"
+                    -   , concat(e.userId, '</br>', e.eventDate) AS "Ticket Creator"
+                    - FROM instrumentService ins
+                    -   INNER JOIN instrumentContacts ic ON ins.contactId = ic.contactId
+                    -   INNER JOIN events e on ins.eventId = e.eventId
+                    - WHERE status = 'Closed'
+
+      forRows service
+        ifCondition {_columnInput_service:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - UPDATE instrumentService SET
+            -   description = ?,
+            -   contactId = ?,
+            -   status = ?
+            - WHERE ticketId = ?
+            string {_columnInput_service:4}
+            string {_columnInput_service:7}
+            string {_columnInput_service:6}
+            string {_columnInput_service:3}
+
+      sqlPreparedStatement
+        - INSERT INTO instrumentService (instrumentId, ticketId, contactId, description, status, eventId)
+        - SELECT
+        -   ?, ?, ?, ?, 'OPEN', ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {inst}
+        string {ticket}
+        string {Contact}
+        string {Explanation}
+        long {_eventId}
+        string {inst}
+
+      sqlPreparedStatement
+        - UPDATE instruments SET
+        -   status = 'Out of Service'
+        - WHERE ? <> ''
+        -   AND instrumentId = ?
+        string {inst}
+        string {inst}
+
+      allowDuplicateRecordIds
+
+################################################################################################################
+    step Manage Instrument Lists
+      jsScripts
+        src js/resources/editInstruments.js
+
+      form
+        include stepInstructions
+        include userAccountInfo
+        vertical
+          div
+            id= accordion
+            h3 Instrument Type
+            div
+              id= instrumentType
+              vertical
+                text type
+                  screenLabel~ Add Instrument Type
+                  validate~
+                    - ! SELECT
+                    -   value
+                    - FROM validValues
+                    - WHERE setName = 'instrumentType' and value = ?
+                    string {type}
+                    errorMessage~ This Instrument Type is already in use.
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   displayValue as 'Registered Instrument Types',
+                    -   '' as 'Remove'
+                    - FROM validValues
+                    - WHERE setName = 'instrumentType'
+                  columnSpecs~ instTypes
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                        readonly=
+                    column 2
+                      inputType checkbox
+            h3 Instrument Locations
+            div
+              id= location
+              vertical
+                text location
+                  screenLabel~ Add Instrument Location
+                  validate~
+                    - ! SELECT
+                    -   value
+                    - FROM validValues
+                    - WHERE setName = 'instrumentLocation' and value = ?
+                    string {location}
+                    errorMessage~ This Instrument Location has already been added.
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   displayValue AS 'Instrument Locations Not Created in Storage',
+                    -   '' as 'Remove'
+                    - FROM validValues
+                    - WHERE setName = 'instrumentLocation'
+                  columnSpecs~ instLocations
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                        readonly=
+                    column 2
+                      inputType checkbox
+                        sqlPreparedStatement
+                          - DELETE FROM validValues
+                          - WHERE setName = 'instrumentLocation'
+                          -   AND value = ?
+                          -   AND ? = 'true'
+                          string {_columnInput:1}
+                          string {_columnInput:2}
+            h3 QC Responsible Groups & Persons
+            div
+              id= groups
+              span Enter a group name or an individual that will be responsible for handling some or all instrument QC tasks (e.g. bleaching, calibrating, etc.)
+              span There can be multiple groups/people responsible for different instrument QC
+              vertical
+                text group
+                  screenLabel~ Add QC Instrument Group/Persons
+                  validate~
+                    - ! SELECT
+                    -   value
+                    - FROM validValues
+                    - WHERE setName = 'instrumentGroups' and value = ?
+                    string {group}
+                    errorMessage~ This Instruments Group or Person has already been added.
+                table
+                  class= stdTableBasic
+                  sqlQuery~
+                    - SELECT
+                    -   displayValue as 'Instruments Groups or People',
+                    -   '' as 'Remove'
+                    - FROM validValues
+                    - WHERE setName = 'instrumentGroups'
+                  columnSpecs~ instGroups
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                        readonly=
+                    column 2
+                      inputType checkbox
+
+      forRows instTypes
+        ifCondition {_columnInput_instTypes:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from validValues where setName = 'instrumentType' and value = ?
+            string {_columnInput_instTypes:1}
+      forRows instLocations
+        ifCondition {_columnInput_instLocations:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from validValues where setName = 'instrumentLocation' and value = ?
+            string {_columnInput_instLocations:1}
+      forRows instGroups
+        ifCondition {_columnInput_instGroups:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from validValues where setName = 'instrumentGroups' and value = ?
+            string {_columnInput_instGroups:1}
+      sqlPreparedStatement insert into validValues (setName, value, displayValue, displayOrder, eventId)
+        - SELECT 'instrumentType', ?, ?, '6', ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {type}
+        string {type}
+        long {_eventId}
+        string {type}
+      sqlPreparedStatement insert into validValues (setName, value, displayValue, displayOrder, eventId)
+        - SELECT 'instrumentLocation', ?, ?, '6', ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {location}
+        string {location}
+        long {_eventId}
+        string {location}
+      sqlPreparedStatement insert into validValues (setName, value, displayValue, displayOrder, eventId)
+        - SELECT 'instrumentGroups', ?, ?, '6', ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {group}
+        string {group}
+        long {_eventId}
+        string {group}
+
+##################################################################################################################
+    step View Instrument Associations
+      jsScripts
+        src js/resources/instruments.js
+
+      form
+        include stepInstructions
+        vertical
+          container Instrument ID
+            acceptQueue~ any
+            containerType~ Instrument ID
+      form
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   id,
+          -   instrumentId,
+          -   instrumentType,
+          -   description,
+          -   make,
+          -   model,
+          -   serialNumber,
+          -   manufacturer,
+          -   name,
+          -   location,
+          -   QCType,
+          -   status,
+          -   eventId,
+          -   ipAddress,
+          -   port
+          - FROM instruments
+          - WHERE instrumentId = ?
+          string {Instrument ID}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          span Shown below are all containers, reagents, consumables, and other instruments
+            - that were submitted together with - {Instrument ID} ({_:instrumentType}).
+
+        h3 Containers
+        vertical
+          table
+            caption CONTAINER ASSOCIATIONS
+            class= formatDateTable stdTable
+            sqlPreparedQuery~
+              - SELECT
+              -   ch.containerId,
+              -   co.containerType,
+              -   e.step,
+              -   e.eventDate,
+              -   e.userId
+              - FROM resourceHistory rh
+              - INNER JOIN containerHistory ch ON rh.eventId = ch.eventId
+              - INNER JOIN containers co ON ch.containerId = co.containerId
+              - INNER JOIN events e ON ch.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Instrument ID}
+
+        h3 Other Resources
+        vertical
+          table
+            caption OTHER INSTRUMENTS
+            class= formatDateTable stdTable
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   i.instrumentType,
+              -   e.step,
+              -   e.eventDate,
+              -   e.userId
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              - INNER JOIN instruments i ON rh2.containerid = i.instrumentId
+              - INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Instrument ID}
+        vertical
+          table
+            caption REAGENTS
+            class= formatDateTable stdTable
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   r.reagentType,
+              -   e.step,
+              -   e.eventDate,
+              -   e.userId
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              - INNER JOIN reagents r ON rh2.containerid = r.reagentId
+              - INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Instrument ID}
+        vertical
+          table
+            caption CONSUMABLES
+            class= formatDateTable stdTable
+
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   c.consumableType,
+              -   e.step,
+              -   e.eventDate,
+              -   e.userId
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              - INNER JOIN consumables c ON rh2.containerid = c.consumableId
+              - INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Instrument ID}
+        vertical
+          table
+            caption CONTROLS
+            class= formatDateTable stdTable
+            sqlPreparedQuery~
+              - SELECT
+              -  rh2.containerId,
+              -  c.controlType,
+              -  e.step,
+              -  e.eventDate,
+              -  e.userId
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              - INNER JOIN controls c ON rh2.containerid = c.controlId
+              - INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Instrument ID}
+
+######################################################################################################################
+    stepGroup Instrument Ajax Steps
+    step Ajax Show Maintenance Tasks Overdue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.containerId AS "InstId",
+          -   i.instrumentType AS "Instrument",
+          -   i.make AS "Make",
+          -   tm.task AS "Task",
+          -   tm.dueDate AS "Due Date",
+          -   tm.frequency AS "Frequency",
+          -   tm.assignedTo AS "Assigned To",
+          -   i.name AS "Name"
+          - FROM taskManagement tm
+          -   LEFT OUTER JOIN instruments i ON tm.containerId = i.instrumentId
+          - WHERE tm.assignedTo IN ('{Group}')
+          -   AND tm.taskType = 'Maintenance'
+          -   AND (tm.dueDate < ?)
+          - ORDER BY tm.dueDate
+          string {Today}
+        columnSpecs~ Ajax_showMaintenanceOverdue
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax Show Maintenance Tasks
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.containerId AS "InstId",
+          -   i.instrumentType AS "Instrument",
+          -   i.make AS "Make",
+          -   tm.task AS "Task",
+          -   tm.dueDate AS "Due Date",
+          -   tm.frequency AS "Frequency",
+          -   tm.assignedTo AS "Assigned To",
+          -   i.status AS "Status",
+          -   i.name AS "Name"
+          - FROM taskManagement tm
+          -   LEFT OUTER JOIN instruments i ON tm.containerId = i.instrumentId
+          - WHERE (tm.dueDate BETWEEN ? AND ?)
+          -   AND tm.assignedTo IN ('{Group}')
+          -   AND tm.taskType = 'Maintenance'
+          - ORDER BY tm.dueDate
+          string {Today}
+          string {Later}
+        columnSpecs~ Ajax_showMaintenanceTasks
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax Show Calibration Tasks Overdue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.containerId AS "InstId",
+          -   i.instrumentType AS "Instrument",
+          -   i.make AS "Make",
+          -   tm.task AS "Task",
+          -   tm.dueDate AS "Due Date",
+          -   tm.frequency AS "Frequency",
+          -   tm.assignedTo AS "Assigned To",
+          -   i.name AS "Name"
+          - FROM taskManagement tm
+          -   LEFT OUTER JOIN instruments i ON tm.containerId = i.instrumentId
+          - WHERE tm.assignedTo IN ('{Group}')
+          -   AND tm.taskType = 'Calibration'
+          -   AND (tm.dueDate < ?)
+          - ORDER BY tm.dueDate
+          string {Today}
+        columnSpecs~ Ajax_showCalibrationOverdue
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax Show Calibration Tasks
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.containerId AS "InstId",
+          -   i.instrumentType AS "Instrument",
+          -   i.make AS "Make",
+          -   tm.task AS "Task",
+          -   tm.dueDate AS "Due Date",
+          -   tm.frequency AS "Frequency",
+          -   tm.assignedTo AS "Assigned To",
+          -   i.status AS "Status",
+          -   i.name AS "Name"
+          - FROM taskManagement tm
+          -   LEFT OUTER JOIN instruments i ON tm.containerId = i.instrumentId
+          - WHERE(tm.dueDate BETWEEN ? AND ?)
+          -   AND tm.assignedTo IN ('{Group}')
+          -   AND tm.taskType = 'Calibration'
+          - ORDER BY tm.dueDate
+          string {Today}
+          string {Later}
+        columnSpecs~ Ajax_showCalibrationTasks
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax Show Instrument Lookup Table
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= lookupTable
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   instrumentId AS "InstrumentId",
+          -   instrumentType AS "Type",
+          -   make AS "Make",
+          -   model AS "Model",
+          -   serialNumber AS "Serial#",
+          -   manufacturer AS "Manufacturer",
+          -   name AS "Name",
+          -   location AS "Location",
+          -   QCType AS "QCType",
+          -   status AS "Status"
+          - FROM instruments
+          - WHERE instrumentType LIKE ?
+          -   AND status <> 'Decommissioned'
+          string {instrument}%
+
+    step Ajax Check Instrument Qualification
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN (select step from qualifications where containerId = ? and qualification = ? and expirationDate >= curDate()) = '*ALL*' THEN '*ALL*'
+          -        WHEN (select step from qualifications where containerId = ? and qualification = ? and expirationDate >= curDate()) = ? THEN ?
+          -        ELSE ?
+          -     END AS "step"
+          - from dual
+          string {containerId}
+          string {qual}
+          string {containerId}
+          string {qual}
+          string {thisStep}
+          string {thisStep}
+          string {containerId}
+
+    step Ajax_showInstrumentsInUse
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_showInstrumentsInUse
+        sqlPreparedQuery~
+          - SELECT
+          -   instrumentId AS "InstrumentId",
+          -   instrumentType AS "Type",
+          -   make AS "Make",
+          -   model AS "Model",
+          -   location AS "Location"
+          - FROM instruments
+          - WHERE status = 'In Service'
+
+    step Ajax_showCalibrationOverdue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_showCalibrationOverdue
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.containerId AS "InstId",
+          -   i.instrumentType AS "Instrument",
+          -   i.make AS "Make",
+          -   tm.task AS "Task",
+          -   tm.dueDate AS "Due Date",
+          -   tm.frequency AS "Frequency",
+          -   tm.assignedTo AS "Assigned To",
+          -   i.status AS "Status",
+          -   i.name AS "Name"
+          - FROM taskManagement tm
+          -   INNER JOIN instruments i ON tm.containerId = i.instrumentId
+          - WHERE (tm.dueDate < DATE_ADD(curDate(), INTERVAL 14 DAY))
+          -   AND tm.taskType = 'Calibration'
+          - ORDER BY tm.dueDate
+        columnSpecs~ Ajax_showCalibrationOverdue
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax_showMaintenanceOverdue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_showMaintenanceOverdue
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.containerId AS "InstId",
+          -   i.instrumentType AS "Instrument",
+          -   i.make AS "Make",
+          -   tm.task AS "Task",
+          -   tm.dueDate AS "Due Date",
+          -   tm.frequency AS "Frequency",
+          -   tm.assignedTo AS "Assigned To",
+          -   i.status AS "Status",
+          -   i.name AS "Name"
+          - FROM taskManagement tm
+          -   INNER JOIN instruments i ON tm.containerId = i.instrumentId
+          - WHERE (tm.dueDate <= DATE_ADD(curDate(), INTERVAL 14 DAY))
+          -   AND tm.taskType = 'Maintenance'
+          - ORDER BY tm.dueDate ASC
+          - LIMIT 100
+        columnSpecs~ Ajax_showMaintenanceOverdue
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax_showInstrumentsOOS
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_showInstrumentsOOS
+        class= stdTable
+        sqlPreparedQuery~
+          - SELECT
+          -   instrumentId AS "InstrumentId",
+          -   instrumentType AS "Type",
+          -   make AS "Make",
+          -   model AS "Model",
+          -   location AS "Location"
+          - FROM instruments
+          - WHERE status = 'Out of Service'
+
+    step Ajax Get Instrument Qualification
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        class= stdTable
+        sqlPreparedQuery~
+          - SELECT
+          -   i.instrumentId AS "containerId",
+          -   i.instrumentType AS "type",
+          -   i.status AS "status",
+          -   IFNULL(q.qualification, 'QUALIFIED') AS "qualification"
+          - FROM instruments i
+          -   LEFT OUTER JOIN qualifications q ON i.instrumentId = q.containerId
+          -   AND q.expirationDate < curDate()
+          - WHERE i.instrumentId = ?
+          - UNION
+          - SELECT '', '', '', ''
+          string {containerId}
+
+
+
+
+
+
+

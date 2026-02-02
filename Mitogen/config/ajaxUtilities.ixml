@@ -1,0 +1,89 @@
+config
+  steps
+    stepGroup ajaxUtilities
+
+    step Ajax Get Next Sequence
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ CALL sp_getNextSequence(?, ?)
+          string {sequence}
+          string {outputVariable}
+
+    step Ajax Is Container
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   'YES' AS "isContainer",
+          -   c.containerId AS "containerId"
+          - FROM containers c
+          - WHERE containerId = ?
+          - UNION
+          - SELECT 'NO', "" AS "containerId"
+          - LIMIT 1
+          string {inputId}
+
+    step Ajax Is On Queue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   'YES' AS "onQueue"
+          - FROM queues
+          - WHERE containerId = ?
+          -   AND step = ?
+          - UNION
+          - SELECT 'NO'
+          - LIMIT 1
+          string {inputId}
+          string {thisStep}
+
+    step ajaxGetLocations
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select location
+        option
+        sqlPreparedQuery~
+          - SELECT os.name, os.siteId
+          - FROM organizationSites os
+          - INNER JOIN organizationSites os2 ON os.parentSiteId = os2.siteId
+          - WHERE  os2.siteId = ?
+          - AND os.organizationType = 'Location'
+          string {departmentSiteId}
+
+    step ajaxGetSpecimensForPanels
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select specimens
+        option
+        sqlPreparedQuery~
+          - SELECT
+          -   rs.specimenId
+          - FROM requestSpecimens rs
+          - INNER JOIN specimenMethods sm
+          -   ON rs.id = sm.requestSpecimensId
+          - WHERE rs.requestId = ?
+          -   AND sm.panelCode IN '{panelCodeList}'
+          string requestId
+
+    step ajaxGetReportPanelsJSON
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT r.panelCode
+          - FROM reportDefinitionPanels r
+          - INNER JOIN reportDefinitionVersion rd
+          -   ON r.reportDefinitionVersionId = rd.Id
+          - WHERE rd.reportDefinitionId = ?
+          string {reportVersion}
+
+    step ajaxContanersAreUnique
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT c.containerId AS "containerId" FROM containers c WHERE containerId IN ({listOfContainers})

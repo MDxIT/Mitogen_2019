@@ -1,0 +1,162 @@
+    step [$$STEP_NAME$$]
+      form
+
+        script
+          src= js/analysis/analysisManualDownload.js
+
+        include analysisTemplateRequired
+          include stepInstructions
+
+          formPreparedQuery~
+            - SELECT
+            -   amv.id AS "methodVerForTest"
+            - FROM analysisMethodVersions amv
+            -   INNER JOIN analysisMethods am
+            -     ON am.id = amv.analysisMethodsId
+            -   WHERE am.analysisStepName = ? AND amv.active = 1
+            string {_step}
+
+          hidden dateFormat
+            id= dateFormat
+            value= {_dateShortFormat}
+
+          hidden nextStep
+            id= nextStep
+            value= [$$NEXT_STEP$$]
+
+          hidden screenLabel
+            id= screenLabel
+            value= [$$Batch_Screen_Label$$]
+
+          hidden methodVerForTest
+            id= methodVerForTest
+            value= {_:methodVerForTest}
+
+          hidden selectedContainer
+            id= selectedContainer
+
+          div
+            id= modal
+
+          table
+            id= processBatch
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Select",
+              -   q.containerId AS "[$$Batch_Screen_Label$$]",
+              -   IFNULL(cp.value, '') AS "[$$Batch_Screen_Label$$] Type",
+              -   IFNULL(vv.displayValue, '') AS "Priority",
+              -   DATE(e.eventDate) AS "Queued Date",
+              -   e.userId AS "Queued By"
+              - FROM queues q
+              -   INNER JOIN contents c
+              -     ON q.containerId = c.containerId
+              -   INNER JOIN events e
+              -     ON e.eventId = q.eventId
+              -   LEFT JOIN containerProperties cp
+              -     ON q.containerId = cp.containerId
+              -     AND cp.property = 'Container Category'
+              -   LEFT JOIN containerProperties cp2
+              -     ON q.containerId = cp2.containerId
+              -     AND cp2.property = 'Container Priority'
+              -   LEFT JOIN validValues vv
+              -     ON cp2.value = vv.value AND vv.setName = 'priority'
+              - WHERE q.step = ?
+              -   AND c.attribute <> 'self'
+              - GROUP BY q.containerId
+              string {_step}
+            columnSpecs~ processBatch
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= downloadBatchCheck
+              column 2
+                inputType container
+                  class= downloadBatchId readonly
+                  recordContainerHistory~ false
+                  readonly=
+
+          button downloadBatch
+            id= downloadBatch
+            value= Download [$$Batch_Screen_Label$$] Data
+
+
+      forRows processBatch
+        ifCondition {_columnInput_processBatch:1}
+          advanced~
+          equals~ true
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_processBatch:2}
+            long {_eventId}
+
+          ## Content history
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - SELECT runId, ?
+            - FROM specimenRuns
+            - WHERE currentParentId = ?
+            long {_eventId}
+            string {_columnInput_processBatch:2}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - SELECT controlRunId, ?
+            - FROM controlRuns
+            - WHERE currentParentId = ?
+            long {_eventId}
+            string {_columnInput_processBatch:2}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - SELECT poolRunId, ?
+            - FROM poolRuns
+            - WHERE currentParentId = ?
+            long {_eventId}
+            string {_columnInput_processBatch:2}
+
+          ## lastUpdatedEventId
+          sqlPreparedStatement
+            - UPDATE specimenRuns
+            -   SET lastUpdatedEventId = ?
+            - WHERE currentParentId = ?
+            long {_eventId}
+            string {_columnInput_processBatch:2}
+
+          sqlPreparedStatement
+            - UPDATE controlRuns
+            -   SET lastUpdatedEventId = ?
+            - WHERE currentParentId = ?
+            long {_eventId}
+            string {_columnInput_processBatch:2}
+
+          sqlPreparedStatement
+            - UPDATE poolRuns
+            -   SET lastUpdatedEventId = ?
+            - WHERE currentParentId = ?
+            long {_eventId}
+            string {_columnInput_processBatch:2}
+
+
+          # OUT CONTAINER ROUTING, APPLIES NEXT STEP DEFAULT
+          include routeContainer
+            parameter~ routingDirection
+              value= OUT
+            parameter~ routingType
+              value= group
+            parameter~ processContainerId
+              value= {_columnInput_processBatch:2}
+            parameter~ result
+              value=
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value= [$$NEXT_STEP$$]
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_step}
+

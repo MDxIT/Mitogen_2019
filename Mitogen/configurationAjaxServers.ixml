@@ -1,0 +1,29 @@
+config
+  steps
+
+    stepGroup Configuration Ajax
+    step Ajax Get setNames
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~
+          - SELECT setName, setName as "setNameValue"
+          - FROM validValuesLinks
+          - WHERE formConfigurablePartsId = ?
+          - ORDER BY setName
+          string {formConfigurablePartsId}
+
+   
+    step Ajax Get subSections 
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~
+          - SELECT DISTINCT subSection
+          - FROM formConfigurableParts
+          - WHERE section = ?
+          string {section}
+
+   

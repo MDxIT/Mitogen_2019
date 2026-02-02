@@ -1,0 +1,113 @@
+config
+  steps
+    stepGroup ASI Data Files
+
+    step Parse ASI File
+      form 
+        vertical 
+          text test
+      jython 
+        import com.uniconnect.uniflow as uniflow
+        import com.uniconnect.uniflow.utilities.XMLParser
+        xmlp = com.uniconnect.uniflow.utilities.XMLParser()
+        f_pth = '{_configPath}/ASI_Output.xml'
+        newNode = uniflow.Node("XMLHead","")
+        with open(f_pth, 'rUb') as infile:
+          xmlContent = infile.read()
+        xmlNodeTree = xmlp.parseString(xmlContent)
+
+#         switchboard.log(xmlNodeTree.toString())
+        newNode.add(xmlNodeTree)
+        switchboard.resultForest.add(newNode)
+        switchboard.log(newNode.toString())
+        responseInstructions = jythonNode.parent.getByTagAndValue('responseInstructions', 'handler1')
+        switchboard.log(responseInstructions.toString())
+        switchboard.executeInstructions(responseInstructions.head);
+      responseInstructions handler1
+        forSubtrees Case
+          jython
+            print 'patientId: {_:PatientID}'
+            print 'firstName: {_:FirstName}'
+            print 'lastName: {_:LastName}'
+            print 'results: {_:Results}'
+            print 'finalResults: {_:FinalResults}'
+          setFormQueryResult
+            sqlQuery~ select '{_:PatientID}' as 'requestId'
+#               - , '{_:Results}' as 
+          sql insert into karyotypeCaseResults (requestId, totalCounts
+            - , totalColonies, totalAnalyzed
+            - , totalKaryotyped, totalScored
+            - , caseResults, caseFinalResults, eventId) values 
+            - ('{_n:PatientID}', '{_n:Statistics.TotalCounts}'
+            - , '{_n:Statistics.TotalColonies}', '{_n:Statistics.TotalAnalyzed}'
+            - , '{_n:Statistics.TotalKaryotyped}', '{_n:Statistics.TotalScored}'
+            - , '{_n:Results}', '{_n:FinalResults}'
+            - , {_eventId} )
+#           forSubtrees Statistics
+#             jython 
+#               print 'totalCounts: {_:TotalCounts}'
+#               print 'totalColonies: {_:TotalColonies}'
+#               print 'totalAnalyzed: {_:TotalAnalyzed}'
+#               print 'totalKaryotyped: {_:TotalKaryotyped}'
+#               print 'totalScored: {_:TotalScored}'
+        forSubtrees Case.Slides.Slide
+          jython 
+            print 'slideLabel: {_:Label}'
+            print 'slideResults: {_:Results}'
+          setFormQueryResult
+            sqlQuery select '{_n:Label}' as 'slideLabel', '{_n:slideResults}' as 'slideResults'
+          forSubtrees Cells.Cell
+            jython
+              print 'cellLabel: {_:Label}'
+              print 'cellResults: {_:Results}'
+              print 'microscopeName: {_:MicroscopeName}'
+            forSubtrees CellImages.CellImage
+              jython
+                print 'cellImage: {_n:FileName} - type: {_n:Type}'
+              sql insert into karyotypeSlideResults (requestId, slideId, slideResults, imageName, eventId) values
+                - ('{_n:requestId}', '{_n:slideLabel}','{_n:slideResults}', '{_n:FileName}', {_eventId})
+
+    step Generate ASI XML
+      form
+        vertical 
+          text test
+      forEach select Id as 'requestId' from requestForms where Id = 'R4950' 
+        setFormQueryResult
+          sqlQuery select rf.Id as 'caseId'
+            - , rs.specimenId as 'specimenId'
+            - , rf.patientId as 'patientId'
+            - from requestForms rf 
+            - inner join requestSpecimens rs on rf.Id = rs.reqId
+            - where Id = '{_:requestId}'
+      jython
+        import com.uniconnect.uniflow as uniflow
+        caseNode = uniflow.Node("Case", "")
+        orderParam = caseNode.add('OrderParameter KitName="DNA/Viral NA LV"
+          + KitVersion="2.0"
+          + TestDefinitionName="Pathogen Universal 1000"
+          + TestDefinitionVersion="3.1"
+          + SampleVolume="1000"
+          + ElutionVolume="50"
+          + OrderName="SL17-0124-00145"
+          + InputPlateFillVolume="0"
+          + InputPlateType="&lt;none&gt;"
+          + OutputPlateType="MP96 Output Plate"
+          + InternalControlType="&lt;none&gt;"
+          + UserId="MDx"', '')
+        nameNode = caseNode.add("Name", "{_n:caseId}")
+        patientIdNode = caseNode.add("PatientID", "{_n:patientId}")
+        specimenIdNode = caseNode.add("Specimen", "{_n:specimenId}")
+        slidesNode = caseNode.add("Slides", "")
+        
+        sqlStmt = "select co.containerId, e.eventDate from contents co join containers c on c.containerId = co.containerId join events e on e.eventId = co.eventId where co.content = '{_:requestId}' and c.containerType = 'slideId'"
+        ps = switchboard.connection.prepareStatement(sqlStmt)
+    #     ps.setString(1, componentId)
+        switchboard.resultSet = ps.executeQuery()
+        while switchboard.resultSet.next():
+          slideId = switchboard.resultSet.getString(1)
+          prepDate = switchboard.resultSet.getString(2)
+          sNode = slidesNode.add("Slide", "")
+          sNode.add('Name', slideId)
+          sNode.add('Label', slideId)
+          sNode.add('PreparationDate', prepDate)
+        print caseNode.toXML()

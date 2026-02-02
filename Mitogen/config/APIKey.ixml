@@ -1,0 +1,44 @@
+config
+  steps
+    step Create API Key
+      accessLevel 12
+      form
+        vertical
+          select userName
+            screenLabel~ Select User
+            sqlQuery~ SELECT userId FROM userInfo WHERE active = 'true'
+      form
+        formQuery~ SELECT DATE_ADD(CURRENT_DATE(), INTERVAL 6 MONTH) AS ExpDate
+        formOutputJython~
+          import com.uniconnect.uniflow.security.APIKeyManager as APIKeyManager
+          newKey = APIKeyManager.getNewKey(45)
+
+        hidden newKeyHide
+          screenLabel~
+          value= {_j:newKey}
+          validate~ ! SELECT 1 FROM userInfo WHERE apiKey = ?
+            string {_thisInput}
+        hidden ExpDateHide
+          screenLabel~
+          value= {_:ExpDate}
+        vertical
+          h2 Warning! Clicking submit will save this new API Key for the user and invalidate any existing one.
+          h2 This is the only time the API Key will be displayed, please securely share it with the user.
+          hr
+          text userName
+            screenLabel~ User
+            value= {userName}
+            readonly=
+          output newKey
+            screenLabel~ New API Key
+            value= {_j:newKey}
+          output ExpDate
+            screenLabel~ Expiration Date
+            value= {_:ExpDate}
+      jython
+        import com.uniconnect.uniflow.security.UserInfo as UserInfo
+
+        user = UserInfo("{userName}", switchboard.connection)
+        user.apiKey = "{newKeyHide}"
+        user.apiKeyExpiration = "{ExpDateHide}"
+        user.saveAPIKey(switchboard.connection)

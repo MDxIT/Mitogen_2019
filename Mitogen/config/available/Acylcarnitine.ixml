@@ -1,0 +1,1529 @@
+config 
+  steps 
+    stepGroup DBS Acylcarnitine
+
+
+    step ACP - DBS Plate Setup 
+      form 
+        include stepInstructions
+        #include resourceTable 
+        script 
+          - $(document).ready(function() {           
+          - $('#applyTraymap').click(function() {
+          -    if ($('#applyTraymap').is(':checked')) {
+          -         var step = 'ACP - DBS Plate Setup';
+          -         var batchSize = $('#maxBatchSize').val(); 
+          -         var plateMap = $('#plateMap').val(); 
+
+          -    // get containers to populate plate 
+          -       $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Batch+List+for+PlateMap&step='+ step + '&batchSize=' + batchSize,{},
+          -  function(data,status) 
+          -   {  
+          -     // get wells in specific order 
+          -      $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Wells+From+PlateMap&plateMap=' + plateMap, {}, 
+          -          function(data1, status) {  
+          -             var count = data.length; 
+          -             for(var i = 0; i<data.length; i++)
+          -             {   
+          -              
+          -                console.log(data[i].container);
+          -                var well = data1[i].well; 
+          -                console.log(data1[i].well);
+          -                  // Name of class will depend on what you name your plate
+          -                 $('.DBSPlate_'+well).val(data[i].container).addClass("addedValue"); 
+          -                 // This adds a span under the td that displays the patient name 
+          -                 $('.DBSPlate_'+well).parent().append('<p></p><span class=appended style=color:black;font-size:0.8em;>'+ data[i].name +'</span>');  
+          -           
+          -              }
+          -  
+          -               });  
+          -           }); 
+          -         } else {
+          -                   $('.addedValue').val(" ").removeClass("addedValue"); $('.appended').remove(); 
+          -                }
+          -      });
+          -   }); 
+        vertical 
+          hidden batchSize 
+            id= maxBatchSize
+            value= 89
+            screenLabel~
+          hidden plateMap 
+            id= plateMap 
+            value= DBSPLATE1
+            screenLabel~ 
+          checkbox applyTraymap
+            id= applyTraymap 
+            span Auto-Populate Plate from Queue  
+            screenLabel~       
+        vertical 
+          container DBS Plate
+            new~ true
+            insertQueue~ ACP - Shake DBS Plate 
+            addContent~
+            style= background-image: url(images/barcodebkg.jpg); 
+        vertical 
+          plate DBSPlate 
+            rows 8
+            cols 12
+            sqlQuery~ select attribute, content from contents 
+              - where containerId = 'DBSPlate'
+            transferContentsInto DBS Plate
+            inputType container
+              acceptQueue~ any 
+              deleteQueue~ {_step}
+              required~ false
+            tabIndexColumnMajor true
+      allowDuplicateContainerIds true 
+
+    step ACP - Shake DBS Plate
+      form 
+        include stepInstructions 
+        include resourceTable
+        vertical 
+          container DBS Plate 
+            deleteQueue~ {_step}
+            insertQueue~ ACP - DBS Plate Transfer 
+            style= background-image: url(images/barcodebkg.jpg); 
+
+    step ACP - DBS Plate Transfer
+      form 
+        include stepInstructions
+        vertical 
+          text _recId
+            screenLabel~ Initial DBS Plate
+            style= background-image: url(images/barcodebkg.jpg); 
+            #validate~ select containerId from queues where step = '{_step}' and containerId = '{_thisInput}'
+      form 
+        include stepInstructions
+        vertical 
+          container initialPlate
+            value= {_recId}
+            screenLabel~ Initial DBS Plate
+            deleteQueue~ {_step}  
+            style= background-image: url(images/barcodebkg.jpg);                     
+          container New DBS Plate 
+            new~ true 
+            insertQueue~ ACP - Evaporate Plate 1
+            addContent~
+            containerType~ DBS Plate 
+            contentType~ DBS Plate 
+            style= background-image: url(images/barcodebkg.jpg); 
+
+        plate DBS Sample Ids 
+          rows 8
+          cols 12
+          sqlQuery~ select attribute, content 
+            - from contents 
+            - where containerId = '{_recId}' and contentType = 'specimenId' 
+          transferContentsInto New DBS Plate
+          inputType container
+            acceptQueue~ any
+            required~ false
+          tabIndexColumnMajor true
+      allowDuplicateContainerIds true    
+
+      sql insert into contents (containerId, attribute, contentType, content, eventId)
+        - values ('{New DBS Plate}', '' , 'plateId', '{initialPlate}', {_eventId})
+      sql insert into containerTransferHistory (containerId, eventId, sourceContainerId, transferMap)
+        - values ('{New DBS Plate}', {_eventId}, '{initialPlate}', 'duplicate')         
+
+    stepGroup Plasma Acylcarnitine
+    step ACP - Plasma Tube Setup
+      form 
+        include stepInstructions
+        include resourceTable
+        vertical 
+          table 
+            sqlQuery~ select IFNULL(q.containerId, 'No Samples Queued') as 'Specimen Id', '' as 'New Tube Id', '20uL' as 'Vol'
+              - from queues q 
+              - where q.step = '{_step}' 
+             # - union
+             # - select 'No Samples Queued' as 'Specimen Id', '' as 'New Tube Id', '' as 'Vol' 
+             # - from queues where (select COUNT(containerId) from queues where step = '{_step}' limit 1) < 1 
+            columnSpecs~ plasmaTubes 
+              allowChangedRecordIds 
+              column 1 
+                inputType container 
+                 # deleteQueue~ {_step}
+                  required~ false 
+                  #insertQueue~ Store 
+                  style= background-image: url(images/barcodebkg.jpg);
+              column 2 
+                inputType container 
+                  new~ true 
+                  containerType~ plasmaTube 
+                  contentType~ plasmaTube 
+                  addContent~ 
+                  required~ false 
+                  insertQueue~ ACP - Centrifuge Plasma Tubes 
+                  style= background-image: url(images/barcodebkg.jpg);
+              column 3 
+                inputType text 
+                  size= 3
+                  required~ false 
+                  readonly=
+                  style= border:none; background:transparent;
+
+      forRows plasmaTubes 
+        ifCondition select 1 from dual where '{_columnInput_plasmaTubes:2}' <> '' 
+          sql insert into contents (containerId, attribute, contentType, content, eventId)
+            - values ('{_columnInput_plasmaTubes:2}', '', 'plasmaTubeId', '{_columnInput_plasmaTubes:1}', {_eventId}) 
+          sql insert into contents (containerId, attribute, contentType, content, eventId)
+            - select '{_columnInput_plasmaTubes:2}', c.attribute, c.contentType, c.content, {_eventId}
+            - from contents c 
+            - where c.containerId = '{_columnInput_plasmaTubes:1}' and c.attribute <> 'self'
+          sql insert into sampleProperties (sampleId, property, value, eventId) 
+            - values ('{_columnInput_plasmaTubes:2}', 'Sample Volume', '20', {_eventId})
+          sql insert into sampleProperties (sampleId, property, value, eventId) 
+            - values ('{_columnInput_plasmaTubes:2}', 'Sample Volume Units', 'uL', {_eventId})  
+          sql insert into containerTransferHistory (containerId, eventId, sourceContainerId, transferMap)          
+            - values( '{_columnInput_plasmaTubes:2}', {_eventId}, '{_columnInput_plasmaTubes:1}', 'duplicate') 
+          sql delete from queues where containerId = '{_columnInput_plasmaTubes:1}' and step = '{_step}'
+          sql insert into queues (containerId, step, eventId) 
+            - values ('{_columnInput_plasmaTubes:1}', 'Store', {_eventId})             
+
+
+    step ACP - Centrifuge Plasma Tubes
+      form 
+        include stepInstructions
+        include resourceTable 
+        vertical 
+          table 
+            sqlQuery~ select IFNULL('', 'No Tubes Queued') as 'TubeId'
+              - from queues q
+              - where q.step = '{_step}'
+            columnSpecs~ centrifugeTubes 
+              allowChangedRecordIds
+              column 1 
+                inputType container 
+                  required~ false 
+                  deleteQueue~ {_step} 
+                  insertQueue~ ACP - Supernatant Plate Setup 
+                  style= background-image: url(images/barcodebkg.jpg);
+
+    step ACP - Supernatant Plate Setup
+      form 
+        include stepInstructions
+        script 
+          - $(document).ready(function() {           
+          - $('#applyTraymap').click(function() {
+          -    if ($('#applyTraymap').is(':checked')) {
+          -         var step = 'ACP - Supernatant Plate Setup';
+          -         var batchSize = $('#maxBatchSize').val(); 
+          -         var plateMap = $('#plateMap').val(); 
+
+          -    // get containers to populate plate 
+          -       $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Batch+List+for+PlateMap&step='+ step + '&batchSize=' + batchSize,{},
+          -  function(data,status) 
+          -   {  
+          -     // get wells in specific order 
+          -      $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Wells+From+PlateMap&plateMap=' + plateMap, {}, 
+          -          function(data1, status) {  
+          -             var count = data.length; 
+          -             for(var i = 0; i<data.length; i++)
+          -             {   
+          -              
+          -                console.log(data[i].container);
+          -                var well = data1[i].well; 
+          -                console.log(data1[i].well);
+          -                  // Name of class will depend on what you name your plate
+          -                 $('.SampleIds_'+well).val(data[i].container).addClass("addedValue"); 
+          -                 // This adds a span under the td that displays the patient name 
+         # -                 $('.SampleIds_'+well).parent().append('<p></p><span class=appended style=color:black;font-size:0.8em;>'+ data[i].name +'</span>');  
+          -           
+          -              }
+          -  
+          -               });  
+          -           }); 
+          -         } else {
+          -                   $('.addedValue').val(" ").removeClass("addedValue"); $('.appended').remove(); 
+          -                }
+          -      });
+          -   });    
+        vertical 
+          hidden batchSize 
+            id= maxBatchSize
+            value= 89
+            screenLabel~
+          hidden plateMap 
+            id= plateMap 
+            value= PlasmaPlate1
+            screenLabel~ 
+          checkbox applyTraymap
+            id= applyTraymap 
+            span Auto-Populate Plate from Queue  
+            screenLabel~                 
+        vertical 
+          container Supernatant Plate
+            new~ true
+            insertQueue~ ACP - Evaporate Plate 1 
+            addContent~
+            style= background-image: url(images/barcodebkg.jpg); 
+        vertical 
+          plate SampleIds 
+            rows 8
+            cols 12
+            sqlQuery~ select attribute, content from contents 
+              - where containerId = 'PlasmaPlate'            
+            transferContentsInto Supernatant Plate
+            inputType container
+              deleteQueue~ {_step}
+              acceptQueue~ any 
+              required~ false
+            tabIndexColumnMajor true
+      allowDuplicateContainerIds true         
+
+    stepGroup Acylcarnitine Profile
+    step ACP - Evaporate Plate 1 
+      form 
+        include stepInstructions
+        include resourceTable 
+        vertical 
+          container Plate Id 
+            style= background-image: url(images/barcodebkg.jpg);
+            deleteQueue~ {_step}
+            insertQueue~ ACP - Incubate Plate 
+
+
+    step ACP - Incubate Plate
+      form 
+        include stepInstructions
+        include resourceTable 
+        vertical 
+          container Plate Id 
+            style= background-image: url(images/barcodebkg.jpg);
+            deleteQueue~ {_step}
+            insertQueue~ ACP - Evaporate Plate 2            
+
+    step ACP - Evaporate Plate 2 
+      form 
+        include stepInstructions
+        include resourceTable 
+        vertical 
+          container Plate Id 
+            style= background-image: url(images/barcodebkg.jpg);
+            deleteQueue~ {_step}
+            insertQueue~ ACP - Reconstitute Plate            
+
+    step ACP - Reconstitute Plate
+      form 
+        include stepInstructions
+        include resourceTable 
+        vertical 
+          container Plate Id 
+            style= background-image: url(images/barcodebkg.jpg);
+            deleteQueue~ {_step}
+            insertQueue~ ACP - Cover and Inject           
+
+    step ACP - Cover and Inject
+      form 
+        include stepInstructions
+        vertical 
+          container Plate Id 
+            style= background-image: url(images/barcodebkg.jpg);
+            #deleteQueue~ {_step}
+            acceptQueue~ any 
+            #insertQueue~ ACP - Upload MS Result File 
+      sql insert into queues (containerId, step, eventId) 
+        - select content, 'ACP - Upload MS Result File', {_eventId}
+        - from contents 
+        - where containerId = '{Plate Id}' and contentType IN ('specimenId', 'plasmaTube')  
+
+    step ACP - Upload MS Result File
+      form 
+        include stepInstructions
+        vertical 
+          files MS Result File 
+            destinationFolderName~ ../private/LCMS/{_eventId}
+            required~ false
+            data-parsley-required= false
+            #multiple=
+            #maxlength= 10
+            accept= xlsx
+            containerId~ {_eventId}        
+        hr 
+        vertical 
+          table 
+            caption Upload Corresponding Sample Images           
+            sqlQuery~ select q.containerId as 'Sample', '' as 'MS Image File'  
+              - from queues q 
+              - where step = '{_step}'
+            columnSpecs~ sampleImages
+              allowChangedRecordIds
+              column 1 
+                inputType text 
+                  readonly=
+                  style= background:transparent; border:none; 
+              column 2 
+                inputType file 
+                  required~ false
+                  destinationFolderName~ ../private/LCMS/images/{_eventId}
+                  destinationFilePrefix~ {_columnInput:1}-{_getNextSequence:imageId}-0000000000000                    
+                  sql insert into containerFiles (containerId, fileType, fileName, location, eventId)
+                    + SELECT '{_columnInput:1}'
+                    - , 'LCMSImage', '{_columnInput:2}'
+                    #- , CONCAT('private/LCMS/images/',{_eventId})
+                    - , CONCAT('images/LCMS/',{_eventId})                    
+                    - , {_eventId}
+                    + FROM dual
+                    + WHERE '{_columnInput:2}' <> '' 
+                 
+      exec ./readxl.py -wb {_configPath}private/LCMS/{_eventId} -e {_eventId}
+        execDirectory /usr/local/bin  
+      jython
+        import java.io.File
+        import java.lang.String
+        srcPath="{_configPath}private/LCMS/{_eventId}" 
+        dirList = java.io.File(srcPath).list()
+        for file in dirList: 
+          if file.endswith('.csv'):
+            f_con = open(srcPath + '/' + file).read()
+            lines = f_con.split('\n')
+            for line in lines:
+              if len(line) >= 50:
+                fields = line.split(',')
+                if fields[0] != 'Batch Data Path':
+                  batchPath = fields[0]
+                  operator = fields[1]
+                  sampleName = fields[2]
+                  position = fields[3]
+                  dataFile = fields[4]
+                  acqTime = fields[5]
+                  acqMethod = fields[6]
+                  ageBracket = fields[7]
+                  compound = fields[8]
+                  result = fields[9]
+                  units = fields[10]
+                  response = fields[11]
+                  istd = fields[12]
+                  istdResponse = fields[13]
+                  lcmsRange = fields[14]
+                  normalRange = fields[15]
+                  flag = fields[16]
+                  ps = switchboard.connection.prepareStatement("insert into rawLCMSData (batchPath, operator, sampleName, position, dataFile, acqTime, acqMethod, ageBracket, compound, result, units, response, istd, istdResponse, lcmsRange, normalRange, flag, eventId) value (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                  ps.setString(1, batchPath)
+                  ps.setString(2, operator)
+                  ps.setString(3, sampleName)
+                  ps.setString(4, position)
+                  ps.setString(5, dataFile)
+                  ps.setString(6, acqTime)
+                  ps.setString(7, acqMethod)
+                  ps.setString(8, ageBracket)
+                  ps.setString(9, compound)
+                  ps.setString(10, result)
+                  ps.setString(11, units)
+                  ps.setString(12, response)
+                  ps.setString(13, istd)
+                  ps.setString(14, istdResponse)
+                  ps.setString(15, lcmsRange)
+                  ps.setString(16, normalRange)
+                  ps.setString(17, flag)
+                  ps.setLong(18, switchboard.eventId)
+                  ps.executeUpdate()
+
+      sql insert into queues (containerId, step, eventId) 
+        - select DISTINCT r.sampleName, 'ACP - Analyze Samples', {_eventId}
+        - from rawLCMSData r
+        - inner join containers c on r.sampleName = c.containerId 
+        - where r.eventId = {_eventId}
+      sql delete from queues where containerId IN (select DISTINCT sampleName from rawLCMSData where eventId = {_eventId})
+        - and step = '{_step}'                
+
+    step ACP - Analyze Samples  
+      queueSelectRecId          
+      form 
+        include stepInstructions
+        vertical 
+          text _recId 
+            screenLabel~ Sample 
+        hr 
+        vertical  
+
+          table 
+            sqlQuery~ select q.containerId as 'SampleId'
+              - , CASE WHEN 
+              -     (select COUNT(r.result) 
+              -       from rawLCMSData r 
+              -       where sampleName = q.containerId) > 1 
+              -       THEN '<font style= color:blue>RESULTS READY</font>' ELSE 'WAITING FOR RESULTS' END as 'Status'
+              - , e.eventDate
+              - , e.userId 
+              - from queues q 
+              - inner join events e on q.eventId = e.eventId 
+              - where q.step = '{_step}' 
+      form 
+        include stepInstructions
+        formQuery~ select DISTINCT batchPath
+          - , operator
+          - , sampleName 
+          - , position 
+          - , dataFile 
+          - , acqTime 
+          - , acqMethod
+          - , ageBracket
+          - from rawLCMSData
+          - where sampleName = '{_recId}'
+        formQuery~ select CONCAT(location, '/', fileName) as 'filePath'
+          - from containerFiles where containerId = '{_recId}' and fileType = 'LCMSImage' 
+          - union select 'images/LCMS/73576/SP12002-5-0000000073576.png' as 'filePath'
+          - from dual limit 1
+
+        vertical2 
+          container sampleId 
+            value= {_recId}
+            screenLabel~ Sample Name 
+            deleteQueue~ {_step}
+            readonly= 
+          select Pass/Fail 
+            option Pass 
+            option Fail 
+            option Retest
+            required~ true 
+            class= required 
+
+          text Batch Data Path 
+            size= 70 
+            value= {_:batchPath}
+            style= border:none; 
+            readonly=
+          text Operator 
+            value= {_:operator}
+            style= border:none;
+            readonly=
+          text Position 
+            value= {_:position}
+            style= border:none;
+            readonly=
+          text Data File 
+            value= {_:dataFile}
+            style= border:none;
+            readonly=
+          text Acq Time 
+            value= {_:acqTime}
+            style= border:none;
+            readonly=
+          text Acq Method 
+            value= {_:acqMethod}
+            style= border:none;
+            readonly=
+          text Age bracket  
+            value= {_:ageBracket} 
+            style= border:none; 
+            readonly=    
+        vertical 
+          img 
+            src= !!! {_:filePath}
+          #table 
+          #  sqlQuery~ select CONCAT('<a href= ', '{_configPath}', '{_:filePath}', '>', 'SAMPLE IMAGE', '</a>') as 'View Image File'
+          #    - from dual 
+        vertical 
+          table 
+            sqlQuery~ select 
+              -  compound as 'Compound'
+              - , CONCAT(ROUND(result,2), ' ' , units) as 'Result'
+              - , response as 'Response'
+              - , istd as 'ISTD'
+              - , istdResponse as 'ISTD Response'
+              - , lcmsRange as 'Range'
+              #- , normalRange as 'Normal Range'
+              - , CASE WHEN (flag = 'high' or flag = 'low') THEN CONCAT('<font style= color:red>', flag, '</font>') ELSE flag END  as 'Flag' 
+              - from rawLCMSData where sampleName = '{_recId}' 
+              - and response <> '' 
+          table 
+            sqlQuery~ select 
+              -  compound as 'Compound'
+              - , CONCAT(result, units) as 'Result'
+              - , normalRange as 'Normal Range'
+              - , flag as 'Flag' 
+              - from rawLCMSData where sampleName = '{_recId}' 
+              - and response = ''   
+          comments Comments       
+
+
+        sql insert into acpMSBatchDetails (batchPath,operator,position,acqTime,sampleId,dataFile,acqMethod,ageBracket, analysisResult, eventId)
+          - values ('{Batch Data Path}', '{Operator}', '{Position}', '{Acq Time}' , '{sampleId}', '{Data File}', '{Acq Method}', '{Age Bracket}', '{Pass/Fail}', {_eventId})
+        sql insert into acpMSResults (sampleId, compound, result, response, istd, istdResponse, lcmsRange, normalRange, flag, eventId) 
+          - SELECT '{sampleId}', compound, result, response, istd, istdResponse, lcmsRange, normalRange, flag, eventId 
+          - FROM rawLCMSData
+          - WHERE sampleName = '{sampleId}' 
+      #  sql delete from rawLCMSData where sampleName = '{sampleId}'
+      ifCondition select 1 from dual where '{Pass/Fail}' = 'Pass'
+        sql update requestSpecimens set status = 'Ready for Reporting'    
+          - where specimenId = (select c.containerId 
+          - from containers c 
+          - inner join contents co on co.containerId = c.containerId and co.attribute = 'self' and co.contentType = 'specimenId' 
+          - where co.content = '{sampleId}' )  
+
+ 
+      ifCondition select 1 from dual where '{Pass/Fail}' = 'Fail'
+        sql insert into queues (containerId, step, eventId) 
+          - select rs.reqId, 'Contact Customer', {_eventId}
+          - from contents co    
+          - inner join requestSpecimens rs on co.containerId = rs.specimenId
+          - where co.content = '{sampleId}'   
+        sql update requestSpecimens set status = 'Failed at Analysis'    
+          - where specimenId = (select c.containerId 
+          - from containers c 
+          - inner join contents co on co.containerId = c.containerId and co.attribute = 'self' and co.contentType = 'specimenId' 
+          - where co.content = '{sampleId}' )                  
+
+      ifCondition select 1 from dual where '{Pass/Fail}' = 'Retest'   
+        sql insert into queues (containerId, step ,eventId)
+          - select co.containerId, 'Process Specimens', {_eventId}
+          - from contents co    
+          - inner join requestSpecimens rs on co.containerId = rs.specimenId
+          - where co.content = '{sampleId}'
+        sql update requestSpecimens set status = 'Retesting'    
+          - where specimenId = (select c.containerId 
+          - from containers c 
+          - inner join contents co on co.containerId = c.containerId and co.attribute = 'self' and co.contentType = 'specimenId' 
+          - where co.content = '{sampleId}' )             
+
+
+    stepGroup Acylcarnitine Controls
+    step ACP - QCH (Level 2)
+      form 
+        include stepInstructions 
+        vertical 
+          container QCH 
+            new~ true 
+            containerType~ control 
+            contentType~ control
+            addContent~ 
+            required~ true 
+            style= background-image: url(images/barcodebkg.jpg);  
+          text Lot Number          
+          date Expiration Date 
+            class= datePicker 
+        hr 
+        vertical 
+          resource Pooled Normal Human Plasma
+            acceptQueue~ any  
+            style= background-image: url(images/barcodebkg.jpg);                     
+          resource C2 Stock
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);             
+          resource C3 Stock
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);                     
+          resource C4 Stock 
+            acceptQueue~ any   
+            style= background-image: url(images/barcodebkg.jpg);                   
+          resource C5 Stock 
+            acceptQueue~ any  
+            style= background-image: url(images/barcodebkg.jpg);                    
+          resource C8 Stock 
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);                     
+          resource C10 Stock
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);                      
+          resource C16 Stock 
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);    
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'Pooled Normal Human Plasma', '{Pooled Normal Human Plasma}', {_eventId}
+        - FROM dual where '{Pooled Normal Human Plasma}' <> '' 
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C2 Stock', '{C2 Stock}', {_eventId}
+        - FROM dual where '{C2 Stock}' <> ''   
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C3 Stock', '{C3 Stock}', {_eventId}
+        - FROM dual where '{C3 Stock}' <> '' 
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C4 Stock', '{C4 Stock}', {_eventId}
+        - FROM dual where '{C4 Stock}' <> '' 
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C5 Stock', '{C5 Stock}', {_eventId}
+        - FROM dual where '{C5 Stock}' <> ''  
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C8 Stock', '{C8 Stock}', {_eventId}
+        - FROM dual where '{C8 Stock}' <> ''  
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C10 Stock', '{C10 Stock}', {_eventId}
+        - FROM dual where '{C10 Stock}' <> ''
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCH}', '', 'C16 Stock', '{C16 Stock}', {_eventId}
+        - FROM dual where '{C16 Stock}' <> ''                   
+                              
+      sql insert into controls (controlId, controlType, quantity, unitOfMeasure, 
+        + lotNumber, vendor, receivedDate, expirationDate, qcType, qcStatus, status, eventId)
+        + SELECT '{QCH}', 'QCH', '0.00', 'uL', 
+        + '{Lot Number}', 'MtSinai', curDate(), '{Expiration Date}', 'Critical', 
+        + 'Pending QC', 'Pending QC', {_eventId}
+        + FROM dual
+      sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        + SELECT '{QCH}', 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 90 DAY), {_eventId}
+        + FROM dual
+      
+      sql update containers set expirationDate = '{Expiration Date}' where containerId = '{QCH}'
+
+    step ACP - QCL (Level 1) 
+      form 
+        include stepInstructions 
+        vertical 
+          container QCL
+            new~ true 
+            required~ true 
+            containerType~ control 
+            contentType~ control
+            addContent~  
+            style= background-image: url(images/barcodebkg.jpg);  
+          text Lot Number    
+          date Expiration Date 
+            class= datePicker        
+        hr
+        vertical 
+          resource Pooled Normal Human Plasma
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);              
+          resource QCH 
+            acceptQueue~ any 
+            style= background-image: url(images/barcodebkg.jpg);  
+
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCL}', '', 'Pooled Normal Human Plasma', '{Pooled Normal Human Plasma}', {_eventId}
+        - FROM dual where '{Pooled Normal Human Plasma}' <> '' 
+      sql insert into contents (containerId, attribute, content, contentType, eventId) 
+        - SELECT '{QCL}', '', 'QCH', '{QCH}', {_eventId}
+        - FROM dual where '{QCH}' <> ''   
+                 
+                              
+      sql insert into controls (controlId, controlType, quantity, unitOfMeasure, 
+        + lotNumber, vendor, receivedDate, expirationDate, qcType, qcStatus, status, eventId)
+        + SELECT '{QCL}', 'QCL', '0.00', 'uL', 
+        + '{Lot Number}', 'MtSinai', curDate(), '{Expiration Date}', 'Critical', 
+        + 'Pending QC', 'Pending QC', {_eventId}
+        + FROM dual
+      sql insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+        + SELECT '{QCL}', 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 90 DAY), {_eventId}
+        + FROM dual
+      
+      sql update containers set expirationDate = '{Expiration Date}' where containerId = '{QCL}'
+
+
+    step ACP - Record Control Results 
+      form 
+        include stepInstructions
+        script 
+          - $(document).ready(function() {
+          -     $('#tabs').tabs(); 
+          -  })   
+        formQuery~ select DATE_FORMAT(curDate(), '%m/%d/%Y') as 'today'       
+        vertical 
+          text Assay Name 
+            value= Acylcarnitine
+            readonly=
+          text QCL Lot Number
+          text QCH Lot Number  
+          select Instrument 
+            sqlQuery~ select DISTINCT name from instruments where instrumentType = 'Analyzer'
+          date Run Date 
+            value= {_:today}
+            class= datePicker
+          div 
+            id= tabs 
+            ul
+              li 
+                a Manual    
+                  href= #manual
+              li 
+                a File  
+                  href= #file    
+            div 
+              id= manual  
+              div 
+                div 
+                  style= float:left;        
+                  vertical  
+                    text c2QCL 
+                      screenLabel~ C2 QCL Result 
+                      placeholder= 00.00
+                    text c3QCL 
+                      screenLabel~ C3 QCL Result 
+                      placeholder= 00.00
+                    text c4QCL 
+                      screenLabel~ C4 QCL Result
+                      placeholder= 00.00
+                    text c5QCL 
+                      screenLabel~ C5 QCL Result 
+                      placeholder= 00.00
+                    text c8QCL 
+                      screenLabel~ C8 QCL Result 
+                      placeholder= 00.00
+                    text c10QCL 
+                      screenLabel~ C10 QCL Result 
+                      placeholder= 00.00
+                    text c16QCL 
+                      screenLabel~ C16 QCL Result 
+                      placeholder= 00.00
+                div 
+                  style= float:left;        
+                  vertical  
+                    text c2QCH 
+                      screenLabel~ C2 QCH Result 
+                      placeholder= 00.00
+                    text c3QCH 
+                      screenLabel~ C3 QCH Result 
+                      placeholder= 00.00
+                    text c4QCH 
+                      screenLabel~ C4 QCH Result
+                      placeholder= 00.00
+                    text c5QCH 
+                      screenLabel~ C5 QCH Result 
+                      placeholder= 00.00
+                    text c8QCH 
+                      screenLabel~ C8 QCH Result 
+                      placeholder= 00.00
+                    text c10QCH 
+                      screenLabel~ C10 QCH Result 
+                      placeholder= 00.00
+                    text c16QCH 
+                      screenLabel~ C16 QCH Result  
+                      placeholder= 00.00                     
+
+
+            div 
+              id= file   
+              vertical 
+                h4 CSV Result File Upload      
+                span ** File should have a header in row 1
+                span ** Column 1 = Control (e.g. C2) | Column 2 = Result 
+              hr
+              vertical                                       
+                databaseImportFile controlResults
+                  screenLabel~ QCL C2 - C16 Control Result File
+                  required~ false
+                  destinationFolderName~ ../private/qcResults
+                  destinationFilePrefix~ {QCL Lot Number}_0000000
+                  skipRowCount~ 1
+                  delimiter~ ,
+                  sqlInsert~ insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, lowerLimit, upperLimit, eventId)  
+                    - SELECT TRIM(BOTH '"' FROM '{_vector:1}'), 'QCL','{QCL Lot Number}','{Instrument}', TRIM(BOTH '"' FROM '{_vector:2}'), '{QCL Lot Number}',
+                    - '{Run Date}', IFNULL(cl.lowerLimit, ''), IFNULL(cl.upperLimit, ''), {_eventId}
+                    - FROM controlLimits cl 
+                    - WHERE cl.assayName = TRIM(BOTH '"' FROM '{_vector:1}') and cl.controlType = 'QCL'
+              vertical                                       
+                databaseImportFile controlResults
+                  screenLabel~ QCH C2 - C16 Control Result File
+                  required~ false
+                  destinationFolderName~ ../private/qcResults
+                  destinationFilePrefix~ {QCH Lot Number}_0000000
+                  skipRowCount~ 1
+                  delimiter~ ,
+                  sqlInsert~ insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, lowerLimit, upperLimit, eventId)  
+                    - SELECT TRIM(BOTH '"' FROM '{_vector:1}'), 'QCH', '{QCH Lot Number}','{Instrument}', TRIM(BOTH '"' FROM '{_vector:2}'), '{QCH Lot Number}',
+                    - '{Run Date}', IFNULL(cl.lowerLimit, ''), IFNULL(cl.upperLimit, ''), {_eventId}
+                    - FROM controlLimits cl 
+                    - WHERE cl.assayName = TRIM(BOTH '"' FROM '{_vector:1}') and cl.controlType = 'QCH'   
+
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C2', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c2QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C2'  
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C3', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c3QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C3'  
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C4', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c4QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C4'  
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C5', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c5QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C5'  
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C8', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c8QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C8'  
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C10', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c10QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C10'  
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C16', 'QCL', '{QCL Lot Number}', '{Instrument}', '{c16QCL}', '{QCL Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCL' and cl.assayName = 'C16'  
+
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target,lowerLimit, upperLimit, eventId) 
+        - select 'C2', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c2QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C2'   
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C3', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c3QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C3'   
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C4', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c4QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C4'   
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C5', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c5QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C5'   
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C8', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c8QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C8'   
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C10', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c10QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C10'   
+      sql insert into controlResults (assayName, controlType, batchId, instrumentId, result, lotNumber, runDate, target, lowerLimit, upperLimit, eventId) 
+        - select 'C16', 'QCH', '{QCH Lot Number}', '{Instrument}', '{c16QCH}', '{QCH Lot Number}', '{Run Date}', cl.target, cl.lowerLimit, cl.upperLimit, {_eventId}
+        - from controlLimits cl 
+        - where cl.controlType = 'QCH' and cl.assayName = 'C16'                                                                                                                      
+
+    step ACP - Levey Jennings 
+      form 
+        include stepInstructions   
+        include highcharts 
+        script
+          - $(document).ready(function() {
+          -   $('.button').addClass("leveyButton hidePrint");
+          - });
+          #- instrumentId = $('#instrumentId').val()
+          -  function getMeanStdDev(div, compound, startDate, endDate, instrument, controlType) {
+         # -    compound = compound.replace(' ', '_');
+          -    console.log(' ========================================================== ')
+          -    console.log(compound)
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Metabolite+Results+For+Standard+Deviation&metabolite='+compound+'&startDate='+startDate+'&endDate='+endDate+'&instrument='+instrument+'&controlType='+controlType,{},
+          -    function(data1,status)
+          -    {
+          -    console.log(' ================ Calculations ============================ ')
+          -    console.log("Compound:" + compound)
+          -    var deviation = new Array();
+          -    var compounds = [];
+          -
+          -    var sum = 0;
+          -    var mean = 0;
+          -    var stddevn = 0;
+          -    var cv = 0;
+          -    var lowDev = 0;
+          -    var highDev = 0;
+          -
+          -    var setLow = 0;
+          -    var setHigh = 0;
+          -    var setMean = 0;
+          -
+          -    var len = data1.length;
+          -    for (var i=0; i<len; i++) {
+          -
+          -      // Put plain analyte names in array 1
+          -      if(data1[i].assayName == (compound))
+          -         {
+          -            compounds.push(parseFloat(data1[i].result));
+          -            sum = sum + (parseFloat(data1[i].result) * 1); }  // ensure number
+          -
+          -    }
+          -    console.log("Compound Array:" + compounds); 
+          -    var len1 = compounds.length; 
+          -    var mean = (sum/len1).toFixed(4);  
+          -
+          -    for (i=0; i<len1; i++) {
+          -      var tempDev = 0;
+          -      tempDev = (parseFloat(compounds[i]) - mean);
+          -      tempDev = (tempDev * tempDev);
+          -      console.log("tempDev:" + tempDev);
+          -       var devnsum = 0; devnsum = devnsum + tempDev;
+          -    }
+          -
+          -    console.log("DevnSum:" + devnsum); 
+          -    stddevn = Math.sqrt(devnsum/(len1-1)).toFixed(4);
+          -    cv = ((stddevn/mean) * 100).toFixed(4);
+          -    lowDev = parseFloat(mean - stddevn).toFixed(2);
+          -    highDev = (parseFloat(mean)+parseFloat(stddevn)).toFixed(2);
+          -    console.log(mean + ", " + stddevn + ", " + cv + ", " + lowDev + ", " + highDev);
+          -
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Metabolite+Limits&metabolite='+compound+'&controlType='+controlType,{},
+          -    function(data2,status)
+          -    {
+          -
+          -        setMean = data2[0].target;  setLow = data2[0].lowerLimit; setHigh = data2[0].upperLimit;
+          -        var setStdDev = parseFloat(setHigh - setMean).toFixed(2); var setCV = ((setStdDev/setMean) * 100).toFixed(2);
+          -
+          -        $('#' + div + 'StatList').append("<div style=float:left;margin-left:15px;margin-right:5px;margin-top:10px;>"
+          -         + "<span style=color:#000000;><b><u>"+controlType+" Current Target Stats</u></b></span></br>"
+          -         + "<span style=color:#000000;> Mean: " + setMean + "</span></br>"
+          -         + "<span style=color:#000000;> STDev: " + setStdDev + "</span></br>"
+          -         + "<span style=color:#000000;> CV: " + setCV + "</span></br>"
+          -         + "<span style=color:#000000;> Lower: " + setLow + "</span></br>"
+          -         + "<span style=color:#000000;> Upper: " + setHigh + "</span></br></br>"
+          -         + "<span style=color:#000000;><b><u>"+controlType+" Running Stats</br>From "+startDate+" To "+endDate+"</u></b></span></br>"
+          -         + "<span style=color:#000000;> Running Mean: " + mean + "</span></br>"
+          -         + "<span style=color:#000000;> STDev: " + stddevn + "</span></br>"
+          -         + "<span style=color:#000000;> CV: " + cv + "</span></br>"
+          -         + "<span style=color:#000000;> Lower: " + lowDev + "</span></br>"
+          -         + "<span style=color:#000000;> Upper: " + highDev + "</span></br></div>");
+          -
+          #-         alert(lowDev + ' ' + highDev);
+          #-       $('#'+ div + '-High1').val(highDev1); $('#' + div + '-Low1').val(lowDev1);
+          #-       $('#'+ div + '-High2').val(highDev2); $('#' + div + '-Low2').val(lowDev2);
+          -
+          -          drawJQueryLineChart(div, compound, '', $('#startDate').val(), $('#endDate').val(), setHigh, setLow, setMean, setStdDev, controlType);
+          -   });
+          -  });
+          - }
+          - function drawJQueryLineChart (div, compound, step, startDate, endDate, h1, l1, mean, stddev, controlType) {
+          -
+          -  var levyChart;
+          -  var optionsChart;
+          -  var chartDiv = div + 'Chart';
+          -
+          -   optionsChart = jQuery.extend(true,{}, linechartOptions);
+          -   optionsChart.chart.renderTo= chartDiv;
+          -   optionsChart.chart.width= 700;
+          -   optionsChart.chart.height= 450;
+          -   optionsChart.title.text= compound + ' Levey Jennings';
+          -   optionsChart.yAxis.title.text= 'count';
+          -   optionsChart.xAxis.title.text= 'Date of Run';
+          -   optionsChart.xAxis.labels.rotation= -45;
+          -   optionsChart.tooltip.valueSuffix= '';
+
+          -
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Load+Metabolite+Levey+Jennings&metabolite='+compound+'&controlType='+controlType+'&startDate='+startDate+'&endDate='+endDate+'&instrument='+$('#instrument').val(),{},
+          -    function(data,status)
+          -    {
+          -        console.log("made it"); 
+          -       var topCount=1.0;
+          -       optionsChart.series[0]=[];
+          -       optionsChart.series[0].data=[];
+          -       optionsChart.series[0].type= 'line';
+          #-       optionsChart.series[1]=[];
+          #-       optionsChart.series[1].data=[];
+          #-       optionsChart.series[1].color= '#FF0000';
+          -       optionsChart.yAxis.plotBands[0] = [];      
+          -       optionsChart.yAxis.plotBands[1] = [];
+          -
+          -       var Upper1=0; Upper1 = h1;
+          -       var Lower1=0; Lower1 = l1;     
+          -       var meanLow= parseFloat(mean - (stddev * 0.025));
+          -       var meanHigh= parseFloat(mean + (stddev * 0.025));                
+          -
+          -    optionsChart.yAxis.plotBands[0].zIndex= '1';
+          -    optionsChart.yAxis.plotBands[0].color= '#E7FEE7';
+          -    optionsChart.yAxis.plotBands[0].from= Lower1;
+          -    optionsChart.yAxis.plotBands[0].to= Upper1;  
+          -    optionsChart.yAxis.plotBands[0].borderWidth= 1;
+          -    optionsChart.yAxis.plotBands[0].borderColor= '#aaaaaa';   
+          -
+          -    optionsChart.yAxis.plotBands[1].zIndex= '3';
+          -    optionsChart.yAxis.plotBands[1].color= '#ff0000';
+          -    optionsChart.yAxis.plotBands[1].from= meanLow;
+          -    optionsChart.yAxis.plotBands[1].to= meanHigh;  
+          -
+          -
+          -       console.log(compound)
+          -       optionsChart.series[0].name= compound + " " + controlType;
+          #-       optionsChart.series[1].name= 'Target Mean';
+          -
+          #           -       var Upper1 = data[0].upperLimit1;
+          #           -       var Lower1 = data[0].lowerLimit1;
+
+          -       optionsChart.xAxis.categories=[];
+          -
+          #-       data.reverse();
+          -       console.log('--------------------Levey Jennings chart data ----------------------')
+          -       console.log(data)
+          -       for(i=0; i<data.length; i++) {
+          -              optionsChart.xAxis.categories.push(data[i].runDate);
+          -              console.log(data[i].runDate);
+          -              optionsChart.series[0].data.push(parseFloat(data[i].result));
+         # -              optionsChart.series[1].data.push(parseFloat(data[i].target));
+          #-              optionsChart.series[2].data.push([parseFloat(data[i].lowerLimit1), parseFloat(data[i].upperLimit1)]);
+          #-              console.log(data[i].upperLimit1)
+          -              if (parseFloat(data[i].result) > topCount) {
+          -                      topCount=data[i].result;
+          -                      }
+          -            }
+          -
+          #           -
+          #           -          if(topCount <= Upper1)
+          #           -            {topCount = Upper1}
+          #           -          if (metabolite == 'Sufentanil' && controlType == 'LoQC') {topCount = parseFloat(Upper1 * 1.5);}
+          #           -          else{topCount=(topCount*1.10)};
+          #           -          optionsChart.yAxis.max=parseInt(topCount);
+            #           -          optionsChart.yAxis.min=parseInt(Lower1 - (Lower1 * .10));
+          -         optionsChart.yAxis.max=parseInt(topCount * 1.25);          
+          -         levyChart = new Highcharts.Chart(optionsChart);
+          -     }
+          -   );
+          - }
+          -
+          - function showAssayResultTable(div, step, startDate, endDate, test, controlType, instrument)
+          - {
+          - $('#' + div).load('/uniflow',{stepName: step, startDate: startDate, endDate: endDate, testType: test, controlType: controlType, instrument: instrument}, function() {$('#controlResultsTable').attr('id', test); });
+          - $('#' + div).toggle();
+          - }
+          - function updateRow(cellName, stepName)
+          -  {
+          -       var split = cellName.split('_');
+          -       var rowName = (split[0] + '_' + split[1]);
+         # -       alert(rowName);
+          -       var rowId = $('[name^='+rowName+'_9'+']').val();
+          #-       alert(rowId);
+          -       var assayName = $('[name^='+rowName+'_1'+']').val();
+          -       var controlType = $('[name^='+rowName+'_3'+']').val();
+          -       var batchId = $('[name^='+rowName+'_2'+']').val();
+          -       var result = $('[name^='+rowName+'_4'+']').val();
+          -       var notes = $('[name^='+rowName+'_6'+']').val();
+          -       var qc = $('[name^='+rowName+'_5'+']').val();
+          -
+          -       $.post('/uniflow',{id:rowId, assayName:assayName, controlType:controlType, batchId:batchId, result:result, notes:notes, qc:qc, stepName:stepName, Submit:true, formNumber:0},
+          -                function() {$('[name^='+rowName+'_10'+']').val('This row has been updated'); $('[name^='+rowName+'_10'+']').show();});
+          -
+          -  }
+          - function printSection(divId){
+          -  $('.hidePrint').hide();
+          -    reportHTML = '<html><head><title>' + 'Print The Report ' + '</title>'
+          -    reportHTML+='<style type="text/css" media="print" >div.analyteSection {page-break-before:always;} div#lastInfo{page-break-inside:avoid} div.noBreak{page-break-inside:avoid} thead {display: table-header-group;}</style>'
+          -    reportHTML+='<link href="page3.css" rel="stylesheet"/>'
+         # -    reportHTML+='<style>@media Print {.page {page-break-after:always;}}</style>'
+          -    reportHTML+= '</head><body><div id="myreport" class="main_report" style="background-color:white">';
+          -    reportHTML+= $('#'+divId).css({"-ms-transform":"scale(.8,.8)", "-webkit-transform":"scale(.8,.8)", "transform":"scale(.8,.8)"}).clone().html() +  '</div></body></html>';
+          -  $('.page').css('border', 'none');
+          -  $('#' + divId).css({"-ms-transform":"scale(1,1)", "-webkit-transform":"scale(1,1)", "transform":"scale(1,1)"});
+          -    var win=window.open('url', 'Report', 'width=1200,height=840,scrollbars=yes');
+          -    win.document.open();
+          -    win.document.write(reportHTML);
+          -    win.document.close();
+          -    $('.hidePrint').show();
+          -    return false;
+          -  }
+          - function printCharts(reportId) {
+          -  $('.hidePrint').hide();
+          -    reportHTML = '<html><head><title>' + 'Print The Report ' + '</title>'
+          -    reportHTML+='<style type="text/css" media="print" >div.analyteSection {page-break-before:always;} div#lastInfo{page-break-inside:avoid} div.noBreak{page-break-inside:avoid} thead {display: table-header-group;}</style>'
+          -    reportHTML+='<link href="page3.css" rel="stylesheet"/>'
+         # -    reportHTML+='<style>@media Print {.page {page-break-after:always;}}</style>'
+          -    reportHTML+= '</head><body><div id="myreport" class="main_report" style="background-color:white">';
+          -    reportHTML+= $('#'+reportId).css({"-ms-transform":"scale(.8,.8)", "-webkit-transform":"scale(.8,.8)", "transform":"scale(.8,.8)"}).clone().html() +  '</div></body></html>';
+          -  $('.page').css('border', 'none');
+          -  $('#' + reportId).css({"-ms-transform":"scale(1,1)", "-webkit-transform":"scale(1,1)", "transform":"scale(1,1)"});
+          -    var win=window.open('url', 'Report', 'width=1200,height=840,scrollbars=yes');
+          -    win.document.open();
+          -    win.document.write(reportHTML);
+          -    win.document.close();
+          -    $('.hidePrint').show();
+          -    return false;
+          -  }
+        formQuery~ select DATE_FORMAT(curDate(), '%m/%d/%Y') as 'end' from dual
+        formQuery~ select DATE_FORMAT(DATE_SUB(STR_TO_DATE('{_resultSet:end}', '%m/%d/%Y'), INTERVAL 3 MONTH), '%m/%d/%Y') as 'start' from dual
+
+        vertical
+          fieldSet
+            legend Instructions
+            vertical
+              li Select your date range. End Date will default to the last run date recorded, start date will default to two months prior to the end date.
+              li Select the Calculate & Plot button.
+              li The mean, standard deviation, coefficient of variation, and +/- percentage stats will be shown for each control.
+              li The chart will show all data points for the given time range.
+              li You can zoom in by dragging your mouse over the chart, or select the menu button in the top right of the chart to print or download.
+              li The table button will display the results in a tabular format.
+            hr
+            vertical
+              div
+                div
+                  style= float:left;
+                  vertical
+
+                    select instrument
+                      screenLabel~ Instrument
+                      id= instrument
+                      option Analyzer1234
+                      sqlQuery~ select DISTINCT name from instruments where instrumentType = 'Analyzer'
+
+                    select controlType
+                      id= controlType
+                      screenLabel~ Control Type
+                      option QCH 
+                      option QCH
+                      option QCL
+                      setName~ controlTypes                      
+                    date Start Date
+                      id= startDate
+                      value= {_:start}
+                      class= datePicker
+                    date End Date
+                      id= endDate
+                      value= {_:end}
+                      class= datePicker
+                div
+                  style= float:right; margin-left:150px;
+                  vertical
+                    img
+                      src= images/standardDev.png
+                    span &nbsp &nbsp &nbsp &nbsp &nbsp Standard Deviation Equation
+              button
+                value= Calculate Standard Deviations & Plot Levey Jennings
+                onClick= $('.statList').empty(); $('.leveyChart').empty(); $('.tableData').empty();
+                  - getMeanStdDev('C2', 'C2', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val());
+                  - getMeanStdDev('C3', 'C3', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val());
+                  - getMeanStdDev('C4', 'C4', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val());          
+                  - getMeanStdDev('C5', 'C5', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val());                                            
+                  - getMeanStdDev('C8', 'C8', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val());
+                  - getMeanStdDev('C10', 'C10', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val()); 
+                  - getMeanStdDev('C16', 'C16', $('#startDate').val(), $('#endDate').val(), $('#instrument').val(),$('#controlType').val());                                   
+
+              button
+                value= Show All Result Tables
+                onClick=
+                  - showAssayResultTable('C2Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C2', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C3Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C3', $('#controlType').val(), $('#instrument').val());                  
+                  - showAssayResultTable('C4Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C4', $('#controlType').val(), $('#instrument').val());                 
+                  - showAssayResultTable('C5Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C5', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C8Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C8', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C10Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C10', $('#controlType').val(), $('#instrument').val()); 
+                  - showAssayResultTable('C16Table', 'Ajax Show Control Results Table', $('#startDate').val(), $('#endDate').val(), 'C16', $('#controlType').val(), $('#instrument').val());                                   
+
+
+              button
+                value= Show All Issue Tables
+                onClick=
+                  - showAssayResultTable('C2InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C2', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C3InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C3', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C4InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C4', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C5InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C5', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C8InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C8', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C10InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C10', $('#controlType').val(), $('#instrument').val());
+                  - showAssayResultTable('C16InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(), $('#endDate').val(), 'C16', $('#controlType').val(), $('#instrument').val());
+
+              button
+                value= Print All
+                onClick= printCharts('wholeReport');
+
+        hr
+
+        vertical
+          div
+            id= wholeReport
+            class= printLevey
+            style= border:1px solid #eeeeee; padding:5px; background-color:white;
+            vertical
+            ########
+              div
+                id= C2Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C2Header
+                    class= leveyHeader
+                    span C2
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C2Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C2', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C2InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C2', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C2Div');
+
+                  div
+                    div
+                      id= C2StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C2Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C2InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C2Table
+                    style= display:none;
+                    class= tableData
+#######################
+              div
+                id= C3Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C3Header
+                    class= leveyHeader
+                    span C3
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C3Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C3', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C3InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C3', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C3Div');
+
+                  div
+                    div
+                      id= C3StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C3Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C3InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C3Table
+                    style= display:none;
+                    class= tableData                    
+            ########
+              div
+                id= C4Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C4Header
+                    class= leveyHeader
+                    span C4
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C4Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C4', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C4InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C4', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C4Div');
+
+                  div
+                    div
+                      id= C4StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C4Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C4InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C4Table
+                    style= display:none;
+                    class= tableData
+            ########
+              div
+                id= C5Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C5Header
+                    class= leveyHeader
+                    span C5
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C5Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C5', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C5InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C5', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C5Div');
+
+                  div
+                    div
+                      id= C5StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C5Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C5InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C5Table
+                    style= display:none;
+                    class= tableData                    
+            ########
+              div
+                id= C8Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C8Header
+                    class= leveyHeader
+                    span C8
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C8Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C8', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C8InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C8', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C8Div');
+
+                  div
+                    div
+                      id= C8StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C8Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C8InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C8Table
+                    style= display:none;
+                    class= tableData
+            ########
+              div
+                id= C10Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C10Header
+                    class= leveyHeader
+                    span C10
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C10Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C10', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C10InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C10', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C10Div');
+
+                  div
+                    div
+                      id= C10StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C10Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C10InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C10Table
+                    style= display:none;
+                    class= tableData                    
+            ########
+              div
+                id= C16Div
+                class= analyteSection
+                vertical
+                  div
+                    id= C16Header
+                    class= leveyHeader
+                    span C16
+                      style= font-size:1.8em;
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:400px; margin-top:0px; font-size:1em;
+                      value= Results Table
+                      onClick= showAssayResultTable('C16Table', 'Ajax Show Control Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C16', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:575px; margin-top:0px; font-size:1em;
+                      value=  Result Issues
+                      onClick= showAssayResultTable('C16InvalidTable', 'Ajax Load Invalid Results Table', $('#startDate').val(),
+                        - $('#endDate').val(), 'C16', $('#controlType').val(), $('#instrument').val());
+                    button
+                      class= leveyButton hidePrint
+                      style= position:absolute; top:3px; left:725px; margin-top:0px; font-size:1em;
+                      value=  Print Section
+                      onClick= printSection('C16Div');
+
+                  div
+                    div
+                      id= C16StatList
+                      style= float:left;
+                      class= statList
+
+                    div
+                      id= C16Chart
+                      style= float:left
+                      class= leveyChart
+                  div
+                    id= C16InvalidTable
+                    style= display:none;
+                    class= tableData
+                  div
+                    id= C16Table
+                    style= display:none;
+                    class= tableData
+                    
+
+

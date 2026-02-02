@@ -1,0 +1,304 @@
+    step [$$STEP_NAME$$]
+      allowDuplicateContainerIds true
+      form
+
+        include stepInstructions
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= [$$Batch_Screen_Label$$]
+          parameter~ currentStep
+            value= [$$STEP_NAME$$]
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= batchId
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+        include stepInstructions
+
+        configurePreparedQuery~ SELECT
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -     ELSE ?
+          -   END AS "batchId"
+          string {batchId}
+          string {batchId2}
+          string {batchId}
+
+        script
+          src= js/components/container.js
+        script
+          src= js/specQuant.js
+
+        configurePreparedQuery~ SELECT
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -     ELSE ?
+          -   END AS "batchId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+
+        hidden specQuant_260_include
+          value= [$$Include_OD260$$]
+          id= specQuant_260_include
+          class= specQuant_conifguration
+        hidden specQuant_280_include
+          value= [$$Include_OD280$$]
+          id= specQuant_280_include
+          class= specQuant_conifguration
+        hidden specQuant_purity_include
+          value= [$$Include_Purity_Ratio$$]
+          id= specQuant_purity_include
+          class= specQuant_conifguration
+        hidden specQuant_failCommentsRequired
+          value= [$$Require_Comment_On_Failure$$]
+          id= specQuant_failCommentsRequired
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+
+
+        include containerComponent
+          #### DEVELOPER CONFIGURATIONS
+          parameter~ containerName
+            value= batchId
+          parameter~ containerReadonly
+            value= true
+          parameter~ containerNew
+            value= false
+          parameter~ containerAsSelect
+            value= false
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= batchId
+          parameter~ containerRequired
+            value= false
+          parameter~ containerAdditionalClasses
+            value=
+          parameter~ containerValue
+            value= {_:batchId}
+          parameter~ containerGenerateFromSequence
+            value= No
+          parameter~ useThisSequence
+            value=
+          parameter~ containerPrintBarcode
+            value= No
+          parameter~ containerShowStorageLocation
+            value= No
+          #### BUILD SHEET CONFIGURATIONS
+          parameter~ containerScreenLabel
+            value= [$$Batch_Screen_Label$$]
+          parameter~ containerCommentsInclude
+            value= [$$Batch_Comments$$]
+          parameter~ containerActionInclude
+            value= [$$Action_Option$$]
+          parameter~ containerCategoryInclude
+            value= [$$View_Batch_Type$$]
+          parameter~ containerFileUpload
+            value= [$$Document_Upload$$]
+          #### PARAMETER DRIVEN ROUTING
+          parameter~ containerActionOptions
+            value= passfail
+          parameter~ includePriority
+            value= [$$View_Batch_Priority$$]
+
+        br
+        hr
+
+        table
+          id= quantTable
+          sqlPreparedQuery~
+            - SELECT
+            -   sr.currentContainerId AS "Sample Id",
+            -   rf.mrn AS "MRN",
+            -   CONCAT(p.lastName, ', ', p.firstName) AS "Patient Name",
+            -   CONCAT(ifnull(pan.name,'') , ' ', ifnull(t.name,'') , ' ', ifnull(m.name,'')) AS "Test Method",
+            -   qr.od260 AS "260 OD",
+            -   qr.od280 AS "280 OD",
+            -   qr.concentration AS "Concentration",
+            -   '50' AS "Concentration Threshold",
+            -   qr.purityRatio AS "Purity Ratio",
+            -   '4-10' AS "Purity Target Range",
+            -   '' AS "Result",
+            -   '' AS "Comments",
+            -   sr.runId,
+            -   '4' as "purityMin",
+            -   '10' as "purityMax",
+            -   qr.id as "quantDataId",
+            -   IFNULL(qr.uploaded,0)
+            - FROM specimenRuns sr
+            - INNER JOIN containers co
+            - ON currentParentId = co.containerId
+            - INNER JOIN specimenMethods sm
+            - ON sr.specimenMethodsId = sm.id
+            - INNER JOIN requestSpecimens rs
+            - ON sm.requestSpecimensId = rs.id
+            - INNER JOIN requestForms rf
+            - ON rs.requestId = rf.requestId
+            - INNER JOIN patients p
+            - ON rf.patientId = p.patientId
+            - LEFT JOIN panels pan
+            - ON sm.panelCode = pan.panelCode
+            - LEFT JOIN tests t
+            - ON sm.testCode = t.testCode
+            - LEFT JOIN methods m
+            - ON sm.methodCode = m.methodCode
+            - LEFT JOIN quantResults qr
+            - ON sr.runId = qr.runId
+            - WHERE sr.currentParentId = ?
+            - ORDER BY currentParentPosition
+            string {_:batchId}
+          columnSpecs~ quantTable
+            allowChangedRecordIds
+            column 1
+              inputType container
+                acceptQueue~ any
+                readonly=
+            column 5
+              inputType text
+                size= 5
+                class= quant_NoEditForUploaded specQuant_260
+            column 6
+              inputType text
+                size= 5
+                class= quant_NoEditForUploaded specQuant_280
+            column 7
+              inputType text
+                size= 5
+                class= quant_conc quant_NoEditForUploaded
+            column 8
+              inputType text
+                size= 5
+                readonly=
+                class= quant_concThresh
+            column 9
+              inputType text
+                size= 5
+                class= quant_purity quant_NoEditForUploaded specQuant_purity
+            column 10
+              inputType text
+                size= 5
+                readonly=
+                class= specQuant_purity
+            column 11
+              inputType select
+                setName~ passfail
+                class= quant_sampleAction required
+                data-parsley-required= true
+            column 12
+              inputType textArea
+                class= quant_sampleComment
+            column 13
+              inputType container
+                class= hideColumn
+                acceptQueue~ any
+            column 14
+              inputType text
+                class= hideColumn quant_purityMin
+            column 15
+              inputType text
+                class= hideColumn quant_purityMax
+            column 16
+              inputType text
+                class= hideColumn
+            column 17
+              inputType text
+                class= hideColumn quant_uploaded
+
+
+      forRows quantTable
+
+        # SAVE SAMPLE NOTES
+        ifCondition {_columnInput_quantTable:12}
+          advanced~
+          not~
+            isBlank~
+
+          sqlPreparedStatement
+            - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+            - VALUES (?, 'Sample Quant Comments', ?, ?)
+            string {_columnInput_quantTable:13}
+            string {_columnInput_quantTable:12}
+            long {_eventId}
+
+        ifCondition {_columnInput_quantTable:17}
+          advanced~
+          equals~ 0
+
+          sqlPreparedStatement
+            - INSERT INTO quantResults (runId, od260, od280, concentration, purityRatio, dataEventId, result, resultEventId)
+            - VALUES (?, ?, ?, ?, ?, ?, ? ,?)
+            string {_columnInput_quantTable:13}
+            string {_columnInput_quantTable:5}
+            string {_columnInput_quantTable:6}
+            string {_columnInput_quantTable:7}
+            string {_columnInput_quantTable:9}
+            long {_eventId}
+            string {_columnInput_quantTable:11}
+            long {_eventId}
+
+          else
+
+            sqlPreparedStatement
+              - UPDATE quantResults
+              -   SET result = ?,
+              -       resultEventId = ?
+              - WHERE id = ?
+              string {_columnInput_quantTable:11}
+              long {_eventId}
+              int {_columnInput_quantTable:16}
+
+        # OUT CONTAINER, USES DEFAULT NEXT STEP
+        include routeContainer
+          parameter~ processContainerId
+            value= {_columnInput_quantTable:13}
+          parameter~ result
+            value= {_columnInput_quantTable:11}
+          parameter~ deleteFromStep
+            value=
+          parameter~ defaultNextStep
+            value= [$$NEXT_STEP$$]
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= run
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+
+      # ROUTING FOR PARENT BATCH CAN BE APPLIED
+      # DEFAULT IS FOR BATCH END/DEQUEUE
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {batchId}
+        parameter~ result
+          value= {batchId_Action}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value=
+        parameter~ routingDirection
+          value= IN
+        parameter~ routingType
+          value= group
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+

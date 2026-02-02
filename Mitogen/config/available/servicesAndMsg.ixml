@@ -1,0 +1,434 @@
+config
+  # Define Services here
+  services
+
+    service Report Outbound Service
+      isEnabled false
+      authentication NONE
+      communication SFTP
+        ipAddress tr7-mito-dev01.sqdev.sunquestinfo.com
+        port 22
+        allowInsecureCert true
+        user 
+        privateKey
+      messages
+        message HL7 Report Outbound
+          path /sftp/
+
+
+    service STRATA Service
+      isEnabled false
+      authentication NONE
+      communication REST
+        ipAddress nti-qst-standard-messagereceiver.sqdev.sunquestinfo.com
+        port 443
+        protocol https
+        allowInsecureCert true
+      messages
+        message STRATA Specimen Event
+          path /api/v2/FhirMessages?tenant=QLD&source=Mitogen
+          sendMethod PUT
+          expectedResponse STRATA Response
+          
+  # Define messages here
+  messages
+    
+    message HL7 Report Outbound
+      format HL7ORU
+      specification
+
+
+    # STARTA Response Message Definition
+    message STRATA Response
+      format JSON
+      specification
+        isOK field
+          type= STRING
+        Error object
+          Level field
+            type= STRING
+          Code field
+            type= STRING
+          ShortErrorDescription field
+            type= STRING
+          VerboseErrorDescription field
+            type= STRING
+          ErrorDetailDescription field
+            type= STRING
+        ShortDescription field
+          type= STRING
+        VerboseDescription field
+          type= STRING
+
+
+    # STRATA Specimen Event Message Definition
+    # https://sunquestinfo.atlassian.net/wiki/spaces/SST/pages/781221973/Mitogen+Message+Example
+    # NOTE: This message definition does not contain parent specimen
+    message STRATA Specimen Event
+      format JSON
+      specification
+
+        # Overall result of the request, required.
+        result field
+          type= STRING
+          default= true
+
+        # Data 
+        events list
+          type= OBJECT
+
+            # Defines the FHIR resource type
+            resourceType field
+              type= STRING
+              default= SQSpecimenEvent
+              required= true
+
+            # Defines the resource version
+            meta object
+              required= true
+              versionId field
+                type= STRING
+                default= 1.0
+                required= true
+
+            # Source system event identifier
+            eventId field
+              type= STRING
+              required= true
+              default= {_eventId}
+
+            # Event source facility code
+            sourceFacility field
+              type= STRING
+
+            # Event source system name
+            sourceSystem field
+              type= STRING
+              required=
+              default= Mitogen LIMS
+
+            # Action of the event represents
+            type field
+              type= STRING
+              required=
+
+            # Stage of the lab processing
+            # in-transit, received, pre-analytical, analytical, reporting, complete
+            stage field
+              type= STRING
+              required=
+              enum~
+                value= Received
+                value= Analytical
+                value= Complete
+                value= In-Transit
+                value= Pre-Analytical
+                value= Reporting
+
+
+            # Whether or not the event represents a problem that should be
+            # indicated as an alert
+            problem field
+              required=
+              default= false
+
+            # Event/step comment
+            xcomments field
+              messageName= comments
+              type= STRING
+
+            # Volume of the specimen affected by the event
+            quantity object
+              required= false
+              unit field
+                type= STRING
+                required=
+              value field
+                type= STRING
+                required=
+
+            # The user performing the action
+            user object
+              required=
+              identifier list
+                required=
+                type= OBJECT
+                  value field
+                    required=
+                    type= STRING
+              name list
+                type= OBJECT
+                  given list
+                    required=
+                    type= STRING
+                  family field
+                    required=
+                    type= STRING
+
+            # datetime of the event occured
+            xdatetime field
+              messageName= datetime
+              required=
+              type= STRING
+
+            # location of the event occured
+            location list
+              required=
+              type= STRING
+
+            # disposition of the specimen
+            disposition field
+              required=
+              type= STRING
+              enum~
+                value In-Process
+                value Stored
+                value Disposed
+
+            # Specimen the event applies to
+            specimen object
+              required=
+
+              # Identifier assigned to the specimen by the collecting system
+              # This will be the Sample ID
+              identifier list
+                required=
+                type= OBJECT
+                  value field
+                    required=
+                    type= STRING
+
+              # Identifier assigned to the specimen by the laboratory system
+              # External Specimen ID
+              accessionIdentifier object
+                required=
+                value field
+                  required=
+                  type= STRING
+
+              # The patient the speicmen is for
+              subject object
+                required=
+                reference field
+                  required=
+                  type= STRING
+
+              # The order/test the specimen or derivative is associated with
+              request list
+                required=
+                type= OBJECT
+                  reference field
+                    required=
+                    type= STRING
+
+               # The collected specimen type.
+              type object
+                required=
+                xtext field
+                  messageName= text
+                  required=
+                  type= STRING
+                coding list
+                  type= OBJECT
+                    system field
+                      required=
+                      type= STRING
+                      default= Mitogen LIMS
+                    code field
+                      required=
+                      type= STRING
+
+              collection object
+                collectedDateTime field
+                  required=
+                  type= STRING
+                quantity object
+                  unit field
+                    required=
+                    type= STRING
+                  value field
+                    required=
+                    type= STRING
+
+              # Datetime the specimen was received in the lab
+              receivedTime field
+                type= STRING
+
+
+              # List of containers
+              xcontainer list
+                messageName= container
+                type= OBJECT
+
+
+                  # Container Id
+                  identifier list
+                    required=
+                    type= OBJECT
+                      value field
+                        required=
+                        type= STRING
+
+                  # Container type
+                  type object
+                    xtext field
+                      messageName= text
+                      type= STRING
+
+                    # Test code?
+                    coding list
+                      type= OBJECT
+                        system field
+                          type= STRING
+                        code field
+                          type= STRING
+
+
+                  # Mitogen does not have container capacity
+                  capacity object
+                    unit field
+                      type= STRING
+                    value field
+                      type= STRING
+
+                  # Quantity of the specimen in the container
+                  specimenQuantity object
+                    unit field
+                      type= STRING
+                    value field
+                      type= STRING
+
+
+            contained list
+              type= MULTI-OBJECT
+
+
+                # Specimen
+                specimen object
+                  resourceType field
+                    required=
+                    type= STRING
+                    default= Specimen
+                  id field
+                    required=
+                    type= STRING
+                  subject object
+                    required=
+                    reference field
+                      type= STRING
+                  identifier list
+                    required=
+                    type= OBJECT
+                      value field
+                        required=
+                        type= STRING
+                  accessionIdentifier object
+                    required=
+                    value field
+                      required=
+                      type= STRING
+
+
+                # Patient
+                patient object
+                  resourceType field
+                    required=
+                    type= STRING
+                    default= Patient
+                  id field
+                    type= STRING
+                  identifier list
+                    required=
+                    type= OBJECT
+                      required=
+                      system field
+                        required=
+                        type= STRING
+                        default= SQID
+                      value field
+                        required=
+                        type= STRING
+                  name list
+                    required=
+                    type= OBJECT
+                      given list
+                        required=
+                        type= STRING
+                      family field
+                        required=
+                        type= STRING
+                  birthDate field
+                    required=
+                    STRING= type
+                  gender field
+                    type= STRING
+                    enum~
+                      value= Male
+                      value= Female
+                      value= Unknown
+
+                # Request
+                procedureRequest object
+                  resourceType field
+                    required=
+                    type= STRING
+                    default= ProcedureRequest
+                  id field
+                    required=
+                    type= STRING
+                  identifier list
+                    required=
+                    type= OBJECT
+                      system field
+                        required=
+                        type= STRING
+                      value field
+                        required=
+                        type= STRING
+                  requisition object
+                    required=
+                    value field
+                      type= STRING
+                  status field
+                    type= STRING
+                    enum~
+                      value= active
+                      value= completed
+                      value= cancelled
+                  intent field
+                    required=
+                    type= STRING
+                    default= order
+                  authoredOn field
+                    type= STRING
+                  code object
+                    required=
+                    xtext field
+                      messageName= text
+                      required=
+                      type= STRING
+                    coding list
+                      required=
+                      type= OBJECT
+                        system field
+                          required=
+                          type= STRING
+                        code field
+                          required=
+                          type= STRING
+                  subject object
+                    required=
+                    reference field
+                      required=
+                      type= STRING
+                  requester object
+                    agent object
+                      required=
+                      reference field
+                        required=
+                        type= STRING
+                    onBehalfOf object
+                      reference field
+                        required=
+                        type= STRING
+ 

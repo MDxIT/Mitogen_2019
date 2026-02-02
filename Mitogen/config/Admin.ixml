@@ -1,0 +1,2084 @@
+config
+  steps
+
+    stepGroup Admin
+##########################################################################################################
+    _step Customers
+      queueSelectRecId
+      form
+        include userAccountInfo
+        script
+          - function searchCustomers(displayAll) {
+          -   if(!displayAll) displayAll = 'false';
+          -   $('#customerCandidates').hide();
+          -   $('#customerCandidates').load('/uniflow', {stepName: 'Ajax Admin Customer Search Server',
+          -     customerName: $('#customerName').val(),
+          -     lastName: $('#lastName').val(),
+          -     firstName: $('#firstName').val(),
+          -     phoneNumber: $('#phoneNumber').val(),
+          -     email: $('#email').val(),
+          -     displayAll: displayAll
+          -   }, function(){
+          -     stdTableSort("#customerCandidates table");
+          -     $('#customerCandidates').show();
+          -   });
+          - }
+          -
+          - $(document).ready(function(){
+          -    $('#stepFormSubmitButton').val('Create New');
+          -
+          -
+          - });
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li Click 'Create New' to create a new record.
+              li Enter search criteria and press tab or enter to filter records.
+              li Click 'Display All' to see all records.
+              li Click on the record link to view or modify record.
+              li The contact information is for the clinical contact, unless no clinical contact is listed.
+          text _dummy
+            screenLabel~
+            style= display:none;
+            value= -1
+
+        vertical
+          id= lookupCustomer
+          fieldSet
+            style= border-color:red;
+            legend Find Customer
+            div
+              simpleTable
+                tr
+                  td Customer Name
+                  td Physician Last
+                  td Physician First
+                  td Phone Number
+                  td Email
+                tr
+                  td
+                    text customerName
+                      style= width:100px
+                      id= customerName
+                      onchange= javascript:return searchCustomers();
+                  td
+                    text lastName
+                      style= width:100px
+                      id= lastName
+                      onchange= javascript:return searchCustomers();
+                  td
+                    text firstName
+                      style= width:100px
+                      id= firstName
+                      onchange= javascript:return searchCustomers();
+                  td
+                    text phoneNumber
+                      style= width:90px
+                      id= phoneNumber
+                      title= 123-456-7890
+                      onchange= javascript:return searchCustomers();
+                  td
+                    text email
+                      id= email
+                      onchange= javascript:return searchCustomers();
+                  td
+                    button Display All
+                      value= Display All
+                      onclick= javascript:return searchCustomers('true');
+            div
+              id= customerCandidates
+      form
+        include userAccountInfo
+        script
+          src= js/jquery/combobox.js
+        formQuery~
+          -   (select p.entityId 'customerId',p.firstName as 'name'
+          -   ,e.comments
+          -   from entities p
+          -   inner join events e on e.eventId = p.eventId
+          -   where p.entityId = '{_recId}')
+          - union distinct
+          -   (select cast('-1' as signed) as 'customerId','{customerName}' as 'name', '' as 'comments' from dual limit 1)
+
+        script
+          - function generateRow(tableId) {
+          -   var nextRowId = $('#'+tableId+' tbody tr').length;
+          -   var rowClass = nextRowId % 2;
+          -   var newRow = $('<tr class="stdRow r'+rowClass+'"></tr>');
+          -   $('<td class="stdTd col0"><input onfocus="select()" type="checkbox" name="'+
+          -     tableId+'_'+nextRowId+'_1" class="checkbox" value="false" tabindex="1"></td>').appendTo(newRow);
+          -
+          -   if(tableId == 'people') {
+          -     $('<td class="stdTd col1"></td>'+
+          -       '<td class="stdTd col2"><select class="combobox" name="'+
+          -       tableId+'_'+nextRowId+'_3" value="" tabindex="1">'+$('#personNameTemplate').html()+'</select></td>'+
+          -       '<td class="stdTd col3"><select name="'+
+          -       tableId+'_'+nextRowId+'_4" value="" tabindex="1">'+$('#personTypeTemplate').html()+'</select></td>'+
+          -       '<td class="stdTd col4"><input type="hidden" name="'+
+          -       tableId+'_'+nextRowId+'_5" value="" tabindex="1"></td>')
+          -       .appendTo(newRow);
+          -     newRow.find('select.combobox').combobox({defaultDNEValue: '', select: function(event, ui){ fillPersonInfo($(this));}});
+          -   } else {
+          -     var type = '';
+          -     if(nextRowId == 0) type = 'Primary';
+          -     if(nextRowId == 1) type = 'Secondary';
+          -     if(nextRowId >= 2) type = 'Tertiary';
+          -     var textCount = $('#'+tableId+' thead tr').children().length - 2;
+          -     var typeColNum = 1;
+          -     for(i = 1; i <= textCount; i++) {
+          -       var val = '';
+          -       if(tableId == 'address' && i == 6) val = 'USA';
+          -       $('<td class="stdTd col'+i+'"><input onfocus="select()" type="text" name="'+
+          -         tableId+'_'+nextRowId+'_'+(i+1)+'" class="text" value="'+val+'" tabindex="1"></td>').appendTo(newRow);
+          -       typeColNum++;
+          -     }
+          -     $('<td class="stdTd col'+typeColNum+'"><input onfocus="select()" '+
+          -       'type="text" readonly style="background: transparent; border: none; width: 56px;" '+
+          -       'name="'+tableId+'_'+nextRowId+'_'+(typeColNum+1)+'" class="text" value="'+type+'" tabindex="1"></td>').appendTo(newRow);
+          -   }
+          -   newRow.appendTo('#'+tableId+' tbody');
+          -   //Update the numRows so it can be processed
+          -   $('input[name="' + tableId + '_numRows"]').val(nextRowId+1);
+          - }
+          -
+          - function deleteRow(tableId) {
+          -   var deletedCount = 0;
+          -   $('#'+tableId+' input[type=checkbox]').each(function(){
+          -     if (this.checked) {
+          -       deletedCount++;
+          -       $(this).parent().parent().remove();
+          -     }
+          -   });
+          -   if(deletedCount > 0) {
+          -     //update the types and input names to be in the correct order
+          -     var rowCount = 0;
+          -     $('#'+tableId+' tbody tr').each(function(i){
+          -       rowCount++;
+          -       var type = '';
+          -       if(i == 0) type = 'Primary';
+          -       if(i == 1) type = 'Secondary';
+          -       if(i >= 2) type = 'Tertiary';
+          -       if(tableId != 'people') $(this).children(':last').children().val(type);
+          -       $(this).find('input, select').each(function(){
+          -         if($(this).attr('name')) {
+          -           var nameParts = $(this).attr('name').split('_');
+          -           var name = nameParts[0]+'_'+i+'_'+nameParts[2];
+          -           $(this).attr('name', name);
+          -         }
+          -       });
+          -     });
+          -     $('input[name="' + tableId + '_numRows"]').val(rowCount);
+          -   }
+          - }
+          -
+          - function generateAddNewRow(tableId) {
+          -   var colCount = $('#'+tableId+' thead tr').children().length-1;
+          -   $('#'+tableId+' tfoot').append('<tr><td style="text-align: center;">'+
+          -     '<input type="button" value="Delete" onclick="deleteRow(\''+tableId+'\');" /></td>'+
+          -     '<td style="text-align: center;" colspan="'+colCount+
+          -     '"><input type="button" value="Add New" onclick="generateRow(\''+tableId+'\');" />');
+          - }
+          -
+          - function fillPersonInfo(nameElem) {
+          -   var value = nameElem.val();
+          -   var inputElem = nameElem.parent().find('input[autocomplete]');
+          -   var row = nameElem.parent().parent();
+          -   inputElem.css('border-color', 'initial');
+          -   console.log(nameElem);
+          -   if(value == '') {
+          -     var confirmed = confirm('The person you have entered does not exist.'+
+          -       '\nSelect "OK" to create a new person.\nSelect "Cancel" to select a different person.');
+          -     if(confirmed) {
+          -       row.children('.col1').html('_NEW');
+          -       nameElem.children(':selected').val('_NEW');
+          -       row.children('.col4').children('input').val(inputElem.val());
+          -     } else {
+          -       inputElem.css('border-color', 'red');
+          -       row.children('.col1').html('');
+          -     }
+          -     row.children('.col3').children('select').val('');
+          -   } else {
+          -     $.getJSON('/uniflow?callback=?&stepName=Ajax+Person+By+Id+Search+Server&personId=' + value,{}, function(data,status) {
+          -       row.children('.col1').html('<a href="/uniflow?lastForm=Y&stepName=People&recId='+
+          -         data[0].personId+'" class="tableLink">'+data[0].personId+'</a>');
+          -       row.children('.col3').children('select').val(data[0].type);
+          -     });
+          -   }
+          - }
+          -
+        script
+          - $(document).ready(function(){
+          -   generateAddNewRow('address');
+          -   generateAddNewRow('phone');
+          -   generateAddNewRow('email');
+          -   generateAddNewRow('fax');
+          -   generateAddNewRow('people');
+          -   $('.combobox').combobox({defaultDNEValue: '', select: function(event, ui){ fillPersonInfo($(this));}});
+          -
+          -   $('form').submit(function(e){
+          -     if($('#people td.col0 input:checked, #address td.col0 input:checked, #phone td.col0 input:checked, #email td.col0 input:checked, #fax td.col0 input:checked').length > 0) {
+          -       alert('Rows will not be deleted unless the delete button is pressed.');
+          -       e.preventDefault();
+          -     }
+          -   });
+          - });
+
+        hidden Id
+          id= customerId
+          value= {_resultSet:customerId}
+        hidden customerName
+          value= {customerName}
+
+        select personNameTemplate
+          id= personNameTemplate
+          option
+          sqlQuery~ select concat(p.firstName, ' ',p.lastName), p.entityId from entities p
+            - where p.entityType <> 'Organization' order by p.firstName, p.lastName
+          style= display: none;
+        select personTypeTemplate
+          id= personTypeTemplate
+          setName~ personType
+          title= SETNAME:personType
+          required~ false
+          style= display: none;
+
+        fieldset
+          legend Explanation
+            class= legend
+          vertical
+            li Use the Delete column and the Delete and Add New buttons to update people in customer and contact information.
+            li You can create a new person for this customer from this step by inputing the name into the people table.
+            li If you create a new person, you may want to give more information later in the People step.
+            li Press Submit after editing or you will lose all changes.
+
+        vertical2
+          id= topInfo
+          fieldset
+            legend Customer Information
+            vertical
+              text name
+                screenLabel~ Name
+                value= {_resultSet:name}
+                style= width:200px;
+                required~ true
+              comments Comments
+                value= {_:comments}
+
+          fieldset
+            legend Listing of people in this customer
+            table
+              id= people
+              #class= stdTableSort
+              sqlQuery~ SELECT 'false' as 'Delete', p.entityId 'Person Id', concat(p.firstName, ' ',p.lastName) as 'Name',
+                - p.entityType 'Position', '' as 'Hidden'
+                - from entities p
+                - inner join entityRelations r on r.memberId = p.entityId
+                - where r.entityId = '{_resultSet:customerId}'
+              columnSpecs~ people
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                column 3
+                  inputType select
+                    option
+                    sqlQuery~ select concat(p.firstName, ' ',p.lastName), p.entityId from entities p
+                      - where p.entityType <> 'Organization' and p.entityType <> 'Patient' order by p.firstName, p.lastName
+                    class= combobox
+                column 4
+                  inputType select
+                    setName~ personType
+                    title= SETNAME:personType
+                    required~ true
+                ##HOLDS NAME of new person if creating new one
+                column 5
+                  inputType hidden
+                    class= hide
+
+
+        fieldset
+          legend Contact Information
+          table
+            id= address
+            style= width: 100%;
+            caption Address(es)
+            #class= stdTableSort
+            sqlQuery~ SELECT
+              - 'false' as 'Delete', a.address1 'Address 1',a.address2 'Address 2',a.city 'City',a.state 'State'
+              - ,a.postalCode 'Zip',a.country 'Country',a.type 'Type'
+              - from entityAddresses a
+              - WHERE a.entityId='{_recId}' and '{_recId}' <> ''
+            columnSpecs~ address
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType text
+                  onblur= fixTextInputSize(this);
+              column 3
+                inputType text
+              column 4
+                inputType text
+              column 5
+                inputType text
+                #inputType select
+                #  setName~ state
+              column 6
+                inputType text
+              column 7
+                inputType text
+              column 8
+                inputType text
+                  readonly=
+                  style= background: transparent; border: none; width: 56px;
+
+          div
+            id= phoneAndEmail
+            div
+              table
+                id= phone
+                caption Phone(s)
+                #class= stdTableSort
+                sqlQuery~ select 'false' as 'Delete', p.number 'Phone',p.type 'Type'
+                  - from entityPhones p
+                  - where p.entityId= '{_resultSet:customerId}' and p.type not like '% Fax'
+                  - order by p.type
+                columnSpecs~ phone
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                      readonly=
+                      style= background: transparent; border: none; width: 56px;
+            div
+              table
+                id= email
+                caption Email(s)
+                #class= stdTableSort
+                sqlQuery~ select 'false' as 'Delete', e.email 'Email',e.type 'Type'
+                  - from entityEmails e
+                  - where e.entityId= '{_resultSet:customerId}'
+                  - order by e.type
+                columnSpecs~ email
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                      readonly=
+                      style= background: transparent; border: none; width: 56px;
+            div
+              table
+                id= fax
+                caption Fax(s)
+                #class= stdTableSort
+                sqlQuery~ select 'false' as 'Delete', p.number 'Fax',REPLACE(p.type, ' Fax', '') 'Type'
+                  - from entityPhones p
+                  - where p.entityId= '{_resultSet:customerId}' and p.type like '% Fax'
+                  - order by p.type
+                columnSpecs~ fax
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                      readonly=
+                      style= background: transparent; border: none; width: 56px;
+      forRows people
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        ## If this is a new customer, it has id _NEW and is added at the end of step as well.
+        ##    It's added to containerProperties to be looked at at the end of the step
+        ##    since I couldn't get the if statement to work here.
+        sqlPreparedStatement insert ignore into entityRelations (entityId,memberId,role,eventId)
+          - select ?,?,?,?
+          - from dual where ? <> '' and ? <> '_NEW'
+          string {Id}
+          string {_columnInput_people:3}
+          string {_columnInput_people:4}
+          long {_eventId}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+        sqlPreparedStatement update entities set entityType = ?
+          - where ? <> '' and ? <> '_NEW' and entityId = ?
+          string {_columnInput_people:4}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+        sqlPreparedStatement update containers set containerType = ?
+          - where ? <> '' and ? <> '_NEW' and containerId = ?
+          string {_columnInput_people:4}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+        sqlPreparedStatement update contents set contentType = ?
+          - where ? <> '' and ? <> '_NEW'
+          - and containerId = ? and content = ?
+          string {_columnInput_people:4}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+          string {_columnInput_people:3}
+
+        sqlPreparedStatement insert into containerProperties (containerId, property, unitOfMeasure, value, eventId)
+          - select ?, '_NEWPERSON', ?, ?, ?
+          - from dual where ? = '_NEW'
+          string {Id}
+          string {_columnInput_people:4}
+          string {_columnInput_people:5}
+          long {_eventId}
+          string {_columnInput_people:3}
+      forRows address
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityAddresses (entityId,address1,address2,city,state,postalCode,country,type,eventId)
+          -   select ?,?,?,?,?,
+          -   ?,?,?,?
+          -   from dual
+          -   WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_address:2}
+          string {_columnInput_address:3}
+          string {_columnInput_address:4}
+          string {_columnInput_address:5}
+          string {_columnInput_address:6}
+          string {_columnInput_address:7}
+          string {_columnInput_address:8}
+          long {_eventId}
+          string {_columnInput_address:2}
+      forRows phone
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityPhones (entityId,number,type,eventId)
+          - select ?,?,?,?
+          - from dual
+          - WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_phone:2}
+          string {_columnInput_phone:3}
+          long {_eventId}
+          string {_columnInput_phone:2}
+      forRows email
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityEmails (entityId,email,type,eventId)
+          - select ?,?,?,?
+          - from dual
+          - WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_email:2}
+          string {_columnInput_email:3}
+          long {_eventId}
+          string {_columnInput_email:2}
+      forRows fax
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityPhones (entityId,number,type,eventId)
+          - select ?,?,?,?
+          - from dual
+          - WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_fax:2}
+          string {_columnInput_fax:3} Fax
+          long {_eventId}
+          string {_columnInput_fax:2}
+      ifCondition {Id}
+        advanced~
+        equals~ -1
+        setFormQueryResult
+          sqlQuery select 'O{_getNextSequence:organizationId}' as 'customerId' from dual
+
+        sqlPreparedStatement insert into entities (entityId,entityType,status,eventId)
+          - values (?,'Organization','active',?)
+          string {_resultSet:customerId}
+          long {_eventId}
+        sqlPreparedStatement insert into containers (containerId, containerType, eventId)
+          - values (?, 'Organization', ?)
+          string {_resultSet:customerId}
+          long {_eventId}
+        sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+          - values (?, 'self', 'Organization', ?, ?)
+          string {_resultSet:customerId}
+          string {_resultSet:customerId}
+          long {_eventId}
+
+        ##Update the entityId for customers (contents), addresses, phones, emails
+        sqlPreparedStatement update contents set containerId = ? where containerId = ? and eventId = ?
+          string {_resultSet:customerId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityAddresses set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:customerId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityPhones set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:customerId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityEmails set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:customerId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityRelations set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:customerId}
+          string {Id}
+          long {_eventId}
+
+        else
+          ### if not new record then get the Id to be used for other processing
+          setFormQueryResult
+            sqlQuery select '{Id}' as 'customerId' from dual
+
+          ##Only keeping track of comments for customer for first added event, so need to update it
+          sqlPreparedStatement update events e inner join entities p on p.eventId = e.eventId
+            - set e.comments = ?
+            - where p.entityId = ?
+            string {Comments}
+            string {_:customerId}
+
+      ### entities
+      sqlPreparedStatement update entities set
+        - firstName = ?
+        - where entityId = ?
+        string {name}
+        string {_resultSet:customerId}
+
+      ### ALL THESE were reinserted in the tables above. Here we delete any old records.
+      ### people
+      sqlPreparedStatement delete from entityRelations where entityId = ? and eventId <> ? and role = 'Physician'
+        string {_resultSet:customerId}
+        long {_eventId}
+
+      ### SEE persons table above for explanation of what I'm doing
+
+      forEach select unitOfMeasure as 'type', SUBSTRING_INDEX(value, ' ', 1) AS firstName,
+        - SUBSTRING_INDEX(value, ' ', -1) AS lastName
+        - from containerProperties
+        - where containerId = '{Id}' and property = '_NEWPERSON' and eventId = {_eventId}
+
+        sqlPreparedStatement insert into entities (entityId,entityType,firstName,lastName,status,eventId)
+          - values (?, ?,?,?,'_CURRENT',?)
+          string P{_getNextSequence:personId}
+          string {_:type}
+          string {_:firstName}
+          string {_:lastName}
+          long {_eventId}
+        sqlPreparedStatement insert into containers (containerId, containerType, eventId)
+          - select entityId, ?, ?
+          - from entities where eventId = ? and status = '_CURRENT'
+          string {_:type}
+          long {_eventId}
+          long {_eventId}
+        sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+          - select entityId, 'self', ?, entityId, ?
+          - from entities where eventId = ? and status = '_CURRENT'
+          string {_:type}
+          long {_eventId}
+          long {_eventId}
+
+        sqlPreparedStatement insert ignore into entityRelations (entityId,memberId,role,eventId)
+          - select ?,entityId,?,?
+          - from entities where eventId = ? and status = '_CURRENT'
+          string {_resultSet:customerId}
+          string {_:type}
+          long {_eventId}
+          long {_eventId}
+        sqlPreparedStatement update entities set status = 'active' where eventId = ? and status = '_CURRENT'
+          long {_eventId}
+
+      sqlPreparedStatement delete from containerProperties
+        - where containerId = ? and property = '_NEWPERSON' and eventId = ?
+        string {Id}
+        long {_eventId}
+
+      ### address
+      sqlPreparedStatement delete from entityAddresses where entityId = ? and eventId <> ?
+        string {_resultSet:customerId}
+        long {_eventId}
+      ### phone
+      sqlPreparedStatement delete from entityPhones where entityId = ? and eventId <> ?
+        string {_resultSet:customerId}
+        long {_eventId}
+
+      ### email
+      sqlPreparedStatement delete from entityEmails where entityId = ? and eventId <> ?
+        string {_resultSet:customerId}
+        long {_eventId}
+
+
+    _step People
+      queueSelectRecId
+      form
+        include userAccountInfo
+        script
+          - function searchPeople(displayAll) {
+          -   if(!displayAll) displayAll = 'false';
+          -   $('#personCandidates').hide();
+          -   $('#personCandidates').load('/uniflow', {stepName: 'Ajax Admin Person Search Server',
+          -     type: $('#personType').val(),
+          -     personLastName: $('#personLastName').val(),
+          -     personFirstName: $('#personFirstName').val(),
+          -     customer: $('#customerSearch').val(),
+          -     phoneNumber: $('#phoneNumber').val(),
+          -     email: $('#email').val(),
+          -     displayAll: displayAll
+          -   }, function(){
+          -     stdTableSort("#personCandidates table");
+          -     $('#personCandidates').show();
+          -   });
+          - }
+          -
+          - $(document).ready(function(){
+          -    $('#stepFormSubmitButton').val('Create New');
+          - });
+
+        style
+          - #lookupPerson td {padding-right: 15px;}
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li Click 'Create New' to create a new record.
+              li Enter search criteria and press tab or enter to filter records.
+              li Click 'Display All' to see all records.
+              li Click on the record link to view or modify record.
+          text _dummy
+            screenLabel~
+            style= display:none;
+            value= -1
+
+        vertical
+          id= lookupPerson
+          fieldSet
+            style= border-color:red;
+            legend Find Person
+            div
+              simpleTable
+                tr
+                  td Person Type
+                  td Last Name
+                  td First Name
+                  td Customer
+                  td Phone Number
+                  td Email
+                tr
+                  td
+                    select personType
+                      id= personType
+                      screenLabel~ Person Type
+                      required~ false
+                      onchange= javascript:return searchPeople();
+                      setName~ personType
+                      title= SETNAME:personType
+                  td
+                    text personLastName
+                      style= width:100px
+                      id= personLastName
+                      onchange= javascript:return searchPeople();
+                  td
+                    text personFirstName
+                      style= width:100px
+                      id= personFirstName
+                      onchange= javascript:return searchPeople();
+                  td
+                    text customerSearch
+                      style= width:100px
+                      id= customerSearch
+                      onchange= javascript:return searchPeople();
+                  td
+                    text phoneNumber
+                      style= width:90px
+                      id= phoneNumber
+                      title= 123-456-7890
+                      onchange= javascript:return searchPeople();
+                  td
+                    text email
+                      style= width:90px
+                      id= email
+                      onchange= javascript:return searchPeople();
+                  td
+                    button Display All
+                      value= Display All
+                      onclick= javascript:return searchPeople('true');
+            div
+              id= personCandidates
+      form
+        autocomplete= off
+        include userAccountInfo
+        script
+          src= js/jquery/combobox.js
+        formQuery~
+          - (SELECT
+          -   p.entityType as 'type'
+          -   ,p.entityId 'personId',p.firstName,p.middleName,p.lastName,p.userId 'user Id'
+          -   ,e.comments
+          -   from entities p
+          -   inner join events e on e.eventId = p.eventId
+          -   WHERE p.entityId='{_recId}')
+          - union distinct
+          -   (select
+          -   '{personType}' as 'type'
+          -   ,cast('-1' as signed) as 'personId'
+          -   ,'{personFirstName}' as 'firstName','' as 'middleName','{personLastName}' as 'lastName'
+          -   ,'' as 'comments', '' as 'user Id'
+          -     from validValues limit 1)
+
+        ##Patient
+        formQuery~
+          - (SELECT
+          -   DATE_FORMAT(pa.dob, '%m/%d/%Y') AS "dob",pa.ssn,pa.gender,pa.mrn,pa.ethnicity
+          -   from patients pa
+          -   WHERE pa.patientId = '{_recId}')
+          - union distinct
+          -   (select
+          -   '' as 'dob','' as 'ssn','' as 'gender','' as 'mrn'
+          -   ,'' as 'ethnicity'
+          -     from validValues limit 1)
+        formQuery~ select pc.problemMedications, pc.allergies, pc.medications
+          - from patientClinical pc
+          - where pc.patientId = '{_recId}'
+          - union DISTINCT
+          - (select '' as 'problemMedications', '' as 'allergies', '' as 'medications'
+          - from dual limit 1 )
+        formQuery~
+          - (select
+          -   patientId,paymentOption,medicareNumber,parentSignature,guarantor
+          -   ,policyHolderName_1,relationship_1,insuranceCompany_1,policyNumber_1,groupNumber_1,responsibleAddress1_1
+          -   ,responsibleAddress2_1,responsibleCity_1,responsibleState_1,responsibleZip_1,phone_1,policyHolderId_1,policyHolderDOB_1
+          -   ,policyHolderName_2,relationship_2,insuranceCompany_2,policyNumber_2,groupNumber_2,responsibleAddress1_2
+          -   ,responsibleAddress2_2,responsibleCity_2,responsibleState_2,responsibleZip_2,phone_2,policyHolderId_2,policyHolderDOB_2
+          -   from patientBilling
+          -   where patientId = '{_recId}'
+          -   )
+          - union distinct
+          -   (select '-1' as 'patientId','' as 'paymentOption','' as 'medicareNumber','' as 'parentSignature','' as 'guarantor'
+          -   ,'' as 'policyHolderName_1','' as 'relationship_1','' as 'insuranceCompany_1','' as 'policyNumber_1','' as 'groupNumber_1','' as 'responsibleAddress1_1'
+          -   ,'' as 'responsibleAddress2_1','' as 'responsibleCity_1','' as 'responsibleState_1','' as 'responsibleZip_1','' as 'phone_1','' as 'policyHolderId_1','' as 'policyHolderDOB_1'
+          -   ,'' as 'policyHolderName_2','' as 'relationship_2','' as 'insuranceCompany_2','' as 'policyNumber_2','' as 'groupNumber_2','' as 'responsibleaddress1_2'
+          -   ,'' as 'responsibleAddress2_2','' as 'responsibleCity_2','' as 'responsibleState_2','' as 'responsibleZip_2','' as 'phone_2','' as 'policyHolderId_2','' as 'policyHolderDOB_2'
+          -   )
+
+        ##Physician
+        formQuery~
+          - (select ph.title,ph.npi,ph.license,ph.expires
+          -   from physicians ph
+          -   where ph.physicianId = '{_recId}')
+          - union distinct
+          -   (select
+          -   '' as 'title','' as 'npi','' as 'license','' as 'expires'
+          -     from validValues limit 1)
+
+
+        script
+          - var patientEntityTypes = new Array();
+          - patientEntityTypes[0] = 'Patient';
+          - var physicianEntityTypes = new Array();
+          - physicianEntityTypes[0] = 'Physician';
+          - var customerMemberEntityTypes = new Array();
+          - customerMemberEntityTypes[0] = 'CustomerMember';
+          -
+          -
+          - function showFields() {
+          -   var type = $('#type').val();
+          -   $('.patient, .physician, .customerMember').hide();
+          -   $('input.patient, input.physician, input.customerMember').parent().parent().hide();
+          -   if (patientEntityTypes.indexOf(type) > '-1') {
+          -     $('.patient').show();
+          -     $('input.patient').parent().parent().show();
+          -     showMedicareFields();
+          -   } else if (physicianEntityTypes.indexOf(type) > '-1') {
+          -     $('.physician').show();
+          -     $('input.physician').parent().parent().show();
+          -   } else if (customerMemberEntityTypes.indexOf(type) > '-1') {
+          -     $('.customerMember').show();
+          -     $('input.customerMember').parent().parent().show();
+          -   }
+          - }
+          - function showMedicareFields() {
+          -   $('#medicare').hide();
+          -   if ($('#medicareNumber').length) $('#medicare').show();
+          -   if ($('#paymentOption').val() == 'Medicare') $('#medicare').show();
+          -   if ($('#paymentOption').val() == 'Medicaid') $('#medicare').show();
+          - }
+          - function checkboxAsRadioButtons() {
+          -   $('#paymentTypes input').click(function() {
+          -     $('#paymentTypes input').filter(':checked').not(this).removeAttr('checked');
+          -   });
+          - }
+          -
+          - function generateRow(tableId) {
+          -   var nextRowId = $('#'+tableId+' tbody tr').length;
+          -   var rowClass = nextRowId % 2;
+          -   var newRow = $('<tr class="stdRow r'+rowClass+'"></tr>');
+          -   $('<td class="stdTd col0"><input onfocus="select()" type="checkbox" name="'+
+          -     tableId+'_'+nextRowId+'_1" class="checkbox" value="false" tabindex="1"></td>').appendTo(newRow);
+          -
+          -   if(tableId == 'customer') {
+          -     $('<td class="stdTd col1"></td>'+
+          -       '<td class="stdTd col2"><select class="combobox" name="'+
+          -       tableId+'_'+nextRowId+'_3" value="" tabindex="1">'+$('#customerTemplate').html()+'</select></td>'+
+          -       '<td class="stdTd col3"><input type="hidden" name="'+
+          -       tableId+'_'+nextRowId+'_4" value="" tabindex="1"></td>')
+          -       .appendTo(newRow);
+          -     newRow.find('select.combobox').combobox({defaultDNEValue: '', select: function(event, ui){ fillCustomerInfo($(this));}});
+          -   } else {
+          -     var type = '';
+          -     if(nextRowId == 0) type = 'Primary';
+          -     if(nextRowId == 1) type = 'Secondary';
+          -     if(nextRowId >= 2) type = 'Tertiary';
+          -     var textCount = $('#'+tableId+' thead tr').children().length - 2;
+          -     var typeColNum = 1;
+          -     for(i = 1; i <= textCount; i++) {
+          -       $('<td class="stdTd col'+i+'"><input onfocus="select()" type="text" name="'+
+          -         tableId+'_'+nextRowId+'_'+(i+1)+'" class="text" value="" tabindex="1"></td>').appendTo(newRow);
+          -       typeColNum++;
+          -     }
+          -     $('<td class="stdTd col'+typeColNum+'"><input onfocus="select()" '+
+          -       'type="text" readonly style="background: transparent; border: none; width: 56px;" '+
+          -       'name="'+tableId+'_'+nextRowId+'_'+(typeColNum+1)+'" class="text" value="'+type+'" tabindex="1"></td>').appendTo(newRow);
+          -   }
+          -   newRow.appendTo('#'+tableId+' tbody');
+          -   //Update the numRows so it can be processed
+          -   $('input[name="' + tableId + '_numRows"]').val(nextRowId+1);
+          - }
+          -
+          - function deleteRow(tableId) {
+          -   var deletedCount = 0;
+          -   $('#'+tableId+' input[type=checkbox]').each(function(){
+          -     if (this.checked) {
+          -       deletedCount++;
+          -       $(this).parent().parent().remove();
+          -     }
+          -   });
+          -   if(deletedCount > 0) {
+          -     //update the types to be in the correct order
+          -     var rowCount = 0;
+          -     $('#'+tableId+' tbody tr').each(function(i){
+          -       rowCount++;
+          -       var type = '';
+          -       if(i == 0) type = 'Primary';
+          -       if(i == 1) type = 'Secondary';
+          -       if(i >= 2) type = 'Tertiary';
+          -       if(tableId != 'customer') $(this).children(':last').children().val(type);
+          -       $(this).find('input, select').each(function(){
+          -         if($(this).attr('name')) {
+          -           var nameParts = $(this).attr('name').split('_');
+          -           var name = nameParts[0]+'_'+i+'_'+nameParts[2];
+          -           $(this).attr('name', name);
+          -         }
+          -       });
+          -     });
+          -     $('input[name="' + tableId + '_numRows"]').val(rowCount);
+          -   }
+          - }
+          -
+          - function generateAddNewRow(tableId) {
+          -   var colCount = $('#'+tableId+' thead tr').children().length-1;
+          -   $('#'+tableId+' tfoot').append('<tr><td style="text-align: center;">'+
+          -     '<input type="button" value="Delete" onclick="deleteRow(\''+tableId+'\');" /></td>'+
+          -     '<td style="text-align: center;" colspan="'+colCount+
+          -     '"><input type="button" value="Add New" onclick="generateRow(\''+tableId+'\');" />');
+          - }
+          -
+          - function fillCustomerInfo(customerElem) {
+          -   var value = customerElem.val();
+          -   var inputElem = customerElem.parent().find('input[autocomplete]');
+          -   var row = customerElem.parent().parent();
+          -   inputElem.css('border-color', 'initial');
+          -   console.log(customerElem);
+          -   if(value == '') {
+          -     var confirmed = confirm('The customer you have entered does not exist.'+
+          -       '\nSelect "OK" to create a new customer.\nSelect "Cancel" to select a different customer.');
+          -     if(confirmed) {
+          -       row.children('.col1').html('_NEW');
+          -       customerElem.children(':selected').val('_NEW');
+          -       row.children('.col3').children('input').val(inputElem.val());
+          -     } else {
+          -       inputElem.css('border-color', 'red');
+          -       row.children('.col1').html('');
+          -     }
+          -   } else {
+          -     row.children('.col1').html('<a href="/uniflow?lastForm=Y&stepName=Customers&recId='+
+          -       value+'" class="tableLink">'+value+'</a>');
+          -   }
+          - }
+
+        script
+          - $(document).ready(function(){
+          -   showFields();
+          -   checkboxAsRadioButtons();
+          -   generateAddNewRow('address');
+          -   generateAddNewRow('phone');
+          -   generateAddNewRow('email');
+          -   generateAddNewRow('fax');
+          -   generateAddNewRow('customer');
+          -   $('.combobox').combobox({defaultDNEValue: '', select: function(event, ui){ fillCustomerInfo($(this));}});
+          -   eth = $("#ethnicityList").val().split(',');
+          -   for (i_eth in eth)
+          -   {
+          -     $('#ethnicity').children('option[value="' + eth[i_eth] +'"]').attr('selected',true);
+          -   }
+          -   $('form').submit(function(e){
+          -     if($('#customer td.col0 input:checked, #address td.col0 input:checked, #phone td.col0 input:checked, #email td.col0 input:checked, #fax td.col0 input:checked').length > 0) {
+          -       alert('Rows will not be deleted unless the delete button is pressed.');
+          -       e.preventDefault();
+          -     }
+          -   });
+          - });
+
+        hidden Id
+          id= personId
+          value= {_resultSet:personId}
+        hidden personType
+          value= {personType}
+        hidden personFirstName
+          value= {personFirstName}
+        hidden personLastName
+          value= {personLastName}
+        hidden ethnicityList
+          id= ethnicityList
+          screenLabel~
+          value= {_resultSet:ethnicity}
+
+        select customerTemplate
+          id= customerTemplate
+          option
+          sqlQuery~ select p.firstName, p.entityId from entities p
+            - where p.entityType = 'Organization' order by p.firstName
+          style= display: none;
+
+        fieldset
+          legend Explanation
+            class= legend
+          vertical
+            li Use the Delete column and the Delete and Add New buttons to update customers and contact information.
+            li Press Submit after editing or you will lose all changes.
+
+        vertical2
+          id= topInfo
+          fieldset
+            legend Person Information
+            vertical
+              select type
+                id= type
+                required~ true
+                screenLabel~ Person Type
+                value= {_:type}
+                setName~ personType
+                title= SETNAME:personType
+                onchange= showFields();
+              text firstName
+                screenLabel~ First Name
+                required~ true
+                value= {_resultSet:firstName}
+              text middleName
+                screenLabel~ Middle
+                value= {_resultSet:middleName}
+              text lastName
+                screenLabel~ Last Name
+                value= {_resultSet:lastName}
+              #note: cannot be "userId", as this will make the form submit to the login page.
+              text User Id
+                class= physician customerMember
+                validate~ select userId from userInfo
+                  - where userId = '{User Id}' or
+                  - ('{User Id}' = '' and '{AddUser}' = 'false') or
+                  - ('{AddUser}' = 'true' and '{User Id}' <> '')
+                  errorMessage~ User does not yet exist.  Check the <b>Add External User</b> link and enter an initial password to create user.
+                validate~ ! select userId from userInfo where '{AddUser}' = 'true' and userId = '{User Id}'
+                  errorMessage~ User already exists in the system. Pick a different user name.
+                value= {_resultSet:user Id}
+              comments Comments
+                value= {_:comments}
+
+          fieldset
+            legend Current Customers
+            table
+              id= customer
+              #class= stdTableSort
+              sqlQuery~ SELECT 'false' as 'Delete', c.entityId 'Customer Id', c.firstName as 'Customer',
+                - '' as 'hidden'
+                - from entities c
+                - inner join entityRelations r on r.entityId = c.entityId
+                - where r.memberId = '{_recId}'
+              columnSpecs~ customer
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                column 3
+                  inputType select
+                    option
+                    sqlQuery~ select c.firstName, c.entityId from entities c
+                      - where c.entityType = 'Organization' order by c.firstName
+                    class= combobox
+                ##HOLDS NAME of new customer if creating new one
+                column 4
+                  inputType hidden
+
+        fieldset
+          legend Contact Information
+          table
+            id= address
+            style= width: 100%;
+            caption Address(es)
+            #class= stdTableSort
+            sqlQuery~ SELECT
+              - 'false' as 'Delete', a.address1 'Address 1',a.address2 'Address 2',a.city 'City',a.state 'State'
+              - ,a.postalCode 'Zip',a.country 'Country',a.type 'Type'
+              - from entityAddresses a
+              - WHERE a.entityId='{_recId}' and '{_recId}' <> ''
+            columnSpecs~ address
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType text
+              column 3
+                inputType text
+              column 4
+                inputType text
+              column 5
+                inputType text
+                #inputType select
+                #  setName~ state
+              column 6
+                inputType text
+              column 7
+                inputType text
+              column 8
+                inputType text
+                  readonly=
+                  style= background: transparent; border: none; width: 56px;
+
+          div
+            id= phoneAndEmail
+            div
+              table
+                id= phone
+                caption Phone(s)
+                #class= stdTableSort
+                sqlQuery~ select 'false' as 'Delete', p.number 'Phone',p.type 'Type'
+                  - from entityPhones p
+                  - where p.entityId= '{_resultSet:personId}' and p.type not like '% Fax'
+                  - order by p.type
+                columnSpecs~ phone
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                      readonly=
+                      style= background: transparent; border: none; width: 56px;
+            div
+              table
+                id= email
+                caption Email(s)
+                #class= stdTableSort
+                sqlQuery~ select 'false' as 'Delete', e.email 'Email',e.type 'Type'
+                  - from entityEmails e
+                  - where e.entityId= '{_resultSet:personId}'
+                  - order by e.type
+                columnSpecs~ email
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                      readonly=
+                      style= background: transparent; border: none; width: 56px;
+            div
+              table
+                id= fax
+                caption Fax(s)
+                #class= stdTableSort
+                sqlQuery~ select 'false' as 'Delete', p.number 'Fax',REPLACE(p.type, ' Fax', '') 'Type'
+                  - from entityPhones p
+                  - where p.entityId= '{_resultSet:personId}' and p.type like '% Fax'
+                  - order by p.type
+                columnSpecs~ fax
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                  column 3
+                    inputType text
+                      readonly=
+                      style= background: transparent; border: none; width: 56px;
+        vertical2
+          fieldset
+            class= physician
+            legend Physician Information
+            vertical
+              text title
+                screenLabel~ Title
+                value= {_resultSet:title}
+              text npi
+                screenLabel~ NPI/UPIN
+                value= {_resultSet:NPI}
+              text license
+                screenLabel~ License
+                value= {_resultSet:license}
+              text expires
+                screenLabel~ Expires
+                value= {_resultSet:expires}
+          fieldset
+            class= physician customerMember
+            legend Add As External User
+              title= Click to expand
+              onClick= $('#addUser').toggle();
+            div
+              id= addUser
+              style= display:none;
+              vertical
+                checkbox AddUser
+                  screenLabel~ Add As External User
+                password_input Password
+                  #Excluded from initial insert, then updated via method call, to get encryption
+                  validate~ select 1 from dual where ('{AddUser}' = 'true' and '{Password}' <> '2jmj7l5rSw0yVb/vlWAYkK/YBwk=') or '{AddUser}' = 'false'
+                    errorMessage~ When creating a system user, a password is required.
+                number Access Level
+                  readonly= true
+                  value= 2
+                  numeric~
+                select Account Id
+                  screenLabel~ Portal Type
+                  validate~ select 1 from dual where ('{AddUser}' = 'true' and '{Account Id}' <> '') or '{AddUser}' = 'false'
+                    errorMessage~ When creating a system user, the portal type is required.
+                  option
+                  option OrderingUser
+                  option ReportingUser
+                  #sqlQuery~ select distinct accountId from userInfo where accountId not like 'chpwd%'
+
+        vertical2
+          class= patient
+          fieldset
+            legend Patient Information
+            vertical
+              text mrn
+                screenLabel~ MRN/Patient ID
+                value= {_resultSet:mrn}
+              date dob
+                id= dob
+                screenLabel~ Birth Date
+                value= {_resultSet:dob}
+                title= mm/dd/yyyy
+                class= date
+                validate~ format (\d|\d\d)/(\d|\d\d)/\d\d\d\d
+              text ssn
+                screenLabel~ SSN
+                value= {_resultSet:ssn}
+              select gender
+                screenLabel~ Gender
+                value= {_resultSet:gender}
+                setName~ gender
+                title= SETNAME:gender
+                required~ false
+                option Male
+                  value= M
+                option Female
+                  value= F
+                option Unknown
+                  value= U
+              select ethnicity
+                multiple=
+                screenLabel~ Ethnicity
+                id= ethnicity
+                sqlQuery~ select value as displayName, value from validValues where setName = 'ethnicities'
+                required~ false
+            vertical
+              span Current Medications
+              textArea medications
+                screenLabel~
+                style= width:300px;
+                value= {_resultSet:medications}
+              span Medications that have been problematic
+              textArea problemMedications
+                screenLabel~
+                style= width:300px;
+                value= {_resultSet:problemMedications}
+              span Drug Allergies
+              textArea allergies
+                screenLabel~
+                style= width:300px;
+                value= {_resultSet:allergies}
+
+
+          ### insurance
+          fieldset
+            legend Insurance Info
+              title= Click to expand
+              onClick= $('#insurance').toggle();
+            div
+              id= insurance
+              style= display: none;
+              vertical
+                select paymentOption
+                  value= {_resultSet:paymentOption}
+                  id= paymentOption
+                  screenLabel~ Payment Options
+                  onChange= javascript:return showMedicareFields();
+                  option
+                  option Insurance
+                  option Medicare
+                  option Self Pay
+              vertical
+              div
+                id= medicare
+                style= display:none;
+                fieldSet
+                  class= medicare
+                  legend Medicare #
+                  vertical2
+                    text medicareNumber
+                      value= {_resultSet:medicareNumber}
+                      screenLabel~
+              vertical
+                checkbox parentSignature
+                  value= {_resultSet:parentSignature}
+                  screenLabel~ Parent/Guardian Signature on file
+              vertical
+                text guarantor
+                  value= {_resultSet:guarantor}
+                  screenLabel~ Payment Guarantor
+              vertical2
+                fieldset
+                  legend Primary Insurance
+                  vertical
+                    text policyHolderName_1
+                      value= {_resultSet:policyHolderName_1}
+                      screenLabel~ Name of Insured
+                      title= Last, first middle
+                    select relationship_1
+                      value= {_resultSet:relationship_1}
+                      screenLabel~ Relationship
+                      option
+                      option father
+                      option mother
+                      option self
+                      option other
+                    text insuranceCompany_1
+                      value= {_resultSet:insuranceCompany_1}
+                      screenLabel~ Insurance Carrier
+                    text policyNumber_1
+                      value= {_resultSet:policyNumber_1}
+                      screenLabel~ Policy Number
+                    text groupNumber_1
+                      value= {_resultSet:groupNumber_1}
+                      screenLabel~ Group Number
+                    text responsibleAddress1_1
+                      value= {_resultSet:responsibleAddress1_1}
+                      screenLabel~ Address 1
+                    text responsibleAddress2_1
+                      value= {_resultSet:responsibleAddress2_1}
+                      screenLabel~ Address 2
+                    text responsibleCity_1
+                      value= {_resultSet:responsibleCity_1}
+                      screenLabel~ City
+                    text responsibleState_1
+                      value= {_resultSet:responsibleState_1}
+                      screenLabel~ State
+                    text responsibleZip_1
+                      value= {_resultSet:responsibleZip_1}
+                      screenLabel~ Zip
+                    text phone_1
+                      value= {_resultSet:phone_1}
+                      screenLabel~ Phone
+                    text policyHolderId_1
+                      value= {_resultSet:policyHolderId_1}
+                      screenLabel~ Policy Holder SSN
+                      title= SSN
+                    date policyHolderDOB_1
+                      value= {_resultSet:policyHolderDOB_1}
+                      screenLabel~ Policy Holder DOB
+                      title= mm/dd/yyyy
+                fieldset
+                  legend Secondary Insurance
+                  vertical
+                    text policyHolderName_2
+                      value= {_resultSet:policyHolderName_2}
+                      screenLabel~ Name of Insured
+                      title= Last, first middle
+                    select relationship_2
+                      value= {_resultSet:relationship_2}
+                      screenLabel~ Relationship
+                      option
+                      option father
+                      option mother
+                      option self
+                      option other
+                    text insuranceCompany_2
+                      value= {_resultSet:insuranceCompany_2}
+                      screenLabel~ Insurance Carrier
+                    text policyNumber_2
+                      value= {_resultSet:policyNumber_2}
+                      screenLabel~ Policy Number
+                    text groupNumber_2
+                      value= {_resultSet:groupNumber_2}
+                      screenLabel~ Group Number
+                    text responsibleAddress1_2
+                      value= {_resultSet:responsibleAddress1_2}
+                      screenLabel~ Address 1
+                    text responsibleAddress2_2
+                      value= {_resultSet:responsibleAddress2_2}
+                      screenLabel~ Address 2
+                    text responsibleCity_2
+                      value= {_resultSet:responsibleCity_2}
+                      screenLabel~ City
+                    text responsibleState_2
+                      value= {_resultSet:responsibleState_2}
+                      screenLabel~ State
+                    text responsibleZip_2
+                      value= {_resultSet:responsibleZip_2}
+                      screenLabel~ Zip
+                    text phone_2
+                      value= {_resultSet:phone_2}
+                      screenLabel~ Phone
+                    text policyHolderId_2
+                      value= {_resultSet:policyHolderId_2}
+                      screenLabel~ Policy Holder SSN
+                      title= SSN
+                    date policyHolderDOB_2
+                      value= {_resultSet:policyHolderDOB_2}
+                      screenLabel~ Policy Holder DOB
+                      title= mm/dd/yyyy
+        vertical
+          class= patient
+          fieldset
+            legend Requests
+              class= legend
+            table
+              sqlQuery~
+                - select
+                -   rf.Id as 'Request Id'
+                -   , concat(phy.firstName, ' ', phy.lastName) as Physician
+                -   , date(e.eventDate) as 'Requisition Entered Date'
+                -   , case isnull(r.reportId) when 1 then 'not reported' else CONCAT('<a href="/uniflow?stepName=DownloadFile+Unrestricted&recId=', r.reportId,'">',r.reportId,'</a>') end as 'Report Id '
+                -   , case isnull(r.reportId) when 1 then 'n/a' else r.panelCode end as 'Panel Code'
+                # -   , r.reportedDate as 'Reported Date'
+                # -   , r.viewedDate as 'Viewed Date'
+                - from requestForms rf
+                - inner join events e on rf.eventId = e.eventid
+                - left join entities phy on phy.entityId = rf.physicianId
+                # - left join (
+                # -   select ifnull(date(s.eventDate), 'n/a') as "reportedDate"
+                # -     , ifnull(date(v.eventDate), 'not viewed') as "viewedDate"
+                # -     , reportId, requestId, panelCode
+                # -   from reportDetails rd
+                # -   left join events s on s.eventId = rd.statusEventId
+                # -   left join events v on v.eventId = rd.viewedEventId) r
+                # - on rf.id = r.requestId
+                - where rf.patientId = '{_:personId}' and '{_:personId}' <> '-1'
+                - order by e.eventId
+      forRows customer
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        ## If this is a new customer, it has id _NEW and is added at the end of step as well.
+        ##    It's added to containerProperties to be looked at at the end of the step
+        ##    since I couldn't get the if statement to work here.
+        sqlPreparedStatement insert ignore into entityRelations (entityId,memberId,role,eventId)
+          - select ?,?,?,?
+          - from dual where ? <> '' and ? <> '_NEW'
+          string {_columnInput_customer:3}
+          string {Id}
+          string {type}
+          long {_eventId}
+          string {_columnInput_customer:3}
+          string {_columnInput_customer:3}
+        sqlPreparedStatement insert into containerProperties (containerId, property, value, eventId)
+          - select ?, '_NEWCUSTOMER', ?, ?
+          - from dual where ? = '_NEW'
+          string {Id}
+          string {_columnInput_customer:4}
+          long {_eventId}
+          string {_columnInput_customer:3}
+      forRows address
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityAddresses (entityId,address1,address2,city,state,postalCode,country,type,eventId)
+          -   select ?,?,?,?,?,
+          -  ?,?,?,?
+          -   from dual
+          -   WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_address:2}
+          string {_columnInput_address:3}
+          string {_columnInput_address:4}
+          string {_columnInput_address:5}
+          string {_columnInput_address:6}
+          string {_columnInput_address:7}
+          string {_columnInput_address:8}
+          long {_eventId}
+          string {_columnInput_address:2}
+      forRows phone
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityPhones (entityId,number,type,eventId)
+          - select ?,?,?,?
+          - from dual
+          - WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_phone:2}
+          string {_columnInput_phone:3}
+          long {_eventId}
+          string {_columnInput_phone:2}
+      forRows email
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityEmails (entityId,email,type,eventId)
+          - select ?,?,?,?
+          - from dual
+          - WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_email:2}
+          string {_columnInput_email:3}
+          long {_eventId}
+          string {_columnInput_email:2}
+      forRows fax
+        ## DELETE ORIGINAL HAPPENS END OF STEP (can't be here because if all are deleted (no rows) the sql isn't run)
+        sqlPreparedStatement insert into entityPhones (entityId,number,type,eventId)
+          - select ?,?,?,?
+          - from dual
+          - WHERE length(?) > 0
+          string {Id}
+          string {_columnInput_fax:2}
+          string {_columnInput_fax:3} Fax
+          long {_eventId}
+          string {_columnInput_fax:2}
+      ifCondition {Id}
+        advanced~
+        equals~ -1
+        setFormQueryResult
+          sqlQuery select 'P{_getNextSequence:personId}' as 'personId' from dual
+
+        sqlPreparedStatement insert into entities (entityId,entityType,status,eventId)
+          - values (?,?,'active',?)
+          string {_resultSet:personId}
+          string {type}
+          long {_eventId}
+        sqlPreparedStatement insert into physicians (physicianId,eventId)
+          - select ?,?
+          - from dual where ? = 'Physician'
+          string {_resultSet:personId}
+          long {_eventId}
+          string {type}
+        sqlPreparedStatement insert into patients (patientId,eventId)
+          - select ?,?
+          - from dual where ? = 'Patient'
+          string {_resultSet:personId}
+          long {_eventId}
+          string {type}
+        sqlPreparedStatement insert into containers (containerId, containerType, eventId)
+          - values (?, ?, ?)
+          string {_resultSet:personId}
+          string {type}
+          long {_eventId}
+        sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+          - values (?, 'self', ?, ?, ?)
+          string {_resultSet:personId}
+          string {type}
+          string {_resultSet:personId}
+          long {_eventId}
+
+        ##Update the entityId for customers, addresses, phones, emails
+        sqlPreparedStatement update entityRelations set memberId = ? where memberId = ? and eventId = ?
+          string {_resultSet:personId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityAddresses set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:personId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityPhones set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:personId}
+          string {Id}
+          long {_eventId}
+        sqlPreparedStatement update entityEmails set entityId = ? where entityId = ? and eventId = ?
+          string {_resultSet:personId}
+          string {Id}
+          long {_eventId}
+
+        else
+          ### if not new record then get the Id to be used for other processing
+          setFormQueryResult
+            sqlQuery select '{Id}' as 'personId' from dual
+
+          ##Only keeping track of comments for person for first added event, so need to update it
+          sqlPreparedStatement update events e inner join entities p on p.eventId = e.eventId
+            - set e.comments = ?
+            - where p.entityId = ?
+            string {Comments}
+            string {_:personId}
+
+
+      ##### ALL TYPES #####
+
+      ### entities
+      sqlPreparedStatement update entities set
+        - firstName = ?
+        - ,middleName = ?
+        - ,lastName = ?
+        - ,userId = ?
+        - where entityId = ?
+        string {firstName}
+        string {middleName}
+        string {lastName}
+        string {User Id}
+        string {_resultSet:personId}
+
+
+      ### ALL THESE were reinserted in the tables above. Here we delete any old records.
+      ### customers
+      sqlPreparedStatement delete er.*
+        - from entityRelations er
+        - inner join entities e
+        - on er.entityId = e.entityId
+        - where er.memberId = ?
+        - and er.eventId <> ?
+        - and e.entityType = 'Organization'
+        string {_resultSet:personId}
+        long {_eventId}
+
+      ### SEE customer table above for explanation of what I'm doing
+
+      forEach select value AS name from containerProperties
+        - where containerId = '{Id}' and property = '_NEWCUSTOMER' and eventId = {_eventId}
+
+        sqlPreparedStatement insert into entities (entityId,entityType,firstName,status,eventId)
+          - values (?, 'Organization',?,'_CURRENT',?)
+          string O{_getNextSequence:organizationId}
+          string {_:name}
+          long {_eventId}
+        sqlPreparedStatement insert into containers (containerId, containerType, eventId)
+          - select entityId, 'Organization', ?
+          - from entities where eventId = ? and status = '_CURRENT'
+          long {_eventId}
+          long {_eventId}
+        sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+          - select entityId, 'self', 'Organization', entityId, ?
+          - from entities where eventId = ? and status = '_CURRENT'
+          long {_eventId}
+          long {_eventId}
+        sqlPreparedStatement insert ignore into entityRelations (entityId,memberId,role,eventId)
+          - select entityId,?,?,?
+          - from entities where eventId = ? and status = '_CURRENT'
+          string {_resultSet:personId}
+          string {type}
+          long {_eventId}
+          long {_eventId}
+        sqlPreparedStatement update entities set status = 'active' where eventId = ? and status = '_CURRENT'
+          long {_eventId}
+
+      sqlPreparedStatement delete from containerProperties
+        - where containerId = ? and property = '_NEWCUSTOMER' and eventId = ?
+        string {Id}
+        long {_eventId}
+
+      ### address
+      sqlPreparedStatement delete from entityAddresses where entityId = ? and eventId <> ?
+        string {_resultSet:personId}
+        long {_eventId}
+      ### phone
+      sqlPreparedStatement delete from entityPhones where entityId = ? and eventId <> ?
+        string {_resultSet:personId}
+        long {_eventId}
+
+      ### email
+      sqlPreparedStatement delete from entityEmails where entityId = ? and eventId <> ?
+        string {_resultSet:personId}
+        long {_eventId}
+
+      ##### PHYSICIANS #####
+      ifCondition {type}
+        advanced~
+        equals~ Physician
+        sqlPreparedStatement delete from physicians where physicianId = ?
+          string {_resultSet:personId}
+        sqlPreparedStatement insert into physicians (physicianId, title, npi, license, expires, eventId)
+          - values (?, ?, ?, ?, ?, ?)
+          string {_resultSet:personId}
+          string {title}
+          string {npi}
+          string {license}
+          string {expires}
+          long {_eventId}
+
+      ### PHYSICIANS AND CUSTOMER MEMBERS :: Add Person as User if box is checked ###
+      ifCondition {AddUser}
+        advanced~
+        equals~ true
+        sqlPreparedStatement insert into userInfo (userId,password,name,accessLevel,accountId,email,userProfile,phone,active,eventId)
+          - select ?,'tmppw',?,?,?,e.email
+          -   ,'userProfile\n  webApps \n    webapp /uniflow\n      userStepGroups \n        stepGroup Welcome\n'
+          -   ,ph.number,'true',?
+          - from entities p
+          - left join entityEmails e on e.entityId = p.entityId and e.type = 'Primary'
+          - left join entityPhones ph on ph.entityId = p.entityId and ph.type = 'Primary'
+          - where p.entityId = ?
+          string {User Id}
+          string {firstName} {lastName}
+          long {Access Level}
+          string chpwd{Account Id}
+          long {_eventId}
+          string {_resultSet:personId}
+        execClassMethod uniflow.Switchboard.changePassword
+
+      ##### PATIENTS #####
+      ifCondition {type}
+        advanced~
+        equals~ Patient
+        ### update these fields for patient
+        sqlPreparedStatement delete from patients where patientId = ?
+          string {_resultSet:personId}
+        sqlPreparedStatement insert into patients (patientId, dob, mrn, ssn, gender, ethnicity, eventId)
+          - values (?, case ? when '' then NULL else ? end, ?, ?, ?, ?, ?)
+          string {_resultSet:personId}
+          string {dob}
+          string {dob}
+          string {mrn}
+          string {ssn}
+          string {gender}
+          string {ethnicity}
+          long {_eventId}
+        sqlPreparedStatement delete from patientClinical where patientId = ?
+          string {_resultSet:personId}
+        sqlPreparedStatement insert into patientClinical (patientId, medications, problemMedications, allergies, eventId)
+          - values (?, ?, ?, ?, ?)
+          string {_resultSet:personId}
+          string {medications}
+          string {problemMedications}
+          string {allergies}
+          long {_eventId}
+
+        forEachSelectedOption ethnicity
+          sqlPreparedStatement update patients set ethnicity = concat(coalesce(ethnicity,''), case when coalesce(ethnicity,'') = '' then '' else ',' end, ?) where patientId = ?
+            string {_resultSet:ethnicity}
+            string {_resultSet:personId}
+
+        ### billing -> for patient only records
+        sqlPreparedStatement delete from patientBilling
+          - where patientId = ?
+          string {_resultSet:personId}
+        sqlPreparedStatement insert into patientBilling (
+          - patientId,paymentOption,medicareNumber,parentSignature,guarantor
+          - ,policyHolderName_1,relationship_1,insuranceCompany_1,policyNumber_1,groupNumber_1,responsibleaddress1_1
+          - ,responsibleaddress2_1,responsiblecity_1,responsiblestate_1,responsiblezip_1,phone_1,policyHolderId_1,policyHolderDOB_1
+          - ,policyHolderName_2,relationship_2,insuranceCompany_2,policyNumber_2,groupNumber_2,responsibleaddress1_2
+          - ,responsibleaddress2_2,responsiblecity_2,responsiblestate_2,responsiblezip_2,phone_2,policyHolderId_2,policyHolderDOB_2
+          - ,eventId
+          - )
+          - values (
+          - ?,?,?,?,?
+          - ,?,?,?,?,?,?
+          - ,?,?,?,?,?,?, case ? when '' then NULL else ? end
+          - ,?,?,?,?,?,?
+          - ,?,?,?,?,?,?,case ? when '' then NULL else ? end
+          - ,?
+          - )
+          string {_resultSet:personId}
+          string {paymentOption}
+          string {medicareNumber}
+          string {parentSignature}
+          string {guarantor}
+          string {policyHolderName_1}
+          string {relationship_1}
+          string {insuranceCompany_1}
+          string {policyNumber_1}
+          string {groupNumber_1}
+          string {responsibleAddress1_1}
+          string {responsibleAddress2_1}
+          string {responsibleCity_1}
+          string {responsibleState_1}
+          string {responsibleZip_1}
+          string {phone_1}
+          string {policyHolderId_1}
+          string {policyHolderDOB_1}
+          string {policyHolderDOB_1}
+          string {policyHolderName_2}
+          string {relationship_2}
+          string {insuranceCompany_2}
+          string {policyNumber_2}
+          string {groupNumber_2}
+          string {responsibleAddress1_2}
+          string {responsibleAddress2_2}
+          string {responsibleCity_2}
+          string {responsibleState_2}
+          string {responsibleZip_2}
+          string {phone_2}
+          string {policyHolderId_2}
+          string {policyHolderDOB_2}
+          string {policyHolderDOB_2}
+          long {_eventId}
+
+### System Exception ###
+    step System Exception
+      accessLevel 20
+      nextStep {fromStepName}
+        formNumber 0
+      form
+        id= systemExceptionForm
+        class= systemException
+        formQuery~ select email as 'userEmail', now() as 'curDate' from userInfo where userId = '{_userId}'
+        include userAccountInfo
+        div
+          class= formDiv
+          h3 The system is unable to perform the last activity due to a configuration problem. <br />Other activities are still accessible. Please report the issue to your system administrator.
+          fieldset
+            legend Message
+              class= legend
+            div
+              div
+                id= exceptionMessage
+                class= error
+          fieldset
+            legend Details
+              class= legend toggle
+            div
+              id= messageContent
+              style= display:none; font-weight: bold;
+              div System URL
+                br
+                text system
+                  id= system
+                  readonly=
+                  class= readonly-input
+              div Step Generating Error
+                br
+                text stepName
+                  id= stepName
+                  readonly=
+                  class= readonly-input
+              div Time
+                br
+                text time
+                  id= time
+                  readonly=
+                  value= {_:curDate}
+                  class= readonly-input
+              div User
+                br
+                text errorUserName
+                  id= errorUserName
+                  value= {_userId}
+                  readonly=
+                  class= readonly-input
+              div User Email
+                br
+                text userEmail
+                  id= userEmail
+                  value= {_:userEmail}
+                  readonly=
+                  class= readonly-input
+              div Exception Message
+                br
+                textArea exception
+                  id= exceptionText
+                  readonly=
+          br
+          div
+            button Go Back
+              value= Go Back
+              id= goBack
+              style= margin-right: 1em;
+            button Send
+              value= Send
+              id= sendEmail
+        script
+          - systemExceptionForm();
+          -
+      jython
+        if switchboard.page.getClass().getName() == "com.uniconnect.uniflow.node.Page3":
+          curAccountId = switchboard.accountId
+          nav = switchboard.getConfig().getByTagAndValue("nav", "TopMenu").makeClone()
+          dashboardNav = switchboard.getConfig().getByTagAndValue("nav", "DashboardMenu").makeClone()
+          orderEnrtyNav = switchboard.getConfig().getByTagAndValue("nav", "OrderEntryMenu").makeClone()
+          workflowNav = switchboard.getConfig().getByTagAndValue("nav", "WorkflowsMenu").makeClone()
+          reportingNav = switchboard.getConfig().getByTagAndValue("nav", "ReportingMenu").makeClone()
+          settingsNav = switchboard.getConfig().getByTagAndValue("nav", "SettingsMenu").makeClone()
+          # routingNav = switchboard.getConfig().getByTagAndValue("nav", "RoutingMenu").makeClone()
+          labManageNav = switchboard.getConfig().getByTagAndValue("nav", "LabMangementMenu").makeClone()
+          reportPortalNav = switchboard.getConfig().getByTagAndValue("nav", "ReportingMenu").makeClone()
+
+          adminNav = switchboard.getConfig().getByTagAndValue("nav", "AdminMenu").makeClone()
+          userNav = switchboard.getConfig().getByTagAndValue("nav", "UserMenu").makeClone()
+          usernameNode = userNav.get('li.a.span')
+          usernameParts = switchboard.userId.split('@')
+          usernameNode.value = usernameParts[0]
+
+          userLogout = switchboard.getConfig().getByTagAndValue("nav", "UserLogout").makeClone()
+          isSSO = switchboard.getConfig().getOrNull('SSOUserIdHeader')
+          logoutSSONode = switchboard.getConfig().getOrNull('SSOLogoutURL')
+          logoutNode = userLogout.get("li.a.href=")
+          if isSSO is not None:
+            if logoutSSONode is None:
+              logoutSSO = switchboard.DEFAULT_SSO_LOGOUT_URL
+            else:
+              logoutSSO = logoutSSONode.value
+            logoutNode.value = logoutSSO
+          userNav.tail.tail.add(userLogout.tail)
+
+          if "chpwd" in curAccountId:
+            pass
+          elif curAccountId == 'OrderingUser':
+            nav.tail.tail.tail.add(labManageNav.tail)
+          elif curAccountId == 'ReportingUser':
+            nav.tail.tail.tail.add(reportPortalNav.tail)
+          else:
+            nav.tail.tail.tail.add(dashboardNav.tail)
+            nav.tail.tail.tail.add(orderEnrtyNav.tail)
+            nav.tail.tail.tail.add(workflowNav.tail)
+            nav.tail.tail.tail.add(reportingNav.tail)
+            # nav.tail.tail.tail.add(routingNav.tail)
+            nav.tail.tail.tail.add(labManageNav.tail)
+            # nav.tail.tail.tail.add(settingsNav.tail)
+
+            if switchboard.accessLevel > 8:
+              nav.tail.tail.tail.add(settingsNav.tail)
+
+            if switchboard.accessLevel > 10:
+              nav.tail.tail.tail.add(adminNav.tail)
+
+          nav.tail.tail.tail.add(userNav.tail)
+          topMenu = switchboard.page.HTMLbody.addHead(nav)
+          topMenu.value = ''
+
+    step Insurance Providers
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          - $(document).ready(function(){
+          -   $('#createNewInsurance').click(function(){
+          -     window.location.href="/uniflow?lastForm=Y&stepName=Insurance%20Providers"
+          -   });
+          - });
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li Click 'Create New' to create a new record.
+              li Select an Insurance Company from the drop down and submit to view and/or edit that record.
+
+        vertical
+          id= lookupCustomer
+          fieldSet
+            legend Select Insurance Agency
+            vertical
+              select insuranceCarrier
+                id= insuranceCarrier
+                screenLabel~ Insurance Carrier
+                option
+                sqlQuery~
+                  - select distinct carrierName, id
+                  - from insuranceCarriers
+                  - order by carrierName
+        br
+        vertical
+          button
+            id= createNewInsurance
+            screenLabel~
+            value= CREATE NEW
+        br
+        br
+      form
+        include stepInstructions
+        script
+          -  function onlyDigits(phoneNumber, inputId) {
+          -   phoneNumber = phoneNumber.replace(/\D/g,'');
+          -   $('#'+inputId).val(phoneNumber);
+          -  }
+        configurePreparedQuery~  SELECT amdCarrierCode AS carrierCode,
+          - carrierName AS carrierName,
+          - address1 AS Address1,
+          - address2 AS Address2,
+          - city AS city,
+          - state AS state,
+          - country AS country,
+          - postalCode AS postalCode,
+          - phoneNumber AS phoneNumber
+          - FROM insuranceCarriers
+          - WHERE id = ?
+          - union
+          - SELECT 'update' AS carrierCode,
+          - '' AS carrierName,
+          - '' AS Address1,
+          - '' AS Address2,
+          - '' AS city,
+          - '' AS state,
+          - '' AS country,
+          - '' AS postalCode,
+          - '' AS phoneNumber
+          - FROM DUAL
+          string {insuranceCarrier}
+
+        vertical
+          fieldset
+            legend Insurance Provider Details
+              class= legend
+              hidden insuranceId_1
+                value= {_:carrierCode}
+                screenLabel~ ID
+                id= carrierId
+                size= 7
+              hidden carrier
+                value= {_:carrierName}
+                id= carrier
+            vertical
+              text insuranceCompany
+                screenLabel~ Insurance Carrier Name
+                value= {_:carrierName}
+                id= carrierName
+                class= clearPatient required
+                size= 40
+                required~ true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE (NOT EXISTS (SELECT 1
+                  -                   FROM insuranceCarriers
+                  -                   WHERE carrierName = '{_thisInput}')
+                  -       OR '{carrier}' = '{_thisInput}'
+                  -       )
+                  - OR '{_thisInput}' = ''
+                  errorMessage~ The Insurance Carrier Name must be unique. This entry already exists in the system.
+              text responsibleAddress1
+                screenLabel~ Address 1
+                value= {_:Address1}
+                id= carrierAddress
+                class= clearPatient
+                size= 50
+              text responsibleAddress2
+                screenLabel~ Address 2
+                value= {_:Address2}
+                id= carrierAddress2
+                class= clearPatient
+                size= 50
+              text responsibleCity
+                screenLabel~ City
+                value= {_:city}
+                id= carrierCity
+                class= clearPatient
+              text responsibleState
+                screenLabel~ State
+                id= carrierStateP
+                value= {_:state}
+                class= clearPatient
+              text responsibleCountry
+                screenLabel~ Country
+                id= carrierCountry
+                value= {_:country}
+                class= clearPatient
+              text responsiblePostalCode
+                screenLabel~ Postal Code
+                value= {_:postalCode}
+                id= carrierPostalCode
+                class= clearPatient
+              text phone_1
+                screenLabel~ Phone
+                value= {_:phoneNumber}
+                class= phone
+                id= carrierPhone
+                class= clearPatient
+                placeholder= ###########
+                onchange= onlyDigits($(this).val(), $(this).attr('id'));
+
+      ifCondition {insuranceId_1}
+        advanced~
+        equals~ update
+        sqlPreparedStatement INSERT INTO insuranceCarriers
+          - (
+          -   amdCarrierCode,
+          -   carrierName,
+          -   address1,
+          -   address2,
+          -   city,
+          -   state,
+          -   country,
+          -   postalCode,
+          -   phoneNumber,
+          -   eventId
+          - )
+          - VALUES (
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?
+          - )
+          string UNIC{_getNextSequence:insuranceCarrier}
+          string {insuranceCompany}
+          string {responsibleAddress1}
+          string {responsibleAddress2}
+          string {responsibleCity}
+          string {responsibleState}
+          string {responsibleCountry}
+          string {responsiblePostalCode}
+          string {phone_1}
+          long {_eventId}
+
+      ifCondition {insuranceId_1}
+        advanced~
+        not~
+          equals~ update
+        sqlPreparedStatement UPDATE insuranceCarriers
+          - SET carrierName = ?,
+          -   address1 = ?,
+          -   address2 = ?,
+          -   city = ?,
+          -   state = ?,
+          -   country = ?,
+          -   postalCode = ?,
+          -   phoneNumber = ?,
+          -   eventId = ?
+          - WHERE amdCarrierCode = ?
+          string {insuranceCompany}
+          string {responsibleAddress1}
+          string {responsibleAddress2}
+          string {responsibleCity}
+          string {responsibleState}
+          string {responsibleCountry}
+          string {responsiblePostalCode}
+          string {phone_1}
+          long {_eventId}
+          string {insuranceId_1}
+
+
+    stepGroup AdminHidden
+
+    step Send Error Notification
+      accessLevel 1
+      form
+        vertical
+          text system
+          text errorStepName
+          text time
+          textArea exceptionText
+          text errorUserName
+          text userEmail
+      notification SystemExceptionEmail
+        conditionQuery SELECT '{system}','{errorStepName}','{time}','{exceptionText}','{errorUserName}', '{userEmail}', COALESCE(alertEmail, '') as 'alertEmail' FROM client
+        emailAddressColumn 7
+          recipientIdColumn 7
+        subject System Exeption in {1}
+        message
+          html
+            body
+              p System Generating Error: {1}
+              p Step Generating Error: {2}
+              p Error System Time: {3}
+              p User Experiencing Error: {5}
+              p Email of User: {6}
+              p System Exception: {4}
+

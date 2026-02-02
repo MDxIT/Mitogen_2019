@@ -1,0 +1,86 @@
+    step [$$STEP_NAME$$]
+      allowDuplicateContainerIds true
+
+      form
+        data-parsley-validate=
+        include stepInstructions
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+
+        printerControls
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        include sampleList_table
+          parameter~ col1
+            value= [$$Sample_Display_Column_1$$]
+          parameter~ col2
+            value= [$$Sample_Display_Column_2$$]
+          parameter~ col3
+            value= [$$Sample_Display_Column_3$$]
+          parameter~ col4
+            value= [$$Sample_Display_Column_4$$]
+          parameter~ col5
+            value= [$$Sample_Display_Column_5$$]
+          parameter~ col6
+            value= [$$Sample_Display_Column_6$$]
+          parameter~ prioritySetName
+            value= priority
+          parameter~ print
+            value= No
+          parameter~ action
+            value= [$$Action_Option$$]
+          parameter~ comments
+            value= [$$Sample_Comments$$]
+          parameter~ commentHistory
+            value= [$$Sample_Comment_History$$]
+          parameter~ actionSetName
+            value= passfail
+          parameter~ counter
+            value= [$$Sample_Counter$$]
+          parameter~ validateOrTransfer
+            value= Validate
+          parameter~ printAll
+            value= [$$Print_Sample_Details$$]
+          parameter~ scanAll
+            value= false
+          parameter~ parentId
+            value=
+          parameter~ parentIdRequired
+            value= false
+          parameter~ containerIdGen
+            value=
+          parameter~ fileType
+            value= [$$File_Category$$]
+
+
+        include sampleList_SQL
+          parameter~ validateOrTransfer
+            value= Validate
+        forRows samples
+          ifCondition {_columnInput_samples:4}
+            advanced~
+            not~
+              isBlank~
+            include routeContainer
+              parameter~ processContainerId
+                value= {_columnInput_samples:9}
+              parameter~ result
+                value= {_columnInput_samples:6}
+              parameter~ deleteFromStep
+                value= {_step}
+              parameter~ defaultNextStep
+                value= [$$NEXT_STEP$$]
+              parameter~ routingDirection
+                value= OUT
+              parameter~ routingType
+                value= run
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}

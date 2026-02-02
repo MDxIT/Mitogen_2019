@@ -1,0 +1,848 @@
+config
+  steps
+
+    stepGroup Practice Administration
+
+    step Physicians
+
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        script
+          src= js/admin/physicians_f0.js
+
+        fieldset
+          legend Explanation
+          vertical
+            li Click 'Create New' to create a new record.
+            li Enter search criteria and press tab or enter to filter records.
+            li Click 'Display All' to see all records.
+            li Click on the record link to view or modify record.
+
+        fieldSet
+          legend Find Physician
+          div
+            simpleTable
+              tr
+                td Last Name
+                td First Name
+                td Site
+                td Phone Number
+                td Email
+              tr
+                td
+                  text personLastName
+                    id= physicianLastName
+                    class= physicanSearch
+                td
+                  text personFirstName
+                    id= physicianFirstName
+                    class= physicanSearch
+                td
+                  text customerSearch
+                    id= customerSearch
+                    class= physicanSearch
+                td
+                  text phoneNumber
+                    id= phoneNumber
+                    title= 123-456-7890
+                    class= physicanSearch
+                td
+                  text email
+                    id= email
+                    class= physicanSearch
+                td
+                  button Display All
+                    value= Display All
+                    id= showAllPhysicians
+
+          br
+          div
+            id= physicianCandidates
+
+
+      form
+        include stepInstructions
+        include userAccountInfo
+
+        script
+          src= js/admin/practices_f1.js
+
+        hidden _recId
+          value= {_recId}
+
+        hidden step
+          id= step
+          value= {_step}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Physician Information
+          div
+            class= content
+            table
+              class= stdTableSort
+              sqlPreparedQuery~
+                - SELECT
+                -   first_name AS "First Name",
+                -   middle_name AS "Middle Name",
+                -   last_name AS "Last Name",
+                -   title AS "Title",
+                -   dob AS "DOB",
+                -   gender AS "Gender",
+                -   providerId AS "Provider Id",
+                -   providerType AS "Provider Type"
+                - FROM physicians
+                - WHERE physicianId = '{_recId}'
+                - UNION
+                - SELECT '  ', '', '', '', '', '', '', ''
+                - FROM dual
+                - WHERE '{_recId}' = ''
+              columnSpecs~ physicianInfo
+                allowChangedRecordIds
+                column 1
+                  inputType text
+                    class= required
+                    required~ true
+                column 2
+                  inputType text
+                column 3
+                  inputType text
+                    class= required
+                    required~ true
+                column 4
+                  inputType select
+                    setName~ Provider Title
+                    required~ false
+                column 5
+                  inputType date
+                    class= datePickerDOB
+                    convert~ false
+                column 6
+                  inputType select
+                    setName~ Provider Gender
+                    required~ false
+                column 7
+                  inputType text
+                column 8
+                  inputType select
+                    setName~ Provider Type
+                    required~ false
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Physician Clients
+          div
+            class= tabs content
+            ul
+              li
+                a Active Clients
+                  href= #activeSites
+              li
+                a Add New Clients
+                  href= #addNew
+              li
+                a Inactive Clients
+                  href= #inactiveSites
+            div
+              id= activeSites
+              table
+                id= physicianSites
+                caption Linked Clients
+                sqlPreparedQuery~
+                  - SELECT
+                  -   'false' AS "Delete",
+                  -   ps.siteId AS "Client Id",
+                  -   os.siteCode AS "Site Code",                  
+                  -   os.name AS "Client Name",
+                  -   ps.email AS "Email",
+                  -   ps.phone1 AS "Phone Number 1",
+                  -   ps.phone2 AS "Phone Number 2",
+                  -   ps.fax1 AS "Fax Number 1",
+                  -   ps.fax2 AS "Fax Number 2",
+                  -   ps.id,
+                  -   ps.siteId
+                  - FROM physicianSites ps
+                  - INNER JOIN organizationSites os
+                  -   ON ps.siteId = os.siteId
+                  -   AND os.isSystem IS NULL
+                  - WHERE ps.physicianId = '{_recId}'
+                  - AND ps.active = 1
+                columnSpecs~ physicianSites
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 3
+                    inputType text
+                      readonly=
+                      class= readonly
+                  column 4
+                    inputType text
+                      readonly=
+                      class= readonly                      
+                  column 5
+                    inputType text
+                  column 6
+                    inputType text
+                  column 7
+                    inputType text
+                  column 8
+                    inputType text
+                  column 9
+                    inputType text
+                  column 10
+                    inputType text
+                      class= hideColumn
+                  column 11
+                    inputType text
+                      class= hideColumn
+            div
+              id= addNew
+              table
+                id= newPhysicianSites
+                caption Add Sites
+                sqlPreparedQuery~
+                  - SELECT
+                  -   '' AS "Client Name",
+                  -   '' AS "Client ID",
+                  -   '' AS "Email",
+                  -   '' AS "Phone Number 1",
+                  -   '' AS "Phone Number 2",
+                  -   '' AS "Fax Number 1",
+                  -   '' AS "Fax Number 2"
+                  - FROM numbers
+                  - LIMIT 1
+                columnSpecs~ newPhysicianSites
+                  allowChangedRecordIds
+                  column 1
+                    inputType select
+                      class= selectNew
+                      sqlPreparedQuery~
+                        - SELECT name, siteId
+                        - FROM organizationSites
+                        - WHERE siteId NOT IN (SELECT siteId FROM physicianSites WHERE physicianId = '{_recId}')
+                        -   AND isSystem IS NULL
+                        - ORDER BY name
+                  column 3
+                    inputType text
+                  column 4
+                    inputType text
+                  column 5
+                    inputType text
+                  column 6
+                    inputType text
+                  column 7
+                    inputType text
+            div
+              id= inactiveSites
+              table
+                id= inactiveSitesTable
+                caption Inactive Sites
+                sqlPreparedQuery~
+                  - SELECT
+                  -   'false' AS "Reactivate",
+                  -   ps.siteId AS "Client Id",
+                  -   siteCode AS "Site Code",                  
+                  -   os.name AS "Client Name",
+                  -   ps.email AS "Email",
+                  -   ps.phone1 AS "Phone Number 1",
+                  -   ps.phone2 AS "Phone Number 2",
+                  -   ps.fax1 AS "Fax Number 1",
+                  -   ps.fax2 AS "Fax Number 2",
+                  -   ps.id
+                  - FROM physicianSites ps
+                  - INNER JOIN organizationSites os
+                  - ON ps.siteId = os.siteId
+                  -   AND os.isSystem IS NULL
+                  - WHERE ps.physicianId = '{_recId}'
+                  - AND ps.active = 0
+                columnSpecs~ inactiveSites
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 10
+                    inputType text
+                      readonly=
+                      class= hideColumn
+
+
+      ifCondition {_recId}
+        advanced~
+        isBlank~
+        setFormQueryResult physicianId
+          sqlQuery CALL sp_getNextSequence('physicianId', 'physicianId')
+
+        forRows physicianInfo
+
+          sqlPreparedStatement~
+            - INSERT INTO physicians (physicianId, first_name, middle_name, last_name, title, dob, gender, providerId, providerType, eventId)
+            - VALUES (?,?,?,?,?, CASE ? WHEN '' THEN NULL ELSE ? END,?,?,?,?)
+            string {_:physicianId}
+            string {_columnInput_physicianInfo:1}
+            string {_columnInput_physicianInfo:2}
+            string {_columnInput_physicianInfo:3}
+            string {_columnInput_physicianInfo:4}
+            string {_columnInput_physicianInfo:5}
+            string {_columnInput_physicianInfo:5}
+            string {_columnInput_physicianInfo:6}
+            string {_columnInput_physicianInfo:7}
+            string {_columnInput_physicianInfo:8}
+            long {_eventId}
+
+        else
+
+          setFormQueryResult physicianId
+            value= {_recId}
+
+          forRows physicianInfo
+
+            sqlPreparedStatement~
+              - UPDATE physicians
+              - SET
+              -   first_name = ?,
+              -   middle_name = ?,
+              -   last_name = ?,
+              -   title = ?,
+              -   dob = CASE ? WHEN '' THEN NULL ELSE ? END,
+              -   gender = ?,
+              -   providerId = ?,
+              -   providerType = ?,
+              -   eventId = ?
+              - WHERE physicianId = ?
+
+              string {_columnInput_physicianInfo:1}
+              string {_columnInput_physicianInfo:2}
+              string {_columnInput_physicianInfo:3}
+              string {_columnInput_physicianInfo:4}
+              string {_columnInput_physicianInfo:5}
+              string {_columnInput_physicianInfo:5}
+              string {_columnInput_physicianInfo:6}
+              string {_columnInput_physicianInfo:7}
+              string {_columnInput_physicianInfo:8}
+              long {_eventId}
+              string {_:physicianId}
+
+      forRows physicianSites
+        ifCondition~ {_columnInput_physicianSites:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement~
+            - UPDATE physicianSites
+            - SET active = 0
+            - WHERE id = ?
+            int {_columnInput_physicianSites:10}
+
+          else
+            sqlPreparedStatement~
+              - UPDATE physicianSites
+              - SET
+              -   email = ?,
+              -   phone1 = ?,
+              -   phone2 = ?,
+              -   fax1 = ?,
+              -   fax2 = ?,
+              -   eventId = ?
+              - WHERE id = ?
+              string {_columnInput_physicianSites:5}
+              string {_columnInput_physicianSites:6}
+              string {_columnInput_physicianSites:7}
+              string {_columnInput_physicianSites:8}
+              string {_columnInput_physicianSites:9}
+              long {_eventId}
+              int {_columnInput_physicianSites:10}
+
+      forRows newPhysicianSites
+        ifCondition~ {_columnInput_newPhysicianSites:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement~
+            - INSERT INTO physicianSites (physicianId, siteId, email, phone1, phone2, fax1, fax2, active, eventId)
+            - VALUES (?,?,?,?,?,?,?, 1, ?)
+            string {_:physicianId}
+            string {_columnInput_newPhysicianSites:1}
+            string {_columnInput_newPhysicianSites:3}
+            string {_columnInput_newPhysicianSites:4}
+            string {_columnInput_newPhysicianSites:5}
+            string {_columnInput_newPhysicianSites:6}
+            string {_columnInput_newPhysicianSites:7}
+            long {_eventId}
+
+      forRows inactiveSites
+        ifCondition~ {_columnInput_inactiveSites:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement~
+            - UPDATE physicianSites
+            - SET active = 1
+            - WHERE id = ?
+            int {_columnInput_inactiveSites:10}
+
+      nextStep Physicians
+        recId {_:physicianId}
+        formNumber 1
+
+    step Clients
+      cssLinks
+        link css/admin/practices.css
+      form
+        include stepInstructions
+        script
+          src= js/admin/sites_f0.js
+        fieldset
+          legend Explanation
+          vertical
+            li Click 'Create New' to create a new record.
+            li Enter search criteria and press tab or enter to filter records.
+            li Click 'Display All' to see all records.
+            li Click on the record link to view or modify record.
+            li The contact information is for the client, not the individual physicians.
+
+        fieldSet
+          legend Find Client
+          div
+            simpleTable
+              tr
+                td Client Name
+                td Organization Name
+                td Physician Last
+                td Physician First
+                td Phone Number
+                td Email
+              tr
+                td
+                  text siteName
+                    id= siteName
+                    class= searchSite
+                td
+                  text organizationName
+                    id= organizationName
+                    class= searchSite
+                td
+                  text lastName
+                    id= lastName
+                    class= searchSite
+                td
+                  text firstName
+                    id= firstName
+                    class= searchSite
+                td
+                  text phoneNumber
+                    id= phoneNumber
+                    class= searchSite
+                td
+                  text email
+                    id= email
+                    class= searchSite
+                td
+                  button Display All
+                    value= Display All
+                    id= showAllSites
+
+          br
+          div
+            id= siteCandidates
+
+      form
+        include stepInstructions
+
+        script
+          src= js/admin/practices_f1.js
+
+        include userAccountInfo
+
+        formPreparedQuery~ SELECT o.name as "organization",
+          - o.orgId,
+          - os.name as "siteName",
+          - os.siteCode as "siteCode"
+          - FROM organizationSites os
+          - INNER JOIN organizations o
+          - ON os.orgId = o.orgId
+          - WHERE os.siteId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        hidden _recId
+          value= {_recId}
+
+        hidden originalName
+          value= {_:siteName}
+
+        hidden originalCode
+          value= {_:siteCode}
+
+        hidden step
+          id= step
+          value= {_step}
+
+        vertical2
+          select organization
+            screenLabel~ Organization
+            id= organization
+            sqlPreparedQuery~ SELECT name, orgId
+              - FROM organizations
+            option Add New
+            value= {_:organization}
+          text newOrganization
+            id= newOrganization
+            screenLabel~
+
+        div
+          id= siteDetailsColumns
+
+          br
+
+          div
+            class= detailInfo
+            div
+              id= siteGeneral
+
+          br
+            style= clear:both
+
+          div
+            class= detailInfo
+            div
+              id= siteAddress
+
+          div
+            class= detailInfo
+            div
+              id= siteNumbers
+
+          br
+            style= clear:both
+
+
+        div
+          id= siteDetailsMainTable
+          table
+            sqlPreparedQuery~
+              - SELECT
+              -   name AS "Client Name",
+              -   siteCode AS "Site Code",
+              -   address1 AS "Address 1",
+              -   address2 AS "Address 2",
+              -   city AS "City",
+              -   state AS "State",
+              -   postalCode AS "Postal Code",
+              -   country AS "Country",
+              -   email AS "Email",
+              -   phone1 AS "Phone #",
+              -   phone2 AS "Alt. Phone #",
+              -   fax1 AS "Fax #",
+              -   fax2 AS "Alt. Fax #"
+              - FROM organizationSites
+              - WHERE siteId = ?
+              - UNION
+              - SELECT '','','','','','','','','','','','',''
+              - FROM dual
+              - WHERE ? = ''
+              string {_recId}
+              string {_recId}
+            verticalMode~ true
+            columnSpecs~ siteDetails
+              allowChangedRecordIds
+              column 1
+                inputType text
+              column 2
+                inputType text
+              column 3
+                inputType text
+              column 4
+                inputType text
+              column 5
+                inputType text
+              column 6
+                inputType text
+              column 7
+                inputType text
+              column 8
+                inputType text
+              column 9
+                inputType text
+              column 10
+                inputType text
+              column 11
+                inputType text
+              column 12              
+                inputType text
+              column 13
+                inputType text                
+
+        br
+        table
+          id= linkedPhysicians
+          caption Linked Physicians
+          sqlPreparedQuery~
+            - SELECT
+            -   'false' AS "Delete",
+            -   ps.physicianId AS "Physician Id",
+            -   CONCAT(IFNULL(p.last_name, ''), CASE IFNULL(p.first_name, '') WHEN '' THEN '' ELSE ', ' END, IFNULL(p.first_name, '')) AS "Physician",
+            -   ps.email AS "Email",
+            -   ps.phone1 AS "Phone Number 1",
+            -   ps.phone2 AS "Phone Number 2",
+            -   ps.fax1 AS "Fax Number 1",
+            -   ps.fax2 AS "Fax Number 2",
+            -   ps.id
+            - FROM physicianSites ps
+            - INNER JOIN physicians p
+            - ON ps.physicianId = p.physicianId
+            - WHERE ps.siteId = ?
+            - AND ps.active = 1
+            - UNION
+            - SELECT 'false','','','','','','','',''
+            - FROM dual
+            - WHERE ? = ''
+            - OR NOT EXISTS (SELECT 1 FROM physicianSites WHERE siteId = ? AND active = 1)
+            string {_recId}
+            string {_recId}
+            string {_recId}
+
+          columnSpecs~ physicianSites
+            allowChangedRecordIds
+            column 1
+              inputType checkbox
+            column 3
+              inputType select
+                class= selectNew
+                sqlPreparedQuery~
+                  - SELECT CONCAT(IFNULL(p.last_name, ''), CASE IFNULL(p.first_name, '') WHEN '' THEN '' ELSE ', ' END, IFNULL(p.first_name, '')), p.physicianId
+                  - FROM physicians p
+                  - LEFT JOIN physicianSites ps
+                  - ON p.physicianId = ps.physicianId
+                  - AND ps.siteId = ?
+                  - AND ps.active = 1
+                  WHERE ps.eventId IS NULL
+                  string {_recId}
+            column 4
+              inputType text
+            column 5
+              inputType text
+            column 6
+              inputType text
+            column 7
+              inputType text
+            column 8
+              inputType text
+            column 9
+              inputType text
+                class= hideColumn
+
+
+      # Manage organizationa
+      ifCondition {organization}
+        advanced~
+        equals~ Add New
+
+        setFormQueryResult
+          sqlQuery CALL sp_getNextSequence('orgId', 'orgId')
+
+        sqlPreparedStatement~
+          - INSERT INTO organizations (orgId, name, eventId)
+          - VALUES (?,?,?)
+          string {_:orgId}
+          string {newOrganization}
+          long {_eventId}
+
+        else
+
+          setFormQueryResult orgId
+            value= {organization}
+
+
+      ifCondition {_recId}
+        advanced~
+        isBlank~
+        setFormQueryResult
+          sqlQuery CALL sp_getNextSequence('siteId', 'siteId')
+
+        forRows siteDetails
+          ifCondition {_columnInput_siteDetails:1}
+            advanced~
+            isBlank~
+            validateSql  ! SELECT 1 FROM dual
+              errorMessage Enter a Client Name
+          ifCondition {_columnInput_siteDetails:1}
+            advanced~
+            not~
+              isBlank~
+            validateSql ! SELECT 1 FROM organizationSites WHERE name = ? LIMIT 1
+              string {_columnInput_siteDetails:1}
+              errorMessage The Client Name entered is already in use.  Enter a unique site name.
+          ifCondition {_columnInput_siteDetails:2}
+            advanced~
+            not~
+              isBlank~              
+            validateSql ! SELECT 1 FROM organizationSites WHERE siteCode = ? LIMIT 1
+              string {_columnInput_siteDetails:2}
+              errorMessage The Site Code entered is already in use.  Enter a unique site code.
+          sqlPreparedStatement~
+            - INSERT INTO organizationSites (siteId, orgId, name, siteCode, address1, address2, city, state,
+            -                 postalcode, country, email, phone1, phone2, fax1, fax2, eventId)
+            - VALUES (?, ?, ?, CASE ? WHEN '' THEN NULL ELSE ? END, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            string {_:siteId}
+            string {_:orgId}
+            string {_columnInput_siteDetails:1}
+            string {_columnInput_siteDetails:2}
+            string {_columnInput_siteDetails:2}            
+            string {_columnInput_siteDetails:3}
+            string {_columnInput_siteDetails:4}
+            string {_columnInput_siteDetails:5}
+            string {_columnInput_siteDetails:6}
+            string {_columnInput_siteDetails:7}
+            string {_columnInput_siteDetails:8}
+            string {_columnInput_siteDetails:9}
+            string {_columnInput_siteDetails:10}
+            string {_columnInput_siteDetails:11}
+            string {_columnInput_siteDetails:12}
+            string {_columnInput_siteDetails:13}              
+            long {_eventId}
+
+        else
+
+          setFormQueryResult siteId
+            value= {_recId}
+
+          forRows siteDetails
+            ifCondition {_columnInput_siteDetails:1}
+              advanced~
+              isBlank~
+              validateSql  ! SELECT 1 FROM dual
+                errorMessage Enter a Client Name
+            ifCondition {_columnInput_siteDetails:1}
+              advanced~
+              not~
+                equals~ {originalName}
+              validateSql ! SELECT 1 FROM organizationSites WHERE name = ? LIMIT 1
+                string {_columnInput_siteDetails:1}
+                errorMessage The Client Name entered is already in use.  Enter a unique Client name.
+            ifCondition {_columnInput_siteDetails:2}
+              advanced~
+              not~
+                isBlank~                    
+              ifCondition {_columnInput_siteDetails:2}
+                advanced~
+                not~
+                  equals~ {originalCode}                      
+                validateSql ! SELECT 1 FROM organizationSites WHERE siteCode = ? LIMIT 1
+                  string {_columnInput_siteDetails:2}
+                  errorMessage The Site Code entered is already in use.  Enter a unique site code.
+            sqlPreparedStatement~
+              - UPDATE organizationSites
+              -   SET
+              -     name = ?,
+              -     orgId = ?,
+              -     siteCode = CASE ? WHEN '' THEN NULL ELSE ? END,              
+              -     address1 = ?,
+              -     address2 = ?,
+              -     city = ?,
+              -     state = ?,
+              -     postalcode = ?,
+              -     country = ?,
+              -     email = ?,
+              -     phone1 = ?,
+              -     phone2 = ?,
+              -     fax1 = ?,
+              -     fax2 = ?,
+              -     eventId = ?
+              - WHERE siteId = ?
+              string {_columnInput_siteDetails:1}
+              string {_:orgId}
+              string {_columnInput_siteDetails:2}
+              string {_columnInput_siteDetails:2}              
+              string {_columnInput_siteDetails:3}
+              string {_columnInput_siteDetails:4}
+              string {_columnInput_siteDetails:5}
+              string {_columnInput_siteDetails:6}
+              string {_columnInput_siteDetails:7}
+              string {_columnInput_siteDetails:8}
+              string {_columnInput_siteDetails:9}
+              string {_columnInput_siteDetails:10}
+              string {_columnInput_siteDetails:11}
+              string {_columnInput_siteDetails:12}
+              string {_columnInput_siteDetails:13}              
+              long {_eventId}
+              string {_:siteId}
+
+
+
+      forRows physicianSites
+
+        ifCondition {_columnInput_physicianSites:1}
+          advanced~
+          equals~ false
+
+          ifCondition {_columnInput_physicianSites:9}
+            advanced~
+            isBlank~
+
+            ifCondition {_columnInput_physicianSites:3}
+              advanced~
+              not~
+                isBlank~
+
+              ifCondition
+                advanced~
+                sqlPreparedQuery~ SELECT 1 FROM physicianSites WHERE physicianId = ? AND siteId = ?
+                  string {_columnInput_physicianSites:3}
+                  string {_:siteId}
+
+                sqlPreparedStatement~
+                  - UPDATE physicianSites
+                  - SET active = 1
+                  - WHERE physicianId = ?
+                  - AND siteId = ?
+                  string {_columnInput_physicianSites:3}
+                  string {_:siteId}
+
+                else
+
+                  sqlPreparedStatement~
+                    - INSERT INTO physicianSites (physicianId, siteId, email, phone1, phone2, fax1, fax2, active, eventId)
+                    - VALUES (?,?,?,?,?,?,?, 1, ?)
+                    string {_columnInput_physicianSites:3}
+                    string {_:siteId}
+                    string {_columnInput_physicianSites:4}
+                    string {_columnInput_physicianSites:5}
+                    string {_columnInput_physicianSites:6}
+                    string {_columnInput_physicianSites:7}
+                    string {_columnInput_physicianSites:8}
+                    long {_eventId}
+
+            else
+              sqlPreparedStatement~
+                - UPDATE physicianSites
+                - SET
+                -   physicianId = ?,
+                -   email = ?,
+                -   phone1 = ?,
+                -   phone2 = ?,
+                -   fax1 = ?,
+                -   fax2 = ?,
+                -   eventId = ?
+                - WHERE id = ?
+
+                string {_columnInput_physicianSites:3}
+                string {_columnInput_physicianSites:4}
+                string {_columnInput_physicianSites:5}
+                string {_columnInput_physicianSites:6}
+                string {_columnInput_physicianSites:7}
+                string {_columnInput_physicianSites:8}
+                long {_eventId}
+                int {_columnInput_physicianSites:9}
+
+          else
+
+            sqlPreparedStatement~
+              - UPDATE physicianSites
+              - SET active = 0
+              - WHERE id = ?
+              int {_columnInput_physicianSites:9}

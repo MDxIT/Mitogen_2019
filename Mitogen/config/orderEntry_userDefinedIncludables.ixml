@@ -1,0 +1,163 @@
+config
+  includes
+    includeable orderEntry_userDefined_table
+      # script
+      #   src= js/orderEntry/userDefined.js
+      vertical
+        # NOTE: For dates, use containerDates
+        # NOTE: For anything else, use containerProperties
+        table
+          id= userDefinedTable_{_includeParm:section}
+          sqlPreparedQuery~
+            - SELECT
+            - fis.id,
+            - fcp.inputName,
+            - REPLACE(fcp.inputType, 'userDef_', '') AS 'inputType',
+            - fis.screenLabel AS '',
+            - cp.value AS '',
+            - DATE(cd.value) AS 'dateValue',
+            - fis.defaultValue
+            - FROM formInputSettings fis
+            - INNER JOIN formDefinition fd
+            -   ON fd.id = fis.formDefinitionId
+            - INNER JOIN formConfigurableParts fcp
+            -   ON fcp.id = fis.formConfigurablePartsId
+            - LEFT JOIN requestForms rf
+            -   ON rf.requestId = ?
+            - LEFT JOIN containerProperties cp
+            -   ON cp.containerId = rf.requestId
+            -     AND cp.property LIKE 'userDef_%'
+            -     AND REPLACE(cp.property, 'userDef_', '') = fcp.inputName
+            - LEFT JOIN containerDates cd
+            -   ON cd.containerId = rf.requestId
+            -     AND cd.property LIKE 'userDef_%'
+            -     AND REPLACE(cd.property, 'userDef_', '') = fcp.inputName
+            - WHERE fcp.section = ?
+            -   AND fcp.inputType like 'userDef_%'
+            -   AND fd.formType = ?
+            -   AND fd.instance = ?
+            -   AND fd.workflow = ?
+            -   AND fis.showField = 'true'
+            -   AND fcp.formType = ?
+            string {_:requestId}
+            string {_includeParm:section}
+            string {_:formType}
+            string {_includeParm:instance}
+            string {_:workflow}
+            string {_includeParm:fcpFormType}
+          columnSpecs~ userDefTable_{_includeParm:section}
+            column 1
+              inputType text
+                class= hideColumn userDefinedTable_formInputSettingsId
+            column 2
+              inputType text
+                class= hideColumn userDefinedTable_inputName
+            column 3
+              inputType text
+                class= hideColumn userDefinedTable_inputType
+            column 4
+              inputType text
+                class= userDefinedTable_label
+                readonly= true
+            # NOTE: inputType needs to be 'date' for dates in order to get automatically parsed by engine.
+            # NOTE: Would be nice if there's a library in Jython for parsing dates that does the same functionality
+            column 5
+              inputType text
+                class= userDefinedTable_value
+                validate~ SELECT 1 FROM formInputSettings fis
+                  - WHERE
+                  - fis.id = ? AND
+                  - CASE WHEN fis.required = 'true' THEN
+                  -   CASE WHEN ? <> '' THEN
+                  -     CASE WHEN ? LIKE 'check%' THEN
+                  -       CASE WHEN ? <> 'false' THEN true
+                  -       ELSE false END
+                  -     ELSE true END
+                  -   ELSE false END
+                  - ELSE true END
+                  string {_columnInput:1}
+                  string {_thisInput}
+                  string {_columnInput:3}
+                  string {_thisInput}
+                  errorMessage~ {_columnInput:2} is required.
+            column 6
+              inputType date
+                class= hideColumn userDefinedTable_dateValue
+            column 7
+              inputType text
+                class= hideColumn userDefinedTable_defaultValue
+
+    includeable orderEntry_userDefined_tableProcessing
+      ## Processing userDefTable
+      ## Insert or update
+      forRows userDefTable_{_includeParm:section}
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 FROM requestForms rf
+            - LEFT JOIN containerProperties cp
+            - ON
+            - cp.containerId = rf.requestId
+            - LEFT JOIN containerDates cd
+            - ON
+            - cd.containerId = rf.requestId
+            - WHERE rf.requestId = ? AND
+            - ((cd.property = ? AND ? = 'date') OR (cp.property = ? AND ? <> 'date'))
+            string {_:requestId}
+            string userDef_{_columnInput_userDefTable_{_includeParm:section}:2}
+            string {_columnInput_userDefTable_{_includeParm:section}:3}
+            string userDef_{_columnInput_userDefTable_{_includeParm:section}:2}
+            string {_columnInput_userDefTable_{_includeParm:section}:3}
+          ifCondition {_columnInput_userDefTable_{_includeParm:section}:3}
+            advanced~
+            equals~ date
+            sqlPreparedStatement~ UPDATE
+              - requestForms rf
+              - LEFT JOIN
+              - containerDates cd
+              -   ON cd.containerId = rf.requestId
+              -   AND cd.property = ?
+              - SET
+              -   cd.value = CASE WHEN ? = '' THEN NULL ELSE ? END,
+              -   cd.eventId = ?
+              - WHERE rf.requestId = ?
+              string userDef_{_columnInput_userDefTable_{_includeParm:section}:2}
+              string {_columnInput_userDefTable_{_includeParm:section}:6}
+              string {_columnInput_userDefTable_{_includeParm:section}:6}
+              long {_eventId}
+              string {_:requestId}
+            else
+              sqlPreparedStatement~ UPDATE
+                - requestForms rf
+                - LEFT JOIN
+                - containerProperties cp
+                -   ON cp.containerId = rf.requestId
+                -   AND cp.property = ?
+                - SET
+                -   cp.value = ?,
+                -   cp.eventId = ?
+                - WHERE rf.requestId = ?
+                string userDef_{_columnInput_userDefTable_{_includeParm:section}:2}
+                string {_columnInput_userDefTable_{_includeParm:section}:5}
+                long {_eventId}
+                string {_:requestId}
+          else
+            ifCondition {_columnInput_userDefTable_{_includeParm:section}:3}
+              advanced~
+              equals~ date
+              sqlPreparedStatement~ INSERT INTO containerDates
+                - (containerId, property, value, eventId)
+                - VALUES (?, ?, CASE WHEN ? = '' THEN NULL ELSE ? END, ?)
+                string {_:requestId}
+                string userDef_{_columnInput_userDefTable_{_includeParm:section}:2}
+                string {_columnInput_userDefTable_{_includeParm:section}:6}
+                string {_columnInput_userDefTable_{_includeParm:section}:6}
+                long {_eventId}
+              else
+                sqlPreparedStatement~ INSERT INTO containerProperties
+                  - (containerId, property, value, eventId)
+                  - VALUES (?, ?, ?, ?)
+                  string {_:requestId}
+                  string userDef_{_columnInput_userDefTable_{_includeParm:section}:2}
+                  string {_columnInput_userDefTable_{_includeParm:section}:5}
+                  long {_eventId}
+

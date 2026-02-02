@@ -1,0 +1,2551 @@
+config
+  includes
+
+############# Order Entry Hidden Values #############
+    includeable containerComponent
+
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+
+
+      configurePreparedQuery~
+        - SELECT ' required ' AS "requiredClass"
+        - FROM dual
+        - WHERE ? = 'true'
+        - AND ? = 'false'
+        - AND ? <> 'Auto Generated'
+        string {_includeParm:containerRequired}
+        string {_includeParm:containerReadonly}
+        string {_includeParm:containerGenerateFromSequence}
+        allowEmptyResults~
+
+      configurePreparedQuery~
+        - SELECT ' printContainerBarcode ' AS "printContainerBarcode"
+        - FROM dual
+        - WHERE ? = 'Yes'
+        string {_includeParm:containerPrintBarcode}
+        allowEmptyResults~
+
+      configurePreparedQuery~
+        - SELECT ? AS "Value"
+        string {_includeParm:containerValue}
+
+      formPreparedQuery~  CALL sp_getNextSequence(?, 'Value')
+        string {_includeParm:useThisSequence}
+        configureIf~ {_includeParm:containerGenerateFromSequence}
+          advanced~
+          equals~ Auto Generated
+
+      formPreparedQuery~
+        - SELECT
+        -   CONCAT(storageContainerId, IF(location = 'storage', '', CONCAT(': ', location))) AS "storageLocation"
+        - FROM storage
+        - WHERE content = ?
+        # - union select 'not in storage'
+        string {_:Value}
+        allowEmptyResults~
+        emptyResultDefault~
+          storageLocation= not in storage
+
+      ### CONTAINER CATEGORY/TYPE
+      formPreparedQuery~
+        - SELECT
+        -   CASE ?
+        -     WHEN 'Select' THEN ''
+        -     WHEN 'Not Applicable' THEN ''
+        -     WHEN 'View Only' THEN ''
+        -     ELSE ?
+        -   END AS "containerCategory"
+        string {_includeParm:containerCategoryInclude}
+        string {_includeParm:containerCategoryInclude}
+
+      formPreparedQuery~
+        - SELECT
+        -   value AS "containerCategoryVal",
+        -   'Yes' AS "containerCategoryExists"
+        - FROM containerProperties
+        - WHERE containerId = ?
+        - AND property = 'Container Category'
+        string {_:Value}
+        allowEmptyResults~
+        emptyResultDefault~
+          containerCategoryVal= {_:containerCategory}
+          containerCategoryExists= No
+
+      ### PRIOTIY
+
+      formPreparedQuery~
+        - SELECT
+        -   cp.value AS "containerPriority",
+        -   vv.displayValue AS "containerPriorityDisplay",
+        -   'Yes' AS "containerPriorityExists"
+        - FROM containerProperties cp
+        - INNER JOIN validValues vv
+        - ON cp.value = vv.value
+        - WHERE containerId = ?
+        - AND setName = 'priority'
+        - AND property = 'Container Priority'
+        string {_:Value}
+        allowEmptyResults~
+        emptyResultDefault~
+          containerPriorityExists= No
+
+
+      ### RUN COUNT
+      configurePreparedQuery~
+        - SELECT
+        -   value AS "groupingContainerRunCount",
+        -   'Yes' AS "runCountExists"
+        - FROM containerProperties
+        - WHERE containerId = ?
+        - AND property = '{_step} Run Count'
+        string {_:Value}
+        allowEmptyResults~
+        emptyResultDefault~
+          groupingContainerRunCount= 0
+          runCountExists= No
+
+      configurePreparedQuery~
+        - SELECT
+        -   CASE {_:groupingContainerRunCount}
+        -     WHEN 0 THEN 'No'
+        -     ELSE 'Yes'
+        -   END AS "showContainerRunCount"
+
+      hidden {_includeParm:containerName}_containerCategoryExists
+        value= {_:containerCategoryExists}
+      hidden {_includeParm:containerName}_containerPriorityExists
+        value= {_:containerPriorityExists}
+      hidden {_includeParm:containerName}_runCountExists
+        value= {_:runCountExists}
+      hidden singleContainerGen
+        class= {_includeParm:containerName}_singleContainerGen
+        value= {_includeParm:containerGenerateFromSequence}
+      hidden {_includeParm:containerName}_containerIdVal
+        class= {_includeParm:containerName}_containerIdVal
+        value= {_:Value}
+
+      div
+        class= containerComponent_section_float
+        div
+          class= containerComponent_section
+          topVertical
+            container {_includeParm:containerName}
+              id= {_includeParm:containerName}
+              asSelect~
+                configureIf~ {_includeParm:containerAsSelect}
+                  advanced~
+                  equals~ true
+              sqlPreparedQuery~
+                - SELECT containerId
+                - FROM queues
+                - WHERE step = '{_step}'
+                configureIf~ {_includeParm:containerAsSelect}
+                  advanced~
+                  equals~ true
+              screenLabel~ {_includeParm:containerScreenLabel}
+              readonly=
+                configureIf~ {_includeParm:containerReadonly}
+                  advanced~
+                  equals~ true
+                  or~ {_includeParm:containerGenerateFromSequence}
+                    equals~ Auto Generated
+              new~ {_includeParm:containerNew}
+                configureIf~ {_includeParm:containerGenerateFromSequence}
+                  advanced~
+                  not~
+                    equals~ Use Existing Identifier
+              addContent~ self
+                configureIf~ {_includeParm:containerNew}
+                  advanced~
+                  equals~ true
+              acceptQueue~ {_includeParm:acceptQueue}
+                configureIf~ {_includeParm:containerGenerateFromSequence}
+                  advanced~
+                  not~
+                    equals~ Use Existing Identifier
+                  not~ {_includeParm:acceptQueue}
+                    isBlank~
+              acceptQueue~ any
+                configureIf~ {_includeParm:containerGenerateFromSequence}
+                  advanced~
+                  equals~ Use Existing Identifier
+              containerType~ {_includeParm:containerType}
+                configureIf~ {_includeParm:containerGenerateFromSequence}
+                  advanced~
+                  not~
+                    equals~ Use Existing Identifier
+                  not~ {_includeParm:containerType}
+                    isBlank~
+              containerType~ Consumable
+                configureIf~ {_includeParm:containerGenerateFromSequence}
+                  advanced~
+                  equals~ Use Existing Identifier
+              required~ {_includeParm:containerRequired}
+              data-parsley-required= {_includeParm:containerRequired}
+              class= {_:requiredClass} {_includeParm:containerAdditionalClasses} {_:printContainerBarcode} preparedContainer_scan
+              value= {_:Value}
+
+              if~ {_includeParm:containerGenerateFromSequence}
+                advanced~
+                equals~ Use Existing Identifier
+                sqlPreparedStatement~
+                  - INSERT INTO resourceHistory (containerId, eventId)
+                  - VALUES (?, ?)
+                  string {{_includeParm:containerName}}
+                  long {_eventId}
+
+                sqlPreparedStatement~
+                  - UPDATE containers SET
+                  -   containerType = ?
+                  - WHERE containerId = ?
+                  -   AND containerType = 'Consumable'
+                  string {_includeParm:containerType}
+                  string {{_includeParm:containerName}}
+
+              if~ {{_includeParm:containerName}_Comments}
+                advanced~
+                not~
+                  equals~ null
+                not~
+                  isBlank~
+                sqlPreparedStatement~
+                  - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+                  - VALUES (?, ?, ?, ?)
+                  string {{_includeParm:containerName}}
+                  string {_step}_Container_Notes
+                  string {{_includeParm:containerName}_Comments}
+                  long {_eventId}
+
+                sqlPreparedStatement~
+                  - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+                  - SELECT runId, ?, ?, ?
+                  - FROM specimenRuns WHERE currentContainerId = ?
+                  string {_step}_Container_Notes
+                  string {{_includeParm:containerName}_Comments}
+                  long {_eventId}
+                  string {{_includeParm:containerName}}
+
+                sqlPreparedStatement~
+                  - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+                  - SELECT poolRunId, ?, ?, ?
+                  - FROM poolRuns WHERE currentContainerId = ?
+                  string {_step}_Container_Notes
+                  string {{_includeParm:containerName}_Comments}
+                  long {_eventId}
+                  string {{_includeParm:containerName}}
+
+              if~ {{_includeParm:containerName}_Action}
+                advanced~
+                not~
+                  equals~ null
+                not~
+                  isBlank~
+
+                sqlPreparedStatement~
+                  - INSERT INTO containerProperties (containerId, property, value, eventId)
+                  - VALUES (?, ?, ?, ?)
+                  string {{_includeParm:containerName}}
+                  string {_step}_Container_Action
+                  string {{_includeParm:containerName}_Action}
+                  long {_eventId}
+
+              if~ {{_includeParm:containerName}_Category}
+                advanced~
+                not~
+                  equals~ null
+                not~
+                  isBlank~
+
+                if~ {{_includeParm:containerName}_containerCategoryExists}
+                  advanced~
+                  equals~ No
+                  sqlPreparedStatement~
+                    - INSERT INTO containerProperties (containerId, property, value, eventId)
+                    - VALUES (?, 'Container Category', ?, ?)
+                    string {{_includeParm:containerName}}
+                    string {{_includeParm:containerName}_Category}
+                    long {_eventId}
+
+                  else~
+                    sqlPreparedStatement~
+                      - UPDATE containerProperties
+                      - SET value = ?,
+                      -     eventId = ?
+                      - WHERE containerId = ?
+                      - AND property = 'Container Category'
+                      - AND value <> ?
+                      string {{_includeParm:containerName}_Category}
+                      long {_eventId}
+                      string {{_includeParm:containerName}}
+                      string {{_includeParm:containerName}_Category}
+
+              if~ {{_includeParm:containerName}_Priority}
+                advanced~
+                not~
+                  equals~ null
+                not~
+                  isBlank~
+
+                if~ {{_includeParm:containerName}_containerPriorityExists}
+                  advanced~
+                  equals~ No
+                  sqlPreparedStatement~
+                    - INSERT INTO containerProperties (containerId, property, value, eventId)
+                    - VALUES (?, 'Container Priority', ?, ?)
+                    string {{_includeParm:containerName}}
+                    string {{_includeParm:containerName}_Priority}
+                    long {_eventId}
+
+                  else~
+                    sqlPreparedStatement~
+                      - UPDATE containerProperties
+                      - SET value = ?,
+                      -     eventId = ?
+                      - WHERE containerId = ?
+                      - AND property = 'Container Priority'
+                      - AND value <> ?
+                      string {{_includeParm:containerName}_Priority}
+                      long {_eventId}
+                      string {{_includeParm:containerName}}
+                      string {{_includeParm:containerName}_Priority}
+
+              if~ {{_includeParm:containerName}_runCountExists}
+                advanced~
+                equals~ No
+                sqlPreparedStatement~
+                  - INSERT INTO containerProperties (containerId, property, value, eventId)
+                  - VALUES (?, ?, 1, ?)
+                  string {{_includeParm:containerName}}
+                  string {_step} Run Count
+                  long {_eventId}
+
+                else~
+                  sqlPreparedStatement~
+                    - UPDATE containerProperties
+                    - SET value = value + 1,
+                    -     eventId = ?
+                    - WHERE containerId = ?
+                    - AND property = ?
+                    long {_eventId}
+                    string {{_includeParm:containerName}}
+                    string {_step} Run Count
+
+        div
+          class= containerComponent_section
+          div
+            configureIf~ {_includeParm:containerShowStorageLocation}
+              advanced~
+              equals~ Yes
+            class= containerComponent_section_float
+            topVertical
+              text {_includeParm:containerName}_storageLocation
+                screenLabel~ Storage Location
+                readonly=
+                value= {_:storageLocation}
+          div
+            configureIf~ {_:showContainerRunCount}
+              advanced~
+              equals~ Yes
+            class= containerComponent_section_float
+            topVertical
+              text {_includeParm:containerName}_RunCount
+                screenLabel~ Run Count
+                readonly=
+                value= {_:groupingContainerRunCount}
+          div
+            class= clearFloat
+
+        div
+          class= containerComponent_section
+          div
+            configureIf~ {_includeParm:containerActionInclude}
+              advanced~
+              equals~ Yes
+            class= containerComponent_section_float
+            topVertical
+              select {_includeParm:containerName}_Action
+                id= {_includeParm:containerName}_Action
+                screenLabel~ Action
+                setName~ {_includeParm:containerActionOptions}
+                required~ false
+
+          div
+            class= containerComponent_section_float
+            configureIf~ {_includeParm:containerCategoryInclude}
+              advanced~
+              equals~ Select
+                ignoreCase~
+
+            topVertical
+              select {_includeParm:containerName}_Category
+                id= {_includeParm:containerName}_Category
+                screenLabel~ Category
+                setName~ workflows
+                setName~ assays
+                required~ false
+                value= {_:containerCategoryVal}
+          div
+            class= containerComponent_section_float
+            configureIf~ {_includeParm:containerCategoryInclude}
+              advanced~
+              not~
+                equals~ Select
+                  ignoreCase~
+              not~
+                equals~ Not Applicable
+              not~
+                isBlank~
+              or~
+                equals~ View Only
+
+            topVertical
+              text {_includeParm:containerName}_Category
+                id= {_includeParm:containerName}_Category
+                screenLabel~ Category
+                setName~ workflows
+                setName~ assays
+                readonly=
+                value= {_:containerCategoryVal}
+
+          div
+            class= containerComponent_section_float
+            configureIf~ {_includeParm:includePriority}
+              advanced~
+              equals~ Yes
+
+            topVertical
+              select {_includeParm:containerName}_Priority
+                id= {_includeParm:containerName}_Priority
+                screenLabel~ Priority
+                setName~ priority
+                required~ false
+                value= {_:containerPriority}
+          div
+            class= containerComponent_section_float
+            configureIf~ {_includeParm:includePriority}
+              advanced~
+              equals~ View Only
+
+            topVertical
+              text {_includeParm:containerName}_Priority_ViewOnly
+                screenLabel~ Priority
+                readonly=
+                value= {_:containerPriorityDisplay}
+              hidden {_includeParm:containerName}_Priority
+                screenLabel~
+                value= {_:containerPriority}
+          div
+            class= clearFloat
+
+      div
+        class= containerComponent_section containerComponent_section_float
+        configureIf~ {_includeParm:containerCommentsInclude}
+          advanced~
+          equals~ Yes
+        vertical2
+          topVertical
+            textArea {_includeParm:containerName}_Comments
+              id= {_includeParm:containerName}_Comments
+              screenLabel~ Comments
+
+          div
+            class= commentHistoryTableDiv
+            table
+              class= hideTableIfEmpty commentHistoryTable
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   cn.note AS "Comment History",
+                -   cn.noteType AS "Type",
+                -   DATE(e.eventDate) AS "Date",
+                -   ui.name AS "User"
+                - FROM containerNotes cn
+                - INNER JOIN events e
+                - ON cn.eventId = e.eventId
+                - INNER JOIN userInfo ui
+                - ON e.userId = ui.userId
+                - LEFT JOIN specimenRuns sr
+                - ON sr.currentContainerId = ?
+                - LEFT JOIN poolRuns pr
+                - ON pr.currentContainerId = ?
+                - WHERE cn.containerId =  ? OR cn.containerId = sr.runId OR cn.containerId = pr.poolRunId
+                - ORDER BY e.eventId DESC
+                string {_:Value}
+                string {_:Value}
+                string {_:Value}
+              columnSpecs~ {_includeParm:containerName}_CommentHistory
+                column 3
+                  inputType date
+                    readonly=
+      div
+        class= containerComponent_section containerComponent_section_float {_includeParm:containerName}_fileUpload
+        configureIf~ {_includeParm:containerFileUpload}
+          advanced~
+          equals~ Yes
+        vertical
+          files {_includeParm:containerName}_containerFileUpload
+            destinationFolderName~ ../private/containerFiles/{{_includeParm:containerName}_containerIdVal}/{_eventId}
+            required~ false
+            containerId~ {{_includeParm:containerName}_containerIdVal}
+            fileType~ Container File
+            screenLabel~
+
+      div
+        class= clearFloat
+      br
+
+############# controlComponent #############
+
+    includeable controlComponent
+      ### Parameters###
+      # stepName
+      # groupingContainerId
+      # commentsInclude
+      # commentHistoryInclude
+      # validateOrTransfer (capitalized Validate or Transfer needed)
+      # existingControls (Yes/No)
+      # addControls (Yes/No)
+      # controlIdGen (Auto Generated/ Use Existing Identifier / User Generated)
+
+      script
+        src= js/components/controlComponent.js
+
+      configurePreparedQuery~
+        - SELECT
+        -   CASE ?
+        -     WHEN 'CherryValidate' THEN 'false'
+        -     WHEN 'CherryTransfer' THEN 'false'
+        -     ELSE 'true'
+        -   END AS 'makeRequired'
+        string {_includeParm:controls_validateOrTransfer}
+
+      div
+        id= controlComponentModal
+
+      div
+
+        hidden controlComments
+          id= controlComponentComments
+          value= {_includeParm:controls_commentsInclude}
+        hidden controlCommentHistory
+          id= controlComponentCommentHistory
+          value= {_includeParm:controls_commentHistory}
+        hidden controlValidateOrTransfer
+          id= controlListTable_validateOrTransfer
+          value= {_includeParm:controls_validateOrTransfer}
+        hidden existingControls
+          id= existingControls
+          value= {_includeParm:existingControls}
+        hidden addControls
+          id= addControls
+          value= {_includeParm:addControls}
+        hidden numberOfNewControls
+          id= numberOfNewControls
+        hidden controlIdGen
+          id= controlIdGen
+          value= {_includeParm:controlIdGen}
+        hidden printBarcodes
+          id= printBarcodes
+          value= {_includeParm:printBarcodes}
+
+
+
+      div
+        id= controlListGroup
+        class= printMe
+        fieldset
+          id= addControlsDiv
+          legend Add New Controls
+          div
+            id= addTableErrorMessage
+          table
+            id= controlAddTable
+            sqlPreparedQuery
+              - SELECT
+              -   '' AS "Remove",
+              -   iu.inventoryItem AS "Control Type",
+              -   '' AS "New Control Tube ID",
+              -   '' AS " ",
+              -   '' AS "Comments"
+              - FROM inventoryUsage iu
+              - WHERE iu.step = ?
+              -   AND iu.inventoryItemUsage = 'Batch Control'
+              string {_step}
+            columnSpecs~ controlAddTable
+              allowChangedRecordIds true
+              column 1
+                inputType checkbox
+                  class= controlAddTable_checkbox
+                  required~ false
+              column 2
+                inputType select
+                  class= controlAddTable_controlType
+                  required~ false
+                  option
+                  sqlQuery~ SELECT c.controlType
+                    - FROM inventoryUsage iu
+                    - INNER JOIN controls c
+                    -   ON iu.inventoryItem = c.controlType
+                    - WHERE iu.step = '{_step}'
+                    -   AND iu.inventoryItemUsage = 'Batch Control'
+              column 3
+                inputType container
+                  acceptQueue~ any
+                  class= barcodeBackground controlAddTable_newTubeId controlListTable_scan
+                  required~ false
+                  validate~ SELECT 1 FROM DUAL WHERE
+                    - (
+                    -   ? <> true
+                    -   AND ? <> ''
+                    -   AND ? <> ''
+                    -   AND ? = 'Yes'
+                    - )
+                    - OR
+                    - (
+                    -   ? = 'true'
+                    -   AND ? = 'Yes'
+                    - )
+                    - OR
+                    - (
+                    -   ? = false
+                    -   AND ? = ''
+                    -   AND ? = ''
+                    -   AND ? = 'Yes'
+                    - )
+                    - OR
+                    - (
+                    -   ? = 'No'
+                    - )
+                    - OR
+                    - (
+                    -   ? = 'Use Existing Identifier'
+                    -   AND ? <> ''
+                    - )
+                    string {_columnInput:1}
+                    string {_columnInput:2}
+                    string {_thisInput}
+                    string {_includeParm:addControls}
+                    string {_columnInput:1}
+                    string {_includeParm:addControls}
+                    string {_columnInput:1}
+                    string {_columnInput:2}
+                    string {_thisInput}
+                    string {_includeParm:addControls}
+                    string {_includeParm:addControls}
+                    string {_includeParm:controlIdGen}
+                    string {_columnInput:2}
+                    errorMessage~ New controls require a control type and a unique barcode.
+                  containerType~ controlTubeId
+                    configureIf~ {_includeParm:controlIdGen}
+                      advanced~
+                      not~
+                        equals~ Use Existing Identifier
+                  containerType~ Consumable
+                    configureIf~ {_includeParm:controlIdGen}
+                      advanced~
+                      equals~ Use Existing Identifier
+                  new~ true
+                    configureIf~ {_includeParm:controlIdGen}
+                      advanced~
+                      not~
+                        equals~ Use Existing Identifier
+                  new~ false
+                    configureIf~ {_includeParm:controlIdGen}
+                      advanced~
+                      equals~ Use Existing Identifier
+              column 4
+                inputType hidden
+                  class= controlAddTable_printButton printControlButton
+              column 5
+                inputType textArea
+                  class= controlAddTable_comment
+          br
+          vertical
+            button Add Control
+              id= addControl
+              screenLabel~
+
+        div
+          id= existingControlsDiv
+          table
+            id= controlListTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Select",
+              -   ifnull(cr.currentParentPosition, '') AS "Order",
+              -   cr.currentContainerId AS "Tube Id",
+              -   c.controlType AS "Control Type",
+              -   cr.controlId AS "Control Id",
+              -   '' AS "Barcode Scan",
+              -   ''  AS "  ",
+              -   '' AS "Comments",
+              -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "Comment History",
+              -   cr.controlRunId
+              - FROM queues q
+              - INNER JOIN controlRuns cr
+              -   ON
+              -     (
+              -       q.containerId = cr.controlRunId
+              -       OR
+              -       q.containerId = cr.currentParentId
+              -     )
+              - INNER JOIN controls c
+              -   ON cr.controlId = c.controlId
+              - INNER JOIN events e
+              -   ON e.eventId = q.eventId
+              - LEFT JOIN containerNotes cn
+              -   ON cn.containerId = cr.controlRunId
+              - WHERE q.step = ?
+              -   AND q.containerId = ?
+              - GROUP BY cr.controlRunId
+              string {_step}
+              string {_includeParm:groupingContainerId}
+            columnSpecs~ controlListTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= controlListTable_checkbox
+                  required~ false
+              column 2
+                inputType text
+                  class= controlListTable_position
+                  required~ false
+                  readonly= true
+              column 3
+                inputType container
+                  acceptQueue~ any
+                  class= controlListTable_controlTubeId
+                  recordContainerHistory~ false
+                  readonly=
+                  size= 25
+              column 4
+                inputType text
+                  class= controlListTable_controlType
+                  readonly= true
+                  size= 20
+              column 5
+                inputType text
+                  class= controlListTable_controlId
+                  readonly= true
+                  size= 20
+              column 6
+                inputType container
+                  acceptQueue~ any
+                  data-parsley-value-compare=
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ Validate
+                  class= validate required barcodeBackground controlListTable_scan
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ Validate
+                  class= required barcodeBackground controlListTable_scan
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      not~
+                        equals~ Validate
+                  required~ {_:makeRequired}
+                  data-parsley-required= {_:makeRequired}
+                  validate~ SELECT 1 FROM DUAL WHERE ? = ?
+                    string {_thisInput}
+                    string {_columnInput:3}
+                    errorMessage~ Barcode scanned must be matched with the Control Tube Id
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ Validate
+                  validate~ SELECT 1 FROM DUAL WHERE ? = ? OR ? = ''
+                    string {_thisInput}
+                    string {_columnInput:3}
+                    string {_thisInput}
+                    errorMessage~ Barcode scanned must be matched with the Control Tube Id
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ CherryValidate
+                  containerType~ controlTubeId
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ Transfer
+                      and~ {_includeParm:controlIdGen}
+                        not~
+                          equals~ Use Existing Identifier
+                      or~
+                        equals~ Split
+                        and~ {_includeParm:controlIdGen}
+                          not~
+                            equals~ Use Existing Identifier
+                      or~
+                        equals~ CherryTransfer
+                        and~ {_includeParm:controlIdGen}
+                          not~
+                            equals~ Use Existing Identifier
+                  containerType~ Consumable
+                    configureIf~ {_includeParm:controlIdGen}
+                      advanced~
+                      equals~ Use Existing Identifier
+                  new~ true
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ Transfer
+                      and~ {_includeParm:controlIdGen}
+                        not~
+                          equals~ Use Existing Identifier
+                      or~
+                        equals~ Split
+                        and~ {_includeParm:controlIdGen}
+                          not~
+                            equals~ Use Existing Identifier
+                      or~
+                        equals~ CherryTransfer
+                        and~ {_includeParm:controlIdGen}
+                          not~
+                            equals~ Use Existing Identifier
+                  addContent~
+                    configureIf~ {_includeParm:controls_validateOrTransfer}
+                      advanced~
+                      equals~ Transfer
+                      or~
+                        equals~ CherryTransfer
+              column 7
+                inputType hidden
+                  class= controlAddTable_printButton printExistingControlButton
+              column 8
+                inputType textArea
+                  class= controlListTable_comment
+              column 10
+                inputType container
+                  class= hideColumn
+                  acceptQueue~ any
+                  recordContainerHistory~ true
+
+
+    includeable controlListTableSQL
+
+      ### Parameters ###
+      # existingControls - Yes/No
+      # validateorTransfer - Validate/Transfer
+      # currentParentId
+      # currentParentPosition
+      # controlIdGen
+
+      forRows controlListTable
+        ifCondition {_includeParm:existingControls}
+          advanced~
+          equals~ Yes
+          # Insert comment to containerNotes
+          ifCondition {_columnInput_controlListTable:6}
+            advanced~
+            not~
+              isBlank~
+
+            ifCondition
+              advanced~
+              not~
+                sqlPreparedQuery~
+                  - SELECT 1
+                  - FROM containerHistory
+                  - WHERE containerid = ?
+                  - AND eventId = ?
+                  string {_columnInput_controlListTable:3}
+                  long {_eventId}
+
+              sqlPreparedStatement~ INSERT INTO containerHistory (containerId, eventId)
+                - VALUES (?, ?)
+                string {_columnInput_controlListTable:3}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - UPDATE controlRuns
+                -   SET lastUpdatedEventId = ?
+                - WHERE controlRunId = ?
+                long {_eventId}
+                string {_columnInput_controlListTable:10}
+
+              sqlPreparedStatement~
+                - UPDATE controlRuns
+                -   SET currentParentId = ?
+                - WHERE controlRunId = ?
+                -   AND currentParentId <> ?
+                string {_includeParm:currentParentId}
+                string {_columnInput_controlListTable:10}
+                string {_includeParm:currentParentId}
+
+
+            ifCondition {_columnInput_controlListTable:8}
+              advanced~
+              not~
+                isBlank~
+              sqlPreparedStatement INSERT INTO containerNotes
+                - (containerId, noteType, note, eventId)
+                - VALUES (?, 'comment', ?, ?)
+                string {_columnInput_controlListTable:10}
+                string {_columnInput_controlListTable:8}
+                long {_eventId}
+
+            # Insert comment to containerNotes
+            ifCondition {_includeParm:validateOrTransfer}
+              advanced~
+              equals~ Transfer
+              sqlPreparedStatement~ INSERT INTO containerHistory (containerId, eventId)
+                - VALUES (?, ?)
+                string {_columnInput_controlListTable:3}
+                long {_eventId}
+
+              ifCondition {_includeParm:controlIdGen}
+                advanced~
+                equals~ Use Existing Identifier
+                sqlPreparedStatement~ INSERT INTO resourceHistory (containerId, eventId)
+                  - VALUES (?, ?)
+                  string {_columnInput_controlListTable:3}
+                  long {_eventId}
+
+
+                # Copy contents from column 2 to column 5
+
+                sqlPreparedStatement~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                  - VALUE(?,'controlRun','controlRunId',?,?)
+                  string {_columnInput_controlListTable:6}
+                  string {_columnInput_controlListTable:10}
+                  long {_eventId}
+
+              # Add new transfer tube to grouping containerId
+              sqlPreparedStatement~ INSERT INTO contents
+                - (containerId, attribute, contentType, content, eventId)
+                - SELECT ?,
+                -   ?,
+                -   containerType,
+                -   ?,
+                -   ?
+                - FROM containers
+                - WHERE containerId = ?
+                string {_includeParm:currentParentId}
+                string {_includeParm:currentParentPosition}
+                string {_columnInput_controlListTable:6}
+                long {_eventId}
+                string {_columnInput_controlListTable:6}
+
+              sqlPreparedStatement~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                - VALUE(?,?,'controlRunId',?,?)
+                string {_includeParm:currentParentId}
+                string {_includeParm:currentParentPosition}
+                string {_columnInput_controlListTable:10}
+                long {_eventId}
+
+              ifCondition~
+                advanced~
+                not~
+                  sqlPreparedQuery~ SELECT 1 FROM contents WHERE containerId = ? AND content = ? AND contentType = 'controlId' Limit 1
+                    string {_columnInput_controlListTable:5}
+                    string {_columnInput_controlListTable:3}
+                # Copy contents from column 2 to column 3
+                sqlPreparedStatement~ INSERT INTO contents
+                  - (containerId, attribute, contentType, content, eventId)
+                  - VALUE(?, 'controlId', 'controlId', ?, ?)
+                  string {_columnInput_controlListTable:5}
+                  string {_columnInput_controlListTable:3}
+                  long {_eventId}
+
+              sqlPreparedStatement~
+                - UPDATE controlRuns
+                - SET currentContainerId = ?,
+                -     currentParentId = ?,
+                -     currentParentPosition = ?,
+                -     lastUpdatedEventId = ?
+                - WHERE controlRunId = ?
+                string {_columnInput_controlListTable:6}
+                string {_includeParm:currentParentId}
+                string {_includeParm:currentParentPosition}
+                long {_eventId}
+                string {_columnInput_controlListTable:10}
+
+    includeable controlAddTableSQL
+
+      ### Parameters ###
+      # addControls - Yes/No
+      # runType - workflow/process
+      # processRunWorkflowParentRunId
+      # currentParentId
+      # currentParentPosition
+      # controlIdGen
+
+      forRows controlAddTable
+        ifCondition {_includeParm:addControls}
+          advanced~
+          equals~ Yes
+          # Insert comment to containerNotes
+          ifCondition {_columnInput_controlAddTable:1}
+            advanced~
+            equals~ false
+
+            ifCondition {_columnInput_controlAddTable:3}
+              advanced~
+              not~
+                isBlank~
+
+              setFormQueryResult
+                sqlPreparedQuery SELECT c.controlId AS "controlId"
+                  - FROM resourceHistory rh
+                  - INNER JOIN  controls c
+                  -   ON c.controlId = rh.containerId
+                  - WHERE rh.eventId = ?
+                  -   AND c.controlType = ?
+                  long {_eventId}
+                  string {_columnInput_controlAddTable:2}
+
+              include createNewControlRun
+                parameter~ processContainerId
+                  value=  {_columnInput_controlAddTable:3}
+                parameter~ runType
+                  value= {_includeParm:runType}
+                parameter~ controlId
+                  value= {_:controlId}
+                parameter~ processRunWorkflowParentRunId
+                  value= {_includeParm:processRunWorkflowParentRunId}
+                parameter~ currentParentId
+                  value= {_includeParm:currentParentId}
+                parameter~ currentParentPosition
+                  value= {_includeParm:currentParentPosition}
+
+              # Add control to batch content records
+              sqlPreparedStatement
+                - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                - VALUES (?, ?, 'controlRunId', ?, ?)
+                string {_includeParm:currentParentId}
+                string {_includeParm:currentParentPosition}
+                string {_:controlRunId}
+                long {_eventId}
+
+              sqlPreparedStatement
+                - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                - VALUES (?, ?, 'controlTubeId', ?, ?)
+                string {_includeParm:currentParentId}
+                string {_includeParm:currentParentPosition}
+                string {_columnInput_controlAddTable:3}
+                long {_eventId}
+
+              ifCondition {_includeParm:controlIdGen}
+                advanced~
+                equals~ Use Existing Identifier
+                sqlPreparedStatement~
+                  - INSERT INTO resourceHistory (containerId, eventId)
+                  - VALUES (?, ?)
+                  string {_columnInput_controlAddTable:3}
+                  long {_eventId}
+
+                sqlPreparedStatement~
+                  - UPDATE containers SET
+                  -   containerType = 'controlTubeId'
+                  - WHERE containerId = ?
+                  -   AND containerType = 'Consumable'
+                  string {_columnInput_controlAddTable:3}
+
+              # Add all control runs and link them to the sample runs
+              sqlPreparedStatement~ INSERT INTO specimenControlLinkage (specimenRunId, controlRunId, groupingContainerId, eventId)
+                - SELECT sr.runId, ?, ?, ?
+                - FROM specimenRuns sr
+                - WHERE sr.currentParentId = ?
+                string {_:controlRunId}
+                string {_includeParm:currentParentId}
+                long {_eventId}
+                string {_includeParm:currentParentId}
+
+              ifCondition {_columnInput_controlAddTable:5}
+                advanced~
+                not~
+                  isBlank~
+                sqlPreparedStatement INSERT INTO containerNotes
+                  - (containerId, noteType, note, eventId)
+                  - VALUES (?, 'comment', ?, ?)
+                  string {_:controlRunId}
+                  string {_columnInput_controlAddTable:5}
+                  long {_eventId}
+############# trayComponent #############
+
+    includeable trayComponent
+
+      hidden allowDuplicates
+        id= allowDuplicates
+        value= {_includeParm:plateAllowSampleDuplicates}
+
+      hidden scanReadOnly
+        id= scanReadOnly
+        value= {_includeParm:sampleScanReadOnly}
+
+      script
+        src= js/components/tray.js
+
+      div
+        id= printAll
+          configureIf~ {_includeParm:platePrintLayout}
+            advanced~
+            equals~ Yes
+        class= printMe
+        div
+          id= duplicateSamples
+        fieldset
+          legend Tray
+          id= trayFieldSet
+
+          ### must match the input of the containerId in the tray or else it will not save contents properly ###
+          include containerComponent
+            parameter~ containerName
+              value= {_includeParm:containerNameParm}
+
+            parameter~ containerScreenLabel
+              value= {_includeParm:containerScreenLabel}
+
+            parameter~ containerReadonly
+              value= {_includeParm:containerReadonly}
+
+            parameter~ containerNew
+              value= {_includeParm:containerNew}
+
+            parameter~ containerAsSelect
+              value= false
+
+            parameter~ acceptQueue
+              value= {_includeParm:acceptQueue}
+
+            parameter~ containerType
+              value= trayId
+
+            parameter~ containerRequired
+              value= {_includeParm:containerRequired}
+
+            parameter~ containerAdditionalClasses
+              value= {_includeParm:containerAdditionalClasses}
+
+            parameter~ containerValue
+              value= {_includeParm:containerValue}
+
+            parameter~ useThisSequence
+              value= {_includeParm:useThisSequence}
+
+            parameter~ containerCommentsInclude
+              value= {_includeParm:containerCommentsInclude}
+
+            parameter~ containerGenerateFromSequence
+              value= {_includeParm:containerGenerateFromSequence}
+
+            parameter~ containerShowStorageLocation
+              value= {_includeParm:containerShowStorageLocation}
+
+            parameter~ containerPrintBarcode
+              value= {_includeParm:containerPrintBarcode}
+
+            parameter~ containerActionInclude
+              value= {_includeParm:containerActionInclude}
+
+            parameter~ containerCategoryInclude
+              value= {_includeParm:containerCategoryInclude}
+
+            parameter~ containerActionOptions
+              value= {_includeParm:containerActionOptions}
+
+            parameter~ includePriority
+              value= {_includeParm:includePriority}
+
+            parameter~ containerFileUpload
+              value= {_includeParm:containerFileUpload}
+
+          {_includeParm:trayType} destinationTray
+            label~ {_includeParm:trayLabel}
+            rows {_includeParm:trayRowNumber}
+            cols {_includeParm:trayColumnNumber}
+            sqlPreparedQuery~
+              - SELECT currentParentPosition AS "attribute",
+              -   currentContainerId AS "content"
+              - FROM specimenRuns
+              - WHERE currentParentId = ?
+              - UNION ALL
+              - SELECT currentParentPosition AS "attribute",
+              -   currentContainerId AS "content"
+              - FROM poolRuns
+              - WHERE currentParentId = ?
+              - UNION ALL
+              - SELECT currentParentPosition AS "attribute",
+              -   currentContainerId AS "content"
+              - FROM controlRuns
+              - WHERE currentParentId = ?
+              string {_includeParm:containerValue}
+              string {_includeParm:containerValue}
+              string {_includeParm:containerValue}
+            inputType container
+              class= well sampleInput {_includeParm:userClass1}
+                configureIf~ {_includeParm:plateAllowSampleDuplicates}
+                  advanced~
+                  equals~ Yes
+              class= well sampleInput checkForDuplicates {_includeParm:userClass1}
+                configureIf~ {_includeParm:plateAllowSampleDuplicates}
+                  advanced~
+                  equals~ No
+              data-parsley-trigger= blur
+              required~ false
+              readonly=
+                configureIf~ {_includeParm:trayInputReadyOnly}
+                  advanced~
+                  equals~ true
+              autocomplete= off
+              acceptQueue~ any
+              validate~ ! SELECT 1
+                - FROM contents
+                - WHERE content = ?
+                -   AND containerid = ?
+                -   AND eventId = ?
+                -   AND ? <> ''
+                string {_thisInput}
+                string {{_includeParm:containerNameParm}}
+                long {_eventId}
+                string {_thisInput}
+                configureIf~ {_includeParm:plateAllowSampleDuplicates}
+                  advanced~
+                  equals~ No
+                errorMessage~ The scanned tube has already been scanned onto the plate.
+              validate~ SELECT 1
+                - FROM DUAL
+                - WHERE
+                -   ? = ''
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM controls  c
+                -     INNER JOIN inventoryUsage iu ON c.controlType = iu.inventoryItem
+                -     WHERE c.controlId = ?
+                -      AND iu.step = ?
+                -   )
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM queues q
+                -       INNER JOIN specimenRuns sr ON q.containerId = sr.runId
+                -     WHERE sr.currentContainerId = ?
+                -   )
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM queues q
+                -       INNER JOIN specimenRuns sr ON q.containerId = sr.currentParentId
+                -     WHERE sr.currentContainerId = ?
+                -       AND q.step = ?
+                -   )
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM queues q
+                -       INNER JOIN poolRuns pr ON q.containerId = pr.poolRunId
+                -     WHERE pr.currentContainerId = ?
+                -   )
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM queues q
+                -       INNER JOIN poolRuns pr ON q.containerId = pr.currentParentId
+                -     WHERE pr.currentContainerId = ?
+                -       AND q.step = ?
+                -   )
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM queues q
+                -       INNER JOIN controlRuns cr ON q.containerId = cr.controlRunId
+                -     WHERE cr.currentContainerId = ?
+                -   )
+                - OR
+                -   EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM queues q
+                -       INNER JOIN controlRuns cr ON q.containerId = cr.currentParentId
+                -     WHERE cr.currentContainerId = ?
+                -       AND q.step = ?
+                -   )
+                - OR
+                -   ? = 'any'
+                string {_thisInput}
+                string {_thisInput}
+                string {_step}
+                string {_thisInput}
+                string {_thisInput}
+                string {_step}
+                string {_thisInput}
+                string {_thisInput}
+                string {_step}
+                string {_thisInput}
+                string {_thisInput}
+                string {_step}
+                string {_includeParm:acceptQueue}
+                errorMessage~ This sample is not on the queue for this step.
+
+              # if~ '{_includeParm:trayToTray}' == 'false'
+              #   # if~
+              #   #   advanced~
+              #   #   sqlPreparedQuery~ SELECT 1
+              #   #     - FROM specimenRuns
+              #   #     - WHERE currentContainerId = ?
+              #   #     string {_thisInput}
+
+              #   sqlPreparedStatement~ INSERT INTO contents
+              #     - (
+              #     -   containerId,
+              #     -   attribute,
+              #     -   contentType,
+              #     -   content,
+              #     -   eventId
+              #     - )
+              #     - SELECT ?,
+              #     -   ?,
+              #     -   c.contentType,
+              #     -   c.content,
+              #     -   ?
+              #     - FROM contents c
+              #     - INNER JOIN specimenRuns sr
+              #     - ON c.content = sr.runId
+              #     - INNER JOIN queues q
+              #     - ON (sr.runId = q.containerId OR sr.currentParentId = q.containerId)
+              #     -   AND q.step = ?
+              #     - WHERE c.containerId = ?
+              #     -   AND ? <> ''
+              #     -   AND ? <> ''
+              #     -   AND c.contentType <> 'runId'
+              #     -   AND NOT EXISTS
+              #     -   (
+              #     -     SELECT 1
+              #     -     FROM contents
+              #     -     WHERE containerId = ?
+              #     -       and content = ?
+              #     -       and attribute = ?
+              #     -   )
+              #     string {{_includeParm:containerNameParm}}
+              #     string {_thisInputAttribute}
+              #     long {_eventId}
+              #     string {_step}
+              #     string {_thisInput}
+              #     string {_thisInput}
+              #     string {{_includeParm:containerNameParm}}
+              #     string {{_includeParm:containerNameParm}}
+              #     string {_thisInput}
+              #     string {_thisInputAttribute}
+
+              #   # if~
+              #   #   advanced~
+              #   #   sqlPreparedQuery~ SELECT 1
+              #   #     - FROM controlRuns
+              #   #     - WHERE currentContainerId = ?
+              #   #     string {_thisInput}
+
+              #   sqlPreparedStatement~ INSERT INTO contents
+              #     - (
+              #     -   containerId,
+              #     -   attribute,
+              #     -   contentType,
+              #     -   content,
+              #     -   eventId
+              #     - )
+              #     - SELECT ?,
+              #     -   ?,
+              #     -   c.contentType,
+              #     -   c.content,
+              #     -   ?
+              #     - FROM contents c
+              #     - INNER JOIN controlRuns cr
+              #     - ON c.containerId = cr.currentContainerId
+              #     - INNER JOIN queues q
+              #     - ON (cr.controlRunId = q.containerId OR cr.currentParentId = q.containerId)
+              #     -   AND q.step = ?
+              #     - WHERE c.containerId = ?
+              #     -   AND ? <> ''
+              #     -   AND ? <> ''
+              #     -   AND c.contentType <> 'controlRunId'
+              #     -   AND NOT EXISTS
+              #     -   (
+              #     -     SELECT 1
+              #     -     FROM contents
+              #     -     WHERE containerId = ?
+              #     -       and content = ?
+              #     -       and attribute = ?
+              #     -   )
+              #     string {{_includeParm:containerNameParm}}
+              #     string {_thisInputAttribute}
+              #     long {_eventId}
+              #     string {_step}
+              #     string {_thisInput}
+              #     string {_thisInput}
+              #     string {{_includeParm:containerNameParm}}
+              #     string {{_includeParm:containerNameParm}}
+              #     string {_thisInput}
+              #     string {_thisInputAttribute}
+
+              # if~ '{_includeParm:trayToTray}' == 'true'
+              sqlPreparedStatement~ INSERT INTO contents
+                - (
+                -   containerId,
+                -   attribute,
+                -   contentType,
+                -   content,
+                -   eventId
+                - )
+                - SELECT
+                - ?,
+                - ?,
+                - containerType,
+                - containerId,
+                - ?
+                - FROM containers
+                - WHERE containerId = ? AND containerId <> ''
+                -   AND NOT EXISTS
+                -   (
+                -     SELECT 1
+                -     FROM contents
+                -     WHERE containerId = ?
+                -       AND content = ?
+                -       AND attribute = ?
+                -   )
+                string {{_includeParm:containerNameParm}}
+                string {_thisInputAttribute}
+                long {_eventId}
+                string {_thisInput}
+                string {{_includeParm:containerNameParm}}
+                string {_thisInput}
+                string {_thisInputAttribute}
+
+##### Create TransferMap Layout Includeable ####
+    includeable transferMapLayout
+      {_includeParm:destinationTrayType} destinationTray
+        label~ Destination {_includeParm:destinationTrayType}
+        rows {_includeParm:destinationRows}
+        cols {_includeParm:destinationColumns}
+        tabIndexColumnMajor true
+        sqlPreparedQuery~ SELECT DISTINCT  tm.destinationAttribute AS "attribute",
+          - sr.currentContainerId AS "content"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMaps tm
+          -   ON tmsa.transferMapID = tm.transferMap
+          - INNER JOIN specimenRuns sr
+          -   ON tm.sourceAttribute = sr.currentParentPosition
+          -   AND sr.currentParentId = ?
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          - UNION
+          - SELECT DISTINCT  tm.destinationAttribute AS "attribute",
+          - pr.currentContainerId AS "content"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMaps tm
+          -   ON tmsa.transferMapID = tm.transferMap
+          - INNER JOIN poolRuns pr
+          -   ON tm.sourceAttribute = pr.currentParentPosition
+          -   AND pr.currentParentId = ?
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          - UNION
+          - SELECT DISTINCT  tm.destinationAttribute AS "attribute",
+          - cr.currentContainerId AS "content"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMaps tm
+          -   ON tmsa.transferMapID = tm.transferMap
+          - INNER JOIN controlRuns cr
+          -   ON tm.sourceAttribute = cr.currentParentPosition
+          -   AND cr.currentParentId = ?
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          - UNION
+          - SELECT DISTINCT sr.currentParentPosition AS "attribute",
+          -  sr.currentContainerId AS "content"
+          -  FROM specimenRuns sr
+          - WHERE currentParentId = ?
+          - UNION
+          - SELECT DISTINCT pr.currentParentPosition AS "attribute",
+          -  pr.currentContainerId AS "content"
+          -  FROM poolRuns pr
+          - WHERE currentParentId = ?
+          - UNION
+          - SELECT DISTINCT cr.currentParentPosition AS "attribute",
+          -  cr.currentContainerId AS "content"
+          -  FROM controlRuns cr
+          - WHERE currentParentId = ?
+          string {_includeParm:sourcePlate}
+          string {_step}
+          string {_includeParm:currentLoop}
+          string {_includeParm:sourcePlate}
+          string {_step}
+          string {_includeParm:currentLoop}
+          string {_includeParm:sourcePlate}
+          string {_step}
+          string {_includeParm:currentLoop}
+          string {_includeParm:destinationPlate}
+          string {_includeParm:destinationPlate}
+          string {_includeParm:destinationPlate}
+
+
+        inputType container
+          class= text well sampleInput
+          acceptQueue~ any
+            configureIf~ true
+          required~ false
+
+          # Insert Assigned Master Mixes (from transfer map assignments) into Content Table #
+          sqlPreparedStatement~ INSERT INTO contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - SELECT DISTINCT ?,
+            -   tmma.destinationAttribute,
+            -   'masterMixId',
+            -   mm.code,
+            -   ?
+            - FROM transferMapProperties tmp
+            - INNER JOIN transferMapStepAssignments tmsa
+            -   ON tmsa.transferMapID = tmp.id
+            -   AND tmsa.step = ?
+            -   AND tmsa.displayOrder = ?
+            - INNER JOIN transferMapMMAssignments tmma
+            -   ON tmsa.id = tmma.transferMapStepID
+            -   AND tmma.destinationAttribute = ?
+            - INNER JOIN masterMixes mm
+            -   ON mm.id = tmma.mmid
+            - WHERE tmp.id = ?
+            -   AND ? <> ''
+            string {_includeParm:newPlate}
+            long {_eventId}
+            string {_step}
+            long {_includeParm:currentLoop}
+            string {_thisInputAttribute}
+            long {_includeParm:transferMapID}
+            string {_thisInput}
+
+
+##### Create TransferMap Layout Looping Xfer Includeable ####
+    includeable transferMapLayoutXfer
+      {_includeParm:destinationTrayType} destinationTray
+        label~ Destination {_includeParm:destinationTrayType}
+        rows {_includeParm:destinationRows}
+        cols {_includeParm:destinationColumns}
+        tabIndexColumnMajor true
+        tabIndexColumnMajor true
+        sqlPreparedQuery~ SELECT DISTINCT  tm.destinationAttribute AS "attribute",
+          - sr.currentContainerId AS "content"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMaps tm
+          -   ON tmsa.transferMapID = tm.transferMap
+          - INNER JOIN specimenRuns sr
+          -   ON tm.sourceAttribute = sr.currentParentPosition
+          -   AND sr.currentParentId = ?
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          - UNION
+          - SELECT DISTINCT  tm.destinationAttribute AS "attribute",
+          - pr.currentContainerId AS "content"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMaps tm
+          -   ON tmsa.transferMapID = tm.transferMap
+          - INNER JOIN poolRuns pr
+          -   ON tm.sourceAttribute = pr.currentParentPosition
+          -   AND pr.currentParentId = ?
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          - UNION
+          - SELECT DISTINCT  tm.destinationAttribute AS "attribute",
+          - cr.currentContainerId AS "content"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMaps tm
+          -   ON tmsa.transferMapID = tm.transferMap
+          - INNER JOIN controlRuns cr
+          -   ON tm.sourceAttribute = cr.currentParentPosition
+          -   AND cr.currentParentId = ?
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          string {_includeParm:sourcePlate}
+          string {_step}
+          string {_includeParm:currentLoop}
+          string {_includeParm:sourcePlate}
+          string {_step}
+          string {_includeParm:currentLoop}
+          string {_includeParm:sourcePlate}
+          string {_step}
+          string {_includeParm:currentLoop}
+
+        inputType container
+          class= text well sampleInput
+          acceptQueue~ any
+          required~ false
+          ## check to see if new item scanned in is a control
+          if~ SELECT controlId FROM controls WHERE controlId = ?
+            string {_thisInput}
+            sqlPreparedStatement~
+              - INSERT INTO contents(containerId,attribute,contentType,content,eventId)
+              - VALUES(?,?,?,?,?)
+              string {_includeParm:destinationPlate}
+              string {_thisInputAttribute}
+              string newControlId
+              string {_thisInput}
+              long {_eventId}
+
+          # Insert Assigned Master Mixes (from transfer map assignments) into Content Table #
+          sqlPreparedStatement~ INSERT INTO contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - SELECT DISTINCT ?,
+            -   tmma.destinationAttribute,
+            -   'masterMixId',
+            -   mm.code,
+            -   ?
+            - FROM transferMapProperties tmp
+            - INNER JOIN transferMapStepAssignments tmsa
+            -   ON tmsa.transferMapID = tmp.id
+            -   AND tmsa.step = ?
+            -   AND tmsa.displayOrder = ?
+            - INNER JOIN transferMapMMAssignments tmma
+            -   ON tmsa.id = tmma.transferMapStepID
+            -   AND tmma.destinationAttribute = ?
+            - INNER JOIN masterMixes mm
+            -   ON mm.id = tmma.mmid
+            - WHERE tmp.id = ?
+            -   AND ? <> ''
+            string {_includeParm:newPlate}
+            long {_eventId}
+            string {_step}
+            long {_includeParm:currentLoop}
+            string {_thisInputAttribute}
+            long {_includeParm:transferMapID}
+            string {_thisInput}
+
+##### Add Plate Size Properties Includeable
+    includeable plateProperties
+      ### parameters ###
+      # plateId
+      # trayRowNumber
+      # trayColumnNumber
+      # trayType
+
+      sqlPreparedStatement~
+        - INSERT INTO containerProperties
+        -   (containerId, property, value, eventId)
+        - VALUES (?, ?, ?, ?)
+        string {_includeParm:plateId}
+        string trayRowNumber
+        string {_includeParm:trayRowNumber}
+        long {_eventId}
+
+      sqlPreparedStatement~
+        - INSERT INTO containerProperties
+        -   (containerId, property, value, eventId)
+        - VALUES (?, ?, ?, ?)
+        string {_includeParm:plateId}
+        string trayColumnNumber
+        string {_includeParm:trayColumnNumber}
+        long {_eventId}
+
+      sqlPreparedStatement~
+        - INSERT INTO containerProperties
+        -   (containerId, property, value, eventId)
+        - VALUES (?, ?, ?, ?)
+        string {_includeParm:plateId}
+        string trayType
+        string {_includeParm:trayType}
+        long {_eventId}
+
+##### Create TransferMap SQL Includeable ####
+    includeable traytransferSQL
+      ### parameters ###
+      # sourcePlate
+      # currentLoop
+      # destinationPlate
+
+      # get each of the content of the new table #
+      #forEach SELECT content as 'runId', attribute as "well"
+      #  - from contents
+      #  - where containerId = '{_includeParm:newPlate}'
+      #  - and contentType = 'runId'
+
+      forEach SELECT sr.runId as 'runId', tm.destinationAttribute AS "well", sr.currentContainerId AS "currentContainerId", sr.specimenMethodsId AS "specimenMethodsId"
+        - FROM specimenRuns sr
+        -   INNER JOIN transferMaps tm ON sr.currentParentPosition = tm.sourceAttribute
+        - INNER JOIN transferMapStepAssignments tmsa
+        -   ON tmsa.transfermapId = tm.transfermap
+        - WHERE sr.currentParentId = ? AND tmsa.step = ? AND tmsa.displayOrder = ?
+        - UNION
+        - SELECT pr.poolRunId as 'runId', tm.destinationAttribute AS "well", pr.currentContainerId AS "currentContainerId", ''
+        - FROM poolRuns pr
+        -   INNER JOIN transferMaps tm ON pr.currentParentPosition = tm.sourceAttribute
+        - INNER JOIN transferMapStepAssignments tmsa
+        -   ON tmsa.transfermapId = tm.transfermap
+        - WHERE pr.currentParentId = ? AND tmsa.step = ? AND tmsa.displayOrder = ?
+        - UNION
+        - SELECT cr.controlRunId as 'runId', tm.destinationAttribute AS "well", cr.currentContainerId AS "currentContainerId", ''
+        - FROM controlRuns cr
+        -   INNER JOIN transferMaps tm ON cr.currentParentPosition = tm.sourceAttribute
+        - INNER JOIN transferMapStepAssignments tmsa
+        -   ON tmsa.transfermapId = tm.transfermap
+        - WHERE cr.currentParentId = ? AND tmsa.step = ? AND tmsa.displayOrder = ?
+        string {_includeParm:sourcePlate}
+        string {_step}
+        int {_includeParm:currentLoop}
+        string {_includeParm:sourcePlate}
+        string {_step}
+        int {_includeParm:currentLoop}
+        string {_includeParm:sourcePlate}
+        string {_step}
+        int {_includeParm:currentLoop}
+
+        setFormQueryResult parentRunId
+          value= {_:runId}
+
+        ### manage run containerHistory
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1
+              - FROM containerHistory
+              - WHERE containerId = ?
+              - AND eventId = ?
+              string {_:runId}
+              long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_:runId}
+            long {_eventId}
+
+        # counts number of replicates for each sample on tray #
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT count(total.well) AS "sampleReplicates"
+            - FROM
+            - (
+            -   SELECT sr.runId as 'runId', tm.destinationAttribute AS "well"
+            -   FROM specimenRuns sr
+            -   INNER JOIN transferMaps tm
+            -     ON sr.currentParentPosition = tm.sourceAttribute
+            -   INNER JOIN transferMapStepAssignments tmsa
+            -     ON tmsa.transfermapId = tm.transfermap
+            -   WHERE sr.currentParentId = ?
+            -     AND tmsa.step = ?
+            -     AND tmsa.displayOrder = ?
+            -     AND sr.runId = ?
+            -   UNION
+            -   SELECT pr.poolRunId as 'runId', tm.destinationAttribute AS "well"
+            -   FROM poolRuns pr
+            -   INNER JOIN transferMaps tm
+            -     ON pr.currentParentPosition = tm.sourceAttribute
+            -   INNER JOIN transferMapStepAssignments tmsa
+            -     ON tmsa.transfermapId = tm.transfermap
+            -   WHERE pr.currentParentId = ?
+            -     AND tmsa.step = ?
+            -     AND tmsa.displayOrder = ?
+            -     AND pr.poolRunId = ?
+            -   UNION
+            -   SELECT cr.controlRunId as 'runId', tm.destinationAttribute AS "well"
+            -   FROM controlRuns cr
+            -   INNER JOIN transferMaps tm
+            -     ON cr.currentParentPosition = tm.sourceAttribute
+            -   INNER JOIN transferMapStepAssignments tmsa
+            -     ON tmsa.transfermapId = tm.transfermap
+            -   WHERE cr.currentParentId = ?
+            -     AND tmsa.step = ?
+            -     AND tmsa.displayOrder = ?
+            -     AND cr.controlRunId = ?
+            - ) AS total
+            - GROUP BY runId
+            string {_includeParm:sourcePlate}
+            string {_step}
+            int {_includeParm:currentLoop}
+            string {_:runId}
+            string {_includeParm:sourcePlate}
+            string {_step}
+            int {_includeParm:currentLoop}
+            string {_:runId}
+            string {_includeParm:sourcePlate}
+            string {_step}
+            int {_includeParm:currentLoop}
+            string {_:runId}
+
+        ifCondition {_:parentRunId}
+          advanced~
+          startsWith~ RUN
+
+          include createNewRun
+            parameter~ specimenMethodsId
+              value= {_:specimenMethodsId}
+            parameter~ processContainerId
+              value= {_:currentContainerId}
+            parameter~ runType
+              value= process
+            parameter~ processRunWorkflowParentRunId
+              value= {_:parentRunId}
+            parameter~ currentParentId
+              value= {_includeParm:destinationPlate}
+            parameter~ currentParentPosition
+              value= {_:well}
+
+          sqlPreparedStatement~
+            - INSERT INTO contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - SELECT ?,
+            - sr.currentParentPosition,
+            - c.containerType,
+            - sr.currentContainerId,
+            - ?
+            - FROM specimenRuns sr
+            - INNER JOIN containers c
+            -   ON c.containerId = sr.currentContainerId
+            - WHERE sr.runId = ?
+            string {_includeParm:destinationPlate}
+            long {_eventId}
+            string {_:runId}
+
+          sqlPreparedStatement~ INSERT INTO contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - VALUES
+            - (
+            -   ?,
+            -   ?,
+            -   'runId',
+            -   ?,
+            -   ?
+            - )
+            string {_includeParm:destinationPlate}
+            string {_:well}
+            string {_:runId}
+            long {_eventId}
+
+        ifCondition {_:parentRunId}
+          advanced~
+          startsWith~ POOL
+
+          include createNewPoolRun
+            parameter~ processContainerId
+              value= {_:currentContainerId}
+            parameter~ processRunWorkflowParentRunId
+              value= {_:parentRunId}
+            parameter~ currentParentId
+              value= {_includeParm:destinationPlate}
+            parameter~ currentParentPosition
+              value= {_:well}
+
+          sqlPreparedStatement~
+            - INSERT INTO contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - SELECT ?,
+            - pr.currentParentPosition,
+            - c.containerType,
+            - pr.currentContainerId,
+            - ?
+            - FROM poolRuns pr
+            - INNER JOIN containers c
+            -   ON c.containerId = pr.currentContainerId
+            - WHERE pr.poolRunId = ?
+            string {_includeParm:destinationPlate}
+            long {_eventId}
+            string {_:poolRunId}
+
+          sqlPreparedStatement~ INSERT INTO contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - VALUES
+            - (
+            -   ?,
+            -   ?
+            -   'poolRunId',
+            -   ?,
+            -   ?
+            - )
+            string {_includeParm:destinationPlate}
+            string {_:well}
+            string {_:poolRunId}
+            long {_eventId}
+
+
+        ifCondition {_:parentRunId}
+          advanced~
+          startsWith~ CONTROL
+
+          setFormQueryResult
+            sqlPreparedQuery~
+              - SELECT controlId
+              - FROM controlRuns cr
+              - WHERE controlRunId = ?
+              string {_:parentRunId}
+
+          ifCondition
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM contents WHERE containerId = ? AND attribute = ? AND contentType = 'controlRunId'
+                string {_includeParm:destinationPlate}
+                string {_:well}
+            and~
+              not~
+                sqlPreparedQuery~ SELECT 1 FROM controlRuns WHERE currentParentId = ? AND currentParentPosition = ? and currentContainerId = ?
+                  string {_includeParm:destinationPlate}
+                  string {_:well}
+                  string {_:controlId}
+
+            include createNewControlRun
+              parameter~ processContainerId
+                value= {_:currentContainerId}
+              parameter~ runType
+                value= process
+              parameter~ controlId
+                value= {_:controlId}
+              parameter~ processRunWorkflowParentRunId
+                value= {_:parentRunId}
+              parameter~ currentParentId
+                value= {_includeParm:destinationPlate}
+              parameter~ currentParentPosition
+                value= {_:well}
+
+            sqlPreparedStatement~
+              - INSERT INTO contents
+              - (
+              -   containerId,
+              -   attribute,
+              -   contentType,
+              -   content,
+              -   eventId
+              - )
+              - SELECT ?,
+              - cr.currentParentPosition,
+              - c.containerType,
+              - cr.currentContainerId,
+              - ?
+              - FROM controlRuns cr
+              - INNER JOIN containers c
+              -   ON c.containerId = cr.currentContainerId
+              - WHERE cr.controlRunId = ?
+              - AND cr.currentContainerId NOT IN (SELECT content FROM contents where containerId = ? and attribute = cr.currentParentPosition)
+              string {_includeParm:destinationPlate}
+              long {_eventId}
+              string {_:controlRunId}
+              string {_includeParm:destinationPlate}
+
+            sqlPreparedStatement~ INSERT INTO contents ( containerId, attribute, contentType, content, eventId )
+              - VALUES
+              - (
+              -   ?,
+              -   ?,
+              -   'controlRunId',
+              -   ?,
+              -   ?
+              - )
+              string {_includeParm:destinationPlate}
+              string {_:well}
+              string {_:controlRunId}
+              long {_eventId}
+
+            # sqlPreparedStatement~ INSERT INTO contents
+            #   - (
+            #   -   containerId,
+            #   -   attribute,
+            #   -   contentType,
+            #   -   content,
+            #   -   eventId
+            #   - )
+            #   - SELECT
+            #   -   ?,
+            #   -   ?,
+            #   -   'controlId',
+            #   -   cr.controlId,
+            #   -   ?
+            #   - FROM controlRuns cr
+            #   - WHERE cr.controlRunId = ?
+            #   string {_includeParm:destinationPlate}
+            #   string {_:well}
+            #   long {_eventId}
+          #   string {_:controlRunId}
+
+
+    includeable trayTransferTrayLoopingSQL
+      ## Parameters ##
+      #sourcePlate
+      #destinationPlate
+      #currentLoop
+      #totalLoops
+
+      ## Inserts source plate into transferMapTransferHistory table in order to keep track of the number of loops ##
+      ## All inserts are initially put in as In Progress until currentLoop is = totalLoops then it updates to complete ##
+
+      sqlPreparedStatement INSERT INTO transferMapTransferHistory
+        - (
+        -   source,
+        -   destination,
+        -   status,
+        -   eventID
+        - )
+        - VALUES
+        - (
+        -   ?,
+        -   ?,
+        -   'In Progress',
+        -   ?
+        - )
+        string {_includeParm:sourcePlate}
+        string {_includeParm:destinationPlate}
+        long {_eventId}
+
+
+      ifCondition {_includeParm:currentLoop}
+        advanced~
+        equals~ {_includeParm:totalLoops}
+        ### add parameter driven routing ###
+
+        ### If all loops are complete transferHistory is updated to complete ###
+        sqlPreparedStatement UPDATE transferMapTransferHistory
+          - set status = 'Complete',
+          -   eventID = ?
+          - WHERE source = ?
+          -   AND status = 'In Progress'
+          long {_eventID}
+          string {_includeParm:sourcePlate}
+
+      ## Query that runs the nextStep tag.  If currentLoop is < total Loop then 1 result else, other result ##
+      setFormQueryResult
+        sqlPreparedQuery SELECT DISTINCT ? AS 'nextStep',
+          -   '1' AS 'formNumber',
+          -   ? AS 'plate'
+          - FROM DUAL
+          - WHERE ? < ?
+          - UNION ALL
+          - SELECT DISTINCT ? AS 'nextStep',
+          -   '0' AS 'formNumber',
+          -   '' AS 'plate'
+          - FROM DUAL
+          - WHERE ? = ?
+          string {_step}
+          string {_includeParm:sourcePlate}
+          int {_includeParm:currentLoop}
+          int {_includeParm:totalLoops}
+          string {_step}
+          int {_includeParm:currentLoop}
+          int {_includeParm:totalLoops}
+
+      nextStep {_:nextStep}
+        formNumber {_:formNumber}
+        parameter sourcePlate
+          value {_:plate}
+          configureIf~ {_:plate}
+            advanced~
+            not~
+              isBlank~
+
+    includeable trayMergeTrayLoopingSQL
+      ## Parameters ##
+      #sourcePlate
+      #destinationPlate
+      #currentLoop
+      #totalLoops
+      #nextSourcePlate
+
+      ## Inserts source plate into transferMapTransferHistory table in order to keep track of the number of loops ##
+      ## All inserts are initially put in as In Progress until currentLoop is = totalLoops then it updates to complete ##
+
+      sqlPreparedStatement INSERT INTO transferMapTransferHistory
+        - (
+        -   source,
+        -   destination,
+        -   status,
+        -   eventID
+        - )
+        - VALUES
+        - (
+        -   ?,
+        -   ?,
+        -   'In Progress',
+        -   ?
+        - )
+        string {_includeParm:sourcePlate}
+        string {_includeParm:destinationPlate}
+        long {_eventId}
+
+
+      ifCondition {_includeParm:currentLoop}
+        advanced~
+        equals~ {_includeParm:totalLoops}
+        ### add parameter driven routing ###
+
+        ### If all loops are complete transferHistory is updated to complete ###
+        sqlPreparedStatement UPDATE transferMapTransferHistory
+          - set status = 'Complete',
+          -   eventID = ?
+          - WHERE destination = ?
+          -   AND status = 'In Progress'
+          long {_eventID}
+          string {_includeParm:destinationPlate}
+
+      ## Query that runs the nextStep tag.  If currentLoop is < total Loop then 1 result else, other result ##
+      ifCondition {_includeParm:currentLoop}
+        advanced~
+        lessThan~ {_includeParm:totalLoops}
+        setFormQueryResult
+          sqlPreparedQuery SELECT DISTINCT ? AS 'nextStep',
+            -   '1' AS 'formNumber',
+            -   ? AS 'destPlate',
+            -   ? AS 'nextSource'
+            - FROM DUAL
+            string {_step}
+            string {_includeParm:destinationPlate}
+            string {_includeParm:nextSourcePlate}
+            allowEmptyResults~
+
+      ifCondition {_includeParm:currentLoop}
+        advanced~
+        equals~ {_includeParm:totalLoops}
+        setFormQueryResult
+          sqlPreparedQuery SELECT DISTINCT ? AS 'nextStep',
+            -   '0' AS 'formNumber',
+            -   '' AS 'destPlate',
+            -   '' AS 'nextSource'
+            - FROM DUAL
+            string {_step}
+
+
+      nextStep {_:nextStep}
+        formNumber {_:formNumber}
+        parameter sourcePlate
+          value {_:nextSource}
+
+        parameter destinationPlate
+          value {_:destPlate}
+
+
+##### Create Plate WorkList Includeable #####
+    includeable createPlateWorkList
+      outputTable /Worklist_{_includeParm:sourcePlate}.txt
+        makeDirs
+        delimiter tab
+        sqlQuery~ select  case isnull(ct.controlType) when 1 then content
+          -   else ct.controlType
+          - end as "sample"
+          - from contents c
+          - left join controls ct
+          -   on c.content = ct.controlId
+          - where c.containerId = ?
+          -   and c.contentType = 'specimenId'
+          - order by right(c.attribute,2), left(c.attribute,1)
+          string '{_includeParm:sourcePlate}'
+
+
+    includeable trayComponent_SQL
+      ###   trayColumnNumber -- Number of colmns for this tray
+      ###   trayRowNumber -- Number of rows for this tray
+      ###   trayId -- trayId container Id for this tray
+      ###   trayType -- plate/grid
+
+      include plateProperties
+        parameter~ plateId
+          value= {_includeParm:trayId}
+        parameter~ trayRowNumber
+          value= {_includeParm:trayRowNumber}
+        parameter~ trayColumnNumber
+          value= {_includeParm:trayColumnNumber}
+        parameter~ trayType
+          value= {_includeParm:trayType}
+
+
+      forEach SELECT DISTINCT sr.runId as "runId",
+        -   c.attribute AS "well"
+        - FROM contents c
+        - INNER JOIN specimenRuns sr
+        -   ON c.content = sr.currentContainerId
+        - INNER JOIN queues q
+        -   ON q.containerid = sr.runId
+        - WHERE c.containerId = ?
+        -   AND q.step = ?
+        - UNION
+        - SELECT DISTINCT sr.runId,
+        -   c.attribute
+        - FROM contents c
+        - INNER JOIN specimenRuns sr
+        -   ON c.content = sr.currentContainerId
+        - INNER JOIN queues q
+        -   ON sr.currentParentId = q.containerId
+        - WHERE c.containerId = ?
+        -   AND q.step = ?
+        string {_includeParm:trayId}
+        string {_step}
+        string {_includeParm:trayId}
+        string {_step}
+
+        setFormQueryResult parentRunId
+          value= {_:runId}
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT specimenMethodsId, currentContainerId
+            - FROM specimenRuns sr
+            - WHERE runId = ?
+            string {_:runId}
+
+        ifCondition~
+          advanced~
+          not~
+            sqlPreparedQuery~
+              - SELECT 1 FROM specimenRuns WHERE currentParentId = ? AND currentParentPosition = ?
+              string {_includeParm:trayId}
+              string {_:well}
+
+          include createNewRun
+            parameter~ specimenMethodsId
+              value= {_:specimenMethodsId}
+            parameter~ processContainerId
+              value= {_:currentContainerId}
+            parameter~ runType
+              value= process
+            parameter~ processRunWorkflowParentRunId
+              value= {_:parentRunId}
+            parameter~ currentParentId
+              value= {_includeParm:trayId}
+            parameter~ currentParentPosition
+              value= {_:well}
+
+          sqlPreparedStatement
+            -  insert into contents
+            - (
+            -   containerId,
+            -   attribute,
+            -   contentType,
+            -   content,
+            -   eventId
+            - )
+            - SELECT
+            -   ?,
+            -   ?,
+            -   'runId',
+            -   runId,
+            -   ?
+            - FROM specimenRuns
+            - WHERE currentParentId = ?
+            -   AND currentParentPosition = ?
+            string {_includeParm:trayId}
+            string {_:well}
+            long {_eventId}
+            string {_includeParm:trayId}
+            string {_:well}
+
+      ## DO THIS INCLUDE **AFTER** SPECIMEN RUNS HAVE BEEN CREATED OR SPECIMEN CONTROL LINK DOES NOT GET CREATED
+      include addBatchControlToTray
+        parameter~ contentType
+          value= Control
+        parameter~ newPlate
+          value= {_includeParm:trayId}
+        parameter~ sourcePlate
+          value= {_includeParm:trayId}
+
+
+      # Add control Content
+      forEach SELECT DISTINCT cr.controlRunId as "controlRunId",
+        -   c.attribute AS "well"
+        - FROM contents c
+        - INNER JOIN controlRuns cr
+        -   ON c.content = cr.currentContainerId
+        - INNER JOIN queues q
+        -   ON q.containerid = cr.controlRunId
+        - WHERE c.containerId = ?
+        -   AND q.step = ?
+        - UNION
+        - SELECT DISTINCT cr.controlRunId,
+        -   c.attribute
+        - FROM contents c
+        - INNER JOIN controlRuns cr
+        -   ON c.content = cr.currentContainerId
+        - INNER JOIN queues q
+        -   ON cr.currentParentId = q.containerId
+        - WHERE c.containerId = ?
+        -   AND q.step = ?
+        string {_includeParm:trayId}
+        string {_step}
+        string {_includeParm:trayId}
+        string {_step}
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT currentContainerId, controlId, controlRunId AS 'parentRunId'
+            - FROM controlRuns cr
+            - WHERE controlRunId = ?
+            string {_:controlRunId}
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1 FROM contents where containerId = ? AND attribute = ? AND contentType = 'controlRunId'
+              string {_includeParm:trayId}
+              string {_:well}
+          and~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM controlRuns WHERE currentParentId = ? AND currentParentPosition = ?
+                string {_includeParm:trayId}
+                string {_:well}
+
+          include createNewControlRun
+            parameter~ processContainerId
+              value=  {_:currentContainerId}
+            parameter~ runType
+              value= process
+            parameter~ controlId
+              value= {_:controlId}
+            parameter~ processRunWorkflowParentRunId
+              value= {_:parentRunId}
+            parameter~ currentParentId
+              value= {_includeParm:trayId}
+            parameter~ currentParentPosition
+              value= {_:well}
+
+          else
+            sqlPreparedStatement
+              - UPDATE controlRuns
+              - SET currentParentId = ?,
+              -   currentParentPosition = ?,
+              -   lastUpdatedEventId = ?
+              - WHERE controlRunId = ? 
+              -   AND currentParentPosition = ?
+              string {_includeParm:trayId}
+              string {_:well}
+              long {_eventId}
+              string {_:controlRunId}
+              string {_:well}
+
+        jython
+          switchboard.log("<<<<<<<<<<<<< INSERT CONTROL INTO CONTENTS TRYSQL COMP >>>>>>>>>>>>")
+          switchboard.log('{_includeParm:trayId} {_:well}')
+
+        sqlPreparedStatement
+          -  insert into contents
+          - (
+          -   containerId,
+          -   attribute,
+          -   contentType,
+          -   content,
+          -   eventId
+          - )
+          - SELECT
+          -   ?,
+          -   ?,
+          -   'controlRunId',
+          -   controlRunId,
+          -   ?
+          - FROM controlRuns
+          - WHERE currentParentId = ?
+          -   AND currentParentPosition = ?
+          - AND controlRunId NOT IN (SELECT content FROM contents WHERE containerId = ? AND attribute = ? )
+          string {_includeParm:trayId}
+          string {_:well}
+          long {_eventId}
+          string {_includeParm:trayId}
+          string {_:well}
+          string {_includeParm:trayId}
+          string {_:well}
+
+      validateSql
+        - SELECT 1
+        - FROM specimenRuns
+        - WHERE currentParentId = ?
+        errorMessage This tray needs at least one sample.
+        string {_includeParm:trayId}
+
+
+    includeable runComments
+      ## Used when the comments are stored by the runId
+      ## containerName - Name of container where the comments are being added
+      ## runId - runId for the container that the comments are associated with
+      ifCondition {{_includeParm:containerName}_Comments}
+        advanced~
+        not~
+          equals~ null
+        not~
+          isBlank~
+        sqlPreparedStatement~
+          - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+          - VALUES (?, ?, ?, ?)
+          string {_includeParm:runId}
+          string {_step}_Container_Notes
+          string {{_includeParm:containerName}_Comments}
+          long {_eventId}
+
+    includeable viewSourceTrayLayout
+      ## Used with transferMaps.js to provide the divs for viewing the source plate
+      ## sourcePlate   - containerId of the source plate to show/hide
+      ## sourceType    - plate/grid
+      ## sourceRows    - number of rows
+      ## sourceColumns - number of columns
+      div
+        id= viewSourcePlate
+        class= viewSource
+        configureIf~ {_includeParm:sourceType}
+          advanced~
+          equals~ plate
+            ignoreCase~
+        plate Plate Contents
+          rows {_includeParm:sourceRows}
+          cols {_includeParm:sourceColumns}
+          sqlPreparedQuery~
+            - SELECT sr.currentParentPosition,
+            -   sr.currentContainerId
+            - FROM specimenRuns sr
+            - WHERE sr.currentparentId = ?
+            - UNION
+            - SELECT cr.currentParentPosition,
+            -   cr.currentContainerId
+            - FROM controlRuns cr
+            - WHERE cr.currentparentId = ?
+            - UNION
+            - SELECT pr.currentParentPosition,
+            -   pr.currentContainerId
+            - FROM poolRuns pr
+            - WHERE pr.currentparentId = ?
+            string {_includeParm:sourcePlate}
+            string {_includeParm:sourcePlate}
+            string {_includeParm:sourcePlate}
+          inputType text
+            readonly= true
+
+      div
+        id= viewSourceGrid
+        class= viewSource
+        configureIf~ {_includeParm:sourceType}
+          advanced~
+          equals~ grid
+            ignoreCase~
+        grid Grid Contents
+          rows {_includeParm:sourceRows}
+          cols {_includeParm:sourceColumns}
+          sqlPreparedQuery~
+            - SELECT sr.currentParentPosition,
+            -   sr.currentContainerId
+            - FROM specimenRuns sr
+            - WHERE sr.currentparentId = ?
+            - UNION
+            - SELECT cr.currentParentPosition,
+            -   cr.currentContainerId
+            - FROM controlRuns cr
+            - WHERE cr.currentparentId = ?
+            - UNION
+            - SELECT pr.currentParentPosition,
+            -   pr.currentContainerId
+            - FROM poolRuns pr
+            - WHERE pr.currentparentId = ?
+            string {_includeParm:sourcePlate}
+            string {_includeParm:sourcePlate}
+            string {_includeParm:sourcePlate}
+          inputType text
+            readonly= true
+
+
+
+    includeable addBatchControlToTray
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ SELECT 1 FROM contents WHERE contentType = ? and eventId = ?
+          string {_includeParm:contentType}
+          long {_eventId}
+        ## grab each newly scanned batch controlId and location in order to create new controlRun
+        forEach SELECT DISTINCT content AS 'ScannedControlId', attribute AS 'ScannedLocation' FROM contents WHERE contentType = ? and eventId = ?
+          string {_includeParm:contentType}
+          long {_eventId}
+          jython
+            switchboard.log("<<<<<<<<<<<<<<< Scanned Control Id>>>>>>>>>>>>>>>>>>>>")
+            switchboard.log('{_:ScannedControlId} {_:ScannedLocation}')
+          ifCondition
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM controlRuns WHERE currentParentId = ? AND currentParentPosition = ? and currentContainerId = ?
+                string {_includeParm:newPlate}
+                string {_:ScannedLocation}
+                string {_:ScannedControlId}
+
+            include createNewControlRun
+              parameter~ processContainerId
+                value= {_:ScannedControlId}
+              parameter~ runType
+                value= workflow
+              parameter~ controlId
+                value= {_:ScannedControlId}
+              parameter~ processRunWorkflowParentRunId
+                value=
+              parameter~ currentParentId
+                value= {_includeParm:newPlate}
+              parameter~ currentParentPosition
+                value= {_:ScannedLocation}
+            # update newly added batch controls to correct contentType of controlTubeId
+            sqlPreparedStatement~
+              - UPDATE contents
+              - SET contentType = ?
+              - WHERE containerId = ?
+              -   AND content = ?
+              -   AND contentType = ?
+              -   AND attribute = ?
+              string controlTubeId
+              string {_includeParm:newPlate}
+              string {_:ScannedControlId}
+              string {_includeParm:contentType}
+              string {_:ScannedLocation}
+            # insert newly created controlRunId into contents
+            # ifCondition
+            #   advanced~
+            #   sqlPreparedQuery~ SELECT 1 FROM dual WHERE NOT EXISTS (SELECT c.containerId, c.well, c.content FROM contents c INNER JOIN controlRuns cr ON controlRunId FROM controlRuns WHERE currentParentId = ? AND currentParentPosition = ? AND eventId = ?)
+            #     string {_includeParm:newPlate}
+            #     string
+            #     long {_eventId}
+            jython
+              switchboard.log("<<<<<< INSERTING CONTROL RUN INTO CONTENTS>>>>>>>>>")
+              switchboard.log('{_:ScannedControlId} {_:ScannedLocation}')
+              switchboard.log('{_includeParm:contentType}')
+            sqlPreparedStatement~
+              - INSERT INTO contents(containerId,attribute,contentType,content,eventId)
+              - SELECT ?,currentParentPosition,'controlRunId',controlRunId,?
+              - FROM controlRuns
+              - WHERE currentParentId = ?
+              -   AND currentParentPosition = ?
+              -   AND eventId = ?
+              string {_includeParm:newPlate}
+              long {_eventId}
+              string {_includeParm:newPlate}
+              string {_:ScannedLocation}
+              long {_eventId}
+            # Add all control runs and link them to the sample runs
+            sqlPreparedStatement~
+              - INSERT INTO specimenControlLinkage(specimenRunId,controlRunId,groupingContainerId,eventId)
+              - SELECT sr.runId, cr.controlRunId, ?, ?
+              - FROM specimenRuns sr
+              -   INNER JOIN controlRuns cr ON sr.currentParentId = cr.currentParentId
+              - WHERE sr.currentParentId = ?
+              string {_includeParm:newPlate}
+              long {_eventId}
+              string {_includeParm:newPlate}
+
+

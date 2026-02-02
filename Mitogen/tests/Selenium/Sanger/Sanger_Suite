@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+  <title>Test Suite</title>
+</head>
+<body>
+<table id="suiteTable" cellpadding="1" cellspacing="1" border="1" class="selenium"><tbody>
+<tr><td><b>Test Suite</b></td></tr>
+<tr><td><a href="Sanger_NewReq.html">Sanger_NewReq</a></td></tr>
+<tr><td><a href="Sanger_QC_Req.html">Sanger_QC_Req</a></td></tr>
+<tr><td><a href="Sanger_ReceiveSpecimens.html">Sanger_ReceiveSpecimens</a></td></tr>
+<tr><td><a href="Sanger_AssignSpecimens.html">Sanger_AssignSpecimens</a></td></tr>
+<tr><td><a href="Sanger_ProcessSpecimens.html">Sanger_ProcessSpecimens</a></td></tr>
+<tr><td><a href="Sanger_Extraction.html">Sanger_Extraction</a></td></tr>
+<tr><td><a href="Sanger_PlateSetup.html">Sanger_PlateSetup</a></td></tr>
+<tr><td><a href="Sanger_PCR_Setup.html">Sanger_PCR_Setup</a></td></tr>
+<tr><td><a href="Sanger_PCR_Cleanup.html">Sanger_PCR_Cleanup</a></td></tr>
+<tr><td><a href="Sanger_Hybridization.html">Sanger_Hybridization</a></td></tr>
+<tr><td><a href="Sanger_PostHyb.html">Sanger_PostHyb</a></td></tr>
+<tr><td><a href="Sanger_SequencerRun.html">Sanger_SequencerRun</a></td></tr>
+</tbody></table>
+</body>
+</html>

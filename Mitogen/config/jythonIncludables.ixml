@@ -1,0 +1,295 @@
+config
+  includes
+
+    includeable analysisManualUpload
+
+      setFormQueryResult
+        sqlPreparedQuery 
+          - SELECT
+          -   amv.id AS "analysisMethodVersionId"
+          - FROM analysisMethodVersions amv
+          -   INNER JOIN analysisMethods am 
+          -     ON amv.analysisMethodsId = am.id
+          - WHERE am.analysisStepName = ?
+          -   AND amv.active = 1
+          string {_includeParm:step}
+
+      setFormQueryResult
+        sqlPreparedQuery 
+          - SELECT 
+          -   fileName AS "fileName"
+          - FROM containerFiles 
+          - WHERE eventId = ?
+          long {_eventId}
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT 
+          -   sequence-1 AS "specimenColumn"
+          - FROM analysisDataDefinition 
+          - WHERE analysisMethodVersionsId = ?
+          - AND definerType = "specimenColumn"
+          long {_:analysisMethodVersionId}
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT 
+          -   sequence-1 AS "locationColumn"
+          - FROM analysisDataDefinition 
+          - WHERE analysisMethodVersionsId = ?
+          - AND definerType = "locationColumn"
+          long {_:analysisMethodVersionId}
+
+
+      jython
+        import csv
+        import json
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from csv_functions import *
+        from analysis import AnalysisData
+
+        configPath = '{_configPath}'
+        path = configPath.replace('/bin/..', '')
+
+        filePath = path + 'private/dataUpload/{_includeParm:step}/{_:fileName}'
+
+        specimenColumn = {_:specimenColumn}
+        locationColumn = {_:locationColumn}
+        parentContainer = '{_includeParm:parentContainer}'
+        methodVersionId = {_:analysisMethodVersionId}
+
+        errorLocation = ''
+
+        try:
+          jsonQuery = '''SELECT
+            JSON_OBJECT('adefId', id, 'sequence', sequence, 'definerType', definerType, 'dataType', concat(dataType, 'Result'), 'limitType', IFNULL(limitType, ''), 'sigFig', IFNULL(sigFig,0)) AS 'thisJSON'
+            FROM analysisDataDefinition
+            WHERE analysisMethodVersionsId = ?
+          ''' 
+          errorLocation = '<<<<< GET DATA : analysisDataDefinition JSON >>>>>'
+
+          jsonQueryStmt = switchboard.connection.prepareStatement(jsonQuery)
+          jsonQueryStmt.setInt(1, int(methodVersionId))
+          errorLocation = '<<<<< EXECUTE QUERY : analysisDataDefinition JSON >>>>>'
+          resSet = jsonQueryStmt.executeQuery()
+          metaData = resSet.getMetaData()
+          colNum = metaData.getColumnCount()
+
+          errorLocation = '<<<<< JSON : Create array >>>>>'
+          jsonArr = getJsonArray(switchboard, resSet, colNum)
+          jsonQueryStmt.close()
+
+          data = []
+
+          errorLocation = '<<<<< GET FILE DATA : with open >>>>>'
+          with open(filePath, 'r') as fileToRead:
+            csvFile = csv.reader(fileToRead, dialect='excel')
+            data = list(csvFile)
+
+          for row in data:
+
+            analysisDefinitionRunId = ''
+            sqlInsertIntoAnalysisDataRuns = ''
+            insertRunPS = ''
+            sqlInsertIntoAnalysisData = ''
+            insertDataPS = ''
+
+          ### INSERT INTO ANALYSIS DATA RUNS
+            runQuery = '''SELECT 'SAMPLE' AS "type", id, currentContainerId, currentParentId, currentParentPosition
+              FROM specimenRuns
+              WHERE currentContainerId = ? 
+                AND currentParentPosition = ? 
+                AND currentParentId = ?
+              UNION SELECT 'CONTROL' as "type", id, currentContainerId, currentParentId, currentParentPosition
+              FROM controlRuns
+              WHERE currentContainerId = ?
+                AND currentParentPosition = ? 
+                AND currentParentId = ?
+            '''
+
+            errorLocation = '<<<<< GET DATA : FROM specimenRuns >>>>>'
+            runStmt = switchboard.connection.prepareStatement(runQuery)
+            runStmt.setString(1, str(row[specimenColumn])) 
+            runStmt.setString(2, str(row[locationColumn])) 
+            runStmt.setString(3, parentContainer) 
+            runStmt.setString(4, str(row[specimenColumn])) 
+            runStmt.setString(5, str(row[locationColumn])) 
+            runStmt.setString(6, parentContainer) 
+            runRs = runStmt.executeQuery()
+
+
+            while runRs.next():
+
+
+              runType = runRs.getString('type')
+              runId = runRs.getString('id')
+              runCon = runRs.getString('currentContainerId')
+              runPar = runRs.getString('currentParentId')
+              runPos = runRs.getString('currentParentPosition')
+
+              if runType == 'SAMPLE':
+                ## SPECIMENS
+                sqlInsertIntoAnalysisDataRuns = "INSERT INTO analysisDataRuns (specimenRunsId, currentContainerId, currentParentId, currentParentPosition, eventId, analysisMethodVersionId) VALUES(?,?,?,?,?,?);"
+                insertRunPS = switchboard.connection.prepareStatement(sqlInsertIntoAnalysisDataRuns, switchboard.statement.RETURN_GENERATED_KEYS)
+
+              elif runType == 'CONTROL':
+                ## CONTROLS
+                sqlInsertIntoAnalysisDataRuns = "INSERT INTO analysisControlDataRuns (controlRunsId, currentContainerId, currentParentId, currentParentPosition, eventId, analysisMethodVersionId) VALUES(?,?,?,?,?,?);"
+                insertRunPS = switchboard.connection.prepareStatement(sqlInsertIntoAnalysisDataRuns, switchboard.statement.RETURN_GENERATED_KEYS)
+
+              # Analysis Data Runs insert
+              insertRunPS.setInt(1, int(runId))
+              insertRunPS.setString(2, runCon)
+              insertRunPS.setString(3, runPar)
+              insertRunPS.setString(4, str(runPos))
+              insertRunPS.setLong(5, switchboard.eventId)
+              insertRunPS.setInt(6, int(methodVersionId))
+
+              errorLocation = '<<<<< EXECUTE INSERT : INTO analysisDataRuns >>>>>'
+              insertRunsRows = insertRunPS.executeUpdate()
+
+              adrQuery = " SELECT LAST_INSERT_ID() AS 'id' "
+
+              errorLocation = '<<<<< GET DATA : analysisDataRuns Id >>>>>'
+
+              adrStmt = switchboard.connection.createStatement()
+              adrRs = adrStmt.executeQuery(adrQuery);
+              analysisDefinitionRunId = ''
+              errorLocation = '<<<<< BEGIN WHILE : adrRs.next() >>>>>'
+              while adrRs.next():
+                analysisDefinitionRunId = adrRs.getInt('id')
+
+                zipRow = list(zip(range(len(row)), row)) 
+
+                errorLocation = '<<<<< INSERT DATA : INSERT INTO analysisData >>>>>'
+                for item in jsonArr:
+
+                  if runType == 'SAMPLE':
+                    ## SPECIMENS
+                    sqlInsertIntoAnalysisData = "INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, "+ item['dataType'] +", eventId, stepName, calculatedInterpretation, actualInterpretation, referenceRange, interpretationEventId, isReportable) VALUES (?,?,?,?,?,?,?,?,?,1);"
+                    insertDataPS = switchboard.connection.prepareStatement(sqlInsertIntoAnalysisData, switchboard.statement.RETURN_GENERATED_KEYS)
+
+                  elif runType == 'CONTROL':
+                    ## CONTROLS
+                    sqlInsertIntoAnalysisData = "INSERT INTO analysisControlData (analysisControlDataRunsId, analysisDataDefinitionId, "+ item['dataType'] +", eventId, stepName, calculatedInterpretation, actualInterpretation, referenceRange, interpretationEventId, isReportable) VALUES (?,?,?,?,?,?,?,?,?, 1);"
+                    insertDataPS = switchboard.connection.prepareStatement(sqlInsertIntoAnalysisData, switchboard.statement.RETURN_GENERATED_KEYS)
+
+
+                  errorLocation = '<<<<< analysisDefinitionRunId VALUES >>>>>'
+                  insertDataPS.setInt(1,analysisDefinitionRunId)
+
+                  errorLocation = '<<<<< adefId VALUES >>>>>'
+                  insertDataPS.setInt(2,int(item['adefId']))
+
+
+
+                  errorLocation = '<<<<< PROCESS VALUES >>>>>'
+
+                  for col, val in zipRow:
+                    uploadValue = ''
+                    zeroSequence = int(item['sequence']-1)
+                    if col == zeroSequence:
+                      uploadValue = val
+
+                      if item['definerType'] != 'specimenColumn' and item['definerType'] != 'locationColumn':
+                        if item['dataType'] == 'varcharResult':
+                          insertDataPS.setString(3,str(uploadValue))
+                        if item['dataType'] == 'decimalResult':
+                          if uploadValue == '':
+                            insertDataPS.setString(3, None)
+                          else:
+                            try:
+                              insertDataPS.setFloat(3,float(uploadValue))
+                            except (ValueError, TypeError):
+                              insertDataPS.setString(3, None)
+                              switchboard.log('*** NON NUMERIC VALUE ENTERED FOR DECIMAL RESULT. NO RESULT SAVED ***')
+
+                        ## Date needs to be in database format
+                        if item['dataType'] == 'dateTimeResult':
+                          if uploadValue == '':
+                            insertDataPS.setObject(3, None)
+                          else:
+                            insertDataPS.setString(3,str(uploadValue))
+
+                        insertDataPS.setLong(4,switchboard.eventId)
+                        insertDataPS.setString(5, '{_includeParm:step}')
+
+                        ## 
+                        ## Handles Limits
+                        ##
+                        thisADef = str(item['adefId'])
+                        limit_type = str(item.get('limitType', ''))
+                        data_type = str(item.get('dataType', ''))
+                        sig_fig= int(item['sigFig'])
+                        ad = AnalysisData(switchboard, str(methodVersionId), 'Analysis: Manual Upload Data')
+                        limits = ad.get_field_limits(thisADef, limit_type)
+                        if limits:
+                          interp = ad.determine_interpretation(limit_type, limits, str(uploadValue))
+                          referenceRange = ad.determine_reference_range(limit_type, limits, data_type, sig_fig)
+                          insertDataPS.setString(6, str(interp))
+                          insertDataPS.setString(7, str(interp))
+                          insertDataPS.setString(8, referenceRange)
+                          insertDataPS.setLong(9, switchboard.eventId)
+
+                        else:
+                          insertDataPS.setString(6, None)
+                          insertDataPS.setString(7, None)
+                          insertDataPS.setString(8, None)
+                          insertDataPS.setString(9, None)
+
+                        errorLocation = '<<<<< DATA INSERT : analysisData >>>>>' + str(insertDataPS)
+                        insertDataRows = insertDataPS.executeUpdate()
+
+              adrRs.close()
+              adrStmt.close()
+
+            runRs.close()
+            runStmt.close()
+
+        except Exception as e:
+          switchboard.log("---EXCEPTION----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:PROCESSINGSUCCESSFUL}' = 'true'
+        errorMessage Data processing has failed. Results have not been saved.
+
+

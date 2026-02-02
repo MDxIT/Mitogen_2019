@@ -1,0 +1,50 @@
+Configuration:
+  status: warn
+  name: uniflow
+  properties:
+    property:
+    - name: filename
+      value: "uniflow"
+    - name: dirname
+      value: ${sys:uniflow.home}/log
+  thresholdFilter:
+    level: debug
+  appenders:
+    Console:
+      name: STDOUT
+      PatternLayout:
+        Pattern: "%p %c{1} [%t] %m%n"
+    File:
+      name: FILE
+      fileName: ${dirname}/${filename}.log
+      bufferedIO: true
+      PatternLayout:
+        Pattern: "%d %p %c{1} [%t] %m%n"
+    RollingFile:
+      name: ROLLING_FILE
+      fileName: ${dirname}/${filename}_current.log
+      filePattern: ${dirname}/${date:yyyy-MM}/uniflow-%d{MM-dd-yyyy}-%i.log.gz
+      PatternLayout: 
+        Pattern: "%d %p %c{1} [%t] %m%n"
+      Policies:
+        TimeBasedTriggeringPolicy:
+          interval: 24
+          modulate: true
+        SizeBasedTriggeringPolicy:
+          size: 250MB
+      DefaultRolloverStrategy:
+        max: 20
+  Loggers:
+    Root:
+      level: error
+      AppenderRef:
+        ref: STDOUT
+    logger:
+      -
+        name: com.uniconnect.uniflow
+        level: debug
+        additivity: false
+        AppenderRef:
+          - ref: STDOUT
+          - ref: FILE
+          

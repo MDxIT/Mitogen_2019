@@ -1,0 +1,61 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps 
+    stepGroup Projects Ajax Server
+    
+    step Ticket History Ajax
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        caption History for Ticket Id {ticketId}
+        sqlQuery~ select e.userId as 'User Id', DATE_FORMAT(e.eventDate, '%m/%d/%Y') as 'Date', cp.value as 'Action', e.comments as 'Comments'
+          - from containerProperties cp
+          - LEFT JOIN events e ON e.eventId=cp.eventId
+          - WHERE cp.containerId='{ticketId}' AND cp.property='history'
+          - ORDER BY e.eventDate,e.eventId DESC
+
+    step Notes History Ajax
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        caption History for Note {noteId}
+        sqlQuery~ select e.userId as 'User Id', DATE_FORMAT(e.eventDate, '%m/%d/%Y') as 'Date', cp.value as 'Action', e.comments as 'Comments'
+          - from containerProperties cp
+          - LEFT JOIN events e ON e.eventId=cp.eventId
+          - WHERE cp.containerId='{noteId}' AND cp.property='history'
+          - ORDER BY e.eventDate,e.eventId DESC
+   
+    step Email User Ajax
+      form         
+        vertical
+          text toEmail
+          text fromEmail
+          text toUserId
+          text fromUserId
+          text subject
+          textbox message
+      notification Email User Regarding Ticket
+        conditionQuery select "{subject}", "{message}", replace(replace("{fromEmail}", "<", "&lt;"), ">", "&gt;"), "{fromUserId}", "{toEmail}", "{toUserId}" from dual
+        emailAddressColumn 5
+          recipientIdColumn 6
+        subject {1}
+        message
+          html <b>RESPOND TO: {4} ({3})</b><br/><br/>{2}
+    
+    step Notes From Project Ajax
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select concat(n.noteId, '-',n.title) as name, n.noteId from notes n 
+          - where n.projectId = '{projectId}' order by n.title
+
+    step Milestones From Project Ajax
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select concat(m.milestoneId, '-',m.description) as name, m.milestoneId from milestones m
+          - where m.projectId = '{projectId}' order by m.description
+      

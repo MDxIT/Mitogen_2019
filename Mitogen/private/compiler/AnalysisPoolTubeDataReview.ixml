@@ -1,0 +1,167 @@
+    step [$$STEP_NAME$$]
+      cssLinks
+        link css/analysis/allAnalysis.css
+        link /css/fontawesome/css/all.min.css
+
+      jsScripts
+        src js/fontawesome/js/all.min.js
+
+        src js/generalFunctions.js
+        src js/analysis/analysis.js
+        src js/analysis/analysisOnload.js
+      form
+
+        configurePreparedQuery~
+          - SELECT
+          -   am.methodName AS "methodName",
+          -   amv.id AS "methodVersionId"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv
+          -   ON am.id = amv.analysisMethodsId
+          - WHERE am.analysisStepName = ?
+          -   AND amv.active = 1
+          string [$$STEP_NAME$$]
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT stepName AS "protocolStepName"
+          - FROM protocolSteps
+          - WHERE displayName = ?
+          string [$$STEP_NAME$$]
+
+
+
+        formOutputJython~
+          from analysis import AnalysisData
+          from general_functions import get_containers_on_queue
+          import json
+          ##
+          ## Implements AnalysisMethod class from analysis package to retrieve previously configured data
+          ##    Previously configured data is pulled via get_field_config, converted to JSON, and placed in a hidden text area to be consumed by the js
+
+          runs = get_containers_on_queue(switchboard, switchboard.stepName)
+
+          method_version_id = '{_:methodVersionId}'
+          protocol_step = '{_:protocolStepName}'
+
+          template_object = AnalysisData(switchboard, method_version_id, protocol_step)
+          sample_rows = template_object.make_table_objects(runs)
+          sample_rows = json.dumps(sample_rows)
+
+          control_rows = '[]'
+
+          ## List of field objects configured for this method version
+          method_config = template_object.method_config
+          field_config_json = json.dumps(method_config)
+          
+        topVertical
+          id= hiddenFields
+          style= display:none
+          textArea fieldConfig 
+            id= fieldConfig
+            value= {_j:field_config_json}
+
+          textArea sampleRows 
+            id= sampleRows
+            value= {_j:sample_rows}
+
+          textArea controlRows 
+            id= controlRows
+            value= {_j:control_rows}
+
+
+        hidden stepType
+          id= stepType
+          value= single
+
+        hidden protocolStepName
+          id= protocolStepName
+          value= {_:protocolStepName}
+
+        hidden stepName
+          id= stepName
+          value= [$$STEP_NAME$$]
+
+        hidden methodVersionId
+          id= methodVersionId
+          value= {_:methodVersionId}
+
+        hidden nextStepRouting
+          id= nextStepRouting
+          value= [$$NEXT_STEP$$]
+
+        hidden containerLabel
+          id= containerLabel
+          value= Pool Tube Id
+
+        hidden analysisResultSet
+          id= analysisResultSet
+          value= analysisResults
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden detailsData1
+          id= detailsData1
+          class= detailsData
+          value=
+        hidden detailsData2
+          id= detailsData2
+          class= detailsData
+          value=
+        hidden detailsData3
+          id= detailsData3
+          class= detailsData
+          value=
+        hidden detailsData4
+          id= detailsData4
+          class= detailsData
+          value=
+        hidden detailsData5
+          id= detailsData5
+          class= detailsData
+          value=
+        hidden detailsData6
+          id= detailsData6
+          class= detailsData
+          value=
+        hidden requireCommentOnFailure
+          id= requireCommentOnFailure
+          value= [$$Require_Comment_On_Failure$$]
+        hidden sampleCommentHistory
+          id= sampleCommentHistory
+          value= [$$Pool_Tube_Comment_History$$]
+
+        hidden endOfWorkflow
+          id= endOfWorkflow
+          value= [$$End_Of_Workflow$$]
+
+        include analysisTemplateRequired
+          include stepInstructions
+
+          div
+            class= hideDiv
+            select overallResultOptions
+              setName~ analysisResults
+              required~ false
+              id= overallResultOptions
+            select interpretationOverrideOptions
+              required~ false
+              id= interpretationOverrideOptions
+
+          vertical
+            text methodName
+              screenLabel~ Analysis Method
+              value= {_:methodName}
+              readonly=
+              id= methodName
+
+          div
+            id= errorBox
+
+          fieldset
+            id= samplesField
+            legend Pool Tubes
+            div
+              id= analysisDataTableDiv

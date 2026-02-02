@@ -1,0 +1,31 @@
+config
+  steps
+
+    stepGroup Storage Ajax
+    step Ajax Get Storage Item Details
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -     'false' as "status", 'yes' as "isStorage",
+          -     sci.layoutType, sci.type, sci.model, sci.rows, sci.cols, ifNULL(sci.description,''), s.storageContainerId, s.location
+          - FROM storageContainerInfo sci
+          - LEFT JOIN storage s
+          - ON sci.storageContainerId = s.content
+          - WHERE sci.storageContainerId = ?
+          - UNION
+          - SELECT
+          -   'false' as "status", 'no',
+          -   '', c.containerType, '','','','',
+          -   s.storageContainerId, s.location
+          - FROM containers c
+          - LEFT JOIN storage s
+          - ON c.containerId = s.content
+          - WHERE c.containerId= ?
+          - AND c.containerType <> 'storageId'
+          - UNION
+          - SELECT 'true','', '', '', '', '', '', '', 'Not in storage', ''
+          string {storageId}
+          string {storageId}

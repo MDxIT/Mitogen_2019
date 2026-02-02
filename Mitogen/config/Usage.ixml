@@ -1,0 +1,584 @@
+config
+  steps
+    stepGroup Manage Inventory Usage
+######## Setup Inventory Usage By Task #####################################################################################################################
+    step Setup Inventory Usage By Task
+      form
+
+        include userAccountInfo
+        include combobox
+        include stepInstructions
+
+        script
+          src= js/resources/Usage.js
+
+        div
+          id= instructions
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Instructions
+            div
+              class= sectionContent
+              vertical
+                li Setup a task with the correct resources needed and amount used for each
+                li Each time the task is submitted by a user, the proper amount(s) will be deducted from the inventory table
+                li More resources can be added to a task at any time.
+                li Resources can be removed from a task or the amount updated in the <i><a href= /uniflow?stepName=Edit+Inventory+Usage+By+Task>Edit Inventory Usage By Task</a></i>
+        hr
+        div
+          class= verticalFlex
+          label Task Name
+          select _recId
+            id= taskName
+            class= combobox
+            option
+            sqlPreparedQuery~ SELECT DISTINCT displayName
+              - FROM protocolSteps
+              - WHERE displayName NOT IN
+              - ('Login','LOGOUT','FS Protocol Writer','FS Protocols','FS Settings','FS Summary','FS Tasks',
+              - 'downloadArchivedReport','DownloadFile','DownloadFile Unrestricted','DownloadFile Unrestricted FISH',
+              - 'DownloadInsurance','DownloadMergeDemos','DownloadMergeFile','DownloadProtocolConfig',
+              - 'DownloadRequisitionFile','DownloadToxBatchFile','Download NGS Report',
+              - 'Download Translational Data File','Download Translational Report', 'Order Form', 'Specimen Receiving')
+              - AND displayName NOT LIKE '*%'
+              - AND displayName NOT LIKE lower('ajax%')
+              - AND displayName NOT LIKE lower('post%')
+              - AND displayName NOT LIKE lower('get%')
+              - ORDER BY displayName
+        hr
+        vertical
+          div
+            id= currentResources
+
+          div
+            id= addResources
+            ul
+              li
+                a Reagents
+                  href= #reagents
+              li
+                a Controls
+                  href= #controls
+              li
+                a Consumables
+                  href= #receivedConsumables
+              li
+                a Instruments
+                  href= #instruments
+              li
+                a Prepared Containers
+                  href= #preparedContainers
+
+            div
+              id= reagents
+              table
+                sqlPreparedQuery~
+                  - SELECT
+                  -   '' AS "Reagent",
+                  -   '0.00' AS "Amount",
+                  -   '' AS "Units"
+                  - FROM numbers
+                  - LIMIT 10
+                columnSpecs~ reagentUsage
+                  allowChangedRecordIds
+                  column 1
+                    inputType select
+                      class= usageReagentsSelect
+                      sqlPreparedQuery~
+                        - SELECT DISTINCT
+                        -   inventoryItem
+                        - FROM inventoryItems
+                        - WHERE (inventoryType = 'Received Reagent' OR inventoryType = 'Prepared Reagent')
+                        - ORDER BY inventoryItem ASC
+                  column 2
+                    inputType text
+                      class= amount
+                      size= 4
+                  column 3
+                    inputType text
+                      class= units
+                      readonly=
+
+            div
+              id= controls
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "Control",
+                    -   '0.00' AS "Amount",
+                    -   '' AS "Units",
+                    -   '' AS "Inventory Usage Type"
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ controlUsage
+                    allowChangedRecordIds
+                    column 1
+                      inputType select
+                        class= usageControlsSelect
+                        sqlPreparedQuery~
+                          - SELECT DISTINCT
+                          -   inventoryItem
+                          - FROM inventoryItems
+                          - WHERE inventoryType = 'Received Control'
+                          -   OR inventoryType = 'Prepared Control'
+                          - ORDER BY inventoryItem ASC
+                    column 2
+                      inputType text
+                        class= amount
+                        size= 4
+                    column 3
+                      inputType text
+                        class= units
+                        readonly=
+                    column 4
+                      inputType select
+                        class= type
+                        required~ false
+                        setName~ inventoryUsageType
+                        title= SETNAME: inventoryUsageType
+
+            div
+              id= receivedConsumables
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "Consumable",
+                    -   0.00 AS "Amount",
+                    -   '' AS "Units"
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ consumableUsage
+                    allowChangedRecordIds
+                    column 1
+                      inputType select
+                        class= usageConsumablesSelect
+                        sqlPreparedQuery~
+                          - SELECT DISTINCT
+                          -   inventoryItem
+                          - FROM inventoryItems
+                          - WHERE inventoryType = 'Received Consumable'
+                          - ORDER BY inventoryItem ASC
+                    column 2
+                      inputType text
+                        class= amount
+                        size= 4
+                    column 3
+                      inputType text
+                        class= units
+                        readonly=
+            div
+              id= instruments
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "Instrument",
+                    -   0.00 AS "Time In Use",
+                    -   '' AS "Units"
+                    - FROM numbers
+                    - limit 10
+                  columnSpecs~ instrumentUsage
+                    allowChangedRecordIds
+                    column 1
+                      inputType select
+                        sqlPreparedQuery~
+                          - SELECT DISTINCT
+                          -   instrumentType
+                          - FROM instruments
+                          - ORDER BY instrumentType ASC
+                    column 2
+                      inputType text
+                        class= amount
+                        size= 4
+                    column 3
+                      inputType select
+                        class= units
+                        setName~ instrumentTimeUnits
+                        title= SETNAME: instrumentTimeUnits
+                        required~ false
+
+            div
+              id= preparedContainers
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "Prepared Container Type"
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ preparedContainerUsage
+                    allowChangedRecordIds
+                    column 1
+                      inputType select
+                        class= preparedContainerSelect
+                        sqlPreparedQuery~
+                          - SELECT DISTINCT
+                          -   inventoryItem
+                          - FROM inventoryItems
+                          - WHERE inventoryType = 'Prepared Consumable'
+                          - ORDER BY inventoryItem ASC
+
+      forRows reagentUsage
+        sqlPreparedStatement insert into inventoryUsage (inventoryItem, step, amount, units, eventId)
+          - SELECT ?, ?,
+          - CASE WHEN '' THEN '0.00' ELSE ? END,
+          - ?, ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {_columnInput_reagentUsage:1}
+          string {_recId}
+          string {_columnInput_reagentUsage:2}
+          string {_columnInput_reagentUsage:3}
+          long {_eventId}
+          string {_columnInput_reagentUsage:1}
+
+      forRows controlUsage
+        sqlPreparedStatement insert into inventoryUsage (inventoryItem, step, amount, units, inventoryItemUsage, eventId)
+          - SELECT ?, ?,
+          - CASE WHEN '' THEN '0.00' ELSE ? END,
+          - ?, ?, ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {_columnInput_controlUsage:1}
+          string {_recId}
+          string {_columnInput_controlUsage:2}
+          string {_columnInput_controlUsage:3}
+          string {_columnInput_controlUsage:4}
+          long {_eventId}
+          string {_columnInput_controlUsage:1}
+
+      forRows consumableUsage
+        sqlPreparedStatement insert into inventoryUsage (inventoryItem, step, amount, units, eventId)
+          - SELECT ?, ?,
+          - CASE WHEN '' THEN '0.00' ELSE ? END,
+          - ?, ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {_columnInput_consumableUsage:1}
+          string {_recId}
+          string {_columnInput_consumableUsage:2}
+          string {_columnInput_consumableUsage:3}
+          long {_eventId}
+          string {_columnInput_consumableUsage:1}
+
+      forRows instrumentUsage
+        sqlPreparedStatement insert into inventoryUsage (inventoryItem, step, amount, units, eventId)
+          - SELECT ?, ?,
+          - CASE WHEN '' THEN '0.00' ELSE ? END,
+          - ?, ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {_columnInput_instrumentUsage:1}
+          string {_recId}
+          string {_columnInput_instrumentUsage:2}
+          string {_columnInput_instrumentUsage:3}
+          long {_eventId}
+          string {_columnInput_instrumentUsage:1}
+
+      forRows preparedContainerUsage
+        sqlPreparedStatement insert into inventoryUsage (inventoryItem, step, eventId)
+          - SELECT ?, ?, ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {_columnInput_preparedContainerUsage:1}
+          string {_recId}
+          long {_eventId}
+          string {_columnInput_preparedContainerUsage:1}
+
+######## Edit Inventory Usage By Task ######################################################################################################################
+    step Edit Inventory Usage By Task
+      form
+        include userAccountInfo
+        include stepInstructions
+        div
+          class= verticalFlex
+          label Task Name
+          select Step
+            class= required
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   step
+              - FROM inventoryUsage
+              - ORDER BY step
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        script
+          src= js/resources/Usage.js
+
+        hidden Step
+          value= {Step}
+
+        div
+          id= instructions
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span !!!{Step}
+            div
+              class= sectionContent
+
+              table
+                id= editInvStep
+                sqlPreparedQuery~
+                  - SELECT
+                  -   '' AS "EDIT",
+                  -   iu.inventoryItem AS "Resource",
+                  -   iu.amount AS "Amount",
+                  -   CASE ii.inventoryType
+                  -     WHEN 'Prepared Consumable' THEN ii.units
+                  -     ELSE iu.units END
+                  -   AS "Units",
+                  -   iu.inventoryItemUsage AS "Control Usage Type",
+                  -   '' AS "Remove",
+                  -   ii.inventoryType AS "inventoryType"
+                  - FROM inventoryUsage iu
+                  -   INNER JOIN inventoryItems ii on iu.inventoryItem = ii.inventoryItem
+                  - WHERE step = ?
+                  string {Step}
+                columnSpecs~ editInvStep
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      readonly=
+                  column 3
+                    inputType number
+                      class= amount
+                      size= 8
+                      min~ 0
+                  column 5
+                    inputType select
+                      class= controlUsageType
+                      required~ false
+                      setName~ inventoryUsageType
+                      title= SETNAME: inventoryUsageType
+                  column 6
+                    inputType checkbox
+                  column 7
+                    inputType text
+                      class= editByStepInventoryType hideThisColumn
+                      readonly
+
+      forRows editInvStep
+        sqlPreparedStatement
+          - UPDATE inventoryUsage SET
+          -   amount = ?,
+          -   inventoryItemUsage = ?
+          - WHERE inventoryItem = ?
+          -   AND step = ?
+          -   AND ? = 'true'
+          string {_columnInput_editInvStep:3}
+          string {_columnInput_editInvStep:5}
+          string {_columnInput_editInvStep:2}
+          string {Step}
+          string {_columnInput_editInvStep:1}
+
+        sqlPreparedStatement
+          - DELETE FROM inventoryUsage
+          - WHERE inventoryItem = ?
+          -   AND step = ?
+          -   AND ? = 'true'
+          string {_columnInput_editInvStep:2}
+          string {Step}
+          string {_columnInput_editInvStep:6}
+
+######## Edit Inventory Usage By Resource ##################################################################################################################
+    step Edit Inventory Usage By Resource
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        div
+          class= verticalFlex
+          label Resource
+          select Resource
+            class= required
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   inventoryItem
+              - FROM inventoryUsage
+              - ORDER BY inventoryItem
+
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        script
+          src= js/resources/Usage.js
+
+        formPreparedQuery~
+          - SELECT
+          -   inventoryType
+          - FROM inventoryItems
+          - WHERE inventoryItem = ?
+          string {Resource}
+
+        hidden Resource
+          value= {Resource}
+        hidden inventoryType
+          id= inventoryType
+          value= {_:inventoryType}
+
+        div
+          id= resource
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span !!!{Resource}
+            div
+              class= sectionContent
+              table
+                id= editInvStep
+                sqlPreparedQuery~
+                  - SELECT
+                  -   '' AS "EDIT",
+                  -   step AS "Task",
+                  -   inventoryItem AS "Resource",
+                  -   amount AS "Amount",
+                  -   units AS "Units",
+                  -   inventoryItemUsage AS "Control Usage Type",
+                  -   '' AS "Remove"
+                  - FROM inventoryUsage
+                  - WHERE inventoryItem = ?
+                  string {Resource}
+                columnSpecs~ editInvStep
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      readonly=
+                  column 3
+                    inputType text
+                      readonly=
+                  column 4
+                    inputType number
+                      class= resourceAmount
+                      size= 8
+                      min~ 0
+                  column 5
+                    inputType text
+                      class= units
+                      readonly=
+                  column 6
+                    inputType select
+                      class= controlUsageType
+                      required~ false
+                      setName~ inventoryUsageType
+                      title= SETNAME: inventoryUsageType
+                  column 7
+                    inputType checkbox
+
+      forRows editInvStep
+        sqlPreparedStatement
+          - UPDATE inventoryUsage SET
+          -   amount = ?,
+          -   inventoryItemUsage = ?
+          - WHERE inventoryItem = ?
+          -   AND step = ?
+          -   AND ? = 'true'
+          string {_columnInput_editInvStep:4}
+          string {_columnInput_editInvStep:6}
+          string {Resource}
+          string {_columnInput_editInvStep:2}
+          string {_columnInput_editInvStep:1}
+
+        sqlPreparedStatement
+          - DELETE FROM inventoryUsage
+          - WHERE inventoryItem = ?
+          -   AND step = ?
+          -   AND ? = 'true'
+          string {Resource}
+          string {_columnInput_editInvStep:2}
+          string {_columnInput_editInvStep:7}
+
+######## List All Usage Requirements #######################################################################################################################
+    step List All Usage Requirements
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        table
+          class= stdTableBasic
+          sqlPreparedQuery~
+            - SELECT
+            -   i.step AS "Task",
+            -   i.inventoryItem AS "Resource",
+            -   CONCAT(i.amount, ' ' , i.units) AS "Amount",
+            -   i.inventoryItemUsage AS "Item Usage Type",
+            -   e.userId AS "Entered By"
+            - FROM inventoryUsage i
+            -   INNER JOIN events e
+            -     ON i.eventId = e.eventId
+            - ORDER BY i.step
+
+######## Review and Verify Inventory for Tasks  ############################################################################################################
+    step Review and Verify Inventory for Tasks
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        div
+          class= verticalFlex
+          label Task Name
+          select Steps
+            class= required
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   step
+              - FROM inventoryUsage
+              - ORDER BY step ASC
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   step
+              - FROM inventoryMMUsage
+              - ORDER BY step ASC
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          src= js/resources/Usage.js
+
+        hidden Steps
+          value= {Steps}
+
+        div
+          id= resource
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span !!!{Steps}
+            div
+              class= sectionContent
+
+              table
+                caption Reagents | Consumables | Instruments | Prepared Containers
+                sqlPreparedQuery~
+                  - SELECT
+                  -   iu.step AS "Step",
+                  -   iu.inventoryItem AS "Item",
+                  -   iu.amount AS "Amount Needed/Step",
+                  -   i.quantity AS "Total In Stock",
+                  -   iu.units AS "Units",
+                  -   iu.inventoryItemUsage AS "Inventory Item Usage",
+                  -   CASE
+                  -     WHEN (iu.amount < i.quantity) THEN "<span style= background-color:PaleGreen;padding:5px;>GOOD</span>"
+                  -     WHEN (iu.amount > i.quantity) THEN "<span style= background-color:#F75D59;padding:5px;>BAD</span>"
+                  -     ELSE 'Amount Not Defined'
+                  -     END AS "Status"
+                  - FROM inventoryUsage iu
+                  -   INNER JOIN inventoryItems i ON iu.inventoryItem = i.inventoryItem
+                  - WHERE step IN (?)
+                  string {Steps}
+

@@ -1,0 +1,486 @@
+config
+  steps
+    stepGroup Primer Management
+
+
+######## CREATE PRIMER ##############################################################################################################
+    step Create Primer 
+      form 
+        script
+          - $(document).ready( function() {
+          -   $('.combobox').combobox();
+          -   $('#primerId').change( function() {
+          -     $('#orderName').val( $(this).val() );
+          -   });
+          -   $('#primerLocation').change( function() {
+          -     $('#orderSequence').val( $(this).val() );
+          -   });
+          - });
+        fieldset
+          legend PRIMER
+          vertical
+            container primerId
+              id= primerId
+              screenLabel~ Primer Id
+              new~ true
+              addContent~
+              containerType~ primerId
+            select species
+              id= speciesSelect
+              screenLabel~ Species
+              value= Human
+              setName~ species
+            text primerLocation
+              id= primerLocation
+              screenLabel~ Primer Location
+              placeHolder= #:#######-#######
+            number ampliconLength
+              id= ampliconLength
+              screenLabel~ Amplicon Length
+            select forwardLocation
+              id= forwardLocation
+              class= combobox
+              screenLabel~ Forward Location
+              option
+              sqlQuery~ 
+                - SELECT DISTINCT forwardLocation FROM primers
+            select reverseLocation
+              id= reverseLocation
+              class= combobox
+              screenLabel~ Reverse Location
+              option
+              sqlQuery~ 
+                - SELECT DISTINCT reverseLocation FROM primers
+            select dilutionLocation
+              id= dilutionLocation
+              class= combobox
+              screenLabel~ Dilution Location
+              option
+              sqlQuery~ 
+                - SELECT DISTINCT dilutionLocation FROM primers
+
+
+        fieldset
+          legend GENE
+          vertical
+            text gene 
+              id= gene
+              screenLabel~ Gene
+            text geneName 
+              id= geneName
+              screenLabel~ Gene Name
+            textArea geneAliases
+              id= geneAliases
+              screenLabel~ Gene Aliases
+            text geneLocation
+              id= geneLocation
+              screenLabel~ Gene Location
+              placeHolder= #:#######-#######
+
+
+        fieldset
+          legend SEQUENCES
+          vertical
+            text forwardSequence
+              id= forwardSequence
+              screenLabel~ Forward Sequence
+            text reverseSequence
+              id= reverseSequence
+              screenLabel~ Reverse Sequence
+            checkbox m13Sequences
+              id= m13Sequences
+              screenLabel~ Sequences are M13
+
+        fieldset
+          legend ORDER PRIMER INFORMATION
+          vertical
+            checkbox orderPrimer 
+              screenLabel~ Add primer to order list
+            text orderName
+              id= orderName
+              screenLabel~ Name
+            text orderSequence
+              id= orderSequence
+              screenLabel~ Sequence
+            text orderScale
+              value= 25nmS
+              screenLabel~ Scale
+            text orderPurification
+              value= STD
+              screenLabel~ Purification
+
+
+        fieldset
+          legend SAMPLES REQUIRING PRIMERS
+          table 
+            sqlQuery~
+              - SELECT
+              -   '' as "Select"
+              -   , s.sampleId as "Sample Id"
+              -   , q.containerId as "Sanger Run Id"
+              -   , s.gr37Coordinate as "GRCh37 Coordinate"
+              -   , s.gr38Coordinate as "GRCh38 Coordinate"
+              - FROM queues q
+              -   INNER JOIN sanger s ON q.containerId = s.sangerId
+              - WHERE q.step = 'Order Primers'
+            columnSpecs~ orderPrimers
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 3
+                inputType container 
+                  readonly= true
+                  recordContainerHistory~ false
+                  acceptQueue~ any
+
+      sqlPreparedStatement INSERT INTO primers (primerId, gene, geneName, geneAliases, geneLocation, species, primerLocation, ampliconLength, forwardPrimer, forwardPrimerM13, reversePrimer, reversePrimerM13, forwardLocation, reverseLocation, dilutionLocation, eventId) 
+        - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        string {primerId}
+        string {gene}
+        string {geneName}
+        string {geneAliases}
+        string {geneLocation}
+        string {species}
+        string {primerLocation}
+        long {ampliconLength}
+        string {forwardSequence}
+        string {m13Sequences}
+        string {reverseSequence}
+        string {m13Sequences}
+        string {forwardLocation}
+        string {reverseLocation}
+        string {dilutionLocation}
+        long {_eventId}
+      forRows orderPrimers
+        ifCondition {_columnInput_orderPrimers:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement DELETE FROM queues WHERE containerId = ? AND step = 'Order Primers'
+            string {_columnInput_orderPrimers:3}
+          sqlPreparedStatement INSERT INTO queues (containerId, step, eventId) VALUES (?, 'Sanger Confirm - Primer Status', ?)
+            string {_columnInput_orderPrimers:3}
+            long {_eventId}
+          sqlPreparedStatement INSERT INTO containerHistory (containerId, eventId) VALUES (?, ?)
+            string {_columnInput_orderPrimers:3}
+            long {_eventId}
+      ifCondition {orderPrimer}
+        advanced~
+        equals~ true
+        setFormQueryResult
+          sqlQuery select id from primers where eventId = {_eventId}
+        sqlPreparedStatement INSERT INTO primerOrdering (primerId, name, sequence, scale, purification, eventId) SELECT ?, ?, ?, ?, ?, ?
+          - FROM primers WHERE eventId = {_eventId}
+          long {id}
+          string {orderName}
+          string {orderSequence}
+          string {orderScale}
+          string {orderPurification}
+          long {_eventId} 
+
+
+######## VIEW EDIT PRIMER ##############################################################################################################
+    step View or Edit Primer 
+      form 
+        table
+          sqlQuery~
+            - SELECT 
+            -   Id AS "Primer Id"
+            -   , primerId AS "Primer"
+            -   , gene AS "Gene"
+            -   , geneName AS "Gene Name"
+            -   , primerLocation AS "Primer Coordinates"
+            - FROM primers
+      form 
+        script
+          - $(document).ready( function() {
+          -   $('.combobox').combobox();
+          - });
+        formQuery~
+          - SELECT Id, primerId, gene, geneName, geneAliases, geneLocation, species, primerLocation, ampliconLength, forwardPrimer, forwardPrimerM13, reversePrimer, forwardLocation, reverseLocation, dilutionLocation
+          - FROM primers WHERE Id = {_recId}
+        hidden Id 
+          value= {_:Id}
+        hidden _recId
+          value= {_recId}
+        fieldset
+          legend PRIMER
+          vertical
+            container primerId
+              id= primerId
+              screenLabel~ Primer Id
+              value= {_:primerId}
+              containerType~ primerId
+              readonly= true
+              acceptQueue~ any
+            checkbox deletePrimer
+              id= deletePrimer
+              screenLabel~ Delete Primer
+            select species
+              id= speciesSelect
+              screenLabel~ Species
+              value= {_:species}
+              setName~ species
+            text primerLocation
+              id= primerLocation
+              screenLabel~ Primer Location
+              value= {_:primerLocation}
+              placeHolder= #:#######-#######
+            number ampliconLength
+              id= ampliconLength
+              screenLabel~ Amplicon Length
+              value= {_:ampliconLength}
+            select forwardLocation
+              id= forwardLocation
+              class= combobox
+              screenLabel~ Forward Location
+              value= {_:forwardLocation}
+              option
+              sqlQuery~ 
+                - SELECT DISTINCT forwardLocation FROM primers
+            select reverseLocation
+              id= reverseLocation
+              class= combobox
+              screenLabel~ Reverse Location
+              value= {_:reverseLocation}
+              option
+              sqlQuery~ 
+                - SELECT DISTINCT reverseLocation FROM primers
+            select dilutionLocation
+              id= dilutionLocation
+              class= combobox
+              screenLabel~ Dilution Location
+              value= {_:dilutionLocation}
+              option
+              sqlQuery~ 
+                - SELECT DISTINCT dilutionLocation FROM primers
+
+
+        fieldset
+          legend GENE
+          vertical
+            text gene 
+              id= gene
+              screenLabel~ Gene
+              value= {_:gene}
+            text geneName 
+              id= geneName
+              screenLabel~ Gene Name
+              value= {_:geneName}
+            textArea geneAliases
+              id= geneAliases
+              screenLabel~ Gene Aliases
+              value= {_:geneAliases}
+            text geneLocation
+              id= geneLocation
+              screenLabel~ Gene Location
+              value= {_:geneLocation}
+              placeHolder= #:#######-#######
+
+
+        fieldset
+          legend SEQUENCES
+          vertical
+            text forwardSequence
+              id= forwardSequence
+              screenLabel~ Forward Sequence
+              value= {_:forwardPrimer}
+            text reverseSequence
+              id= reverseSequence
+              screenLabel~ Reverse Sequence
+              value= {_:reversePrimer}
+            checkbox m13Sequences
+              id= m13Sequences
+              screenLabel~ Sequences are M13
+              value= {_:forwardPrimerM13}
+
+
+        fieldset
+          legend ORDER PRIMER INFORMATION
+          vertical
+            checkbox orderPrimer 
+              screenLabel~ Add primer to order list
+            text orderName
+              value= {_:primerId}
+              screenLabel~ Primer Name
+            text orderSequence
+              value= {_:forwardPrimer}
+              screenLabel~ Sequence
+            text orderScale
+              value= 25nmS
+              screenLabel~ Scale
+            text orderPurification
+              value= STD
+              screenLabel~ Purification
+
+
+
+        fieldset
+          legend SAMPLES REQUIRING PRIMERS
+          table 
+            sqlQuery~
+              - SELECT
+              -   '' as "Select"
+              -   , s.sampleId as "Sample Id"
+              -   , q.containerId as "Sanger Run Id"
+              -   , s.gr37Coordinate as "GRCh37 Coordinate"
+              -   , s.gr38Coordinate as "GRCh38 Coordinate"
+              - FROM queues q
+              -   INNER JOIN sanger s ON q.containerId = s.sangerId
+              - WHERE q.step = 'Order Primers'
+            columnSpecs~ orderPrimers
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 3
+                inputType container 
+                  readonly= true
+                  acceptQueue~ any
+                  recordContainerHistory~ false
+
+      ifCondition {deletePrimer}
+        advanced~
+        equals~ false
+        sqlPreparedStatement 
+          - UPDATE primers SET
+          -   gene = ?
+          -   , geneName = ?
+          -   , geneAliases = ?
+          -   , geneLocation = ?
+          -   , species = ?
+          -   , primerLocation = ?
+          -   , ampliconLength = ?
+          -   , forwardPrimer = ?
+          -   , forwardPrimerM13 = ?
+          -   , reversePrimer = ?
+          -   , reversePrimerM13 = ?
+          -   , forwardLocation = ?
+          -   , reverseLocation = ?
+          -   , dilutionLocation = ?
+          -   , updateEventId = ?
+          - WHERE Id = ? AND primerId = ?
+          string {gene}
+          string {geneName}
+          string {geneAliases}
+          string {geneLocation}
+          string {species}
+          string {primerLocation}
+          long {ampliconLength}
+          string {forwardSequence}
+          string {m13Sequences}
+          string {reverseSequence}
+          string {m13Sequences}
+          string {forwardLocation}
+          string {reverseLocation}
+          string {dilutionLocation}
+          long {_eventId}
+          long {Id}
+          string {primerId}
+
+      ifCondition {deletePrimer}
+        advanced~
+        equals~ true
+        sqlPreparedStatement DELETE FROM primers 
+          - WHERE Id = ? AND primerId = ?
+          long {Id}
+          string {primerId}
+
+      forRows orderPrimers
+        ifCondition {_columnInput_orderPrimers:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement DELETE FROM queues WHERE containerId = ? AND step = 'Order Primers'
+            string {_columnInput_orderPrimers:3}
+          sqlPreparedStatement INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'Sanger Confirm - Primer Status', ?)
+            string {_columnInput_orderPrimers:3}
+            long {_eventId}
+          sqlPreparedStatement INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_orderPrimers:3}
+            long {_eventId}
+
+
+      ifCondition {orderPrimer}
+        advanced~
+        equals~ true
+        sqlPreparedStatement INSERT INTO primerOrdering (primerId, name, sequence, scale, purification, eventId)
+          - VALUES (?, ?, ?, ?, ?, ?)
+          long {Id}
+          string {orderName}
+          string {orderSequence}
+          string {orderScale}
+          string {orderPurification}
+          long {_eventId}
+
+
+
+######################################################################################################################
+
+    step Order Primer Sheet
+      form
+        vertical 
+          checkbox clear
+            screenLabel~ Remove all primers from list.
+        table 
+          class= stdTableExport
+          sqlQuery~
+            - SELECT 
+            -   name AS "Name"
+            -   , sequence AS "Sequence"
+            -   , scale AS "Scale"
+            -   , purification AS "Purification"
+            - FROM primerOrdering
+
+      ifCondition {clear}
+        advanced~
+        equals~ true
+        sql
+          - DELETE FROM primerOrdering
+
+
+
+
+######################################################################################################################
+
+    step Queue Back Sanger Runs 
+      form
+        vertical
+          p Selecting sanger runs will return them to Sanger Confirm - Primer Status. 
+          p Please ensure that primers exist before queueing (currently through database).
+
+          table 
+            sqlQuery~
+              - SELECT
+              -   '' as "Select"
+              -   , s.sampleId as "Sample Id"
+              -   , q.containerId as "Sanger Run Id"
+              -   , s.gr37Coordinate as "GRCh37 Coordinate"
+              -   , s.gr38Coordinate as "GRCh38 Coordinate"
+              - FROM queues q
+              -   INNER JOIN sanger s ON q.containerId = s.sangerId
+              - WHERE q.step = 'Order Primers'
+            columnSpecs~ orderPrimers
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 3
+                inputType container 
+                  readonly= true
+                  acceptQueue~ any
+                  recordContainerHistory~ false
+
+      forRows orderPrimers
+        ifCondition {_columnInput_orderPrimers:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement DELETE FROM queues WHERE containerId = ? AND step = 'Order Primers'
+            string {_columnInput_orderPrimers:3}
+          sqlPreparedStatement INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'Sanger Confirm - Primer Status', ?)
+            string {_columnInput_orderPrimers:3}
+            long {_eventId}
+          sqlPreparedStatement INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_orderPrimers:3}
+            long {_eventId}
+

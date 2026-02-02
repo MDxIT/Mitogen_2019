@@ -1,0 +1,413 @@
+
+
+    step [$$STEP_NAME$$]
+      allowDuplicateContainerIds true
+
+
+      cssLinks
+        link css/modifyBatch.css
+
+      form
+
+        include stepInstructions
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= Batch Id
+          parameter~ currentStep
+            value= [$$STEP_NAME$$]
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= batchId
+
+
+      form
+        data-parsley-validate=
+        enctype= multipart/form-data
+        script
+          src= js/components/container.js
+
+        script
+          src= js/tasks/modifyBatch.js
+
+        include stepInstructions
+        configurePreparedQuery~ SELECT
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -     ELSE ?
+          -   END AS "batchId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+        include userAccountInfo
+
+        include stepInstructions
+
+
+        hidden Sample_Counter
+          id= Sample_Counter
+          value= [$$Sample_Counter$$]
+
+        hidden commentHistory
+          id= incComHist
+          value= [$$Sample_Comment_History$$]
+          
+        hidden removeSamples
+          id= removeSamples
+          value= [$$Allow_Remove_Samples$$]
+
+
+        div
+          id= messageId
+
+        fieldset
+          legend Batch Details
+          include containerComponent
+
+            #### DEVELOPER CONFIGURATIONS
+            parameter~ containerName
+              value= batchId
+            parameter~ containerScreenLabel
+              value= [$$Batch_Screen_Label$$]
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= {_step}
+            parameter~ containerType
+              value= batchId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:batchId}
+            parameter~ useThisSequence
+              value=
+
+            #### BUILD SHEET CONFIGURATIONS
+            parameter~ containerCommentsInclude
+              value= [$$Batch_Comments$$]
+            parameter~ containerActionInclude
+              value= [$$Action_Option$$]
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+
+        fieldset
+          legend Batch Count Details
+          rowGroups
+            rowGroup
+              div
+                vertical
+                  number minSamples
+                    size= 5
+                    class= minSamples spacer
+                    screenLabel~ Min Allowed:
+                    data-parsley-required= true
+                    data-parsley-min= 1
+                    data-parsley-trigger= blur
+                    readonly=
+                      configureIf~ [$$Allow_Min_Sample_Override$$]
+                        advanced~
+                        equals~ No
+                    value= 1
+              div
+                vertical
+                  number maxSamples
+                    size= 5
+                    class= maxSamples spacer
+                    screenLabel~ Max Allowed:
+                    data-parsley-required= true
+                    data-parsley-trigger= blur
+                    readonly=
+                      configureIf~ [$$Allow_Max_Sample_Override$$]
+                        advanced~
+                        equals~ No
+                    value= 5
+              div
+                id= counter_div
+                vertical
+                  number counter
+                    size= 5
+                    class= counter spacer
+                    readonly=
+                    screenLabel~ Number in Batch:
+
+        fieldset
+          legend Modify Batch Contents
+          table
+            id= batchSampleTable
+            sqlPreparedQuery
+              - SELECT
+              -   '' AS "Remove",
+              -   IFNULL(sr.currentParentPosition, '') AS "Order",
+              -   vV.displayValue AS "Order Priority",
+              -   sr.currentContainerId AS "Sample Id",
+              -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+              -   CONCAT(IFNULL(os.siteId, ''), '-', IFNULL(rf.mrn, '')) AS "FacilityID-MRN",
+              -   rs.specimenType AS "Specimen Type",
+              -   CONCAT(p.name, ' ' , IFNULL(t.name,''))  AS "Tests",
+              -   os.name AS "Customer Name",
+              -   '' AS "New Comments",
+              -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "Comment History",
+              -   sr.runId AS "runId"
+              - FROM specimenRuns sr
+              - INNER JOIN specimenMethods sm
+              -   ON sr.specimenMethodsId = sm.id
+              - INNER JOIN requestSpecimens rs
+              -   ON sm.requestSpecimensId = rs.id
+              - INNER JOIN requestForms rf
+              -   ON rs.requestId = rf.requestId
+              - LEFT JOIN validValues vV
+              -   ON vV.setName = 'priority'
+              -   AND vV.value = rf.priority
+              - LEFT JOIN patients pa
+              -   ON pa.patientId = rf.patientId
+              -   AND rs.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON os.siteId = rf.physicianSiteId
+              - INNER JOIN panels p
+              -   ON sm.panelCode = p.panelCode
+              - LEFT JOIN tests t
+              -   ON sm.testCode = t.testCode
+              - LEFT JOIN containerNotes cn
+              -   ON cn.containerId = sr.runId
+              - WHERE sr.currentParentId = ?
+              - GROUP BY sr.runId
+              - ORDER BY CAST(sr.currentParentPosition AS unsigned) ASC
+              string {_:batchId}
+            columnSpecs~ batchSampleTable
+              allowChangedRecordIds true
+              column 1
+                inputType checkbox
+                  class= batchSampleTable_checkbox includeRemove[$$Allow_Remove_Samples$$]
+              column 2
+                inputType number
+                  class= batchSampleTable_order
+                  readonly=
+                    configureIf~ [$$Allow_Edit_Order$$]
+                      advanced~
+                      equals~ No
+                  data-parsley-type= integer
+                  data-parsley-min= 1
+                  size= 3
+              column 4
+                inputType container
+                  class= batchSampleTable_specimenId
+                  acceptQueue~ any
+                  readonly=
+              column 5
+                inputType text
+                  class= batchSampleTable_patientName
+                  readonly=
+              column 6
+                inputType text
+                  class= batchSampleTable_MRN
+                  readonly=
+              column 7
+                inputType text
+                  class= batchSampleTable_specimenType
+                  readonly=
+              column 8
+                inputType text
+                  class= batchSampleTable_tests
+                  readonly=
+              column 9
+                inputType text
+                  class= batchSampleTable_customer
+                  readonly=
+              column 10
+                inputType textArea
+                  class= batchSampleTable_comment includeComments[$$Sample_Comments$$]
+              column 12
+                inputType container
+                  class= hideColumnRunId
+                  acceptQueue~ any
+          br
+          br
+
+          div
+            configureIf~ [$$Allow_Add_Samples$$]
+              advanced~
+              equals~ Yes
+            vertical
+              text newSample
+                class= addNewSample
+                screenLabel~ Scan to Add New Sample
+
+      forRows batchSampleTable
+        ## make tubes content of batch unless already a content ##
+        sqlPreparedStatement~ INSERT INTO contents
+          - (
+          -   containerId,
+          -   attribute,
+          -   contentType,
+          -   content,
+          -   eventId
+          - )
+          - SELECT ?,
+          -   ?,
+          -   containerType,
+          -   ?,
+          -   ?
+          - FROM containers
+          - WHERE containerId = ?
+          -   AND NOT EXISTS
+          -   (
+          -     SELECT 1
+          -     FROM contents
+          -     WHERE containerId = ?
+          -       and content = ?
+          -   )
+          string {batchId}
+          string {_columnInput_batchSampleTable:2}
+          string {_columnInput_batchSampleTable:4}
+          long {_eventId}
+          string {_columnInput_batchSampleTable:4}
+          string {batchId}
+          string {_columnInput_batchSampleTable:4}
+
+        ## update batch order ##
+        sqlPreparedStatement~
+          - UPDATE contents
+          - SET attribute = ?,
+          -   eventId = ?
+          - WHERE containerid = ?
+          -   AND content = ?
+          -   AND attribute <> ?
+          string {_columnInput_batchSampleTable:2}
+          long {_eventId}
+          string {batchId}
+          string {_columnInput_batchSampleTable:4}
+          string {_columnInput_batchSampleTable:2}
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1
+              - FROM containerHistory
+              - WHERE containerId = ?
+              - AND eventId = ?
+              string {_columnInput_batchSampleTable:4}
+              long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_batchSampleTable:4}
+            long {_eventId}
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1
+              - FROM containerHistory
+              - WHERE containerId = ?
+              - AND eventId = ?
+              string {_columnInput_batchSampleTable:12}
+              long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_batchSampleTable:12}
+            long {_eventId}
+
+        ## update specimenRuns currentParentId and currentParentPosition  ##
+        ifCondition {_columnInput_batchSampleTable:1}
+          advanced~
+          not~
+            equals~ true
+
+          sqlPreparedStatement~
+            - UPDATE specimenRuns sr
+            - SET sr.currentParentId = ?,
+            -   sr.currentParentPosition = ?,
+            -   sr. lastUpdatedEventId = ?
+            - WHERE sr.runId = ?
+            string {batchId}
+            string {_columnInput_batchSampleTable:2}
+            long {_eventId}
+            string {_columnInput_batchSampleTable:12}
+
+          sqlPreparedStatement~
+            - DELETE FROM queues
+            - WHERE containerId = ?
+            string {_columnInput_batchSampleTable:12}
+
+
+        ifCondition {_columnInput_batchSampleTable:1}
+          advanced~
+          equals~ true
+
+          sqlPreparedStatement~
+            - UPDATE specimenRuns sr
+            - SET sr.currentParentId = NULL,
+            -   sr.currentParentPosition = NULL,
+            -   sr.lastUpdatedEventId = ?
+            - WHERE sr.runId = ?
+            long {_eventId}
+            string {_columnInput_batchSampleTable:12}
+
+        # Insert comment to containerNotes
+        ifCondition {_columnInput_batchSampleTable:10}
+          advanced~
+          not~
+            isBlank~
+
+          sqlPreparedStatement INSERT INTO containerNotes
+            - (
+            -   containerId,
+            -   noteType,
+            -   note,
+            -   eventId
+            - )
+            - VALUES
+            - (
+            -   ?,
+            -   'comment',
+            -   ?,
+            -   ?
+            - )
+            string {_columnInput_batchSampleTable:12}
+            string {_columnInput_batchSampleTable:10}
+            long {_eventId}
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {batchId}
+        parameter~ result
+          value= {batchId_Action}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}

@@ -1,0 +1,114 @@
+config
+  steps
+
+    stepGroup Configuration Ajax
+    step Ajax Get setNames
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~
+          - SELECT setName, setName as "setNameValue"
+          - FROM validValuesLinks
+          - WHERE formConfigurablePartsId = ?
+          - ORDER BY setName
+          string {formConfigurablePartsId}
+
+    step Ajax Get subSections 
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~
+          - SELECT DISTINCT inputName, subSection
+          - FROM formConfigurableParts
+          - WHERE section = ? AND (inputType = 'subSection' OR inputType = 'section') 
+          string {section}
+
+    step Ajax Get setNames Values
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~
+          - SELECT displayValue, value FROM validValues
+          - WHERE setName = ?
+          string {setName}
+
+    step Ajax POST Create Form Part
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        vertical
+          text section
+            screenLabel~ Section
+            required~ true
+          text inputType
+            screenLabel~ Input Type
+            required~ true
+          text inputName
+            screenLabel~ Input Name
+            required~ true
+            pattern= .*
+            validate~ format (^[-_\sa-zA-Z0-9]+$)
+              errorMessage~ Only alphanumeric, space, dash, and underscore characters are allowed for user defined field.
+
+
+      validateSql~ ! SELECT 1 FROM formConfigurableParts
+        - WHERE inputName = ?
+        string {inputName}
+        errorMessage This field or input name already exists in the database
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT section FROM formConfigurableParts
+          - WHERE id = ?
+          string {section}
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT formType AS 'formType' FROM formConfigurableParts
+          - WHERE section = ? AND subSection = ? AND id = ? LIMIT 1
+          string {_:section}
+          string {_:section}
+          string {section}
+
+      sqlPreparedStatement INSERT INTO formConfigurableParts
+        - (formType, section, subSection, inputType, inputName, eventId)
+        - VALUES (?, ?, ?, ?, ?, ?)
+        string {_:formType}
+        string {_:section}
+        string {_:section}
+        string {inputType}
+        string {inputName}
+        long {_eventId}
+
+    step Ajax Get Form Parts
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~
+          - SELECT CONCAT(fcp2.inputName, ': ', fcp1.inputName), fcp1.id
+          - FROM formConfigurableParts fcp1
+          - INNER JOIN formConfigurableParts fcp2
+          -   ON fcp1.section = fcp2.section AND fcp2.inputType = 'section'
+          -     AND fcp1.formType = fcp2.formType
+          - WHERE fcp1.inputType LIKE 'userDef_%' AND ((? = 'Receiving' AND fcp1.formType = 'Receiving')
+          -   OR (? <> 'Receiving' AND fcp1.formType = 'Accessioning'))
+          string {instance}
+          string {instance}
+
+    step Ajax Get Form Parts JSON
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT fcp.id, fcp.section, fcp.subSection, fcp.inputType, fcp.inputName
+          - FROM formConfigurableParts fcp
+          - WHERE fcp.inputType LIKE 'userDef_%'
+
+
+
+
+
+

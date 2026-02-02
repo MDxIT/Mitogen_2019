@@ -1,0 +1,1110 @@
+
+config
+  includes
+    includeable cardScriptsAndCSS
+      link
+        rel= stylesheet
+        href= css/fontawesome/css/all.min.css
+      link
+        rel= stylesheet
+        href= css/infoCard.css
+      script
+        src= js/fontawesome/js/all.min.js
+      script
+        src= js/card_utilities.js
+
+    includeable orderCardHalf
+      ### PARAMETERS IN
+      ###   requestId -- the order number to look up order information
+      ### PARAMETERS OUT
+      ###   None
+      include cardScriptsAndCSS
+      script
+        src= js/orderCard.js
+
+      formPreparedQuery~
+        - SELECT
+        -   rf.requestId,
+        # -   IFNULL(concat(rs.collectionDate, ' ', rs.collectionTime), 'Not Recorded') as 'collectDateTime',
+        -   IFNULL(rf.receivedDate, '') AS 'receivedDate',
+        -   IFNULL(os.name, 'Not Recorded') AS 'orderingClinic',
+        -   os.siteId,
+        -   rf.externalRequestId,
+        -   IFNULL(rf.priority, '1') AS 'priority',
+        -   u.name AS 'accessionerName',
+        -   p.patientId,
+        -   rf.status,
+        -   rf.id
+        -  FROM requestForms rf
+        -   INNER JOIN events e ON rf.eventId = e.eventId
+        -   INNER JOIN userInfo u on e.userId = u.userId
+        -   INNER JOIN patients p ON rf.patientId = p.patientId
+        -   INNER JOIN organizationSites os ON rf.physicianSiteId = os.siteId
+        -  WHERE rf.requestId = ?
+        string {_includeParm:requestId}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        -  SELECT CASE WHEN displayValue = 'STAT' THEN 'Yes' ELSE 'No' END AS 'specimenPriority'
+        -   FROM validValues
+        -   WHERE setName = 'priority'
+        -   AND value = ?
+        string {_:priority}
+        allowEmptyResults~
+        emptyResultDefault~
+          specimenPriority= No
+
+      formPreparedQuery~
+        - SELECT
+        -  date(e.eventDate) as 'reportedOn'
+        -  FROM reportDetails rd
+        -   INNER JOIN events e ON rd.statusEventId = e.eventId
+        -  WHERE rd.requestFormsId = ?
+        - AND rd.status = 'Reported'
+        string {_:id}
+        allowEmptyResults~
+
+      formPreparedQuery~ SELECT ph.first_name as "PhyFirst"
+        - , ph.last_name AS "PhyLast"
+        - FROM requestForms rf
+        - INNER JOIN physicians ph ON rf.physicianId = ph.physicianId
+        - WHERE rf.requestId = ?
+        - ORDER BY rf.eventId DESC
+        - LIMIT 1
+        string {_includeParm:requestId}
+        allowEmptyResults~
+
+      formQuery~ receivedDate
+        formatDate~
+        convertDateTime~ false
+        value= {_:receivedDate}
+
+      formQuery~ reportedOn
+        formatDate~
+        convertDateTime~ false
+        value= {_:reportedOn}
+
+      hidden requestId
+        id= requestId
+        value= {_includeParm:requestId}
+
+      hidden siteId
+        id= siteId
+        value= {_:siteId}
+
+      ## order banner
+      div
+        id= orderInfoDiv
+        class= infoCard orderCard
+        div
+          class= bannerTitle orderTitle
+          span Order
+        div
+          class= infoData
+          div
+            class= infoNameBlock
+            div
+              class= infoNameBanner orderInfo
+              tabindex= 0
+              span <i class="fas fa-clipboard-list"></i>
+                class= clipboard-list
+              span {_:requestId}
+                id= cardRequestId
+            div
+              class= physicianBlock
+              span <i class="fas fa-stethoscope"></i>
+                class= stethoscope
+              span {_:PhyLast}, {_:PhyFirst}
+          div
+            class= infoBlocks
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Received Date
+                div
+                  class= blockData orderInfo
+                  span {_:receivedDate}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Stat
+                div
+                  class= blockData orderInfo
+                  span {_:specimenPriority}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Clinic &nbsp &nbsp <i class="fas fa-clinic-medical"></i>
+                    class= goToSites pointer
+                  span &nbsp &nbsp <i class="fa fa-phone"></i>
+                    class= goToContactCustomer pointer
+                div
+                  class= blockData orderInfo
+                  span {_:orderingClinic}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span External ID &nbsp <i class="fas fa-info-circle"></i>
+                    title= This is the client's order number.
+                div
+                  class= blockData orderInfo
+                  span {_:externalRequestId}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Reported On
+                div
+                  class= blockData orderInfo
+                  span {_:reportedOn}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Order Status
+                div
+                  class= blockData orderInfo
+                  span {_:status}
+      link
+        rel= stylesheet
+        href= css/fontawesome/css/all.min.css
+      link
+        rel= stylesheet
+        href= css/infoCard.css
+      script
+        src= js/card_utilities.js
+      script
+        src= js/fontawesome/js/all.min.js
+
+    includeable runCard
+      ### PARAMETERS IN
+      ###   runId -- the parent runId to load specimen/sample data
+      ### PARAMETERS OUT
+      ###   None
+      include cardScriptsAndCSS
+      script
+        src= js/runCard.js
+      formPreparedQuery~
+        - SELECT
+        -  e.step AS 'mostRecentStep',
+        -  e.userId AS 'tech'
+        - FROM containerHistory ch
+        -   INNER JOIN events e
+        -     ON  ch.eventId = e.eventId
+        - WHERE ch.containerId = ?
+        - GROUP BY e.eventId
+        - ORDER BY e.eventId DESC
+        - LIMIT 1
+        string {_includeParm:runId}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        - SELECT
+        -  p.name AS 'panels',
+        -  t.name AS 'tests',
+        -  IFNULL(m.name, 'N/A') AS 'methods',
+        -  sr.completedResult,
+        -  sm.status,
+        -  sr.currentContainerId,
+        - sm.requestSpecimensId,
+        - p.panelCode
+        - FROM specimenRuns sr
+        - INNER JOIN specimenMethods sm
+        -   ON sr.specimenMethodsId = sm.id
+        -  LEFT JOIN panels p
+        -   ON sm.panelCode = p.panelCode
+        -  LEFT JOIN tests t
+        -   ON sm.testCode = t.testCode
+        -  LEFT JOIN methods m
+        -   ON sm.methodCode = m.methodCode
+        - WHERE sr.runId = ?
+        string {_includeParm:runId}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        - SELECT GROUP_CONCAT(DISTINCT t.name SEPARATOR ',') AS 'panelTests'
+        - FROM testPanels tp
+        - INNER JOIN tests t
+        -   ON tp.testCode = t.testCode
+        - WHERE tp.panelCode = ?
+        - AND ? = ''
+        string {_:panelCode}
+        string {_:tests}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        - SELECT CASE ? WHEN '' THEN ? ELSE ? END AS "tests"
+        string {_:tests}
+        string {_:panelTests}
+        string {_:tests}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        - SELECT
+        -  IFNULL(DATEDIFF(curDate(),rf.receivedDate), 'Not Recorded') AS 'daysSince',
+        -  rs.specimenType,
+        -  CONCAT(
+        -           FLOOR(HOUR(TIMEDIFF(now(), e.eventDate)) / 24), 'd ',
+        -           MOD(HOUR(TIMEDIFF(now(), e.eventDate)), 24), 'h ',
+        -           MINUTE(TIMEDIFF(now(),e.eventDate)), 'm ago') AS 'timeElapsed',
+        -  rs.externalIdentifier,
+        -  rs.specimenType,
+        -  DATE(rs.collectionDate) AS "collectionDate"
+        - FROM requestSpecimens rs
+        -  INNER JOIN requestForms rf ON rf.requestId = rs.requestId
+        -  INNER JOIN events e ON rs.eventId = e.eventId
+        - WHERE rs.id = ?
+        - GROUP BY rs.id
+        string {_:requestSpecimensId}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        - SELECT CONCAT(storageContainerId, '  ', location) AS "storageLocation"
+        - FROM storage
+        - WHERE content = ?
+        string {_:currentContainerId}
+        allowEmptyResults~
+        emptyResultDefault~
+          storageLocation= Not In Storage
+
+      formQuery~ collectionDate
+        formatDate~
+        value= {_:collectionDate}
+
+      div
+        id= specimenInfoDiv
+        class= infoCard runCard
+        div
+          class= bannerTitle sampleTitle
+          span sample
+        div
+          class= infoData
+          div
+            class= infoNameBlock
+            div
+              class= infoNameBanner sampleInfo
+              span <i class="fas fa-vial"></i>
+              span {_:currentContainerId}
+          div
+            class= infoBlocks
+
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Most Recent Step
+                div
+                  class= blockData sampleInfo
+                  span {_:mostRecentStep}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Time Elapsed
+                div
+                  class= blockData sampleInfo
+                  span {_:timeElapsed}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span User
+                div
+                  class= blockData sampleInfo
+                  span {_:tech}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Days Since Accessioned
+                div
+                  class= blockData sampleInfo
+                  span {_:daysSince}
+
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Sample Type
+                div
+                  class= blockData sampleInfo
+                  span {_:specimenType}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span External ID
+                div
+                  class= blockData sampleInfo
+                  span {_:externalIdentifier}
+
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Panels
+                div
+                  class= blockData sampleInfo
+                  span {_:panels}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Tests
+                div
+                  class= blockData sampleInfo
+                  span {_:tests} / {_:methods}
+
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Collection Date
+                div
+                  class= blockData sampleInfo
+                  span {_:collectionDate}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Storage Location
+                div
+                  class= blockData sampleInfo
+                  span {_:storageLocation}
+
+    ############ FULL PATIENT CARD (WITH INSURANCE) ############
+    includeable fullPatientCard
+      ### PARAMETERS IN
+      ###   patientId -- the patientId needed to find the patient data
+      ### PARAMETERS OUT
+      ###   None
+      include cardScriptsAndCSS
+      script
+        src= js/patientCard.js
+
+      ## Get basic patient info and most recent mrn assigned (if any)
+      formPreparedQuery~ SELECT p.patientId
+        - , p.sqId
+        - , ps.mrn
+        - , p.firstName
+        - , p.middleName
+        - , p.lastName
+        - , p.status
+        - , p.dob
+        - , CONCAT((DATE_FORMAT(FROM_DAYS(DATEDIFF(CURDATE(), p.dob)), '%Y')+0), 'Y') AS "age"
+        - , p.geneticGender
+        - , p.familyId
+        - , p.genderId
+        - , CASE WHEN
+        - (
+        -   SELECT up.authorizedStep
+        -   FROM userPrivileges up
+        -   WHERE up.userId = ?
+        -     AND up.authorizedStep = 'canViewFullSSN'
+        -     AND up.status = 'active'
+        -   union all
+        -   SELECT 'NoAccess'
+        -   FROM dual
+        -   limit 1
+        - ) = 'canViewFullSSN' THEN p.govtId
+        - ELSE CASE WHEN p.govtId = '' THEN ''
+        - ELSE concat('###-##-',right(p.govtId,4)) END
+        - END as "govtId"
+        - , p.govtId as "rawGovtId"
+        - , p.ethnicity
+        - FROM patients p
+        - INNER JOIN patientSources ps ON p.patientId = ps.patientId
+        - AND ps.eventId = (select MAX(eventId) from patientSources where master = 1 and patientId = ?)
+        - WHERE p.patientId = ?
+        - LIMIT 1
+        string {_userId}
+        string {_includeParm:patientId}
+        string {_includeParm:patientId}
+        allowEmptyResults~
+      ## Get most recent physician
+      formPreparedQuery~ SELECT ph.first_name as "PhyFirst"
+        - , ph.last_name as "PhyLast"
+        - FROM requestForms rf
+        - INNER JOIN physicians ph on rf.physicianId = ph.physicianId
+        - WHERE rf.patientId = ?
+        - ORDER BY rf.eventId desc
+        - LIMIT 1
+        string {_includeParm:patientId}
+        allowEmptyResults~
+
+      formPreparedQuery~ SELECT ic.carrierName as "PrimaryIns"
+        - , ic.id as "PrimaryInsId"
+        - , pb.policyNumber1 as "PrimaryPolNo"
+        - , pb.groupNumber1 as "PrimaryGroupNo"
+        - , pb.policyHolder1FirstName as "PrimaryFirst"
+        - , pb.policyHolder1LastName as "PrimaryLast"
+        - , pb.policyHolder1DOB as "PrimaryDOB"
+        - , pb.policyHolder1Relationship as "PrimaryRelationship"
+        - , CASE pb.governmentPayment1 WHEN 0 THEN "false" WHEN 1 THEN "true" ELSE "false" END as "PrimaryMedicare"
+        - , pb.governmentPolicyNumber1 as "PrimaryMedicareNo"
+        - , CASE pb.governmentPayment2 WHEN 0 THEN "false" WHEN 1 THEN "true" ELSE "false" END as "PrimaryMedicaid"
+        - , pb.governmentPolicyNumber2 as "PrimaryMedicaidNo"
+        - FROM patientBillingDefault pb
+        - INNER JOIN insuranceCarriers ic on pb.carrierId1 = ic.id
+        - WHERE patientId = ?
+        - ORDER BY pb.eventId desc
+        - LIMIT 1
+        string {_includeParm:patientId}
+        allowEmptyResults~
+
+      formPreparedQuery~ SELECT ic.carrierName as "SecondaryIns"
+        - , ic.id as "SecondaryInsId"
+        - , pb.policyNumber2 as "SecondaryPolNo"
+        - , pb.groupNumber2 as "SecondaryGroupNo"
+        - , pb.policyHolder2FirstName as "SecondaryFirst"
+        - , pb.policyHolder2LastName as "SecondaryLast"
+        - , pb.policyHolder2DOB as "SecondaryDOB"
+        - , pb.policyHolder2Relationship as "SecondaryRelationship"
+        - FROM patientBillingDefault pb
+        - INNER JOIN insuranceCarriers ic on pb.carrierId2 = ic.id
+        - WHERE patientId = ?
+        - ORDER BY pb.eventId desc
+        - LIMIT 1
+        string {_includeParm:patientId}
+        allowEmptyResults~
+
+      formQuery~ patDob
+        convertDateTime~ false
+        formatDate~
+        value= {_:dob}
+
+
+      div
+        id= fullPatientCard
+        class= infoCard patientCard
+        div
+          class= bannerTitle patientTitle
+          span Patient
+        div
+          class= infoData
+          div
+            class= infoNameBlock
+            div
+              class= infoNameBanner patientInfo
+              tabindex= 0
+              span <i class="fas fa-id-badge"></i>
+              span {_:lastName}, {_:firstName} {_:middleName}
+            div
+              class= physicianBlock
+              span <i class="fas fa-stethoscope"></i>
+                class= stethoscope
+              span {_:PhyLast}, {_:PhyFirst}
+                class= patientInfo
+          div
+            class= infoBlocks
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span ID
+                div
+                  class= blockData patientInfo
+                  span {_includeParm:patientId}
+                    id= cardPatientId
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span DOB
+                div
+                  class= blockData patientInfo
+                  span {_:patDob}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Sex
+                div
+                  class= blockData patientInfo
+                  span {_:geneticGender}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Age
+                div
+                  class= blockData patientInfo
+                  span {_:age}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span MRN
+                    title= The most recent MRN assigned to the patient.
+                div
+                  class= blockData patientInfo
+                  span {_:mrn}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Family ID
+                div
+                  class= blockData patientInfo
+                  span {_:familyId}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span SSN
+                div
+                  class= blockData patientInfo
+                  span {_:govtId}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Policy #
+                div
+                  class= blockData
+                  span {_:PrimaryPolNo}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Primary Insurance &nbsp &nbsp <i class="far fa-edit insuranceEdit pointer"></i>
+                div
+                  class= blockData
+                  span {_:PrimaryIns}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Subscriber
+                div
+                  class= blockData
+                  span {_:PrimaryFirst} {_:PrimaryLast}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Secondary Insurance
+                div
+                  class= blockData
+                  span {_:SecondaryIns}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Group #
+                div
+                  class= blockData
+                  span {_:PrimaryGroupNo}
+
+############ HALF PATIENT CARD (WITHOUT INSURANCE INFO) ############
+    includeable halfPatientCard
+      ### PARAMETERS IN
+      ###   patientId -- the patientId needed to find the patient data
+      ### PARAMETERS OUT
+      ###   None
+      include cardScriptsAndCSS
+      script
+        src= js/patientCard.js
+      ## Get basic patient info and most recent mrn assigned (if any)
+      formPreparedQuery~ select p.patientId
+        - , p.sqId
+        - , ps.mrn
+        - , p.firstName
+        - , p.middleName
+        - , p.lastName
+        - , p.status
+        - , p.dob
+        - , p.familyId
+        - , CONCAT((DATE_FORMAT(FROM_DAYS(DATEDIFF(CURDATE(), p.dob)), '%Y')+0), 'Y') AS "age"
+        - , p.geneticGender
+        - , p.genderId
+        - , CASE WHEN
+        - (
+        -   SELECT up.authorizedStep
+        -   FROM userPrivileges up
+        -   WHERE up.userId = ?
+        -     AND up.authorizedStep = 'canViewFullSSN'
+        -     AND up.status = 'active'
+        -   union all
+        -   SELECT 'NoAccess'
+        -   FROM dual
+        -   limit 1
+        - ) = 'canViewFullSSN' THEN p.govtId
+        - ELSE CASE WHEN p.govtId = '' THEN ''
+        - ELSE concat('###-##-',right(p.govtId,4)) END
+        - END as "govtId"
+        - , p.govtId as "rawGovtId"
+        - , p.ethnicity
+        - FROM patients p
+        - INNER JOIN patientSources ps ON p.patientId = ps.patientId
+        - AND ps.eventId = (select MAX(eventId) from patientSources where master = 1 and patientId = ?)
+        - WHERE p.patientId = ?
+        - LIMIT 1
+        string {_userId}
+        string {_includeParm:patientId}
+        string {_includeParm:patientId}
+        allowEmptyResults~
+      ## Get most recent physician
+      formPreparedQuery~ SELECT ph.first_name as "PhyFirst"
+        - , ph.last_name as "PhyLast"
+        - FROM requestForms rf
+        - INNER JOIN physicians ph on rf.physicianId = ph.physicianId
+        - WHERE rf.patientId = ?
+        - ORDER BY rf.eventId desc
+        - LIMIT 1
+        string {_includeParm:patientId}
+        allowEmptyResults~
+
+      formQuery~ patDob
+        formatDate~
+        convertDateTime~ false
+        value= {_:dob}
+
+      div
+        id= halfPatientCard
+        class= infoCard patientCard
+        div
+          class= bannerTitle patientTitle
+          span Patient
+        div
+          class= infoData
+          div
+            class= infoNameBlock
+            div
+              class= infoNameBanner patientInfo
+              tabindex= 0
+              span <i class="fas fa-id-badge"></i>
+              span {_:lastName}, {_:firstName} {_:middleName}
+            div
+              class= physicianBlock
+              span <i class="fas fa-stethoscope"></i>
+                class= stethoscope
+              span {_:PhyLast}, {_:PhyFirst}
+                class= patientInfo
+          div
+            class= infoBlocks
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span ID
+                div
+                  class= blockData patientInfo
+                  span {_includeParm:patientId}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span DOB
+                div
+                  class= blockData patientInfo
+                  span {_:patDob}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Sex
+                div
+                  class= blockData patientInfo
+                  span {_:geneticGender}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Age
+                div
+                  class= blockData patientInfo
+                  span {_:age}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span MRN
+                    title= The most recent MRN assigned to the patient.
+                div
+                  class= blockData patientInfo
+                  span {_:mrn}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Family ID
+                div
+                  class= blockData patientInfo
+                  span {_:familyId}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span SSN
+                div
+                  class= blockData patientInfo
+                  span {_:govtId}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span
+                div
+                  class= blockData
+                  span
+
+
+####### Admin - Panels, Tests, Methods #######
+
+    includable assayWordingTable
+      script
+        src= js/testsAndPanels/assayWording.js
+      div
+        class= hide
+        textArea assayWordingContent
+          id= assayWordingContentSave
+      div
+        id= duplicateHeader
+      div
+        id= duplicateOrder
+
+      div
+        class= pageSection
+        div
+          class= sectionTitle
+          span !!!{_includeParm:type} Wording
+        div
+          class= sectionContent
+          div
+            class= horizontalFlex
+            div
+              class= verticalFlex
+              label Header
+              text assayWordingHeader
+                id= assayWordingHeader
+            div
+              class= verticalFlex
+              label Order
+              select assayWordingOrder
+                id= assayWordingOrder
+                option
+                sqlPreparedQuery~
+                  - SELECT no
+                  - FROM numbers
+          div
+            id= refDisplayArea
+            class= verticalFlex refDisplayArea
+            vertical
+              div
+                id= fancyTextPanel1
+                class= fancyTextPanel1
+              div
+                id= refBox
+                class= refBox assayWordingRefBox
+
+
+      div
+        class= pageSection
+        div
+          class= sectionTitle
+          span Current Wording
+        div
+          class= sectionContent
+          table
+            id= assayWordingTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Update",
+              -   aw.displayOrder AS "Order",
+              -   aw.sectionHeader AS "Header",
+              -   aw.sectionContent AS "Content",
+              -   '' AS "Delete",
+              -   aw.id AS "assayWordingId",
+              -   aw.sectionContent AS "editableContent"
+              - FROM assayWording aw
+              - WHERE aw.type = ?
+              -   AND aw.codeName = ?
+              -   AND aw.active = 1
+              - ORDER BY `Order`
+              string {_includeParm:type}
+              string {_includeParm:codeName}
+            columnSpecs~ assayWordingTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= assayWordingUpdate
+              column 2
+                inputType number
+                  class= assayWordingOrder assayWordingEditable
+                  readonly=
+                  size= 5
+              column 3
+                inputType text
+                  readonly=
+                  class= assayWordingHeader assayWordingEditable
+              column 5
+                inputType checkbox
+                  class= assayWordingDelete
+              column 6
+                inputType text
+                  class= assayWordingId hideThis
+              column 7
+                inputType textArea
+                  class= assayWordingContent assayWordingEditable hideThis
+
+
+
+    includeable assayWordingSql
+      allowChangedRecordIds
+      ### PARAMETERS IN
+      ###   type -- Panel, Test, Method
+      ###   recId -- recId
+      ### PARAMETERS OUT
+      ###   None
+
+
+      forRows assayWordingTable
+        ifCondition {_columnInput_assayWordingTable:5}
+          advanced~
+          equals~ true
+          sqlPreparedStatement~
+            - UPDATE assayWording SET
+            -   active = 0
+            - WHERE ? = id
+            string {_columnInput_assayWordingTable:6}
+        ifCondition {_columnInput_assayWordingTable:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement~
+            - UPDATE assayWording SET
+            -   active = 0
+            - WHERE ? = id
+            string {_columnInput_assayWordingTable:6}
+
+      validate~ SELECT 1
+        - FROM dual
+        - WHERE NOT EXISTS ( select 1
+        -   FROM assayWording
+        -   WHERE type = ?
+        -     AND codeName = ?
+        -     AND active = 1
+        -     AND sectionHeader = ?)
+        string {_includeParm:type}
+        string {_includeParm:codeName}
+        string {assayWordingHeader}
+        errorMessage Section header must be unique.
+
+      validate~ SELECT 1
+        - FROM dual
+        - WHERE NOT EXISTS ( select 1
+        -   FROM assayWording
+        -   WHERE type = ?
+        -     AND codeName = ?
+        -     AND active = 1
+        -     AND displayOrder = ?)
+        string {_includeParm:type}
+        string {_includeParm:codeName}
+        string {assayWordingOrder}
+        errorMessage Section order must be unique.
+
+      ifCondition {assayWordingHeader}
+        advanced~
+        not~
+          isBlank~
+        and~ {assayWordingContent}
+          not~
+            isBlank~
+        sqlPreparedStatement~
+          - INSERT INTO assayWording (type, codeName, sectionHeader, sectionContent, displayOrder, active, eventId)
+          - VALUES (?, ?, ?, replace(?, '\n', ''), ?, 1, ?)
+          string {_includeParm:type}
+          string {_includeParm:codeName}
+          string {assayWordingHeader}
+          string {assayWordingContent}
+          long {assayWordingOrder}
+          long {_eventId}
+
+
+    includable assayReferences
+      script
+        src= js/testsAndPanels/assayReferences.js
+      ### PARAMETERS IN
+      ###   type -- Panel, Test, Method
+      ###   recId -- recId
+      ### PARAMETERS OUT
+      ###   None
+      hidden codeName
+        id= codeName
+        value= {_includeParm:codeName}
+      hidden assayReferenceId
+        id= assayReferenceId
+      div
+        class= hide
+        textArea assayReferences
+          id= assayReferencesSave
+
+      div
+        id= referenceUpdateErrorModal
+      div
+        id= panelSelectionNewReference
+      div
+        id= emptyReference
+      div
+        id= duplicateError
+      div
+        class= pageSection
+        div
+          class= sectionTitle
+          span !!!ADD New Reference
+        div
+          class= sectionContent
+          div
+            id= referenceDisplayArea
+            class= verticalFlex refDisplayArea
+            vertical
+              div
+                id= fancyTextPanelAR
+                class= fancyTextPanelAR
+              div
+                id= referenceBox
+                class= refBox assayWordingRefBox
+
+
+      div
+        class= pageSection
+        div
+          class= sectionTitle
+          span Current References
+        div
+          class= sectionContent
+          table
+            id= assayReferencesTable
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Update",
+              -   r.reference AS "Reference",
+              -   '' AS "Delete",
+              -   a.referenceId AS "referenceId",
+              -   r.reference AS "referenceHidden"
+              -  FROM assayReferences a
+              -  INNER JOIN allReferences r ON a.referenceId = r.id
+              -  AND a.assayType = ?
+              -  AND a.codeName = ?
+              -  AND a.active = 1
+              -  AND r.active = 1
+              - ORDER BY r.reference ASC
+              string {_includeParm:type}
+              string {_includeParm:codeName}
+            columnSpecs~ assayReferencesTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= referenceUpdate
+              column 3
+                inputType checkbox
+                  class= referenceDelete
+              column 4
+                inputType text
+                  class= assayReferenceId hideColumn
+              column 5
+                inputType textArea
+                  class= assayReferences hideColumn
+
+
+
+    includeable assayReferencesSql
+      allowChangedRecordIds
+      ### PARAMETERS IN
+      ###   type -- Panel, Test, Method
+      ###   recId -- recId
+      ### PARAMETERS OUT
+      ###   None
+      forRows assayReferencesTable
+        validateSql ! SELECT 1 FROM dual WHERE ? = ? AND ? = ?
+          string {_columnInput_assayReferencesTable:1}
+          string true
+          string {_columnInput_assayReferencesTable:3}
+          string true
+          errorMessage You can only update or delete one record at a time
+
+        ifCondition {_columnInput_assayReferencesTable:1}
+          advanced~
+          equals~ true
+          or~ {_columnInput_assayReferencesTable:3}
+            equals~ true
+          sqlPreparedStatement~
+            - UPDATE assayReferences
+            - SET active = ?
+            - WHERE referenceId = ?
+            long 0
+            long {_columnInput_assayReferencesTable:4}
+
+          sqlPreparedStatement~
+            - UPDATE allReferences
+            - SET active = ?
+            - WHERE id = ?
+            long 0
+            long {_columnInput_assayReferencesTable:4}
+
+      ifCondition {assayReferences}
+        advanced~
+        not~
+          isBlank~
+        validateSql
+          - ! SELECT reference
+          - FROM allReferences a
+          - INNER JOIN assayReferences ar ON a.id = ar.referenceId
+          - WHERE a.active = 1
+          -   AND ar.active = 1
+          -   AND a.reference = ?
+          -   AND ar.codeName = ?
+          string {assayReferences}
+          string {_includeParm:codeName}
+          errorMessage This reference exists.
+        sqlPreparedStatement~
+          - INSERT INTO allReferences (reference, url, active, eventId)
+          - VALUES (replace(?, '\n', ''),?,?,?)
+          string {assayReferences}
+          string temp
+          int 1
+          long {_eventId}
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT
+            -  id AS 'referenceId'
+            - FROM allReferences
+            - WHERE eventId = ?
+            -   AND active = ?
+            long {_eventId}
+            int 1
+        sqlPreparedStatement~
+          - INSERT INTO assayReferences(assayType,codeName,referenceId,active,eventId)
+          - VALUES(?,?,?,?,?)
+          string {_includeParm:type}
+          string {_includeParm:codeName}
+          int {_:referenceId}
+          int 1
+          long {_eventId}
+
+
+
+

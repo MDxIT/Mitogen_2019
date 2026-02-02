@@ -1,0 +1,130 @@
+config
+  includes
+
+    ###
+    ### Includable for Form 0 of steps requiring a transfer map
+    ###
+    ### This should be placed as the parent of the code you want to run if there is 
+    ### a tray/transfer map required
+    ###
+    ### ex:
+    ###     include trayMapRequired
+    ###       h3 I have a mapping assigned
+    ###
+    includable trayMapRequired
+
+      configurePreparedQuery~ 
+        - SELECT 'YES' AS "dataConfigured" 
+        - FROM transferMapStepAssignments
+        - WHERE step = ?
+        - UNION
+        - SELECT 'NO' 
+        string {_step}
+        
+      div
+        configureIf~ {_:dataConfigured}
+          advanced~
+          equals~ NO
+        h3 You must configure a minumum of one transfer map for this step before you can proceed.
+        a Create Transfer Map Here
+          href= /uniflow?stepName=Create Tray/Transfer Map
+          target= _blank
+        br
+        br
+        a Assign Transfer Map Here
+          href= /uniflow?stepName=Edit Tray/Transfer Map Step and Master Mix Assignments
+          target= _blank
+
+      div
+        configureIf~ {_:dataConfigured}
+          advanced~
+          equals~ YES
+
+
+    ###
+    ### Includable for Form 0 of steps requiring a template
+    ###
+    ### This should be placed as the parent of the code you want to run if there is 
+    ### a template assigned
+    ###
+    ### ex:
+    ###     include analysisTemplateRequired
+    ###       h3 I have a template assigned
+    ###
+    includable analysisTemplateRequired
+
+      configurePreparedQuery~
+        - SELECT 'YES' AS "dataConfigured"
+        - FROM analysisMethods am
+        - INNER JOIN analysisMethodVersions aver
+        -   ON am.id = aver.analysisMethodsId
+        - INNER JOIN analysisDataDefinition adef
+        -   ON adef.analysisMethodVersionsId = aver.id
+        - WHERE am.analysisStepName = ?
+        -   AND aver.active = 1
+        - UNION
+        - SELECT 'NO'
+        string {_step}
+        
+      hidden dataConfigured
+        id= dataConfigured
+        value= {_:dataConfigured}
+      div
+        configureIf~ {_:dataConfigured}
+          advanced~
+          equals~ NO
+        h3 You must configure a template for this step before you can proceed.
+        a Configure Data Here
+          configureIf~ {_accessLevel}
+            advanced~ 
+            greaterThanOrEqual~ 10  
+          href= /uniflow?stepName=Analysis Method Configuration
+          target= _blank
+
+      div
+        configureIf~ {_:dataConfigured}
+          advanced~
+          equals~ YES
+
+
+    ###
+    ### Includable for Form 0 of steps requiring a template
+    ###
+    ### This should be placed as the parent of the code you want to run if there is 
+    ### a template assigned
+    ###
+    ### ex:
+    ###     include normalizationTemplateRequired
+    ###       h3 I have a template assigned
+    ###
+    includable normalizationTemplateRequired
+
+      configurePreparedQuery~
+        - SELECT 'YES' AS "dataConfigured"
+        - FROM analysisMethods am
+        - INNER JOIN analysisMethodVersions aver
+        -   ON am.id = aver.analysisMethodsId
+        - INNER JOIN analysisDataDefinition adef
+        -   ON adef.analysisMethodVersionsId = aver.id
+        - WHERE am.analysisStepName = ?
+        -   AND aver.active = 1
+        - UNION
+        - SELECT 'NO'
+        string {_step}
+        
+      div
+        configureIf~ {_:dataConfigured}
+          advanced~
+          equals~ NO
+        h3 You must configure a template for this step before you can proceed.
+        a Configure Data Here
+          configureIf~ {_accessLevel}
+            advanced~ 
+            greaterThanOrEqual~ 10  
+          href= /uniflow?stepName=Normalization Configuration
+          target= _blank
+
+      div
+        configureIf~ {_:dataConfigured}
+          advanced~
+          equals~ YES

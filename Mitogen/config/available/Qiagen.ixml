@@ -1,0 +1,341 @@
+config
+  ###################################
+  ####### TimerTask: check results ##
+  ###################################
+  timerTask checkResults
+    intervalSeconds 60
+
+    # Query for tests that are not DONE or FAILED
+    ifCondition select 1 from QiagenStatus WHERE status <> "DONE" AND status <> "FAILED"
+      jython
+        from mitoJython.qiagenAPI import QiagenApiHandler
+
+        api_handler = QiagenApiHandler("{_configPath}private/QiagenFiles/", switchboard)
+        api_handler.check_results()
+   
+  ###################
+  ##### Steps #######
+  ##################
+  steps
+    stepGroup Qiagen
+
+
+    ##################
+    ### Send Test ####
+    ##################
+    # Upload VCF, generate xml, and send to Qiagen to process
+    step Send Test
+      form
+        # Upload VCF file here
+        div
+          id= uploadVCF
+          vertical            
+            file Upload VCF File:
+              destinationFolderName~ ../private/QiagenFiles/VCF/
+              destinationFilePrefix~ qiagen_000000
+              required~ true
+    
+        # Enter sample Id
+        div
+          vertical
+            screenLabel~ Sample Id
+            text sampleId
+              validate~ select 1 from sampleProcessing where sampleId = "{sampleId}"
+                errorMessage~ This Sample Id does not exist in the system.
+      
+    
+      jython
+        import zipfile
+        import com.uniconnect.uniflow as uniflow
+
+
+        from datetime import datetime
+        from zipfile import ZipFile
+        from mitoJython.qiagenAPI import QiagenApiHandler
+
+
+        def calculate_age(born):
+          """
+            Calculate age
+            input:
+              born (datetime)
+          """
+
+          today = datetime.today()
+          return today.year - born.year - ((today.month, today.day) < (born.month, born.day))          
+
+        def generate_xml(data):
+          """
+            Generate XML based on information obtained by the query
+        
+            input:
+              data (dict)
+          """
+          try:
+
+            # Main node
+            qci_main = uniflow.Node("QCIHereditaryTest xmlns='http://qci.qiagen.com/xsd/interpret' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://qci.qiagen.com/xsd/interpret ../schema/QCIHereditaryTest.xsd' version='1.11.0'", "")
+            
+
+            ###### TestProduct information ######
+            test_product_node = qci_main.add("TestProduct", "")
+            test_product_node.add("Code", data["panelCode"])
+    
+            
+            test_product_node.add("Profile", "Breast-Gynecological_panel")
+            test_product_node.add("ReportTemplate", "HereditaryReport")
+            #test_product_node.add("ReportingMethod", "review all")
+            #test_product_node.add("TreatmentsPolicy", "Ingenuity Treatments Policy")
+            #test_product_node.add("TrialsPolicy", "Inguenuity CT Policy")
+            test_product_node.add("Indications", str(data["diagnosis"]))
+
+
+            ###### Test information ############
+            test_node = qci_main.add("Test", "")
+
+            if data["accessionId"]:
+              test_node.add("AccessionId", data["accessionId"])
+            test_node.add("VariantsFilename", data["vcf"])
+            test_node.add("TestDate", datetime.today().strftime("%Y-%m-%d"))
+
+
+            ####### Reviewers node #############
+            reviewers_node = qci_main.add("Reviewers", "")
+
+
+            ####### Patient information ######
+            patient = data["patient"]
+
+            patient_node = qci_main.add("Patient", "")
+            patient_node.add("Name", patient["name"])
+
+            if patient["country"]:
+              patient_node.add("Country", patient["country"])
+
+            if patient["postalCode"]:
+              patient_node.add("PostalCode", patient["postalCode"])
+
+            if patient["city"]:
+              patient_node.add("City", patient["city"])
+
+            if patient["address"]:
+              patient_node.add("Address", patient["address"])
+
+            dob = patient["dob"]
+            patient_node.add("BirthDate", dob)
+
+            if patient["mrn"]:
+              patient_node.add("MedicalRecordNumber", patient["mrn"])
+
+            # Mapping: Mitogen Gender (M/F) to Qiagen Gender (male/female) 
+            gender_dict = ~{"M": "male", "F": "female"~}
+            gender = gender_dict[ patient["gender"] ]
+
+            # Convert dob in string format to datetime dob
+            datetime_dob = datetime.strptime(dob, "%Y-%m-%d")
+            
+            age = calculate_age(datetime_dob)
+            patient_node.add("Age", str(age)) 
+            patient_node.add("Gender", gender)
+ 
+
+
+            ######## Specimen node #########
+            specimen_node = qci_main.add("Specimen", "")
+            specimen_node.add("Id", data["sampleId"])
+            
+            if data["collectionDate"]:
+              specimen_node.add("CollectionDate", data["collectionDate"])
+
+            if data["sampleType"]:
+              specimen_node.add("Type", data["sampleType"])
+
+
+            ####### Physician information ##########
+            physician_node = qci_main.add("Physician", "")
+            physician_node.add("Name", data["physician"]["name"])
+
+
+            ###### Pathologist ########
+            pathologist_node = qci_main.add("Pathologist", "")
+
+            # Convert tree to XML
+            xml = qci_main.toXML()
+
+            xml = "<?xml version='1.0' encoding='UTF-8'?>" + xml
+            return xml            
+
+
+          except Exception as e:
+            raise Exception("ERROR encountered: " + str(e))
+
+
+          return None
+
+        def get_data():
+          """
+            Get relevant information from database to generate the XML for Qiagen 
+          """
+
+          select_info = "SELECT concat(e1.firstName, ' ', e1.lastName) as 'patientName', \
+            pa.dob, \
+            pa.gender, \
+            pa.mrn, \
+            pa.ethnicity, \
+            e1Add.country, \
+            e1Add.state, \
+            e1Add.city, \
+            concat(e1Add.address1, ' ', e1Add.address2) as 'address', \
+            e1Add.postalCode, \ 
+            concat(e2.firstName, ' ', e2.lastName) as 'physician', \
+            rf.Id, \
+            sp.sampleType, \
+            rs.collectionDate, \
+            sp.panelCode, \
+            sp.sampleId, \
+            pc.diagnosis \
+            FROM queues q \
+            INNER JOIN sampleProcessing sp ON sp.sampleId = q.containerId \
+            INNER JOIN requestForms rf ON rf.Id = sp.reqId \
+            INNER JOIN requestSpecimens rs ON rs.specimenId = q.containerId \
+            INNER JOIN contents co ON co.containerId = q.containerId \
+              AND co.contentType = 'requestId' \
+            INNER JOIN patients pa ON rf.patientId = pa.patientId \
+            INNER JOIN patientClinical pc ON pa.patientId = pc.patientId \
+            INNER JOIN entities e1 ON e1.entityId = rf.patientId \
+            LEFT JOIN entityAddresses e1Add ON e1Add.entityId = e1.entityId \
+            INNER JOIN entities e2 ON e2.entityId = rf.physicianId \
+            LEFT JOIN entityAddresses e2Add ON e2Add.entityId = e2.entityId \
+            LEFT JOIN entityPhones e2Phones ON e2Phones.entityId = e2.entityId \
+            WHERE q.step = 'NGS - Import QC Metrics' \
+            AND sp.sampleId = '{sampleId}'"
+
+          ps = switchboard.connection.prepareStatement(select_info)
+          switchboard.resultSet = ps.executeQuery()
+          data = []
+        
+          while switchboard.resultSet.next():
+            row = ~{~}
+            row["patient"] = ~{~}
+            row["physician"] = ~{~}
+            row["patient"]["name"] = switchboard.resultSet.getString(1)
+            row["patient"]["dob"] = switchboard.resultSet.getString(2)
+            row["patient"]["gender"] = switchboard.resultSet.getString(3)
+            row["patient"]["mrn"] = switchboard.resultSet.getString(4)
+            row["patient"]["ethnicity"] = switchboard.resultSet.getString(5)
+            row["patient"]["country"] = switchboard.resultSet.getString(6)
+            row["patient"]["state"] = switchboard.resultSet.getString(7)
+            row["patient"]["city"] = switchboard.resultSet.getString(8)
+            row["patient"]["address"] = switchboard.resultSet.getString(9)
+            row["patient"]["postalCode"] = switchboard.resultSet.getString(10)
+
+
+            row["physician"]["name"] = switchboard.resultSet.getString(11)
+            row["accessionId"] = switchboard.resultSet.getString(12)
+            row["sampleType"] = switchboard.resultSet.getString(13)
+            row["collectionDate"] = switchboard.resultSet.getString(14)
+            row["panelCode"] = switchboard.resultSet.getString(15)   
+            row["sampleId"] = switchboard.resultSet.getString(16)
+            row["diagnosis"] = switchboard.resultSet.getString(17)
+            data.append(row)
+
+          return data
+
+        qiagen_path = "{_configPath}private/QiagenFiles/"
+        xml_folder_path = qiagen_path + "XML/"
+        zip_folder_path = qiagen_path + "ZIP/"
+        vcf_folder_path = qiagen_path + "VCF/"
+        api_handler = QiagenApiHandler(qiagen_path, switchboard)
+
+        rows = get_data()
+        print(rows)
+
+        # Generate xml and zip it up with vcf
+        for row in rows: 
+          row["vcf"] = "qiagen_{_eventId}.vcf"
+          xml_str = generate_xml(row)
+          xml_filename = "qiagen_{_eventId}.xml"
+          xml_file_path = xml_folder_path + xml_filename
+          
+          # Write content to xml file
+          with open(xml_file_path, "w") as f: 
+            f.write(xml_str)
+
+
+          # Zip
+          zip_path = zip_folder_path + "qiagen_{_eventId}.zip" 
+          with ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip:
+            zip.write(vcf_folder_path + row["vcf"], row["vcf"])
+            zip.write(xml_file_path, xml_filename)
+
+
+          # path = "{_configPath}private/QiagenFiles/HereditaryDisease-cancer-complete.zip"
+          # path = qiagen_path + "test.zip"
+          path = zip_path
+          response = api_handler.submit_test(path, "{_userId}", "{sampleId}")
+
+          
+
+    ####################################
+    ######### Check Status step ########
+    ####################################
+    # Show status of all tests that are in progress
+    step Check Status
+      form
+        vertical
+          table
+            sqlQuery~ SELECT 
+            -  sp.reqId as "Requisition Id",
+            -  qs.sampleId as "Sample Id",
+            -  qs.dpId as "DP Id",
+            -  CONCAT(e1.firstName, " ", e1.lastName) as "Patient",
+            -  CONCAT(e2.firstName, " ", e2.firstName) as "Physician",
+            -  qs.status as "Status"
+            -  FROM QiagenStatus qs
+            -  INNER JOIN sampleProcessing sp on qs.sampleId = sp.sampleId
+            -  INNER JOIN requestForms rf ON rf.Id = sp.reqId
+            -  INNER JOIN patients pa ON rf.patientId = pa.patientId
+            -  INNER JOIN entities e1 ON e1.entityId = rf.patientId
+            -  INNER JOIN entities e2 ON e2.entityId = rf.physicianId
+            -  WHERE (qs.status <> "DONE" and qs.status <> "FAILED") and qs.userId = "{_userId}"    
+            
+    step View Qiagen Error Reports      
+      form
+        vertical
+          table
+            sqlQuery~ SELECT 
+            -  sp.reqId as "Requisition Id",
+            -  qs.sampleId as "Sample Id",
+            -  qs.dpId as "DP Id",
+            -  qs.error as "Errors",
+            -  CONCAT(e1.firstName, " ", e1.lastName) as "Patient",
+            -  CONCAT(e2.firstName, " ", e2.firstName) as "Physician"
+            -  FROM QiagenStatus qs
+            -  INNER JOIN sampleProcessing sp on qs.sampleId = sp.sampleId
+            -  INNER JOIN requestForms rf ON rf.Id = sp.reqId
+            -  INNER JOIN patients pa ON rf.patientId = pa.patientId
+            -  INNER JOIN entities e1 ON e1.entityId = rf.patientId
+            -  INNER JOIN entities e2 ON e2.entityId = rf.physicianId
+            -  WHERE (qs.status = "FAILED") and qs.userId = "{_userId}"    
+
+    # Show pdf
+    step Final Reports
+      form
+        vertical
+          table
+            sqlQuery~ SELECT 
+            -  sp.reqId as "Requisition Id",
+            -  qs.sampleId as "Sample Id",
+            -  CONCAT("<a href='uniflow?stepName=DownloadFile+Qiagen&dpId=", qs.dpId, "'>", qs.dpId, "</a>") as "DP Id PDF",
+            -  CONCAT(e1.firstName, " ", e1.lastName) as "Patient",
+            -  CONCAT(e2.firstName, " ", e2.firstName) as "Physician"
+            -  FROM QiagenStatus qs
+            -  INNER JOIN sampleProcessing sp on qs.sampleId = sp.sampleId
+            -  INNER JOIN requestForms rf ON rf.Id = sp.reqId
+            -  INNER JOIN patients pa ON rf.patientId = pa.patientId
+            -  INNER JOIN entities e1 ON e1.entityId = rf.patientId
+            -  INNER JOIN entities e2 ON e2.entityId = rf.physicianId
+            -  WHERE (qs.status = "DONE") and qs.userId = "{_userId}"    
+
+
+

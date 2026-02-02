@@ -1,0 +1,106 @@
+config
+  steps
+    step requestJobReprintById
+      form
+        input jobId
+      sqlPreparedStatement~ UPDATE printQueues SET Status = 'Ready for Printing', eventId = ?, statusDetail = '', statusDate = CURRENT_TIMESTAMP() WHERE id = ?
+        long {_eventId}
+        long {jobId}
+
+    step requestPrintJob
+      form
+        input documentName
+        input printerList
+        input variableList
+        input trackingId
+      printDocument
+        documentName {documentName}
+        printerList {printerList}
+        variableList {variableList}
+        trackingId {trackingId}
+
+    step requestPrintJobTrackingEventId
+      form
+        input documentName
+        input printerList
+        input variableList
+      printDocument
+        documentName {documentName}
+        printerList {printerList}
+        variableList {variableList}
+        trackingId {_eventId}
+
+    step getPrintJobStatusByTrackingId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT pq.id as jobId, IFNULL(p.printerName, 'UNKNOWN PRINTER') as printerName, pd.documentName, pq.statusDate, pq.status, pq.statusDetail
+          - FROM  printQueues pq
+          - LEFT OUTER JOIN printers p
+          - ON pq.printerId = p.id
+          - INNER JOIN printDocuments pd
+          - ON pq.printDocumentId = pd.id
+          - WHERE pq.trackingId = ?
+          - ORDER BY statusDate DESC
+          string {trackingId}
+          
+    step requestPrintJobBatchTrackingEventId
+      form
+        input batchData
+        hidden variableList
+      jython
+        import json
+        import com.uniconnect.uniflow.services.printing.UNIFlowPrintService as UPS
+        import com.uniconnect.uniflow.Node
+        pjAnchor = "variableLists"
+        jData = json.loads(switchboard.request.getParameter("batchData"))
+        documentName = jData['documentName']
+        printerList = "[\"" + jData['printer'] + "\"]"
+        if pjAnchor in jData:
+          i = 1
+          i_str = str(i)
+          while str(i_str) in jData[pjAnchor]:
+            printNode = com.uniconnect.uniflow.Node("printDocument")
+            printNode.add("documentName", documentName)
+            printNode.add("printerList", printerList)
+            switchboard.inputsHash.get("variableList").get("value=").value = json.dumps(jData[pjAnchor][i_str])
+            printNode.add("variableList", "~{variableList~}")
+            printNode.add("trackingId", "{_eventId}")
+            UPS.createPrintRequest(printNode, switchboard)
+            i += 1
+            i_str = str(i)
+
+    step Reprint My Documents
+      form
+        include reprintTable
+
+
+  includes
+    includeable reprintTable
+      script
+        src= js/printControls.js
+      vertical
+        button
+          value= Refresh
+          onClick= location.reload();
+
+        table
+          id= rePrintDocumentTable
+          sqlPreparedQuery~ SELECT pq.id as jobId, IFNULL(p.printerName, 'UNKNOWN PRINTER') as printerName, pd.documentName, pq.statusDate, pq.status, pq.statusDetail
+            - FROM  printQueues pq
+            - LEFT OUTER JOIN printers p
+            - ON pq.printerId = p.id
+            - INNER JOIN printDocuments pd
+            - ON pq.printDocumentId = pd.id
+            - INNER JOIN events e
+            - ON pq.eventId = e.eventId
+            - WHERE e.userId = ?
+            - ORDER by eventDate DESC
+            - LIMIT 100
+            string {_userId}
+          columnSpecs~
+            column 1
+              inputType button
+                value= Reprint
+                onClick= reprintDoc({_thisInput})
+

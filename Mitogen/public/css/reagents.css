@@ -1,0 +1,31 @@
+.inventoryStatBlock {
+	text-align:center; 
+  font-weight:bold;
+}
+
+#twoDaysTable {
+  background-color:#FF6666;
+}
+#fiveDaysTable {
+  background-color:#FFAD33;
+}
+#fourteenDaysTable {
+  background-color:#FFFF80;
+}
+#oneMonthTable {
+  background-color:#80B2FF;
+}
+
+.item {
+  width:100px;
+}
+.hiddenOnLoad{
+  display:none;
+}
+.floatLeft {
+  float:left;
+  width:30%;
+}
+.clearCSS {
+  clear: both;
+}

@@ -1,0 +1,4078 @@
+config
+  steps
+
+    stepGroup Reporting
+    step Report Data Pending
+      form
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+        script
+          src= js/reporting/pendingDataReporting.js
+
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        div
+          class= pageSection
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            id= pendingTable
+            sqlPreparedQuery~
+              - SELECT
+              -   rd.reportId AS "Report ID",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', rqs.specimenId, '): ', rqs.status) ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Status",
+              -   rqs.requestId AS "Order ID",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.locationId, rf.departmentId
+              - FROM queues q
+              - INNER JOIN reportDetails rd
+              -   ON q.containerId = rd.reportId
+              - INNER JOIN reportDefinitionPanels rdp
+              -   ON rd.reportDefinitionVersionId = rdp.reportDefinitionVersionId
+              - LEFT JOIN reportSpecimens rs
+              -   ON rd.id = rs.reportDetailsId
+              - LEFT JOIN requestSpecimens rqs
+              -   ON rs.requestSpecimensId = rqs.id
+              - LEFT JOIN specimenMethods sm
+              -   ON rs.specimenMethodsId = sm.id
+              - LEFT JOIN panels p
+              -   ON sm.panelCode = p.panelCode
+              - INNER JOIN requestForms rf
+              -   ON rd.requestFormsId = rf.id
+              - INNER JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - INNER JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+
+
+    stepGroup Result Data Review
+    step Result Data Review
+      ContentSecurityPolicy img-src data: https:;
+      cssLinks
+        link css/fontawesome/css/all.min.css
+      jsScripts
+        src js/reporting/resultDataReview.js
+        src js/fontawesome/js/all.min.js
+        src js/niceedit/nicEdit.js
+      form
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= pageSection
+
+          div
+            class= verticalFlex
+            label Report ID
+              for= reportId
+            container reportId
+              id= reportId
+              new~ false
+
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            id= reportsTable
+            sqlPreparedQuery~
+              - SELECT
+              -   CONCAT('<a href="/uniflow?stepName=Result Data Review&lastForm=Y&reportRecId=',rd.reportId,'&reviewInstance=Edit">', rd.reportId,'</a>') AS "Report ID",
+              -   rdef.reportName AS "Report Type",
+              -   rqs.requestId AS "Order ID",
+              -   vv.displayValue AS "Priority",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.receivedDate AS "Request Date",
+              -   rf.locationId, rf.departmentId
+              - FROM queues q
+              - INNER JOIN reportDetails rd
+              -   ON q.containerId = rd.reportId
+              - INNER JOIN reportDefinitionVersion rdv
+              -   ON rd.reportDefinitionVersionId = rdv.id
+              - INNER JOIN reportDefinition rdef
+              -   ON rdv.reportDefinitionId = rdef.id
+              - INNER JOIN reportDefinitionPanels rdp
+              -   ON rd.reportDefinitionVersionId = rdp.reportDefinitionVersionId
+              - INNER JOIN reportSpecimens rs
+              -   ON rd.id = rs.reportDetailsId
+              - INNER JOIN requestSpecimens rqs
+              -   ON rs.requestSpecimensId = rqs.id
+              - INNER JOIN specimenMethods sm
+              -   ON rs.specimenMethodsId = sm.id
+              - INNER JOIN panels p
+              -   ON sm.panelCode = p.panelCode
+              - INNER JOIN requestForms rf
+              -   ON rd.requestFormsId = rf.id
+              - LEFT JOIN validValues vv
+              -   ON rf.priority = vv.value
+              -   AND vv.setName = 'Priority'
+              - INNER JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - INNER JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+
+      form
+        data-parsley-validate= true
+        include stepInstructions
+        link
+          rel=  stylesheet
+          href= css/reporting/resultDataReview.css
+
+        configurePreparedQuery~
+          - SELECT CASE ? WHEN '' THEN ? WHEN 'null' THEN ? ELSE ? END AS "reportId"
+          string {reportId}
+          string {reportRecId}
+          string {reportRecId}
+          string {reportId}
+
+        configurePreparedQuery~
+          - SELECT rf.requestId, rf.patientId, rd.reportDefinitionVersionId
+          - FROM reportDetails rd
+          - INNER JOIN requestForms rf
+          -   ON rd.requestFormsId = rf.id
+          - WHERE rd.reportId = ?
+          string {_:reportId}
+          allowEmptyResults~
+
+
+        configurePreparedQuery~ SELECT CASE '{reviewInstance}' WHEN NULL THEN 'Edit' ELSE '{reviewInstance}' END AS "instance"
+
+        configurePreparedQuery~ SELECT group_concat( a.theContainer Separator ',   ') AS 'associatedContainers'
+          - FROM (
+          -   SELECT group_concat(DISTINCT CONCAT('<a href="#" onclick= previewDocuments("',rf.requestId,'")>',rf.requestId, '</a>') SEPARATOR ',   ') AS 'theContainer'
+          -        ,cf.eventId as "theId"
+          -   FROM reportDetails rd
+          -   JOIN reportSpecimens rs ON rs.reportDetailsId = rd.id
+          -   JOIN requestForms rf ON rf.id = rd.requestFormsId
+          -   JOIN requestSpecimens rqs ON rqs.id = rs.requestSpecimensId
+          -   JOIN contents c ON c.content = rqs.specimenId AND c.attribute <> 'self'
+          -   JOIN containers co ON c.containerId = co.containerId
+          -   JOIN containerFiles cf ON cf.containerId = rf.requestId
+          -   WHERE rd.reportId = '{_:reportId}'
+          -   UNION
+          -   SELECT group_concat(DISTINCT CONCAT('<a href="#" onclick= previewDocuments("',rqs.specimenId,'")>',rqs.specimenId, '</a>') SEPARATOR ',   ')
+          -         ,cf.eventId
+          -   FROM reportDetails rd
+          -   JOIN reportSpecimens rs ON rs.reportDetailsId = rd.id
+          -   JOIN requestForms rf ON rf.id = rd.requestFormsId
+          -   JOIN requestSpecimens rqs ON rqs.id = rs.requestSpecimensId
+          -   JOIN contents c ON c.content = rqs.specimenId AND c.attribute <> 'self'
+          -   JOIN containers co ON c.containerId = co.containerId
+          -   JOIN containerFiles cf ON cf.containerId = rqs.specimenId
+          -   WHERE rd.reportId = '{_:reportId}'
+          -   UNION
+          -   SELECT group_concat(DISTINCT CONCAT('<a href="#" onclick= previewDocuments("',co.containerID,'")>',co.containerID, '</a>') ORDER BY cf.eventId ASC SEPARATOR ',   ')
+          -         ,cf.eventId
+          -   FROM reportDetails rd
+          -   JOIN reportSpecimens rs ON rs.reportDetailsId = rd.id
+          -   JOIN requestForms rf ON rf.id = rd.requestFormsId
+          -   JOIN requestSpecimens rqs ON rqs.id = rs.requestSpecimensId
+          -   JOIN contents c ON c.content = rqs.specimenId AND c.attribute <> 'self'
+          -   JOIN containers co ON c.containerId = co.containerId
+          -   JOIN containerFiles cf ON cf.containerId = co.containerId
+          -   WHERE rd.reportId = '{_:reportId}'
+          - ) a
+          allowEmptyResults~
+
+        formOutputJython~
+          import com.uniconnect.uniflow as uniflow
+          from reportingJsonBuilder import ReportingBuilder
+          import json
+
+          ## VARIABLES
+          reportId = '{_:reportId}'
+
+          ######## JSON BUILDER ########
+          reportBuilder = ReportingBuilder(switchboard, reportId)
+
+          ## REPORT DICTIONARY
+          reportObj = reportBuilder.getDataReviewObj()
+          print 'reportObj'
+          print reportObj
+
+          ## CONVERT TO JSON
+          reportJson = reportBuilder.toJson(reportObj, True)
+          print 'reportJson'
+          print reportJson
+
+          ## REPORT OBJECT
+          report = reportObj['report']
+          print report
+
+          ## REPORT DETAILS ID FOR THE LINKED REPORT
+          reportDetailsId = report['reportDetailsId']
+
+          amendTextStr = ' '
+          amendTextArr = reportBuilder.getModificationText('amended')
+          amendText = amendTextStr.join(amendTextArr)
+
+          reportStatus = reportBuilder.status
+
+          ## RECORD IN THE REPORTRESULTSDATA TABLE - IF EXISTS OTHERWISE BLANK
+          reportResultDataId = report.get('reportResultDataId', '')
+
+          ## OVERALL PANEL RESULTS - LENGTH == 0 IF STATUS == 'data ready' - get associated Panels
+          print 'reportStatus'
+          print reportStatus
+          if reportStatus == 'data ready':
+            panelsList = reportBuilder.getAssociatedPanels()
+
+            pRList = reportBuilder.getTestNamesByPanelList(panelsList)
+            print 'panelsList'
+            print panelsList
+
+            overallPanelResultListJSON = json.dumps(pRList)
+
+          else:
+            ## OVERALL PANEL RESULTS - LENGTH > 0 IF STATUS == 'reviewed'
+            overallPanelResultListJSON = reportBuilder.getOverallPanelJson()
+
+          print 'overallPanelResultListJSON'
+          print overallPanelResultListJSON
+
+          ## LIST OF OVERALL RESULT/INTERPRETATION PAIRS
+          overallResultOptions = reportBuilder.getOverallResultObjs()
+
+          ## OBJECT OF PANELS WITH LIST OF RESULT/INTERPRETATION PAIRS
+          overallPanelOptionsJSON = reportBuilder.getPanelOverallResultObjs()
+
+          ## LIST OF ROW OBJECTS FOR RESULTS TABLE
+          rowList = reportBuilder.getDataReviewRows(reportObj)
+
+          ## CREATE OBJECT FOR NON REPORTABLE ROWS
+          reportObjNonReportable = reportBuilder.createAnalysisObj(reportable=False)
+
+          ## LIST OF ROW OBJECTS FOR RESULTS TABLE NON REPORTABLE
+          rowListNonReportable = reportBuilder.getDataReviewRows(reportObjNonReportable)
+
+          ## LIST OF RUN IDS ASSOCIATED
+          associatedRuns = reportBuilder.getAssociatedRunsJson()
+
+          ## LIST OF images
+          imageList = reportBuilder.getReviewImages()
+
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden instance
+          value= {_:instance}
+          id= instance
+
+        topVertical
+          id= hiddenFields
+          style= display:none
+          textArea dataJson
+            id= dataJson
+            value= {_j:reportJson}
+          ## populate select dropdown for main report result selection
+          textArea overallResultList
+            id= overallResults
+            value= {_j:overallResultOptions}
+          ## populate select dropdown for panels table
+          textArea overallPanelList
+            id= overallPanel
+            value= {_j:overallPanelOptionsJSON}
+
+          textArea overallPanelResultListJSON
+            id= overallPanelResultListJSON
+            value= {_j:overallPanelResultListJSON}
+
+          textArea associatedRunsList
+            id= associatedRunsList
+            value= {_j:associatedRuns}
+
+          textArea rowList
+            id= rowList
+            value= {_j:rowList}
+
+          textArea imageList
+            id= imageList
+            value= {_j:imageList}
+
+          textArea rowListNonReportable
+            id= rowListNonReportable
+            value= {_j:rowListNonReportable}
+
+          text reportDetailsId
+            id= reportDetailsId
+            value= {_j:reportDetailsId}
+
+          text reportResultDataId
+            id= reportResultDataId
+            value= {_j:reportResultDataId}
+
+          text reportStatus
+            id= reportStatus
+            value= {_j:reportStatus}
+
+          text mainOverallResultOnload
+            id= mainOverallResultOnload
+            # populated via js
+
+          textArea overallReportInterpretationOnload
+            id= overallReportInterpretationOnload
+            # populated via js
+
+          textArea overallReportWordingOnload
+            id= overallReportWordingOnload
+            # populated via js
+
+        div
+          id= dataJson
+        div
+          id= errorBox
+        div
+          id= imageExpand
+
+        div
+          class= floatCards
+
+          include fullPatientCard
+            parameter~ patientId
+              value= {_:patientId}
+
+          include orderCardFull
+            parameter~ requestId
+              value= {_:requestId}
+              
+        div
+          class= pageSection reportableResultSection
+          id= associatedImageTableHeader
+          div
+            class= sectionTitle
+            span Associated Files
+            
+          div No assocated files
+            configureIf~ {_:associatedContainers}
+              advanced~
+              isBlank~
+            class= sectionContent
+            id= associatedImagesDiv
+
+          div {_:associatedContainers}
+            configureIf~ {_:associatedContainers}
+              advanced~
+              not~
+                isBlank~
+            class= sectionContent
+            id= associatedImagesDiv
+
+        div
+          class= pageSection reportSection
+          div
+            class= sectionTitle
+            span Reportable Test Results
+              id= reportingTableHeader
+
+          div
+            class= sectionContent
+            id= resultDataTableDiv
+
+        div
+          class= pageSection reportSection
+          div
+            class= sectionTitle
+            span Overall Report Panel/s
+
+          div
+            class= sectionContent
+            id= overallReportPanelTableDiv
+
+        div
+          class= pageSection reportSection
+          id= resultDataImageTableHeader
+          div
+            class= sectionTitle
+            span Image Results
+
+          div
+            class= sectionContent
+            id= resultDataImageTableDiv
+
+        div
+          class= pageSection clearFloat reportSection
+          div
+            class= sectionTitle
+            span Summary
+
+          div
+            class= sectionContent
+            div
+              class= verticalFlex summarySection
+              # these fields will be saved in the reportResultData table for the overall result
+              # the text used to populate this field will be in a hidden div in a json object format
+              label Overall Report Result
+              select mainOverallResult
+                id= mainOverallResult
+                option
+                # OverAll result selection field is a dropdown selection of all the possible overall results (displaying the value from the reportInterpretation table where isOverallReportResult = 1
+                # On change of this field will trigger the population of the interpretation textarea and the report wording fields based on the selected option.
+
+
+              label Overall Report Interpretation
+              textArea overallReportInterpretation
+                id= overallReportInterpretation
+                # Main Report Overall Interpretation
+                # textArea populated based on the overall result selection.
+                # field is editable
+
+
+              label Overall Report Wording
+              textArea overallReportWording
+                id= overallReportWording
+                # textArea populated based on the overall result selection.
+                # field is editable
+
+        div
+          class= pageSection clearFloat reportSection
+          div
+            class= sectionTitle
+            span Report Comments
+
+          div
+            class= sectionContent
+            include containerComponent
+              parameter~ containerName
+                value= reportId
+              parameter~ containerScreenLabel
+                value= Report Id
+              parameter~ containerReadonly
+                value= true
+              parameter~ containerNew
+                value= false
+              parameter~ containerAsSelect
+                value= false
+              parameter~ acceptQueue
+                value= any
+              parameter~ containerType
+                value= reportId
+              parameter~ containerRequired
+                value= true
+              parameter~ containerAdditionalClasses
+                value=
+              parameter~ containerValue
+                value= {_:reportId}
+              parameter~ useThisSequence
+                value=
+              parameter~ containerCommentsInclude
+                value= Yes
+              parameter~ containerActionInclude
+                value= No
+              parameter~ containerGenerateFromSequence
+                value= No
+              parameter~ containerShowStorageLocation
+                value= No
+              parameter~ containerPrintBarcode
+                value= No
+              parameter~ containerCategoryInclude
+                value= Not Applicable
+              parameter~ parentIdRequired
+                value= false
+              parameter~ includePriority
+                value= No
+              parameter~ containerFileUpload
+                value= No
+              #### PARAMETER DRIVEN ROUTING
+              parameter~ containerActionOptions
+                value= passfail
+
+        div
+          class= pageSection reportSection
+          id= nonReportingTableHeader
+
+          div
+            class= sectionTitle
+            span Non Reportable Test Results
+
+          div
+            class= sectionContent
+            id= nonReportedResultDataTableDiv
+
+        div
+          configureIf~ {_:instance}
+            advanced~
+            equals~ Amend
+          h3 Amend Explanation
+          textArea amendText
+            screenLabel~
+            id= amendText
+            value= {_j:amendText}
+            required~ true
+            data-parsley-required= true
+            class= required
+            required=
+
+        div
+          class= actionsBottomFixed
+          id= actionBar
+
+          button
+            value= Approve
+            id= approveBtn
+            style= float: right;margin: 10px;
+
+          button
+            value= Save
+            id= saveBtn
+            style= float: right;margin: 10px;
+
+          button
+            value= Rework
+            id= reworkBtn
+            style= float: right;margin: 10px;
+
+          button
+            value= Preview
+            id= previewBtn
+            style= float: right;margin: 10px;
+
+
+
+    stepGroup Sign Out Report
+    step Sign Out Report
+      nextStep GeneratePDFReport
+        formNumber 0
+      form
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+        script
+          src= js/reporting/signOutReport.js
+
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= table_filters
+          class= horizontalFlex
+          div
+            class= horizontalFlex
+            label Department
+              for= deptFilter
+            select deptFilter
+              id= deptFilter
+              class= department newFilter maxWidth
+              placeholder= Select Department
+              option
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -  os.name, os.siteId
+                - FROM organizationSites os
+                - WHERE os.organizationType = 'Department'
+                - ORDER BY os.name
+          div
+            class= horizontalFlex
+            label Location
+              for= locationFilter
+            select locationFilter
+              placeholder= Select Location
+              id= locationFilter
+              class= location newFilter maxWidth
+              option
+          div
+            class= horizontalFlex
+            label Overall Result
+              for= overallResultFilter
+            select overallResultFilter
+              placeholder= Select Result
+              id= overallResultFilter
+              class= result newFilter
+              option
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                - overallResult
+                - FROM reportInterpretationWording
+                - WHERE isOverallReportResult = 1
+
+          div
+            class= horizontalFlex
+            label Report Type
+              for= reportTypeFilter
+            select reportTypeFilter
+              placeholder= Select Report Type
+              id= reportTypeFilter
+              class= reportTypeFilter newFilter
+              option
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                - rdef.reportName
+                - FROM reportDefinition rdef
+
+        fieldSet
+          table
+            id= reportingSignoutTable
+            sqlPreparedQuery~
+              -  SELECT '' AS '<input type="checkbox" class="reportingSignoutTableCheckAll" value="false" tabindex="1">',
+              -    q.containerId AS 'Report ID',
+              -    rdef.reportName AS "Report Type",
+              -    rf.requestId AS "Order ID",
+              -    vv.displayValue AS "Priority",
+              -    IFNULL(rrd.varcharReviewResult, '') AS "Overall Result",
+              -    cn.note AS 'Result Data Review Comments',
+              -    GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -    GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -    CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -    pa.DOB AS "Patient DOB",
+              -    CONCAT(IFNULL(rf.mrnFacility,''), CASE WHEN rf.mrnFacility is NULL THEN '' ELSE '-' END, ifNULL(rf.mrn,'')) AS "Patient MRN",
+              -    os.name AS "Client",
+              -    CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -    DATE(e.eventDate) AS 'Date Queued',
+              -    rf.locationId, rf.departmentId
+              -  FROM queues q
+              -  INNER JOIN events e ON q.eventId = e.eventId
+              -  INNER JOIN reportDetails rd ON q.containerId = rd.reportId
+              -  INNER JOIN requestForms rf ON rd.requestFormsId = rf.id
+              -  LEFT JOIN containerNotes cn ON cn.containerId = q.containerId
+              -    AND cn.noteType = 'Result Data Review_Container_Notes'
+              -  LEFT JOIN reportResultData rrd ON rrd.reportDetailsId = rd.Id
+              -    AND rrd.isOverall = 1
+              -    AND rrd.currentResult = 1
+              -  LEFT JOIN reportDefinitionVersion rdv ON rd.reportDefinitionVersionId = rdv.id
+              -  LEFT JOIN reportDefinition rdef ON rdv.reportDefinitionId = rdef.id
+              -  LEFT JOIN reportDefinitionPanels rdp ON rd.reportDefinitionVersionId = rdp.reportDefinitionVersionId
+              -  LEFT JOIN reportSpecimens rs ON rd.id = rs.reportDetailsId
+              -  LEFT JOIN requestSpecimens rqs ON rs.requestSpecimensId = rqs.id
+              -  LEFT JOIN specimenMethods sm ON rs.specimenMethodsId = sm.id
+              -  LEFT JOIN panels p ON sm.panelCode = p.panelCode
+              -  LEFT JOIN validValues vv ON rf.priority = vv.value
+              -    AND vv.setName = 'Priority'
+              -  LEFT JOIN patients pa ON rf.patientId = pa.patientId
+              -  LEFT JOIN organizationSites os ON rf.physicianSiteId = os.siteId
+              -  LEFT JOIN physicians ph ON rf.physicianId = ph.physicianId
+              -  WHERE q.step = ?
+              -  GROUP BY rd.reportId
+              string {_step}
+            columnSpecs~ reportingSignoutTable
+              allowChangedRecordIds
+              column 1
+                data-orderable= false
+                inputType checkbox
+                  class= signoutReportCkbx
+              column 2
+                data-orderable= true
+                inputType text
+                  class= reportId
+                  readonly=
+
+        vertical
+          span Enter Your Pin
+          userPIN mypin
+            validatePIN~
+            screenLabel~
+
+      forRows reportingSignoutTable
+        ifCondition~ {_columnInput_reportingSignoutTable:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - values (?, ?, ?)
+            string {_columnInput_reportingSignoutTable:2}
+            string GeneratePDFReport
+            long {_eventId}
+          sqlPreparedStatement
+            - DELETE FROM queues WHERE containerId = ? AND step = ?
+            string {_columnInput_reportingSignoutTable:2}
+            string {_step}
+
+
+    stepGroup Final Report
+    step Final Report
+      jsScripts
+        src js/reporting/finalReportProcessing.js
+      queueSelectRecId
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= errorMessageArea
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li Fill Out search criteria and click Search.
+              li Click on the Report ID link to view the report.
+              li To modify, select an option from the modify dropdown.
+
+        vertical
+          id= lookupReports
+          fieldSet
+            legend Search Reports
+            div
+              simpleTable
+                tr
+                  td Patient First Name
+                  td Patient Last Name
+                  td Patient DOB
+                  td Patient MRN
+                  td Report Type
+                tr
+                  td
+                    text patientFirstName
+                      id= patientFirstName
+                      class= searchInput
+                  td
+                    text patientLastName
+                      id= patientLastName
+                      class= searchInput
+                  td
+                    date patientDOB
+                      id= patientDOB
+                      class= searchInput datePickerDOB
+                      placeholder=  &#128197;
+                  td
+                    text patientMRN
+                      id= patientMRN
+                      class= searchInput
+                  td
+                    text reportType
+                      id= reportType
+                      class= searchInput
+                tr
+                  td Request ID
+                  td Report ID
+                  td External Request ID
+                  td Start Date
+                  td End Date
+                tr
+                  td
+                    text requestID
+                      id= requestID
+                      class= searchInput
+                  td
+                    text reportID
+                      id= reportID
+                      class= searchInput
+                  td
+                    text externalRequestID
+                      id= externalRequestID
+                      class= searchInput
+                  td
+                    date startDate
+                      id= startDate
+                      class= searchInput datePickerDOB
+                      placeholder=  &#128197;
+                  td
+                    date endDate
+                      id= endDate
+                      class= searchInput datePickerDOB
+                      placeholder=  &#128197;
+                  td
+                  td
+                    button
+                      value= Search
+                      id= searchButton
+                      class= button
+                    button
+                      value= Clear
+                      id= clearButton
+                      class= button
+            div
+              id= reportResults
+              style= display:none;
+
+
+    stepGroup Modify Report
+    step Correct Report
+      jsScripts
+        src js/reporting/correctReport.js
+        src js/reporting/report_modifications.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link /css/orderEntry/tableFilters.css
+      form
+        data-parsley-validate= true
+        p This step allows the user to modify patient demographic information. The user is not able to modify any result data.
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= pageSection
+
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            class= reportsTable
+            id= correctedReportsTable
+            sqlPreparedQuery~
+              - SELECT DISTINCT 'false' AS "Complete <br/> Changes",
+              -   rd.reportId AS "Report ID",
+              -   CONCAT('<a href=# class= viewOrder>',rqs.requestId,'</a>') AS "Order ID",
+              -   CONCAT('<a class="editReqLink "><i class="fas fa-edit" aria-hidden="true" ></i></a>') AS "Edit Order",
+              -   '' AS "Corrected <br/> Information",
+              -   rdef.reportName AS "Report Type",
+              -   IFNULL(rrd.varcharReviewResult, '') AS "Overall Result",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne.eventDate, '%m/%d/%Y'),' - ', IFNULL(cn.note, '')) SEPARATOR '<br/>') AS "Result Data Review Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne1.eventDate, '%m/%d/%Y'), ' - ', IFNULL(cn1.note, '')) SEPARATOR '<br/>') AS "Final Report Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br/>') AS "Panel",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br/>') AS "Specimen ID",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.locationId, rf.departmentId, rd.id AS "Hidden"
+              - FROM queues q
+              - INNER JOIN reportDetails rd ON q.containerId = rd.reportId
+              - INNER JOIN reportDefinitionVersion rdv ON rd.reportDefinitionVersionId = rdv.id
+              - INNER JOIN reportDefinition rdef ON rdv.reportDefinitionId = rdef.id
+              - INNER JOIN reportSpecimens rs ON rd.id = rs.reportDetailsId
+              - INNER JOIN requestSpecimens rqs ON rs.requestSpecimensId = rqs.id
+              - INNER JOIN specimenMethods sm ON rs.specimenMethodsId = sm.id
+              - INNER JOIN panels p ON sm.panelCode = p.panelCode
+              - INNER JOIN requestForms rf ON rd.requestFormsId = rf.id
+              - INNER JOIN patients pa ON rf.patientId = pa.patientId
+              - INNER JOIN organizationSites os ON rf.physicianSiteId = os.siteId
+              - INNER JOIN physicians ph ON rf.physicianId = ph.physicianId
+              - INNER JOIN reportResultData rrd ON rrd.reportDetailsId = rd.Id
+              -   AND rrd.isOverall = 1
+              -   AND rrd.currentResult = 1
+              - LEFT JOIN containerNotes cn ON cn.containerId = q.containerId
+              -   AND cn.noteType = 'Result Data Review_Container_Notes'
+              - LEFT JOIN containerNotes cn1 ON cn1.containerId = q.containerId
+              -   AND cn1.noteType = 'Final Report Comment'
+              - LEFT JOIN events cne ON cne.eventId = cn.eventId
+              - LEFT JOIN events cne1 ON cne1.eventId = cn1.eventId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+            columnSpecs~ correctedReportsTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+                  class= sendCorrectedReports
+              column 2
+                inputType text
+                  class= reportID
+                  readonly=
+              column 5
+                inputType textArea
+                  class= correctedText
+                  validate~ {_columnInput:5}
+                    advanced~
+                    not~
+                      isBlank~
+                    or~ {_columnInput:1}
+                      equals~ false
+              column 19
+                inputType text
+                  class= hideColumn reportDetailsId
+
+
+      forRows correctedReportsTable
+        ifCondition~ {_columnInput_correctedReportsTable:1}
+          advanced~
+          equals~ true
+          include reportingSaveData
+            parameter~ reportId
+              value= {_columnInput_correctedReportsTable:2}
+            parameter~ changeText
+              value= {_columnInput_correctedReportsTable:5}
+            parameter~ curStep
+              value= {_step}
+
+    step Addend Report
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+      jsScripts
+        src js/reporting/report_modifications.js
+      form
+        include stepInstructions
+        p This step allows the user to add to the existing report. The user is not able to modify any of the existing data in the report.
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= pageSection
+
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            class= reportsTable
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   CONCAT('<a href= "/uniflow?lastForm=Y&stepName=Addend Report&recId=',rd.reportId,'">',rd.reportId,'</a>') AS "Report ID",
+              -   CONCAT('<a href=# class= viewOrder>',rqs.requestId,'</a>') AS "Order ID",
+              -   CONCAT('<a class="reviewResultLink"><i class="fas fa-file-invoice" aria-hidden="true" ></i></a>') AS "Review",
+              -   rdef.reportName AS "Report Type",
+              -   IFNULL(rrd.varcharReviewResult, '') AS "Overall Result",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne.eventDate, '%m/%d/%Y'),' - ', IFNULL(cn.note, '')) SEPARATOR '<br/>') AS "Result Data Review Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne1.eventDate, '%m/%d/%Y'), ' - ', IFNULL(cn1.note, '')) SEPARATOR '<br/>') AS "Final Report Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.locationId, rf.departmentId
+              - FROM queues q
+              - INNER JOIN reportDetails rd
+              -   ON q.containerId = rd.reportId
+              - INNER JOIN reportDefinitionVersion rdv
+              -   ON rd.reportDefinitionVersionId = rdv.id
+              - INNER JOIN reportDefinition rdef
+              -   ON rdv.reportDefinitionId = rdef.id
+              - INNER JOIN reportSpecimens rs
+              -   ON rd.id = rs.reportDetailsId
+              - INNER JOIN requestSpecimens rqs
+              -   ON rs.requestSpecimensId = rqs.id
+              - INNER JOIN specimenMethods sm
+              -   ON rs.specimenMethodsId = sm.id
+              - INNER JOIN panels p
+              -   ON sm.panelCode = p.panelCode
+              - INNER JOIN requestForms rf
+              -   ON rd.requestFormsId = rf.id
+              - INNER JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - INNER JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - INNER JOIN reportResultData rrd
+              -   ON rrd.reportDetailsId = rd.Id
+              -   AND rrd.isOverall = 1
+              -   AND rrd.currentResult = 1
+              - LEFT JOIN containerNotes cn
+              -   ON cn.containerId = q.containerId
+              -   AND cn.noteType = 'Result Data Review_Container_Notes'
+              - LEFT JOIN containerNotes cn1
+              -   ON cn1.containerId = q.containerId
+              -   AND cn1.noteType = 'Final Report Comment'
+              - LEFT JOIN events cne ON cne.eventId = cn.eventId
+              - LEFT JOIN events cne1 ON cne1.eventId = cn1.eventId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+      form
+        data-parsley-validate= true
+        script
+          src= js/niceedit/nicEdit.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT rf.requestId, rf.patientId, rd.reportDefinitionVersionId,
+          -        rd.id AS 'reportDetailsId',
+          -        '' AS 'changeText',
+          -        '' AS 'modificationRowId',
+          -        rptD.reportHTML AS 'reportHTML'
+          ### these will be for later when save option is allowed
+          # -        rm.changeText AS "changeText,
+          # -        rm.id AS "modificationRowId",
+          - FROM reportDetails rd
+          - INNER JOIN requestForms rf ON rd.requestFormsId = rf.id
+          - INNER JOIN reportedData rptD ON rptD.reportDetailsId = rd.id
+          - LEFT JOIN reportModifications rm ON rm.reportDetailsId = rd.id
+          - WHERE rd.reportId = ?
+          -   AND rptD.active = 1
+          string {_recId}
+          allowEmptyResults~
+
+        div
+          id= errorMessageArea
+        div
+          class= floatCards
+
+          include fullPatientCard
+            parameter~ patientId
+              value= {_:patientId}
+
+          include orderCardFull
+            parameter~ requestId
+              value= {_:requestId}
+
+        div
+          class= clearFloat
+
+        vertical
+
+        hidden reportId
+          value= {_recId}
+          id= reportId
+
+        hidden changeText
+          value= {_:changeText}
+          id= changeText
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden modificationRowId
+          id= modificationRowId
+          value= {_:modificationRowId}
+
+        hidden reportDetailsId
+          id= reportDetailsId
+          value= {_:reportDetailsId}
+
+        hidden eventIdOrigTask
+          id= eventIdOrigTask
+          value= {_eventId}
+
+        fieldSet
+          div {_:reportHTML}
+            id= reportHTMLDiv
+
+        div
+          a Review Results
+            class= button reviewResultButton
+        br
+        div
+          class= hide
+          textArea modTextWordingSave
+            id= modTextWordingSave
+            data-parsley-required= true
+
+        h3 Add Addendum
+
+        div
+        fieldSet
+
+          div
+            vertical
+              div
+                id= fancyTextModText
+                class= fancyTextModText
+              div
+                id= modTextBox
+                class= modTextBox
+
+          include containerComponent
+            parameter~ containerName
+              value= reportId
+            parameter~ containerScreenLabel
+              value= Report ID
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= reportId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_recId}
+            parameter~ useThisSequence
+              value=
+            parameter~ containerCommentsInclude
+              value= Yes
+            parameter~ containerActionInclude
+              value= Yes
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ parentIdRequired
+              value= false
+            parameter~ includePriority
+              value= No
+            parameter~ containerFileUpload
+              value= No
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value=
+
+      include reportingSaveData
+        parameter~ reportId
+          value= {reportId}
+        parameter~ changeText
+          value= {modTextWordingSave}
+        parameter~ curStep
+          value= {_step}
+
+    step Amend Report
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+      jsScripts
+        src js/reporting/report_modifications.js
+      form
+        include stepInstructions
+        p This step allows the user to modify patient result information. The user is not able to modify any patient demographic data.
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= pageSection
+
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            class= reportsTable
+            sqlPreparedQuery~
+              - SELECT
+              -   rd.reportId AS "Report ID",
+              -   CONCAT('<a href=# class= viewOrder>',rqs.requestId,'</a>') AS "Order ID",
+              -   CONCAT('<a href="/uniflow?stepName=Result Data Review&lastForm=Y&reportRecId=',rd.reportId,'&reviewInstance=Amend"><i class="fas fa-file-invoice" aria-hidden="true" ></i></a>') AS "Edit",
+              -   rdef.reportName AS "Report Type",
+              -   IFNULL(rrd.varcharReviewResult, '') AS "Overall Result",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne.eventDate, '%m/%d/%Y'),' - ', IFNULL(cn.note, '')) SEPARATOR '<br/>') AS "Result Data Review Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne1.eventDate, '%m/%d/%Y'), ' - ', IFNULL(cn1.note, '')) SEPARATOR '<br/>') AS "Final Report Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.locationId, rf.departmentId
+              - FROM queues q
+              - INNER JOIN reportDetails rd
+              -   ON q.containerId = rd.reportId
+              - INNER JOIN reportDefinitionVersion rdv
+              -   ON rd.reportDefinitionVersionId = rdv.id
+              - INNER JOIN reportDefinition rdef
+              -   ON rdv.reportDefinitionId = rdef.id
+              - INNER JOIN reportSpecimens rs
+              -   ON rd.id = rs.reportDetailsId
+              - INNER JOIN requestSpecimens rqs
+              -   ON rs.requestSpecimensId = rqs.id
+              - INNER JOIN specimenMethods sm
+              -   ON rs.specimenMethodsId = sm.id
+              - INNER JOIN panels p
+              -   ON sm.panelCode = p.panelCode
+              - INNER JOIN requestForms rf
+              -   ON rd.requestFormsId = rf.id
+              - INNER JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - INNER JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - INNER JOIN reportResultData rrd
+              -   ON rrd.reportDetailsId = rd.Id
+              -   AND rrd.isOverall = 1
+              -   AND rrd.currentResult = 1
+              - LEFT JOIN containerNotes cn
+              -   ON cn.containerId = q.containerId
+              -   AND cn.noteType = 'Result Data Review_Container_Notes'
+              - LEFT JOIN containerNotes cn1
+              -   ON cn1.containerId = q.containerId
+              -   AND cn1.noteType = 'Final Report Comment'
+              - LEFT JOIN events cne ON cne.eventId = cn.eventId
+              - LEFT JOIN events cne1 ON cne1.eventId = cn1.eventId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+
+    step Cancel Report
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+      jsScripts
+        src js/reporting/report_modifications.js
+      form
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= pageSection
+
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            class= reportsTable
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   CONCAT('<a href= "/uniflow?lastForm=Y&stepName=Cancel Report&recId=',rd.reportId,'">',rd.reportId,'</a>') AS "Report ID",
+              -   CONCAT('<a href=# class= viewOrder>',rf.requestId,'</a>') AS "Order ID",
+              -   rdef.reportName AS "Report Type",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne.eventDate, '%m/%d/%Y'),' - ', IFNULL(cn.note, '')) SEPARATOR '<br/>') AS "Order Entry Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.locationId, rf.departmentId
+              - FROM queues q
+              - INNER JOIN reportDetails rd ON q.containerId = rd.reportId
+              - INNER JOIN requestForms rf ON rd.requestFormsId = rf.id
+              - LEFT JOIN reportDefinitionVersion rdv ON rd.reportDefinitionVersionId = rdv.id
+              - LEFT JOIN reportDefinition rdef ON rdv.reportDefinitionId = rdef.id
+              - LEFT JOIN reportSpecimens rs ON rd.id = rs.reportDetailsId
+              - LEFT JOIN requestSpecimens rqs ON rs.requestSpecimensId = rqs.id
+              - LEFT JOIN specimenMethods sm ON rs.specimenMethodsId = sm.id
+              - LEFT JOIN panels p ON sm.panelCode = p.panelCode
+              - LEFT JOIN patients pa ON rf.patientId = pa.patientId
+              - LEFT JOIN organizationSites os ON rf.physicianSiteId = os.siteId
+              - LEFT JOIN physicians ph ON rf.physicianId = ph.physicianId
+              - LEFT JOIN containerNotes cn ON cn.containerId = rf.requestId
+              -   AND cn.noteType = 'Order Entry Comment'
+              - LEFT JOIN events cne ON cne.eventId = cn.eventId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+
+      form
+        data-parsley-validate= true
+        script
+          src= js/niceedit/nicEdit.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT rf.requestId, rf.patientId, rd.reportDefinitionVersionId,
+          -        rd.id AS 'reportDetailsId'
+          - FROM reportDetails rd
+          - INNER JOIN requestForms rf ON rd.requestFormsId = rf.id
+          - LEFT JOIN reportedData rptD ON rptD.reportDetailsId = rd.id
+          -       AND rptD.active = 1
+          - WHERE rd.reportId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        div
+          id= errorMessageArea
+        div
+          class= floatCards
+
+          include fullPatientCard
+            parameter~ patientId
+              value= {_:patientId}
+
+          include orderCardFull
+            parameter~ requestId
+              value= {_:requestId}
+
+        div
+          class= clearFloat
+
+        vertical
+
+        hidden reportId
+          value= {_recId}
+          id= reportId
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= hide
+          textArea modTextWordingSave
+            id= modTextWordingSave
+            data-parsley-required= true
+
+        h3 Add Cancel Report Text
+
+        div
+        fieldSet
+
+          div
+            vertical
+              div
+                id= fancyTextModText
+                class= fancyTextModText
+              div
+                id= modTextBox
+                class= modTextBox
+
+          include containerComponent
+            parameter~ containerName
+              value= reportId
+            parameter~ containerScreenLabel
+              value= Report Id
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= reportId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_recId}
+            parameter~ useThisSequence
+              value=
+            parameter~ containerCommentsInclude
+              value= Yes
+            parameter~ containerActionInclude
+              value= Yes
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ parentIdRequired
+              value= false
+            parameter~ includePriority
+              value= No
+            parameter~ containerFileUpload
+              value= No
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+      include reportingSaveData
+        parameter~ reportId
+          value= {reportId}
+        parameter~ changeText
+          value= {modTextWordingSave}
+        parameter~ curStep
+          value= {_step}
+
+    step Reject Report
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+      jsScripts
+        src js/reporting/report_modifications.js
+      form
+        include stepInstructions
+        p This step allows the user to add to the existing report. The user is not able to modify any of the existing data in the report.
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= pageSection
+
+          div
+            id= table_filters
+            class= horizontalFlex
+            div
+              class= horizontalFlex
+              label Department
+                for= deptFilter
+              select deptFilter
+                id= deptFilter
+                class= department newFilter
+                placeholder= Select Department
+                option
+                sqlQuery~
+                  - SELECT DISTINCT
+                  -  os.name, os.siteId
+                  - FROM organizationSites os
+                  - WHERE os.organizationType = 'Department'
+                  - ORDER BY os.name
+            div
+              class= horizontalFlex
+              label Location
+                for= locationFilter
+              select locationFilter
+                placeholder= Select Location
+                id= locationFilter
+                class= location newFilter
+                option
+
+          table
+            class= reportsTable
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   CONCAT('<a href= "/uniflow?lastForm=Y&stepName=Reject Report&recId=',rd.reportId,'">',rd.reportId,'</a>') AS "Report ID",
+              -   CONCAT('<a href=# class= viewOrder>',rqs.requestId,'</a>') AS "Order ID",
+              -   rdef.reportName AS "Report Type",
+              -   GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(cne.eventDate, '%m/%d/%Y'),' - ', IFNULL(cn.note, '')) SEPARATOR '<br/>') AS "Order Entry Comments",
+              -   GROUP_CONCAT(DISTINCT CONCAT(p.name, ' (', p.panelCode, ')') ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Panel",
+              -   GROUP_CONCAT(DISTINCT rqs.specimenId ORDER BY rqs.specimenId SEPARATOR '<br />') AS "Specimen ID",
+              -   CONCAT(pa.lastName, ', ',pa.firstName ) AS "Patient Name",
+              -   pa.DOB AS "Patient DOB",
+              -   CONCAT(IFNULL(rf.mrnFacility,''), ' ', rf.mrn) AS "Patient MRN",
+              -   os.name AS "Client",
+              -   CONCAT(ph.last_Name, ', ',ph.first_Name ) AS "Physician",
+              -   rf.locationId, rf.departmentId
+              - FROM queues q
+              - INNER JOIN reportDetails rd
+              -   ON q.containerId = rd.reportId
+              - INNER JOIN reportDefinitionVersion rdv
+              -   ON rd.reportDefinitionVersionId = rdv.id
+              - INNER JOIN reportDefinition rdef
+              -   ON rdv.reportDefinitionId = rdef.id
+              - LEFT JOIN reportSpecimens rs
+              -   ON rd.id = rs.reportDetailsId
+              - LEFT JOIN requestSpecimens rqs
+              -   ON rs.requestSpecimensId = rqs.id
+              - LEFT JOIN specimenMethods sm
+              -   ON rs.specimenMethodsId = sm.id
+              - LEFT JOIN panels p
+              -   ON sm.panelCode = p.panelCode
+              - INNER JOIN requestForms rf
+              -   ON rd.requestFormsId = rf.id
+              - INNER JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - INNER JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - INNER JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - LEFT JOIN containerNotes cn
+              -   ON cn.containerId = rf.requestId
+              -   AND cn.noteType = 'Order Entry Comment'
+              - LEFT JOIN events cne ON cne.eventId = cn.eventId
+              - WHERE q.step = ?
+              - GROUP BY rd.reportId
+              string {_step}
+
+      form
+        data-parsley-validate= true
+        script
+          src= js/niceedit/nicEdit.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT rf.requestId, rf.patientId, rd.reportDefinitionVersionId,
+          -        rd.id AS 'reportDetailsId'
+          - FROM reportDetails rd
+          - INNER JOIN requestForms rf ON rd.requestFormsId = rf.id
+          - LEFT JOIN reportedData rptD ON rptD.reportDetailsId = rd.id
+          -   AND rptD.active = 1
+          - WHERE rd.reportId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        div
+          id= errorMessageArea
+        div
+          class= floatCards
+
+          include fullPatientCard
+            parameter~ patientId
+              value= {_:patientId}
+
+          include orderCardFull
+            parameter~ requestId
+              value= {_:requestId}
+
+        div
+          class= clearFloat
+
+        vertical
+
+        hidden reportId
+          value= {_recId}
+          id= reportId
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= hide
+          textArea modTextWordingSave
+            id= modTextWordingSave
+            data-parsley-required= true
+
+        h3 Add Reject Report Text
+
+        div
+        fieldSet
+
+          div
+            vertical
+              div
+                id= fancyTextModText
+                class= fancyTextModText
+              div
+                id= modTextBox
+                class= modTextBox
+
+          include containerComponent
+            parameter~ containerName
+              value= reportId
+            parameter~ containerScreenLabel
+              value= Report Id
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= reportId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_recId}
+            parameter~ useThisSequence
+              value=
+            parameter~ containerCommentsInclude
+              value= Yes
+            parameter~ containerActionInclude
+              value= Yes
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ parentIdRequired
+              value= false
+            parameter~ includePriority
+              value= No
+            parameter~ containerFileUpload
+              value= No
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+      include reportingSaveData
+        parameter~ reportId
+          value= {reportId}
+        parameter~ changeText
+          value= {modTextWordingSave}
+        parameter~ curStep
+          value= {_step}
+
+    stepGroup Manage Signatures
+    step Manage Signatures
+      jsScripts
+        src js/reporting/manageSignatures.js
+      form
+        include stepInstructions
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li In order to add a signature for a user, the user must exist in the system.
+              li If the name needs to be edited, this can be done in the Users step in Admin.
+
+        vertical
+          select signature
+            screenLabel~ Select Signature
+            option
+            sqlPreparedQuery~ SELECT DISTINCT name FROM userInfo ORDER BY name
+
+      form
+        include stepInstructions
+
+        formPreparedQuery~ SELECT DISTINCT
+          - rs.medicalDirectorImage AS "image",
+          - rs.medicalDirectorsignatureTitle1 AS "title1",
+          - rs.medicalDirectorsignatureTitle2 AS "title2",
+          - rs.signaturePosition AS "signaturePosition",
+          - rs.signatureEnabled AS "signatureEnabled",
+          - e.eventDate AS "eventDate"
+          - FROM reportSignatures rs
+          - INNER JOIN events e ON e.eventId = rs.eventId
+          - WHERE medicalDirector = ?
+          - UNION
+          - SELECT '', '', '', '', '', ''
+          string {signature}
+
+        formPreparedQuery~ SELECT DISTINCT
+          - userId AS "medicalDirectorUserId", name AS "medDirectorName"
+          - FROM userInfo
+          - WHERE name = ?
+          string {signature}
+
+        hidden signature
+          value= {signature}
+
+        hidden imageExists
+          value= {_:image}
+          id= imageExists
+
+        fieldset
+          legend Current Signature
+          vertical2
+            text medDirectorName
+              id= medDirectorName
+              value= {_resultSet:medDirectorName}
+              readonly=
+              screenLabel~ Medical Director:
+              required~ true
+            text medicalDirectorUserId
+              id= medicalDirectorUserId
+              value= {_resultSet:medicalDirectorUserId}
+              readonly=
+              screenLabel~ Medical Director User ID:
+              required~ true
+          br
+          vertical
+            text medicalDirectorsignatureTitle1
+              value= {_resultSet:title1}
+              screenLabel~ Signature Title 1
+            text medicalDirectorsignatureTitle2
+              value= {_resultSet:title2}
+              screenLabel~ Signature Title 2
+            select signatureEnabled
+              option {_resultSet:signatureEnabled}
+                value= {_resultSet:signatureEnabled}
+              option Enabled
+                value= Enabled
+              option Disabled
+                value= Disabled
+              validate~ select 1 from dual where '{signatureEnabled}' <> '' and '{medicalDirectorUserId}' <> '' and '{medDirectorName}' <> ''
+                errorMessage~ This field is required
+              screenLabel~ Enabled
+          vertical
+            id= deleteImageCheckbox
+            checkbox deleteImage
+              id= deleteImageCheck
+              screenLabel~ Delete Signature Image
+          vertical
+            id= signatureUpload
+            file medicalDirectorImage
+              destinationFolderName~ images/signatures
+              destinationFilePrefix~ signature_{medicalDirectorUserId}_0000000
+              required~ false
+              id= signatureUploadFile
+              screenLabel~ Upload Signature
+
+          br
+          vertical
+            id= currentImage
+            label Current Image
+              for= currentMedicalDirectorImage
+              img
+                id= currentMedicalDirectorImage
+                src= !!!images/signatures/{_resultSet:image}
+
+
+      ifCondition {imageExists}
+        advanced~
+        not~
+          isBlank~
+        and~ {deleteImage}
+          equals~ true
+        sqlPreparedStatement
+          - UPDATE reportSignatures
+          - SET medicalDirectorsignatureTitle1 = ?,
+          - medicalDirectorsignatureTitle2 = ?,
+          - signatureEnabled = ?,
+          - medicalDirectorImage = ?,
+          - eventId = ?
+          - WHERE medicalDirectorId = ?
+          - AND medicalDirector = ?
+          string {medicalDirectorsignatureTitle1}
+          string {medicalDirectorsignatureTitle2}
+          string {signatureEnabled}
+          string {medicalDirectorImage}
+          long {_eventId}
+          string {medicalDirectorUserId}
+          string {medDirectorName}
+        sqlPreparedStatement DELETE FROM containerFiles WHERE containerId = ? AND fileType = 'signature'
+          string {medicalDirectorUserId}
+        sqlPreparedStatement INSERT INTO containerFiles (containerId, fileType, fileName, location, eventId)
+          - VALUES (?, 'signature', ?, 'images/signatures', ?)
+          string {medicalDirectorUserId}
+          string {medicalDirectorImage}
+          long {_eventId}
+
+
+      ifCondition {imageExists}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - UPDATE reportSignatures
+          - SET medicalDirectorsignatureTitle1 = ?,
+          - medicalDirectorsignatureTitle2 = ?,
+          - signatureEnabled = ?,
+          - eventId = ?
+          - WHERE medicalDirectorId = ?
+          - AND medicalDirector = ?
+          string {medicalDirectorsignatureTitle1}
+          string {medicalDirectorsignatureTitle2}
+          string {signatureEnabled}
+          long {_eventId}
+          string {medicalDirectorUserId}
+          string {medDirectorName}
+
+      ifCondition {imageExists}
+        advanced~
+        isBlank~
+        sqlPreparedStatement
+          - INSERT INTO reportSignatures (medicalDirectorId, medicalDirector, medicalDirectorImage, medicalDirectorsignatureTitle1, medicalDirectorsignatureTitle2, signatureEnabled, eventId)
+          - VALUES (?, ?, ?, ?, ?, ?, ?)
+          string {medicalDirectorUserId}
+          string {medDirectorName}
+          string {medicalDirectorImage}
+          string {medicalDirectorsignatureTitle1}
+          string {medicalDirectorsignatureTitle2}
+          string {signatureEnabled}
+          long {_eventId}
+        sqlPreparedStatement INSERT INTO containerFiles (containerId, fileType, fileName, location, eventId)
+          - values (?, 'signature', ?, 'images/signatures', ?)
+          string {medicalDirectorUserId}
+          string {medicalDirectorImage}
+          long {_eventId}
+
+      allowDuplicateContainerIds true
+
+
+    stepGroup Exception Handling
+    step Exception Handling
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/nextStepPopup.js
+        src js/exceptionHandling.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link /css/exceptionHandling.css
+
+      form
+        data-parsley-validate=
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= hiddenSelects
+
+          select hiddenProtocolSelected
+            id= protocolSelected
+            screenLabel~ Protocol
+            option
+            sqlPreparedQuery~ SELECT pl.protocolName, pl.protocolName FROM protocolLibrary pl
+
+          select
+            id= hiddenActionOptionsSamples
+            setName~ exceptionHandling
+            required~ false
+
+          select
+            id= hiddenActionOptionsGroup
+            setName~ exceptionHandlingGroup
+            required~ false
+
+        div
+          id= errorBox
+        div
+          id= modal
+
+        ## table to display specimens
+        div
+          id= table_filters
+          class= horizontalFlex table_filters
+          div
+            class= horizontalFlex
+            label Panel
+              for= panelFilter
+            select panelFilter
+              placeholder= Filter
+              id= panelFilter
+              class= panelFilter newFilter
+              option
+              required~ false
+
+          div
+            class= horizontalFlex
+            label Step Queued From
+              for= stepQueuedFromFilter
+            select stepQueuedFromFilter
+              placeholder= Filter
+              id= stepQueuedFromFilter
+              class= stepQueuedFromFilter newFilter
+              option
+              required~ false
+
+        hidden exceptionHandlingTableCheckAllAction
+          id= exceptionHandlingTableCheckAllAction
+
+        fieldSet
+          table
+            id= exceptionHandlingTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS '<input type="checkbox" class="exceptionHandlingTableCheckAll" value="false" tabindex="1"> Select All',
+              -   CONCAT('<span style=display:none; class= queuedContainerId >',runId,'</span>' '<a href="/uniflow?lastForm=Y&stepName={_step}&recId=',runId,'" class= containerId >',currentContainerId,'</a>' ) AS 'Specimen ID',
+              -   CONCAT('<span class="panels">',GROUP_CONCAT(DISTINCT p.name),'</span>') AS "Panel(s)",
+              -   CONCAT('<span class="stepQueuedFrom">',ifNull(e.step,''),'</span>') AS 'Step Queued From',
+              -   '' AS 'Action',
+              -   '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+              -   '' AS 'Comment',
+              -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+              -   "run" AS "Hidden"
+              - FROM queues q
+              -   INNER JOIN events e on q.eventId = e.eventId
+              -   INNER JOIN specimenRuns sr ON q.containerId = sr.runId
+              -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+              -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.Id
+              -   INNER JOIN containers c ON q.containerId = c.containerId
+              -   LEFT JOIN panels p ON sm.panelCode = p.panelCode
+              -   LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+              - WHERE q.step = ?
+              - GROUP BY q.containerId
+              string {_step}
+            columnSpecs~ exceptionHandlingTable
+              allowChangedRecordIds
+              column 1
+                data-orderable= false
+                inputType checkbox
+                  class= eHIncludeCkbx
+              column 5
+                inputType select
+                  class= selectAction
+                  setName~ exceptionHandling
+                  required~ false
+              column 7
+                inputType textArea
+                  class= enteredComment
+              column 9
+                inputType text
+                  class= hideColumn handlingType
+
+
+        ## table to display groupingContainers
+        div
+          id= table_filtersGrpContainers
+          class= horizontalFlex table_filters
+          div
+            class= horizontalFlex
+            label Step Queued From
+              for= stepQueuedFromFilterGrpContainer
+            select stepQueuedFromFilterGrpContainer
+              placeholder= Filter
+              id= stepQueuedFromFilterGrpContainer
+              class= stepQueuedFromFilterGrpContainer newFilter
+              option
+              required~ false
+
+        hidden exceptionHandlingTableGrpContainerCheckAllAction
+          id= exceptionHandlingTableGrpContainerCheckAllAction
+
+        fieldSet
+          table
+            id= exceptionHandlingTableGrpContainer
+            sqlPreparedQuery~
+              -  SELECT
+              -     '' AS '<input type="checkbox" class="exceptionHandlingTableGrpContainerCheckAll" value="false" tabindex="1"> Select All',
+              -     CONCAT('<span style=display:none; class= queuedContainerId >',q.containerId,'</span>' '<a href="/uniflow?lastForm=Y&stepName={_step}&recId=',q.containerId,'" class= containerId >',CASE WHEN co.containerType = 'poolRunId' THEN pr.currentContainerId ELSE q.containerId END,'</a>' ) AS 'Grouping Container ID',
+              -     ifNULL(vv.displayValue,'') AS 'Priority',
+              -     CONCAT('<span class="stepQueuedFromGrpContainer">',ifNull(e.step,''),'</span>') AS 'Step Queued From',
+              -     '' AS 'Action',
+              -     '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+              -     '' AS 'Comment',
+              -     GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+              -     "group" AS "Hidden",
+              -     co.containerType AS 'Hidden',
+              -     CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END AS 'Hidden'
+              # -     CONCAT('<span class="poolRunParentId">',CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END,'</span>') AS 'Hidden'
+              -   FROM queues q
+              -     INNER JOIN events e on q.eventId = e.eventId
+              -     INNER JOIN contents c ON q.containerId = c.containerId
+              -     INNER JOIN containers co ON. q.containerId = co.containerId
+              -     LEFT JOIN containerProperties cp ON q.containerId = cp.containerId
+              -       AND cp.property = 'Container Priority'
+              -     LEFT JOIN validValues vv ON cp.value = vv.value
+              -       AND vv.setName = 'priority'
+              -     LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+              -     LEFT JOIN poolRuns pr ON q.containerId = pr.poolRunId
+              -     LEFT JOIN poolRuns pr2 ON pr.currentContainerId = pr2.currentParentId
+              -   WHERE q.step = ?
+              -     AND co.containerType <> 'runId'
+              -     AND co.containerType <> 'specimenId'
+              -   GROUP BY q.containerId
+              string {_step}
+            columnSpecs~ exceptionHandlingTable
+              allowChangedRecordIds
+              column 1
+                data-orderable= false
+                inputType checkbox
+                  class= eHIncludeCkbx
+              column 5
+                inputType select
+                  class= selectAction
+                  setName~ exceptionHandlingGroup
+                  required~ false
+              column 7
+                inputType textArea
+                  class= enteredComment
+              column 9
+                inputType text
+                  class= hideColumn handlingType
+              column 10
+                inputType text
+                  class= hideColumn
+              column 11
+                inputType text
+                  class= hideColumn poolRunParentId
+
+        ### submit button will need to be a post
+        button Submit
+          id= submitbutton
+      form
+        data-parsley-validate=
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT
+          -   CASE
+          -     WHEN containerType = 'runId' THEN 'specimenId'
+          -     WHEN containerType = 'poolRunId' THEN 'poolTube'
+          -     ELSE 'groupingContainer' END AS 'containerType'
+          - FROM containers
+          -  WHERE containerId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   currentContainerId
+          - FROM specimenRuns
+          - WHERE runId = ?
+          string {_recId}
+          allowEmptyResults~
+
+
+        configurePreparedQuery~
+          -  SELECT
+          -    patientId,
+          -   c1.content AS 'requestId'
+          -  FROM contents c
+          -  INNER JOIN contents c1 ON c.containerId = c1.containerId
+          -     AND c1.contentType = 'requestId'
+          -  INNER JOIN requestForms rf ON c1.content = rf.requestId
+          -  WHERE c.content = ?
+          -   AND c.attribute = 'run'
+          string {_recId}
+          allowEmptyResults~
+
+        hidden recId
+          id= queuedContainerId
+          value= {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= hiddenSelects
+
+          select hiddenProtocolSelected
+            id= protocolSelected
+            screenLabel~ Protocol
+            option
+            required~ false
+            sqlPreparedQuery~ SELECT pl.protocolName, pl.protocolName FROM protocolLibrary pl
+
+          select
+            id= hiddenActionOptionsSamples
+            setName~ exceptionHandling
+            required~ false
+
+          select
+            id= hiddenActionOptionsGroup
+            setName~ exceptionHandlingGroup
+            required~ false
+
+        div
+          id= errorBox
+        div
+          id= modal
+
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= verticalFlex
+          div
+            class= horizontalFlex
+            include orderCardFull
+              parameter~ requestId
+                value= {_:requestId}
+            include halfPatientCard
+              parameter~ patientId
+                value= {_:patientId}
+          div
+            include runCard
+              parameter~ runId
+                value= {_recId}
+
+        div
+          class= expand
+          span <i class="far fa-plus-square"></i> Expand All
+            class= expandAll
+          span &nbsp &nbsp &nbsp
+          span <i class="far fa-minus-square"></i> Collapse All
+            class= collapseAll
+        br
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= pageSection
+          div
+            class= sectionTitle
+            span Specimen Details
+          div
+            class= sectionContent verticalFlex
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   e.userId AS "Queued By",
+                -   DATE(e.eventDate) AS "Queued On",
+                -   e.step AS "Queued From",
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+                - FROM queues q
+                -   INNER JOIN events e ON q.eventId = e.eventId
+                -   LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+                - WHERE q.containerId = ?
+                -   AND q.step = ?
+                string {_recId}
+                string {_step}
+              columnSpecs~ specimenDetails
+                allowChangedRecordIds
+                column 2
+                  formatDate~
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= pageSection
+          div
+            class= sectionTitle
+            span Retest Options
+          div
+            class= sectionContent verticalFlex
+            span Selected Specimen
+            table
+              id= individualSpecimenAction
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   '' AS 'Select',
+                -   CONCAT('<span style=display:none; class= queuedContainerId >',sr.runId,'</span>' '<span class="containerId">',sr.currentContainerId,'</span>') AS 'Specimen ID',
+                -   DATE(rs.receivedDate) AS 'Date Received',
+                -   rs.specimenType AS 'Specimen Type',
+                -   rs.specimenCondition AS 'Received Condition',
+                -   '' AS 'Action',
+                -   '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -   '' AS 'Comment',
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -   "run" AS "Hidden"
+                -  FROM contents c
+                -   INNER JOIN contents c1 ON c.containerId = c1.containerId AND c1.contentType = 'requestId'
+                -   INNER JOIN specimenRuns sr ON c.containerId = sr.currentContainerId
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -   LEFT JOIN containerNotes cn ON sr.runId = cn.containerId
+                -  WHERE c.content = ?
+                -   AND c.contentType = 'runId'
+                -  GROUP BY c.content
+                string {_recId}
+              columnSpecs~ individualSpecimenAction
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    class= eHIncludeCkbx
+                column 3
+                  formatDate~
+                column 6
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandling
+                    required~ false
+                column 8
+                  inputType textArea
+                    class= enteredComment
+                column 10
+                  inputType text
+                    class= hideColumn handlingType
+          br
+          div
+            class= sectionContent verticalFlex
+            span Linked Specimen - Action Available
+            table
+              id= associatedSpecimenActionAvailable
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   '' AS 'Select',
+                -   CONCAT('<span style=display:none; class= queuedContainerId >',sr.runId,'</span>' '<span class="containerId">',c2.containerId,'</span>') AS 'Specimen ID',
+                -   DATE(rs.receivedDate) AS 'Date Received',
+                -   rs.specimenType AS 'Specimen Type',
+                -   rs.specimenCondition AS 'Received Condition',
+                -   '' AS 'Action',
+                -   '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -   '' AS 'Comment',
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -   "run" AS "Hidden"
+                -  FROM contents c
+                -   INNER JOIN contents c1 ON c.containerId = c1.containerId AND c1.contentType = 'requestId'
+                -   INNER JOIN contents c2 ON c1.content = c2.content AND c2.contentType = 'requestId'
+                -   INNER JOIN specimenRuns sr ON c2.containerId = sr.currentContainerId
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -   LEFT JOIN containerNotes cn ON sr.runId = cn.containerId
+                -  WHERE c.content = ?
+                -    AND c.contentType = 'runId'
+                -    AND sr.runId <>  ?
+                -    AND sm.status = 'Complete'
+                -    AND completedResult NOT IN ('Discarded','Storage','fail')
+                - GROUP BY c2.containerId
+                string {_recId}
+                string {_recId}
+              columnSpecs~ associatedSpecimenActionAvailable
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    class= selectedLinkedSpecimens eHIncludeCkbx
+                column 3
+                  formatDate~
+                column 6
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandling
+                    required~ false
+                column 8
+                  inputType textArea
+                    class= enteredComment
+                column 10
+                  inputType text
+                    class= hideColumn handlingType
+
+          br
+          div
+            class= sectionContent verticalFlex
+            span Linked Specimens - Action Not Available
+            table
+              id= associatedSpecimensActionNotAvailable
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   c2.containerId AS 'Specimen ID',
+                -   DATE(rs.receivedDate) AS 'Date Received',
+                -   rs.specimenType AS 'Specimen Type',
+                -   rs.specimenCondition AS 'Received Condition',
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History'
+                -  FROM contents c
+                -   INNER JOIN contents c1 ON c.containerId = c1.containerId AND c1.contentType = 'requestId'
+                -   INNER JOIN contents c2 ON c1.content = c2.content AND c2.contentType = 'requestId'
+                -   INNER JOIN specimenRuns sr ON c2.containerId = sr.currentContainerId
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -   LEFT JOIN containerNotes cn ON sr.runId = cn.containerId
+                -  WHERE c.content = ?
+                -   AND c.contentType = 'runId'
+                -   AND sr.runId <>  ?
+                -   AND sm.status = 'In Process'
+                -  GROUP BY c2.containerId
+                string {_recId}
+                string {_recId}
+
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= pageSection
+          div
+            class= sectionTitle
+            span Processing History
+          div
+            class= sectionContent  verticalFlex
+            include AuditTrail
+              parameter~ specimenId
+                value= {_:currentContainerId}
+
+        ## Grouping Containers
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ groupingContainer
+            or~
+              equals~ poolTube
+          class= pageSection
+          div
+            class= sectionTitle
+            span Grouping Container Details
+          div
+            class= sectionContent verticalFlex
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   e.userId AS "Queued By",
+                -   DATE(e.eventDate) AS "Queued On",
+                -   e.step AS "Queued From",
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+                - FROM queues q
+                -   INNER JOIN events e ON q.eventId = e.eventId
+                -   LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+                - WHERE q.containerId = ?
+                -   AND q.step = ?
+                string {_recId}
+                string {_step}
+              columnSpecs~ specimenDetails
+                allowChangedRecordIds
+                column 2
+                  formatDate~
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ groupingContainer
+            or~
+              equals~ poolTube
+          class= pageSection
+          div
+            class= sectionTitle
+            span Retest Options
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+            class= sectionContent verticalFlex
+            span Associated Specimens
+            table
+              id= associatedSpecimens
+              sqlPreparedQuery~
+                - SELECT
+                -   sr.currentContainerId AS 'Specimen ID',
+                -   rs.requestId AS 'Order ID',
+                -   rf.mrn AS 'MRN',
+                -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS 'Patient Name',
+                -   DATE(dob) AS 'DOB',
+                -   rs.specimenType AS 'Specimen Type',
+                -   GROUP_CONCAT(DISTINCT p.name) AS "Panel(s)"
+                -  FROM specimenRuns sr
+                -   INNER JOIN contents c ON sr.currentContainerId = c.containerId AND c.contentType = 'specimenId'
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON c.content = rs.specimenId
+                -   INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+                -   INNER JOIN patients pa ON rs.patientId = pa.patientId
+                -   LEFT JOIN panels p ON sm.panelCode = p.panelCode
+                -  WHERE sr.currentParentId = ?
+                -  GROUP BY sr.currentContainerId
+                -  UNION ALL
+                -  SELECT
+                -    pr.currentContainerId AS 'Specimen ID',
+                -    '' AS 'Order ID',
+                -    '' AS 'MRN',
+                -    '' AS 'Patient Name',
+                -    '' AS 'DOB',
+                -    '' AS 'Specimen Type',
+                -    '' AS "Panel(s)"
+                -  FROM poolRuns pr
+                -   INNER JOIN contents c ON pr.currentContainerId = c.content  AND c.contentType = 'poolTubeId'
+                -  WHERE pr.currentParentId = ?
+                -  GROUP BY pr.currentContainerId
+                string {_recId}
+                string {_recId}
+              columnSpecs~ associatedSpecimens
+                allowChangedRecordIds
+                column 5
+                  formatDate~
+                  convertDateTime~ false
+
+          br
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+            class= sectionContent verticalFlex
+            span Associated Controls
+            table
+              id= associatedSpecimens
+              sqlPreparedQuery~
+                - SELECT
+                -   ifnull(cr.currentParentPosition, '') AS "Order",
+                -   cr.currentContainerId AS "Tube ID",
+                -   c.controlType AS "Control Type",
+                -   cr.controlId AS "Control ID",
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "Comment History"
+                - FROM controlRuns cr
+                -   INNER JOIN controls c ON cr.controlId = c.controlId
+                -   LEFT JOIN containerNotes cn ON cn.containerId = cr.controlRunId
+                - WHERE cr.currentParentId = ?
+                - GROUP BY cr.controlRunId
+                string {_recId}
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ poolTube
+            class= sectionContent verticalFlex
+            span Specimens In Pool Tube
+            table
+              id= poolSpecimens
+              sqlPreparedQuery~
+                - SELECT
+                -   c.content AS 'Specimen ID',
+                -   rs.requestId AS 'Order ID',
+                -   rf.mrn AS 'MRN',
+                -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS 'Patient Name',
+                -   DATE(dob) AS 'DOB',
+                -   rs.specimenType AS 'Specimen Type',
+                -   GROUP_CONCAT(DISTINCT p.name) AS "Panel(s)"
+                - FROM contents c
+                -  INNER JOIN contents c1 ON c1.containerId = c.content AND c1.contentType = 'requestId'
+                -  INNER JOIN specimenRuns sr ON c1.containerId = sr.currentContainerId
+                -  INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -  INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -  INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+                -  INNER JOIN patients pa ON rs.patientId = pa.patientId
+                -  LEFT JOIN panels p ON sm.panelCode = p.panelCode
+                - WHERE c.containerId = ?
+                - GROUP BY c.content
+                string {_recId}
+              columnSpecs~ associatedSpecimens
+                allowChangedRecordIds
+                column 5
+                  formatDate~
+                  convertDateTime~ false
+
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+              or~
+                equals~ poolTube
+            class= sectionContent verticalFlex
+            span Selected Grouping Container
+            table
+              id= selectedGroupingContainerAction
+              sqlPreparedQuery~
+                -  SELECT
+                -     '' AS 'Select',
+                -     CONCAT('<span style=display:none; class= queuedContainerId >',q.containerId,'</span>' '<span class="containerId">',CASE WHEN co.containerType = 'poolRunId' THEN pr.currentContainerId ELSE q.containerId END,'</span>') AS 'Grouping Container ID',
+                -     ifNULL(vv.displayValue,'') AS 'Priority',
+                -     '' AS 'Action',
+                -     '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -     '' AS 'Comment',
+                -     GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -     "group" AS "Hidden",
+                -     co.containerType AS 'Hidden',
+                -     CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END AS 'Hidden'
+                # -     CONCAT('<span class="poolRunParentId">',CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END,'</span>') AS 'Hidden'
+                -   FROM queues q
+                -     INNER JOIN events e on q.eventId = e.eventId
+                -     INNER JOIN contents c ON q.containerId = c.containerId
+                -     INNER JOIN containers co ON. q.containerId = co.containerId
+                -     LEFT JOIN containerProperties cp ON q.containerId = cp.containerId
+                -       AND cp.property = 'Container Priority'
+                -     LEFT JOIN validValues vv ON cp.value = vv.value
+                -       AND vv.setName = 'priority'
+                -     LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+                -     LEFT JOIN poolRuns pr ON q.containerId = pr.poolRunId
+                -     LEFT JOIN poolRuns pr2 ON pr.currentContainerId = pr2.currentParentId
+                -   WHERE q.step = ?
+                -     AND q.containerId = ?
+                -   GROUP BY q.containerId
+                string {_step}
+                string {_recId}
+              columnSpecs~ selectedGroupingContainerAction
+                allowChangedRecordIds
+                column 1
+                  data-orderable= false
+                  inputType checkbox
+                    class= eHIncludeCkbx groupingContainerCheckbox
+                column 4
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandlingGroup
+                    required~ false
+                column 6
+                  inputType textArea
+                    class= enteredComment
+                column 8
+                  inputType text
+                    class= hideColumn handlingType
+                column 9
+                  inputType text
+                    class= hideColumn
+                column 10
+                  inputType text
+                    class= hideColumn poolRunParentId
+
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+            class= sectionContent verticalFlex
+            span Parent of Selected Grouping Container
+            table
+              id= selectedGroupingContainerParent
+              sqlPreparedQuery~
+                - SELECT *
+                -   FROM (
+                -         SELECT DISTINCT
+                -           '' AS 'Select',
+                -           CONCAT('<span style=display:none; class= queuedContainerId >',sr1.currentParentId,'</span><span class="containerId parentGroupingContainer">',sr2.currentParentId,'</span>') AS 'Parent Grouping Container',
+                -           ifNULL(vv.displayValue,'') AS 'Priority',
+                -           '' AS 'Action',
+                -           '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -           '' AS 'Comment',
+                -           GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -           "groupParent" AS "Hidden"
+                -        FROM specimenRunsHistory  sr1
+                -           INNER JOIN specimenRunsHistory sr2 ON sr1.parentWorkflowSpecimenRunId = sr2.id
+                -           LEFT JOIN containerProperties cp ON sr2.currentParentId = cp.containerId AND cp.property = 'Container Priority'
+                -           LEFT JOIN validValues vv ON cp.value = vv.value AND vv.setName = 'priority'
+                -           LEFT JOIN containerNotes cn ON sr2.currentParentId = cn.containerId
+                -        WHERE sr1.currentParentId = ?
+                -         AND sr1.currentParentId <> sr2.currentParentId
+                -         AND sr2.currentParentId IS NOT NULL
+                -       GROUP BY sr2.currentParentId
+                -         ORDER BY sr1.eventId DESC
+                -   ) a
+                - LIMIT 1
+                string {_recId}
+              columnSpecs~ selectedGroupingContainerParent
+                allowChangedRecordIds
+                column 1
+                  data-orderable= false
+                  inputType checkbox
+                    class= eHIncludeCkbx queuedParentVal groupingContainerCheckbox
+                column 4
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandlingParentGroup
+                    required~ false
+                column 6
+                  inputType textArea
+                    class= enteredComment
+                column 8
+                  inputType text
+                    class= hideColumn handlingType
+        br
+
+        button Submit
+          id= submitbutton
+
+    stepGroup Report Print HiddenGroup
+
+    step GeneratePDFReport
+      allowUnsafeParameters~
+      ContentSecurityPolicy img-src data: https:;
+      Cache-Control no-cache
+      Cache-Control no-store
+      form
+        script
+          src= js/reporting/reportingPDF.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT q.reportId AS 'reportId', q.autoRun AS 'autoRun'
+          - FROM (SELECT CASE WHEN ? = '' THEN containerId ELSE ? END AS "reportId",
+          -              CASE WHEN  ? = '' THEN 'true' ELSE 'false' END AS "autoRun"
+          -       FROM queues
+          -       WHERE step = ?
+          -       UNION ALL
+          -       SELECT ? AS "reportId",
+          -         'false' AS "autoRun"
+          -       FROM dual) q
+          - limit 1
+          string {_recId}
+          string {_recId}
+          string {_recId}
+          string {_step}
+          string {_recId}
+
+        formPreparedQuery~
+          - SELECT reportDefinitionVersionId AS 'versionId'
+          - , id AS 'reportDetailsId'
+          - , status AS 'reportDetailsStatus'
+          - , CASE WHEN reportType IN('corrected', 'addended', 'amended', 'rejected', 'canceled') THEN reportType ELSE 'final' END AS 'reportType'
+          - FROM reportDetails
+          - WHERE reportId = ?
+          string {_:reportId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT medicalDirectorsignatureTitle1 AS 'signatureName'
+          - , medicalDirectorsignatureTitle2 AS 'signatureTitle'
+          - , CONCAT('images/signatures/', medicalDirectorImage) AS 'signatureImagePath'
+          - from reportSignatures
+          - where medicalDirectorId = ?
+          string {_userId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -    CASE WHEN reportTemplateHTML = '' THEN 'defaultReportTemplate.html'
+          -               WHEN reportTemplateHTML  IS NULL THEN 'defaultReportTemplate.html'
+          -                ELSE reportTemplateHTML END AS 'templateFileHTML'
+          - ,  CASE WHEN reportTemplateCSS = '' THEN 'defaultReportStyle.css'
+          -                WHEN reportTemplateCSS IS NULL  THEN 'defaultReportStyle.css'
+          -                ELSE reportTemplateCSS END AS 'templateFileCSS'
+          - FROM reportSettings
+          - WHERE reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          - CASE WHEN '{_:templateFileHTML}' = 'defaultReportTemplate.html'
+          -            THEN  'This is the LIMS default report template. A specific report template has not yet been assigned in reporting configuration. '
+          -            ELSE '' END AS 'DefaultMessage'
+          - FROM dual
+
+        formOutputJython~
+          from java.lang import StringBuffer
+          from java.io import BufferedReader
+          from java.io import FileReader
+          from java.io import File
+          from java.lang import String
+          from java.lang import System
+
+          def getContents():
+            contents = StringBuffer()
+            reader = BufferedReader(FileReader(File("{_configPath}public/reports/html/"+ '{_:templateFileHTML}')))
+            line = String()
+            while line != None:
+              line = reader.readLine()
+              if line != None:
+                contents.append(line)
+              contents.append(System.getProperty("line.separator"))
+            reader.close()
+            return contents.toString()
+
+          htmlTemplate = getContents()
+
+        formOutputJython~
+          from reportData import ReportData
+
+          reportId = '{_:reportId}'
+          reportData = ReportData(switchboard, reportId)
+          repObj = reportData.makeReportObj()
+          repJSONObj = reportData.toJson(repObj)
+
+        div
+          id= errorMessageArea
+
+        div
+          id= containerComponent
+          style= display:none;
+          include containerComponent
+            parameter~ containerName
+              value= reportId
+            parameter~ containerScreenLabel
+              value= Report Id
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= reportId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:reportId}
+            parameter~ useThisSequence
+              value=
+            parameter~ containerCommentsInclude
+              value= Yes
+            parameter~ containerActionInclude
+              value= No
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ parentIdRequired
+              value= false
+            parameter~ includePriority
+              value= No
+            parameter~ containerFileUpload
+              value= No
+
+        textArea reportDataObj
+          id= jsonObject
+          value= {_j:repJSONObj}
+          class= hide
+          style= display:none;
+
+        hidden configPath
+          id= configPath
+          value= {_configPath}
+
+        hidden reportDefinitionVersionId
+          id= versionId
+          value= {_:versionId}
+
+        hidden reportType
+          id= reportType
+          value= {_:reportType}
+
+        hidden reportDetailsStatus
+          id= reportDetailsStatus
+          value= {_:reportDetailsStatus}
+
+        hidden reportDetailsId
+          id= reportDetailsId
+          value= {_:reportDetailsId}
+
+        hidden templateFile
+          id= templateFile
+          value= {_:templateFileHTML}
+          allowHtml~
+
+        hidden templateCSSFile
+          id= templateCSSFile
+          value= {_:templateFileCSS}
+
+        hidden signatureName
+          id= signatureName
+          value= {_:signatureName}
+
+        hidden signatureTitle
+          id= signatureTitle
+          value= {_:signatureTitle}
+
+        hidden signatureImagePath
+          id= signatureImagePath
+          value= {_:signatureImagePath}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden reportIdHidden
+          value= {_:reportId}
+          id= reportId
+
+        hidden autoRun
+          id= autoRun
+          value= {_:autoRun}
+
+        hidden autoCreatePDFReady
+          id= autoCreatePDFReady
+          value= false
+
+        hidden _recId
+          value= {_recId}
+          keepValue~
+
+        div
+          id= progress_text
+          style= display:none;
+          span Report {_:reportId} is being generated.
+          span  It may take a few minutes for all reports to complete.
+
+        div
+          id= progress_overlay
+          img
+            src= images/loader.gif
+            style= 25px;
+
+        textArea reportTemplate
+          screenLabel~
+          value= {_j:htmlTemplate}
+          class= hide
+          style= display:none;
+
+
+        div head
+          id= head
+          class= hide
+          style= display:none
+        div headerHTML
+          id= headerHTML
+          class= hide
+          style= display:none
+        div contentHTML
+          id= contentHTML
+          class= hide
+          style= display:none
+        div footerHTML
+          id= footerHTML
+          class= hide
+          style= display:none;
+
+        vertical
+          span {_:DefaultMessage}
+            id= defaultTemplateMessage
+            class= newLabel
+            style= display:none
+
+          div {_j:htmlTemplate}
+            id= theReport
+            style= display:none;
+
+        vertical
+          id= actionDiv
+          style= display:none
+          select action
+            id= action
+            screenLabel~ Action
+
+        vertical
+          id= pinDiv
+          span Enter Your Pin
+            configureIf~ {_:autoRun}
+              advanced~
+              equals~ false
+          userPIN mypin
+            configureIf~ {_:autoRun}
+              advanced~
+              equals~ false
+            validatePIN~
+            screenLabel~
+
+
+      ifCondition~ {reportIdHidden}
+        advanced~
+        not~
+          isBlank~
+        and~ {action}
+          equals~ Result Data Review
+        sqlPreparedStatement DELETE FROM queues WHERE (step = ? OR step = ?)AND containerId =  ?
+          string GeneratePDFReport
+          string Sign Out Report
+          string {reportIdHidden}
+
+        sqlPreparedStatement INSERT INTO queues (containerId, step, eventId) VALUES (?, ?, ?)
+          string {reportIdHidden}
+          string Result Data Review
+          long {_eventId}
+
+      ifCondition~ {reportIdHidden}
+        advanced~
+        not~
+          isBlank~
+        and~ {action}
+          equals~ Approve
+        sqlPreparedStatement DELETE FROM queues WHERE (step = ? OR step = ?)AND containerId =  ?
+          string GeneratePDFReport
+          string Sign Out Report
+          string {reportIdHidden}
+
+        sqlPreparedStatement INSERT INTO queues (containerId, step, eventId) VALUES (?, ?, ?)
+          string {reportIdHidden}
+          string Final Reports
+          long {_eventId}
+
+        ## update reportDetails with proper status
+        sqlPreparedStatement
+          - UPDATE reportDetails
+          - SET reportType = ?
+          - , status = ?
+          - , statusEventId = ?
+          - WHERE id = ?
+          string {reportType}
+          string released
+          long {_eventId}
+          string {reportDetailsId}
+
+        # HL7 Report Outbound Jython
+        jython
+          from reportData import ReportData
+          from reportMetaData import ReportMetaData
+          import json
+          import os
+          import com.uniconnect.uniflow.services.RawMessageNodeProcessor as RawMessageNodeProcessor
+          import com.uniconnect.uniflow.Node as Node
+          import com.uniconnect.uniflow.services.MsgTypes as MsgTypes
+
+          reportId = '{reportIdHidden}'
+          reportData = ReportData(switchboard, reportId)
+          reportObj = reportData.makeReportObj()
+
+
+          getReportFileSqlQuery = "SELECT rdata.pdfFilePath FROM reportedData rdata INNER JOIN reportDetails rdetails " + \
+            - " ON rdetails.id = rdata.reportDetailsId WHERE rdetails.reportId = ? AND rdata.active = 1"
+          ps = switchboard.connection.prepareStatement(getReportFileSqlQuery)
+          ps.setString(1, reportId)
+          rs = ps.executeQuery()
+          pdfPath = ''
+          pdfExists = rs.next()
+
+          if pdfExists:
+            pdfPath = rs.getString(1)
+            if not os.path.exists(pdfPath):
+              switchboard.log("PDF File Not Found")
+              pdfPath = ''
+            else:
+              switchboard.log("PDF File Path: " + pdfPath)
+              reportObj['report']['reportFile'] = pdfPath
+
+
+          reportObj['report']['metaData']['orderInformation']['sendingApp']['value'] = 'MITOGEN'
+          reportJson = reportData.toJson(reportObj, True)
+
+
+          reportNodeTree = RawMessageNodeProcessor.rawStringToNode(reportJson, Node(''), MsgTypes.JSON)
+
+          switchboard.resultForest = reportNodeTree
+
+        sendMessage HL7 Report Outbound
+          service~ Report Outbound Service
+          resetSwitchboardResultForest~ true
+
+
+      setFormQueryResult
+        sqlPreparedQuery SELECT CASE (SELECT DISTINCT 1 FROM queues WHERE step = '{_step}')
+          - WHEN '1' THEN '{_step}'
+          - ELSE 'Sign Out Report'
+          - END AS "nextStep"
+
+      nextStep {_:nextStep}
+        formNumber 0
+
+    step GeneratePreviewReport
+      allowUnsafeParameters~
+      ContentSecurityPolicy img-src data: https:;
+      Cache-Control no-cache
+      Cache-Control no-store
+      form
+        script
+          src= js/reporting/reportPreview.js
+
+        include stepInstructions
+
+        formPreparedQuery~
+          - SELECT reportDefinitionVersionId AS 'versionId'
+          - , id AS 'reportDetailsId'
+          - , status AS 'reportDetailsStatus'
+          - , reportId AS 'reportId' 
+          - , CASE WHEN reportType IN('corrected', 'addended', 'amended', 'rejected', 'canceled') THEN reportType ELSE 'final' END AS 'reportType'
+          - FROM reportDetails
+          - WHERE reportId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT medicalDirectorsignatureTitle1 AS 'signatureName'
+          - , medicalDirectorsignatureTitle2 AS 'signatureTitle'
+          - , CONCAT('images/signatures/', medicalDirectorImage) AS 'signatureImagePath'
+          - from reportSignatures
+          - where medicalDirectorId = ?
+          string {_userId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -    CASE WHEN reportTemplateHTML = '' THEN 'defaultReportTemplate.html'
+          -               WHEN reportTemplateHTML  IS NULL THEN 'defaultReportTemplate.html'
+          -                ELSE reportTemplateHTML END AS 'templateFileHTML'
+          - ,  CASE WHEN reportTemplateCSS = '' THEN 'defaultReportStyle.css'
+          -                WHEN reportTemplateCSS IS NULL  THEN 'defaultReportStyle.css'
+          -                ELSE reportTemplateCSS END AS 'templateFileCSS'
+          - FROM reportSettings
+          - WHERE reportDefinitionVersionId = ?
+          string {_:versionId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          - CASE WHEN '{_:templateFileHTML}' = 'defaultReportTemplate.html'
+          -            THEN  'This is the LIMS default report template. A specific report template has not yet been assigned in reporting configuration. '
+          -            ELSE '' END AS 'DefaultMessage'
+          - FROM dual
+
+        
+        formOutputJython~
+          from java.lang import StringBuffer
+          from java.io import BufferedReader
+          from java.io import FileReader
+          from java.io import File
+          from java.lang import String
+          from java.lang import System
+
+          def getContents():
+            contents = StringBuffer()
+            reader = BufferedReader(FileReader(File("{_configPath}public/reports/html/"+ '{_:templateFileHTML}')))
+            line = String()
+            while line != None:
+              line = reader.readLine()
+              if line != None:
+                contents.append(line)
+              contents.append(System.getProperty("line.separator"))
+            reader.close()
+            return contents.toString()
+
+          htmlTemplate = getContents()
+
+        formOutputJython~
+          from reportData import ReportData
+
+          reportId = '{_:reportId}'
+          reportData = ReportData(switchboard, reportId)
+          repObj = reportData.makeReportObj()
+          repJSONObj = reportData.toJson(repObj)
+
+        div
+          id= errorMessageArea
+
+        hidden configPath
+          id= configPath
+          value= {_configPath}
+
+        hidden reportDefinitionVersionId
+          id= versionId
+          value= {_:versionId}
+
+        hidden reportType
+          id= reportType
+          value= {_:reportType}
+
+        hidden reportDetailsStatus
+          id= reportDetailsStatus
+          value= {_:reportDetailsStatus}
+
+        hidden reportDetailsId
+          id= reportDetailsId
+          value= {_:reportDetailsId}
+
+        hidden templateFile
+          id= templateFile
+          value= {_:templateFileHTML}
+          allowHtml~
+
+        hidden templateCSSFile
+          id= templateCSSFile
+          value= {_:templateFileCSS}
+
+        hidden signatureName
+          id= signatureName
+          value= {_:signatureName}
+
+        hidden signatureTitle
+          id= signatureTitle
+          value= {_:signatureTitle}
+
+        hidden signatureImagePath
+          id= signatureImagePath
+          value= {_:signatureImagePath}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden reportIdHidden
+          value= {_:reportId}
+          id= reportId
+
+        hidden _recId
+          value= {_recId}
+          keepValue~
+
+        div
+          id= progress_text
+          style= display:none;
+          span Report {_:reportId} is being generated.
+          span  It may take a few minutes for all reports to complete.
+
+        div
+          id= progress_overlay
+          img
+            src= images/loader.gif
+            style= 25px;
+
+        textArea reportDataObj
+          id= jsonObject
+          value= {_j:repJSONObj}
+          class= hide
+          style= display:none;
+
+        textArea reportTemplate
+          screenLabel~
+          value= {_j:htmlTemplate}
+          class= hide
+          style= display:none;
+
+
+        vertical
+          span {_:DefaultMessage}
+            id= defaultTemplateMessage
+            class= newLabel
+            style= display:none
+
+          div {_j:htmlTemplate}
+            id= theReport
+            style= display:none;
+
+    step Ajax POST Report PDF
+      allowUnsafeParameters~
+      accessLevel 2
+      form
+      include htmlToPdf
+
+      jython
+        from reportData import ReportData
+
+        reportId = '{reportId}'
+        reportData = ReportData(switchboard, reportId)
+        repObj = reportData.makeReportObj()
+        repJSONObj = reportData.toJson(repObj)
+
+
+      jython
+        import os
+        import shutil
+        import datetime
+        import json
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from general_functions import *
+        from reporting_general import *
+
+
+        errorLocation = '<<<<<< Ajax POST Report PDF >>>>>>'
+        try:
+          reportId = '{reportId}'
+          switchboard.log(reportId)
+
+          src = "{_configPath}private/reports/{reportId}.pdf"
+          dest = "{_configPath}private/reports/archive/{reportId}_{_eventId}.pdf"
+          archiveReportName = "{reportId}_{_eventId}.pdf"
+          archiveReportPath = "{_configPath}private/reports/archive"
+
+          if os.path.exists(src):
+            shutil.move(src, dest)
+
+            errorLocation = 'Jython - insertContainerFiles for archive'
+            insertContainerFiles(switchboard, reportId, 'archivedReport', archiveReportName,  archiveReportPath, {_eventId})
+
+            errorLocation = 'Jython - updateReportData for archive '
+            updateReportData(switchboard, 0, dest, {_eventId}, '{reportDetailsId}')
+
+          errorLocation = 'argObj'
+          argsObj = ~{
+            'page-size': '{page_size}',
+            'orientation': '{orientation}',
+            'margin-top': '{margin_top}',
+            'margin-right': '{margin_right}',
+            'margin-bottom': '{margin_bottom}',
+            'margin-left': '{margin_left}',
+            'header-spacing': '{header_spacing}',
+            'footer-spacing' : '{footer_spacing}'
+          ~}
+          subs = ~{~}
+          ## the html files MUST have <!DOCTYPE html> or it will not render in the PDF
+          reportBody = '''<!DOCTYPE html><html>{htmlBody}</html>'''
+          headerBody = '''<!DOCTYPE html><html><head>{reportHead}</head><body onload="substitute();">{htmlHeader}</body></html>'''
+          footerBody = '''<!DOCTYPE html><html><head>{reportHead}</head><body onload="substitute();">{htmlFooter}</body></html>'''
+
+          homePath = '{_configPath}'.rstrip('/').rstrip('/bin')
+          privatePath = '%s/private/reports' % homePath
+          htmlPath = '%s/%s.html' % (privatePath, reportId)
+          pdfPath = '%s/%s.pdf' % (privatePath, reportId)
+
+          homePath = '{_configPath}'.rstrip('/').rstrip('/bin')
+          privatePath = '%s/private/reports' % homePath
+
+          bodyHTMLPath = '%s/%s.html' % (privatePath, reportId)
+          headerHTMLPath = '%s/%s_header.html' % (privatePath, reportId)
+          footerHTMLPath = '%s/%s_footer.html' % (privatePath, reportId)
+
+          bodyPDFPath = '%s/%s.pdf' % (privatePath, reportId)
+          headerPDFPath = '%s/%s_header.pdf' % (privatePath, reportId)
+          footerPDFPath = '%s/%s_footer.pdf' % (privatePath, reportId)
+          errorLocation = 'Jython - open temp file'
+
+          destFile = open(bodyHTMLPath, 'w')
+          destFile.write (reportBody)
+          destFile.close()
+          errorLocation = 'Jython - open body temp file'
+          #create temp file
+          headFile = open(headerHTMLPath, 'w')
+          headFile.write (headerBody)
+          headFile.close()
+          errorLocation = 'Jython - open header temp file'
+          #create temp file
+          footFile = open(footerHTMLPath, 'w')
+          footFile.write (footerBody)
+          footFile.close()
+          errorLocation = 'Jython - open footer temp file'
+          # create pdf
+          errorLocation = 'Jython - call_htmltopdf definition '
+
+          call_htmltopdf(bodyHTMLPath, bodyPDFPath, headerHTMLPath, footerHTMLPath, replace=~{~}, args= argsObj)
+
+          errorLocation = 'Jython - insertContainerFiles '
+          reportPDFExists = fileTypeExists(switchboard, reportId, 'Report PDF')
+          if reportPDFExists == True:
+            updateContainerFiles(switchboard, os.path.basename(bodyPDFPath),  os.path.dirname(bodyPDFPath), {_eventId}, reportId, 'Report PDF')
+          else:
+            insertContainerFiles(switchboard, reportId, 'Report PDF', os.path.basename(bodyPDFPath),  os.path.dirname(bodyPDFPath), {_eventId})
+
+          errorLocation = 'Jython - bodyHTMLPath files '
+          if os.path.exists(bodyHTMLPath):
+            os.remove(bodyHTMLPath)
+          errorLocation = 'Jython - footerHTMLPath files '
+          if os.path.exists(footerHTMLPath):
+            os.remove(footerHTMLPath)
+          errorLocation = 'Jython - headerHTMLPath files '
+          if os.path.exists(headerHTMLPath):
+            os.remove(headerHTMLPath)
+
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+        except Exception as e:
+          switchboard.log("---FAILURE TO INSERT/UPDATE REPORT DATA----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Data processing has failed. Results have not been saved.
+
+      ## insert latest reportedData with active =1
+      sqlPreparedStatement
+        - INSERT INTO reportedData
+        - (reportDetailsId
+        -  , jsonData
+        - , reportHTML
+        - , reportDefinitionVersionId
+        - , status
+        - , active
+        - , pdfFIlePath
+        - , eventId
+        - , lastUpdatedEventId)
+        - VALUES (?,?,?,?,?,?,?,?,?)
+        string {reportDetailsId}
+        string {_j:repJSONObj}
+        string {reportHTML}
+        string {versionId}
+        string {status}
+        int 1
+        string {pdfFIlePath}
+        long {_eventId}
+        long {_eventId}
+
+    step Save Result Data Review
+      form
+
+      jython
+        import json
+        import datetime
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from general_functions import *
+        from run import Run
+
+        errorLocation = '<<<<< BEGIN: Save Result Data Review  >>>>>'
+        switchboard.log('<<<<<< BEGIN: Save Result Data Review  >>>>>>')
+
+        associatedRunsOrg = r'''{associatedRuns}'''.encode("utf-8")
+        actionVal = r'''{actionVal}'''.encode("utf-8")
+        reportId = r'''{reportId}'''.encode("utf-8")
+        reportStatus = r'''{reportStatus}'''.encode("utf-8")
+        itemsToProcessOrg = r'''{resultDataArrJson}'''.encode("utf-8")
+        imagesToRemoveOrg = r'''{removedResultImgJson}'''.encode("utf-8")
+
+        errorLocation = '<<<<< BEGIN: Save Result Data Review try block >>>>>'
+        switchboard.log('<<<<<< BEGIN: Save Result Data Review try block >>>>>>')
+        try:
+          if associatedRunsOrg:
+            errorLocation = '<<<<< Save Result Data Review  itemsToProcess >>>>>'
+            associatedRuns = json.loads(associatedRunsOrg, strict=False)
+            if actionVal:
+              if actionVal == 'Exception Handling':
+                if associatedRuns:
+                  errorLocation = '<<<<< Save Result Data Review  Exception Handling associatedRuns >>>>>'
+                  for runs in associatedRuns:
+                    errorLocation = '<<<<< Save Result Data Review  Exception Handling run >>>>>'
+                    r = Run(switchboard, runs)
+                    if r.result not in ['rework', 'Discarded', 'fail', 'Storage', 'Store']:
+                      insertQueue(switchboard, runs, 'Exception Handling', {_eventId})
+                    else:
+                      switchboard.log('<<<<< RUN ' + r.run_id +  ' PREVIOUSLY PROCESSED WITH RESULT OF ' + blank_if_null(r.result) + ' >>>>>')
+                  errorLocation = '<<<<< remove report from this step >>>>>'
+                  deleteQueueByStepAndContainer(switchboard, reportId, 'Result Data Review')
+                  insertQueue(switchboard, reportId, 'Report Data Pending', {_eventId})
+              else:
+                if actionVal == 'Save and Approve':
+                  errorLocation = '<<<<< Save Result Data Review  Sign Out Report >>>>>'
+                  insertQueue(switchboard, reportId, 'Sign Out Report', {_eventId})
+
+                  errorLocation = '<<<<< update report details for action Sign Out Report >>>>>'
+                  updateReportDetailsStatusAndType(switchboard, reportId, 'reviewed', 'interim', {_eventId})
+
+                  errorLocation = '<<<<< remove report from this step >>>>>'
+                  deleteQueueByStepAndContainer(switchboard, reportId, 'Result Data Review')
+                else:
+                  updateReportDetailsStatus(switchboard, reportId, 'data saved', {_eventId})
+
+                ## loop throught reportResultDataId's for images being removed and set them to currentResult of 0
+
+                errorLocation = '<<<<< Save Result Data Review  eventId >>>>>'
+                eventId = {_eventId}
+                switchboard.log('<<<<<< eventId  ' + str(eventId) + '>>>>>>')
+
+                if imagesToRemoveOrg:
+                  imagesToRemove = json.loads(imagesToRemoveOrg, strict=False)
+                  errorLocation = '<<<<< Save Result Data Review  imagesToRemove >>>>>'
+                  if imagesToRemove:
+                    errorLocation = '<<<<< Save Result Data Review  imagesToRemove item >>>>>'
+                    for item in imagesToRemove:
+                      switchboard.log('<<<<<< image to remove reportResultDataId  ' + str(item) + '>>>>>>')
+                      updateReportResultDataCurrentResult(switchboard, 0, eventId, item)
+
+                if itemsToProcessOrg:
+                  itemsToProcess = json.loads(itemsToProcessOrg, strict=False)
+
+                  errorLocation = '<<<<< Save Result Data Review  itemsToProcess >>>>>'
+                  if itemsToProcess:
+
+                    errorLocation = '<<<<< Save Result Data Review  item >>>>>'
+                    for item in itemsToProcess:
+                      switchboard.log('<<<<<< BEGIN: Save Result Data Review  ' + str(item) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  reportDetailsId >>>>>'
+                      reportDetailsId = item['reportDetailsId']
+                      switchboard.log('<<<<<< reportDetailsId  ' + str(reportDetailsId) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  specimenId >>>>>'
+                      specimenId = item.get('specimenId','')
+                      switchboard.log('<<<<<< specimenId  ' + str(specimenId) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  panelCode >>>>>'
+                      panelCode = item.get('panelCode','')
+                      switchboard.log('<<<<<< panelCode  ' + str(panelCode) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  testCode >>>>>'
+                      testCode = item.get('testCode','')
+                      switchboard.log('<<<<<< testCode  ' + str(testCode) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  methodCode >>>>>'
+                      methodCode = item.get('methodCode','')
+                      switchboard.log('<<<<<< methodCode  ' + str(methodCode) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  analysisDataId >>>>>'
+                      analysisDataId = item.get('analysisDataId','')
+                      switchboard.log('<<<<<< analysisDataId  ' + str(analysisDataId) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  result >>>>>'
+                      result = item.get('result','')
+                      switchboard.log('<<<<<< result  ' + str(result) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  originalResult >>>>>'
+                      originalResult = item.get('originalResult','')
+                      switchboard.log('<<<<<< originalResult  ' + str(originalResult) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  dataType >>>>>'
+                      dataType = item.get('dataType','')
+                      switchboard.log('<<<<<< dataType  ' + str(dataType) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  varcharResult >>>>>'
+                      varcharResult = None
+
+                      errorLocation = '<<<<< Save Result Data Review  varcharReviewResult >>>>>'
+                      varcharReviewResult = None
+
+                      errorLocation = '<<<<< Save Result Data Review  decimalResult >>>>>'
+                      decimalResult = None
+
+                      errorLocation = '<<<<< Save Result Data Review  decimalReviewResult >>>>>'
+                      decimalReviewResult = None
+
+                      errorLocation = '<<<<< Save Result Data Review  dateTimeResult >>>>>'
+                      dateTimeResult = None
+
+                      errorLocation = '<<<<< Save Result Data Review  dateTimeReviewResult >>>>>'
+                      dateTimeReviewResult = None
+
+                      errorLocation = '<<<<< Save Result Data Review  imageResult >>>>>'
+                      imageResult = None
+
+                      if dataType == 'varchar' or dataType == '':
+                        errorLocation = '<<<<< Save Result Data Review  varcharResult in if >>>>>'
+                        varcharResult = originalResult
+                        switchboard.log('<<<<<< varcharResult  ' + str(varcharResult) + '>>>>>>')
+
+                        errorLocation = '<<<<< Save Result Data Review  varcharReviewResult in if >>>>>'
+                        varcharReviewResult = result
+                        switchboard.log('<<<<<< varcharReviewResult  ' + str(varcharReviewResult) + '>>>>>>')
+
+                      if dataType == 'decimal':
+                        errorLocation = '<<<<< Save Result Data Review  decimalResult in if >>>>>'
+                        decimalResult = originalResult
+                        switchboard.log('<<<<<< decimalResult  ' + str(decimalResult) + '>>>>>>')
+
+                        errorLocation = '<<<<< Save Result Data Review  decimalReviewResult in if >>>>>'
+                        decimalReviewResult = result
+                        switchboard.log('<<<<<< decimalReviewResult  ' + str(decimalReviewResult) + '>>>>>>')
+
+                      if dataType == 'dateTime':
+                        errorLocation = '<<<<< Save Result Data Review  dateTimeResult >>>>>'
+                        dateTimeResult = originalResult
+                        switchboard.log('<<<<<< dateTimeResult  ' + str(dateTimeResult) + '>>>>>>')
+
+                        errorLocation = '<<<<< Save Result Data Review  dateTimeReviewResult >>>>>'
+                        dateTimeReviewResult = result
+                        switchboard.log('<<<<<< dateTimeReviewResult  ' + str(dateTimeReviewResult) + '>>>>>>')
+
+                      if dataType == 'image':
+                        errorLocation = '<<<<< Save Result Data Review  imageResult >>>>>'
+                        imageResult = result
+                        switchboard.log('<<<<<< imageResult  ' + str(imageResult) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  interpretation >>>>>'
+                      interpretation = item.get('interpretation','')
+                      switchboard.log('<<<<<< interpretation  ' + str(interpretation) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  wording >>>>>'
+                      wording = item.get('wording','')
+                      switchboard.log('<<<<<< wording  ' + str(wording) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  isOverall >>>>>'
+                      isOverall = item.get('isOverall','')
+                      switchboard.log('<<<<<< isOverall  ' + str(isOverall) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  isPanelOverall >>>>>'
+                      isPanelOverall = item.get('isPanelOverall','')
+                      switchboard.log('<<<<<< isPanelOverall  ' + str(isPanelOverall) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  limits >>>>>'
+                      limits = item.get('limit','')
+                      switchboard.log('<<<<<< limits  ' + str(limits) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  reportableUnits >>>>>'
+                      reportableUnits = item.get('units','')
+                      switchboard.log('<<<<<< reportableUnits  ' + str(reportableUnits) + '>>>>>>')
+
+                      errorLocation = '<<<<< Save Result Data Review  reportResultDataId >>>>>'
+                      reportResultDataId = item.get('reportResultDataId','')
+                      switchboard.log('<<<<<< reportResultDataId  ' + str(reportResultDataId) + '>>>>>>')
+
+                      if reportResultDataId == '' and reportStatus == 'data ready':
+                        if specimenId == '':
+                          insertReportResultDataNoSpecimen(switchboard, reportDetailsId, panelCode, varcharReviewResult, interpretation, wording, isOverall, isPanelOverall, eventId)
+                        else:
+                          insertReportResultData(switchboard, reportDetailsId, specimenId, panelCode, testCode, methodCode, analysisDataId, varcharResult, varcharReviewResult, decimalResult, decimalReviewResult, dateTimeResult, dateTimeReviewResult, imageResult, interpretation, wording, isOverall, isPanelOverall, limits, reportableUnits, eventId)
+                      elif reportResultDataId == '' and dataType == 'image':
+                        insertReportResultData(switchboard, reportDetailsId, specimenId, panelCode, testCode, methodCode, analysisDataId, varcharResult, varcharReviewResult, decimalResult, decimalReviewResult, dateTimeResult, dateTimeReviewResult, imageResult, interpretation, wording, isOverall, isPanelOverall, limits, reportableUnits, eventId)
+                      else:
+                        updateReportResultData(switchboard, varcharResult, varcharReviewResult, decimalResult, decimalReviewResult, dateTimeResult, dateTimeReviewResult, imageResult, interpretation, wording, eventId, reportResultDataId)
+
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+        except Exception as e:
+          switchboard.log("---FAILURE TO INSERT/UPDATE ANALYSIS DATA----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Data processing has failed. Results have not been saved.
+
+    step AjaxGetFinalReportSearch
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= reportSearchTable
+        class= stdTableSort
+        sqlPreparedQuery~ SELECT DISTINCT
+          - rd.reportId AS "Hidden",
+          - CONCAT('<a href="/uniflow?stepName=DownloadFile+Unrestricted&recId=', rd.reportId,'">',rd.reportId,'</a>') AS "Report ID",
+          - CONCAT('<a href="/uniflow?lastForm=Y&stepName=Order+Form&nextStepInstance=View&recId=',rf.requestId,'">',rf.requestId,'</a>') AS "Request Id",
+          - p.patientId AS "Patient ID",
+          - concat(p.firstName,' ',p.lastName) AS "Patient Name",
+          - DATE_FORMAT(p.dob, '%m/%d/%Y') AS "DOB",
+          - ps.mrn AS "MRN",
+          - rf.externalRequestId AS "External Request ID",
+          - o.name AS "Clinic",
+          - CONCAT(ph.first_name,' ', ph.last_name) AS "Physician",
+          - CONCAT(rdef.reportName, '  (', rd.reportType, ') ' ) AS "Report Type",
+          - IFNULL(rrd.varcharReviewResult, '') AS 'Overall Result',
+          - '' AS "Modify",
+          - '' AS "Comments"
+          - FROM reportDetails rd
+          - LEFT JOIN requestForms rf ON rd.requestFormsId = rf.Id
+          - LEFT JOIN patients p ON rf.patientId = p.patientId
+          - LEFT JOIN patientSources ps ON p.patientId = ps.patientId
+          - LEFT JOIN physicians ph ON ph.physicianId = rf.physicianId
+          - LEFT JOIN organizationSites os ON os.siteId = rf.physicianSiteId
+          - LEFT JOIN organizations o ON o.orgId = os.orgId
+          - LEFT JOIN reportDefinitionVersion rdv ON rd.reportDefinitionVersionId = rdv.id
+          - LEFT JOIN reportDefinition rdef ON rdv.reportDefinitionId = rdef.id
+          - LEFT JOIN reportDefinitionPanels rdp ON rd.reportDefinitionVersionId = rdp.reportDefinitionVersionId
+          - LEFT JOIN reportResultData rrd ON rd.Id = rrd.reportDetailsId AND rrd.isOverall = 1 AND rrd.currentResult = 1
+          - LEFT JOIN reportedData rData ON rd.Id = rData.reportDetailsId
+          - LEFT JOIN events e ON e.eventId = rData.eventId
+          - WHERE (((length(?) = 0 AND length(?) = 0) OR DATE_FORMAT(e.eventDate, '%Y-%m-%d') BETWEEN STR_TO_DATE(?, '%m/%d/%Y') AND STR_TO_DATE(?, '%m/%d/%Y'))
+          -     AND (length(?) = 0 OR p.firstName LIKE ?)
+          -     AND (length(?) = 0 OR p.lastName LIKE ?)
+          -     AND (length(?) = 0 OR rdef.reportName LIKE ?)
+          -     AND (length(?) = 0 OR rd.reportId = ?)
+          -     AND (length(?) = 0 OR rf.requestId = ?)
+          -     AND (length(?) = 0 OR p.dob =  str_to_date(?, '%m/%d/%Y'))
+          -     AND (length(?) = 0 OR ps.mrn LIKE ?)
+          -     AND (length(?) = 0 OR rf.externalRequestId = ?)
+          -   ) AND NOT (
+          -   length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0 AND length(?) = 0
+          - )
+          - AND rd.status = 'released'
+          - GROUP BY rd.reportId
+          - ORDER BY
+          -   CASE WHEN (LENGTH(?) > 0 AND p.firstName = ?) THEN 12 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.firstName LIKE ?) THEN 10 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.lastName = ?) THEN 15 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.lastName LIKE ?) THEN 13 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rdef.reportName = ?) THEN 15 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rd.reportId = ?) THEN 17 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rf.requestId = ?) THEN 18 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND p.dob =  str_to_date(?, '%m/%d/%Y')) THEN 19 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND ps.mrn = ?) THEN 20 ELSE 0 END +
+          -   CASE WHEN (LENGTH(?) > 0 AND rf.externalRequestId = ?) THEN 22 ELSE 0 END DESC
+          string {startDate}
+          string {endDate}
+          string {startDate}
+          string {endDate}
+          string {patientFirstName}
+          string %{patientFirstName}%
+          string {patientLastName}
+          string %{patientLastName}%
+          string {reportType}
+          string %{reportType}%
+          string {reportID}
+          string {reportID}
+          string {requestID}
+          string {requestID}
+          string {patientDOB}
+          string {patientDOB}
+          string {patientMRN}
+          string %{patientMRN}%
+          string {externalRequestID}
+          string {externalRequestID}
+          string {startDate}
+          string {endDate}
+          string {patientFirstName}
+          string {patientLastName}
+          string {reportType}
+          string {reportID}
+          string {requestID}
+          string {patientDOB}
+          string {patientMRN}
+          string {externalRequestID}
+          string {patientFirstName}
+          string {patientFirstName}
+          string {patientFirstName}
+          string %{patientFirstName}%
+          string {patientLastName}
+          string {patientLastName}
+          string {patientLastName}
+          string %{patientLastName}%
+          string {reportType}
+          string {reportType}
+          string {reportID}
+          string {reportID}
+          string {requestID}
+          string {requestID}
+          string {patientDOB}
+          string {patientDOB}
+          string {patientMRN}
+          string {patientMRN}
+          string {externalRequestID}
+          string {externalRequestID}
+        columnSpecs~ searchReportResults
+          allowChangedRecordIds
+          column 1
+            inputType text
+              class= reportID
+          column 13
+            inputType select
+              class= reportModify
+              option
+              option Amend Report
+              option Correct Report
+              option Addend Report
+          column 14
+            inputType textArea
+              class= reportComment
+
+    step Post Final Report Modifications
+      form
+      jython
+        import json
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from general_functions import *
+
+        errorLocation = '<<<<< Posting Final Report Data try >>>>>'
+        switchboard.log('<<<<<< Posting Final Report Data >>>>>>')
+        try:
+          data = json.loads(r'''{jsonData}'''.encode("utf-8"))
+          if data:
+            errorLocation = '<<<<< Post Final Report Modifications eventId >>>>>'
+            eventId = {_eventId}
+
+            errorLocation = '<<<<< Post Final Report Modifications data row for loop >>>>>'
+            for row in data:
+
+              errorLocation = '<<<<< Post Final Report Modifications define next step >>>>>'
+              rowNextStep = row['Modify']
+
+              errorLocation = '<<<<< Post Final Report Modifications define report id >>>>>'
+              rowReportId = row['ReportID']
+
+              errorLocation = '<<<<< Post Final Report Modifications define comments >>>>>'
+              rowComment = row['Comments']
+
+              if rowComment:
+                errorLocation = '<<<<< Post Final Report Modifications insertContainerNotes >>>>>'
+                insertContainerNotes(switchboard, rowReportId, 'Final Report Comment', rowComment, eventId)
+
+              if rowNextStep:
+                errorLocation = '<<<<< Post Final Report Modifications delete from final report queue >>>>>'
+                deleteQueueByStepAndContainer(switchboard, rowReportId, 'Final Reports')
+
+                errorLocation = '<<<<< Post Final Report Modifications insert into next step >>>>>'
+                insertQueue(switchboard, rowReportId, rowNextStep, eventId)
+
+                if rowNextStep == 'Correct Report':
+                  errorLocation = '<<<<< Post Final Report Modifications updateReportDetailsStatusAndType for correct report >>>>>'
+                  updateReportDetailsStatusAndType(switchboard, rowReportId, 'inEdit', 'corrected', eventId)
+
+                if rowNextStep == 'Addend Report':
+                  errorLocation = '<<<<< Post Final Report Modifications updateReportDetailsStatusAndType for correct report >>>>>'
+                  updateReportDetailsStatusAndType(switchboard, rowReportId, 'inEdit', 'addended', eventId)
+
+                if rowNextStep == 'Amend Report':
+                  errorLocation = '<<<<< Post Final Report Modifications updateReportDetailsStatusAndType for correct report >>>>>'
+                  updateReportDetailsStatusAndType(switchboard, rowReportId, 'inEdit', 'amended', eventId)
+
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+        except Exception as e:
+          switchboard.log("---FAILURE TO INSERT/UPDATE ANALYSIS DATA----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Error occured. Failed to queue to selected Modify step.
+
+    step ReportValidatePIN
+      form
+      jython
+        from com.uniconnect.uniflow.exception import SystemException
+        from com.uniconnect.uniflow.node import userPIN
+
+        mypin = userPIN()
+        mypin.add("value=", "{userPinVal}")
+        mypin.add("validatePIN~", "")
+        mypin.switchboard = switchboard
+        mypin.validate()
+
+    step Save Amend Report
+      form
+      jython
+        import json
+        import datetime
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from general_functions import *
+        from reporting_general import *
+
+        errorLocation = '<<<<< BEGIN: Save Amend Report  >>>>>'
+        switchboard.log('<<<<<< BEGIN: Save Amend Report  >>>>>>')
+
+        associatedRunsOrg = r'''{associatedRuns}'''.encode("utf-8")
+        actionVal = r'''{actionVal}'''.encode("utf-8")
+        reportId = r'''{reportId}'''.encode("utf-8")
+        reportStatus = r'''{reportStatus}'''.encode("utf-8")
+        itemsToProcessOrg = r'''{resultDataArrJson}'''.encode("utf-8")
+        imagesToRemoveOrg = r'''{removedResultImgJson}'''.encode("utf-8")
+
+        errorLocation = '<<<<< Save Amend Report reportDetailsIdOverall >>>>>'
+        reportDetailsIdOverall = r'''{reportDetailsIdOverall}'''.encode("utf-8")
+        print 'reportDetailsIdOverall ' + str(reportDetailsIdOverall)
+
+
+        errorLocation = '<<<<< Save Amend Report amend text >>>>>'
+        amendText = r'''{amendText}'''.encode("utf-8")
+        print 'amendText ' + str(amendText)
+
+        errorLocation = '<<<<< BEGIN: Save Amend Report try block >>>>>'
+        switchboard.log('<<<<<< BEGIN: Save Amend Report try block >>>>>>')
+        try:
+          if associatedRunsOrg:
+            errorLocation = '<<<<< Save Amend Report itemsToProcess >>>>>'
+            associatedRuns = json.loads(associatedRunsOrg, strict=False)
+            if actionVal:
+              print 'actionVal'
+              print actionVal
+              errorLocation = '<<<<< Save Amend Report Sign Out Report >>>>>'
+              insertQueue(switchboard, reportId, 'Sign Out Report', {_eventId})
+
+              errorLocation = '<<<<< remove report from this step >>>>>'
+              deleteQueueByStepAndContainer(switchboard, reportId, 'Amend Report')
+
+              errorLocation = '<<<<< Save Amend Report insertReportModifications >>>>>'
+              insertReportModifications(switchboard, reportDetailsIdOverall, amendText, 'amended', 1, {_eventId})
+
+              errorLocation = '<<<<< Save Amend Report  eventId >>>>>'
+              eventId = {_eventId}
+              switchboard.log('<<<<<< eventId  ' + str(eventId) + '>>>>>>')
+
+              ## loop throught reportResultDataId's for images being removed and set them to currentResult of 0
+              if imagesToRemoveOrg:
+                imagesToRemove = json.loads(imagesToRemoveOrg, strict=False)
+                errorLocation = '<<<<< Save Amend Report  imagesToRemove >>>>>'
+                if imagesToRemove:
+                  errorLocation = '<<<<< Save Amend Report  imagesToRemove item >>>>>'
+                  for item in imagesToRemove:
+                    switchboard.log('<<<<<< image to remove reportResultDataId  ' + str(item) + '>>>>>>')
+                    updateReportResultDataCurrentResult(switchboard, 0, eventId, item)
+
+              if itemsToProcessOrg:
+                itemsToProcess = json.loads(itemsToProcessOrg, strict=False)
+
+                errorLocation = '<<<<< Save Amend Report itemsToProcess >>>>>'
+                if itemsToProcess:
+                  print itemsToProcess
+
+                  errorLocation = '<<<<< Save Amend Report item >>>>>'
+                  for item in itemsToProcess:
+                    switchboard.log('<<<<<< BEGIN: Save Amend Report ' + str(item) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report reportDetailsId >>>>>'
+                    reportDetailsId = item['reportDetailsId']
+                    switchboard.log('<<<<<< reportDetailsId  ' + str(reportDetailsId) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report specimenId >>>>>'
+                    specimenId = item.get('specimenId','')
+                    switchboard.log('<<<<<< specimenId  ' + str(specimenId) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report panelCode >>>>>'
+                    panelCode = item.get('panelCode','')
+                    switchboard.log('<<<<<< panelCode  ' + str(panelCode) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report testCode >>>>>'
+                    testCode = item.get('testCode','')
+                    switchboard.log('<<<<<< testCode  ' + str(testCode) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report methodCode >>>>>'
+                    methodCode = item.get('methodCode','')
+                    switchboard.log('<<<<<< methodCode  ' + str(methodCode) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report analysisDataId >>>>>'
+                    analysisDataId = item.get('analysisDataId','')
+                    switchboard.log('<<<<<< analysisDataId  ' + str(analysisDataId) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report result >>>>>'
+                    result = item.get('result','')
+                    switchboard.log('<<<<<< result  ' + str(result) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report originalResult >>>>>'
+                    originalResult = item.get('originalResult','')
+                    switchboard.log('<<<<<< result  ' + str(originalResult) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report dataType >>>>>'
+                    dataType = item.get('dataType','')
+                    switchboard.log('<<<<<< dataType  ' + str(dataType) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report interpretation >>>>>'
+                    interpretation = item.get('interpretation','')
+                    switchboard.log('<<<<<< interpretation  ' + str(interpretation) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report wording >>>>>'
+                    wording = item.get('wording','')
+                    switchboard.log('<<<<<< wording  ' + str(wording) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report isOverall >>>>>'
+                    isOverall = item.get('isOverall','')
+                    switchboard.log('<<<<<< isOverall  ' + str(isOverall) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report isPanelOverall >>>>>'
+                    isPanelOverall = item.get('isPanelOverall','')
+                    switchboard.log('<<<<<< isPanelOverall  ' + str(isPanelOverall) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report limits >>>>>'
+                    limits = item.get('limit','')
+                    switchboard.log('<<<<<< limits  ' + str(limits) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report reportableUnits >>>>>'
+                    reportableUnits = item.get('units','')
+                    switchboard.log('<<<<<< reportableUnits  ' + str(reportableUnits) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report reportResultDataId (previous row id )>>>>>'
+                    reportResultDataId = item.get('reportResultDataId','')
+                    switchboard.log('<<<<<< reportResultDataId  ' + str(reportResultDataId) + '>>>>>>')
+
+                    errorLocation = '<<<<< Save Amend Report updateReportResultDataCurrentResult >>>>>'
+                    updateReportResultDataCurrentResult(switchboard, 0, eventId, reportResultDataId)
+
+                    errorLocation = '<<<<< Save Amend Report insertReportResultDataAmend >>>>>'
+                    insertReportResultDataAmend(switchboard, reportDetailsId, specimenId, panelCode, testCode, methodCode, analysisDataId, dataType, result, originalResult, interpretation, wording, isOverall, isPanelOverall, limits, reportableUnits, reportResultDataId, eventId)
+
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+        except Exception as e:
+          switchboard.log("---FAILURE TO INSERT/UPDATE ANALYSIS DATA----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Data processing has failed. Results have not been saved.
+
+

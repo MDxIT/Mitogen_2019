@@ -1,0 +1,170 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup User By AccountId
+    step Add Account User
+      accessLevel 4
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          text User Id
+            sqlField~ userId
+          password_input Password
+            autocomplete= off
+            required~ true
+          text Name
+            sqlField~ name
+          text Email
+            sqlField~ email
+          text Phone
+            sqlField~ phone
+          number Access Level
+            sqlField~ accessLevel
+            value= 2
+            numeric~
+            min~ 0
+            max~ 4
+            title 0=restricted, 1-3=operators, 4=manager
+          text Account Id
+            value= {_accountId}
+            sqlField~ accountId
+            #style= display:none;
+            readonly=
+          comments Comments
+      sqlPreparedStatement insert into userInfo (userId,password,name,accessLevel,accountId,email,userProfile,phone,active,eventId)
+        - values (?,'tmppw',?,?,?,?
+        -   ,'userProfile\n  webApps \n    webapp /uniflow\n      userStepGroups \n        stepGroup Welcome\n'
+        -   ,?,'true',?)
+        string {User Id}
+        string {Name}
+        long {Access Level}
+        string {Account Id}
+        string {Email}
+        string {Phone}
+        long {_eventId}
+      execClassMethod uniflow.Switchboard.changePassword
+
+
+    step Change Account User Status
+      accessLevel 4
+      form
+        include userAccountInfo
+        include stepInstructions
+        table
+          class= stdTableSort
+          id= myTable
+          sqlQuery~
+            - select
+            - u.userId 'Login'
+            - ,u.name 'Name'
+            - ,u.accessLevel 'Access Level'
+            - ,u.accountId 'Account Id'
+            - ,u.active 'Active'
+            - ,u.failedLoginAttempts 'Attempts'
+            - ,case
+            -   when active <> 'true' then 'true'
+            -   end as 'Reset'
+            - from userInfo u
+            - where u.accountId = '{_accountId}'
+            - order by name
+          columnSpecs~ AccountTable
+            allowChangedRecordIds
+            column 1
+              inputType text
+                style= border:none;
+                readonly=
+                class= readonly
+                #style= display:none;
+            column 2
+              inputType text
+            column 3
+              inputType number
+                min~ 0
+                max~ 4
+            column 4
+              inputType text
+            column 5
+              inputType select
+                option true
+                option false
+            column 7
+              inputType checkbox
+          sql~ update userInfo set
+            - name = '{_columnInput:2}'
+            - ,accessLevel = '{_columnInput:3}'
+            #- ,accountId = '{_columnInput:4}'
+            - ,active = '{_columnInput:5}'
+            - ,failedLoginAttempts = 0
+            - where userId = '{_columnInput:1}'
+            - and '{_columnInput:7}' = 'true'
+
+
+    step Reset Account User Password
+      accessLevel 4
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          select User Id
+            sqlQuery~
+              - select
+              - userId
+              - from userInfo
+              - where accountId = '{_accountId}'
+              - order by userId
+          password_input New Password
+            autocomplete= off
+            required~ true
+          password_input Confirm New Password
+            autocomplete= off
+            validate~ select * from sequences where '{New Password}' = '{Confirm New Password}'
+              errorMessage~ Passwords do not match
+      sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+        string {User Id}
+        long {_eventId}
+      execClassMethod uniflow.Switchboard.changePassword
+
+
+    step List Account Users
+      accessLevel 4
+      form
+        include userAccountInfo
+        include stepInstructions
+        table
+          id= myTable
+          class= stdTableSort
+          caption Users
+          sqlQuery~
+            - select userId
+            - ,name
+            - ,accessLevel
+            - ,accountId
+            - ,email
+            - ,phone
+            - ,active
+            - from userInfo
+            - where accountId = '{_accountId}'
+            - order by userId
+
+
+    step View Account Login History
+      accessLevel 4
+      form
+        include userAccountInfo
+        include stepInstructions
+        table
+          class= stdTableSort
+          id= myTable
+          sqlQuery~
+            - SELECT lh.*
+            - FROM loginHistory lh
+            - join userInfo u
+            -   on u.userId = lh.userId
+            -   and u.accountId = '{_accountId}'
+

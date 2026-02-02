@@ -1,0 +1,2936 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Storage
+
+    step Store in Box
+
+      jsScripts
+        src js/storage/storeInBox.js
+
+      ### FORM 0 - Store in Box - specify box, exisiting or create new.
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        hidden newBox
+          id= newBox
+
+        vertical
+
+          text boxId
+            id= boxId
+            screenLabel~ Storage Box Id:
+            class= barcodeBackground
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = '{_thisInput}'
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS(
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = '{_thisInput}')
+              errorMessage~ This item must be of storage type Box.
+
+
+
+        br
+        div
+          id= boxInfoDiv
+          fieldset
+            legend Box Details
+            vertical
+              text dimensions
+                readonly=
+                id= dimensions
+                screenLabel~ Dimensions:
+              textArea boxDesc
+                readonly=
+                id= boxDesc
+                screenLabel~ Description:
+              text currentStorageLocation
+                screenLabel~ Storage Location:
+                id= currentStorageLocation
+                readonly=
+                size= 35
+
+
+        div
+          id= createNewBox
+          fieldset
+            legend Enter new box specifications
+            vertical
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+
+              number noRows
+                id= noRows
+                class= required
+                screenLabel~ Number of Rows:
+                validate~   SELECT 1
+                  -         FROM dual
+                  -         WHERE ('{newBox}' = 'true' AND '{_thisInput}' <> '')
+                  -           OR '{newBox}' <> 'true'
+                  errorMessage~ You must specify the number of rows when creating a new storage box.
+                size= 4
+
+              number noCols
+                id= noCols
+                class= required
+                screenLabel~ Number of Columns:
+                validate~   SELECT 1
+                  -         FROM dual
+                  -         WHERE ('{newBox}' = 'true' AND '{_thisInput}' <> '')
+                  -           OR '{newBox}' <> 'true'
+                  errorMessage~ You must specify the number of columns when creating a new storage box.
+                size= 4
+
+      ###
+
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox}
+            advanced~
+            not~
+              equals~ true
+        include userAccountInfo
+
+        hidden boxType
+          id= boxType
+          value= plate
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        container archiveSystem1
+          id= newboxfalse
+          class= hide
+          new~ false
+          acceptQueue~ any
+          value= ARCHIVE SYSTEM
+          configureIf~ {newBox}
+            advanced~
+            equals~ false
+          sqlPreparedStatement~
+            - UPDATE storageContainerInfo
+            - SET
+            -     description = ifNull(?,''),
+            -     eventId = ?
+            - WHERE storageContainerId = ?
+            string {description}
+            long {_eventId}
+            string {boxId}
+
+        container archiveSystem2
+          id= newboxtrue
+          class= hide
+          new~ false
+          acceptQueue~ any
+          value= ARCHIVE SYSTEM
+          configureIf~ {newBox}
+            advanced~
+            equals~ true
+          sqlPreparedStatement~
+            - INSERT INTO containers (containerId, containerType, eventId)
+            - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+            string {boxId}
+            long {_eventId}
+            string {boxId}
+
+          sqlPreparedStatement~
+            - INSERT INTO containerHistory (containerId, eventId)
+            - SELECT ?, ? FROM dual
+            string {boxId}
+            long {_eventId}
+
+          sqlPreparedStatement~
+            - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+            - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+            string {boxId}
+            string {boxType}
+            int {noRows}
+            int {noCols}
+            string {boxDesc}
+            long {_eventId}
+
+          sqlPreparedStatement~
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES ( ?, 'self', 'Storage Box', ?, ?)
+            string {boxId}
+            string {boxId}
+            long {_eventId}
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+
+
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+            # validate~ SELECT 1 FROM dual
+            #   - WHERE ? = ''
+            #   - OR ? = ''
+            #   string {_thisInput}
+            #   string {currentStorageLocation}
+            #   errorMessage~ You must remove the box from its current location to store it in a new place.
+
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ grid
+          parameter~ boxType
+            value= grid
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+    #################################################################################################################
+    step Store
+
+      jsScripts
+        src js/storage/store.js
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+
+          container storageContainer
+            id= storageContainer
+            screenLabel~ Item to be Stored
+            acceptQueue~ any
+            class= barcodeBackground
+            deleteQueue~ Store
+            deleteQueue~ Store in Box
+
+        div
+          id= currentLocationDiv
+          br
+          fieldSet
+            legend Currently in Storage
+            vertical
+              container currentStorageLocation
+                id= currentStorageLocation
+                screenLabel~ Storage Container
+                readonly=
+                acceptQueue~ any
+                required~ false
+              text currentStoragePosition
+                id= currentStoragePosition
+                screenLabel~ Position
+                size= 6
+                readonly=
+              checkbox removeFromStorageId
+                screenLabel~ Remove from Storage
+                class= required
+                validate~ SELECT 1 FROM dual
+                  - WHERE ('{currentStorageLocation}' <> '' AND '{_thisInput}' <> 'false')
+                  - OR '{currentStorageLocation}' = ''
+                  errorMessage~ You must remove this item from storage before storing it in a new location.
+
+        br
+        vertical
+          select storageLocation
+            asContainer~
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+            screenLabel~ Storage Location
+            acceptQueue~ any
+            class= barcodeBackground
+        br
+
+
+      ifCondition {removeFromStorageId}
+        advanced~
+        equals~ true
+        sqlPreparedStatement
+          - DELETE FROM storage
+          - WHERE content = ?
+          string {storageContainer}
+
+      sqlPreparedStatement
+        - INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+        - SELECT ?, 'storage', containerType, ?, ?
+        - FROM containers
+        - WHERE containerId = ?
+        string {storageLocation}
+        string {storageContainer}
+        long {_eventId}
+        string {storageContainer}
+
+
+    #################################################################################################################
+    step Remove from Storage
+
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src  js/nextStepPopup.js
+        src js/removeFromStorage.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+      form
+        data-parsley-validate=
+        include stepInstructions
+
+        div
+          id= hiddenSelects
+
+          select hiddenProtocolSelected
+            id= protocolSelected
+            screenLabel~ Protocol
+            option
+            sqlPreparedQuery~ SELECT pl.protocolName, pl.protocolName FROM protocolLibrary pl
+
+        hidden nextStepSpanHidden
+          id= nextStepSpanHidden
+
+        div
+          id= errorBox
+          style= display: none
+
+        div
+          id= modal
+          style= display: none
+
+
+        fieldset
+          table
+            id= removeFromStorage
+            sqlQuery~ SELECT
+              - '' as "Sample ID",
+              - '' as "Removal Reason",
+              - '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+              - '' as 'Order ID',
+              - '' AS "Note"
+            columnSpecs~ removeSamples
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  acceptQueue~ any
+                  class= required barcodeBackground storedContainer
+                  required~
+                  validate~ SELECT 1 FROM storage
+                    - WHERE content = ?
+                    string {_thisInput}
+                    errorMessage~ You can only remove a sample that is already in storage.
+              column 2
+                inputType select
+                  class= required removeReasons
+                  setName~ removeReasons
+                  required~ true
+              column 4
+                inputType select
+                  class= required requestId
+                  required~ true
+              column 5
+                inputType textArea
+                  class= removeFromStorageComment
+
+      forRows removeSamples
+        ifCondition {_columnInput_removeSamples:5}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement~
+            - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+            - VALUES (?, 'Remove From Storage Comment', ?, ?)
+            string {_columnInput_removeSamples:1}
+            string {_columnInput_removeSamples:5}
+            long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+          - VALUES (?, 'Remove From Storage Reason', ?, ?)
+          string {_columnInput_removeSamples:1}
+          string {_columnInput_removeSamples:2}
+          long {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery~ SELECT sm.Id AS "specimenMethodsId"
+            - FROM requestSpecimens rs
+            - INNER JOIN specimenMethods sm
+            -   ON rs.id = sm.requestSpecimensId
+            - WHERE rs.requestId = ?
+            string {_columnInput_removeSamples:4}
+
+
+
+        sqlPreparedStatement~
+          - DELETE FROM storage
+          - WHERE content = ?
+          string {_columnInput_removeSamples:1}
+
+        ifCondition {_columnInput_removeSamples:2}
+          advanced~
+          equals~ Sample Processing
+
+          include createNewRun
+            parameter~ specimenMethodsId
+              value= {_:specimenMethodsId}
+            parameter~ processContainerId
+              value= {_columnInput_removeSamples:1}
+            parameter~ runType
+              value= workflow
+            parameter~ processRunWorkflowParentRunId
+              value=
+            parameter~ currentParentId
+              value=
+            parameter~ currentParentPosition
+              value=
+            ## OUT PARAMETER: runId
+
+          sqlPreparedStatement~
+            - INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, ?, ?)
+            string {_:runId}
+            string {nextStepSpanHidden}
+            long {_eventId}
+
+
+    ######################################################################################################
+    stepGroup View Stores
+
+    step Search Storage
+      form
+        include stepInstructions
+        style
+          type= text/css
+        style
+          - td.col0 {
+          -   font-weight:bold;
+          - }
+        script
+          - $(document).ready(function() {
+          -   var storageContainers = [];
+          -   $('#storageContents').children('option').each(function() {
+          -     storageContainers.push($(this).val());
+          -   });
+          -   $('#searchItem').autocomplete({
+          -     minLength: 15,
+          -     source: storageContainers,
+          -     select: function (a, b) {
+          -       loadStorage(b.item.value);
+          -     }
+          -   });
+          -   $('[name="stepForm"]').bind("keyup", function(e) {
+          -     var code = e.keyCode || e.which;
+          -     if (code  == 13) {
+          -       e.preventDefault();
+          -       loadStorage($('#searchItem').val());
+          -       return false;
+          -     }
+          -   });
+          -   $('#stepFormSubmitButton').remove();
+          -   loadStorage($('#searchItem').val());
+          -   $('#searchItem').change(function() {
+          -     $(this).select();
+          -     $(this).focus();
+          -     loadStorage($(this).val());
+          -   });
+          -   $('.storeSearchResult > tbody > tr > td.col0').click(function() {
+          -     loadStorage($(this).html());
+          -   });
+          -   $('.well').click(function(evt) {
+          -     evt.stopPropagation();
+          -   });
+
+          - });
+          - function loadStorage(item) {
+          -   $('#sampleInfo').hide();
+          -   $('#boxSamp').hide();
+          -   $('#box').hide();
+          -   $('#status').hide();
+          -   $('#comments').load('uniflow?callback=?&stepName=Ajax+Container+Comments&container=' + item.replace(' ','%20'));
+          -     $('#parents').load('uniflow?callback=?&stepName=Ajax+Get+Stored+Sample+Parent&storedContainer=' + item.replace(' ','%20'),
+          -       function () {
+          -         $('.storeSearchParent > tbody > tr > td.col0').css({'color':'blue', 'text-decoration':'underline', 'cursor':'pointer'});
+          -         $('.storeSearchParent > tbody > tr > td.col0').click(function() {
+          -           $('#searchItem').val($(this).html());
+          -           loadStorage($(this).html());
+          -         });
+
+          -         $.getJSON('/uniflow?callback=?&stepName=Ajax+Container+Type&containerId=' + item, {},
+          -           function(data,status) {
+          -             $('#containerType').val(data[0].containerType);
+          -             if ($('#containerType').val() == 'Storage Box') {
+          -               $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Storage+Container+Model&containerId=' + item, {},
+          -                 function(data,status) {
+          -                   $('#boxSize').val(data[0].model);
+          -                 });
+          -               $('#box').show();
+          -               $('#box').load('uniflow?callback=?&stepName=Ajax+Get+Box+Layout&boxSize='+ $('#boxSize').val() +'&box=' + item.replace(' ','%20'),
+          -                 function() {boxMagic()});
+          -             }
+          -             if ($('#containerType').val() == 'specimenId' || $('#containerType').val() == 'aliquotId' || $('#containerType').val() == 'trayId' || $('#containerType').val() == 'poolTubeId'|| $('#containerType').val() == 'tubeId') {
+          -               var parent = $('.storeSearchParent > tbody > tr > td.col0').html();
+          -               $('#status').load('uniflow?callback=?&stepName=Ajax+Sample+Status&sample=' + item.replace(' ','%20'));
+          -               $('#status').show();
+          -               $('#boxSamp').show();
+          -               $.getJSON('/uniflow?callback=?&stepName=Ajax+Get+Storage+Container+Model&containerId=' + parent, {},
+          -                 function(data,status) {
+          -                   $('#boxSize').val(data[0].model);
+
+          -                   $('#boxSamp').load('uniflow?callback=?&stepName=Ajax+Get+Box+Layout+by+Sample&boxSize='+ $('#boxSize').val() +'&sample=' + item.replace(' ','%20'),
+          -                     function() {
+          -                       boxMagic();
+          -                       $('#boxLayout > tbody > tr > td').each(function() {
+          -                         if($(this).html() == item && $(this).html() != '') {
+          -                           $(this).css('background-color', 'PaleTurquoise');
+          -                         }
+          -                       });
+          -                   });
+
+          -                 });
+
+          -             }
+          -          });
+
+          -        }
+          -     );
+          -     $('#children').load('uniflow?callback=?&stepName=Ajax+Get+Stored+Sample+Children&storedContainer=' + item.replace(' ','%20'),
+          -       function () {
+          -         $('.storeSearchChildren > tbody > tr > td.col0').css({'color':'blue', 'text-decoration':'underline', 'cursor':'pointer'});
+          -         $('.storeSearchChildren > tbody > tr > td.col0').click(function() {$('#searchItem').val($(this).html());
+          -           loadStorage($(this).html());
+          -         });
+          -        }
+          -     );
+
+          - }
+          - function boxMagic() {
+          -   $('#boxLayout > tbody > tr > td:not(.col0)').each(function() {
+          -     if($(this).html().length > 0) {
+          -       $(this).css('background-image','url(images/PeeTube.png)');
+          -     }
+          -   });
+          -   $('#boxLayout > tbody > tr > td:not(.col0)').css({'height':'75px', 'width':'75px', 'background-size':'80px 80px', 'background-repeat':'no-repeat'});
+          -   $('#boxLayout').mouseleave(function(){$('#sampleInfo').hide();});
+          -   $('#boxLayout > tbody > tr > td:not(.col0)').hover(function() {
+          -     $(this).siblings().css('background-color', 'white');
+          -     $(this).parent().siblings().children().css('background-color', 'white');
+          -     $('#sampleInfo').hide();
+          -     $(this).css('background-color', 'PaleTurquoise');
+          -     $('#sampleInfo').load('uniflow?callback=?&stepName=Ajax+Get+Stored+Sample+Info&show=generalSearch&specimenId=' + $(this).html().replace(' ','%20'),
+          -       function(){
+          -         $('#sampleInfo').show();
+          -         $('.specInfoTable > tbody > tr > td.col0').css({'background-color':'PaleTurquoise', 'text-align':'right'});
+          -     });
+          -   });
+          -  if($('#boxSize').val() == '9x9'){
+          -   $('td.col10').hide();
+          -   $('th:contains("10")').hide();
+          -   $('#box > table#boxLayout > tbody > tr:gt(8)').hide();
+          -   $('#boxSamp > table#boxLayout > tbody > tr:gt(8)').hide();
+          -  };
+          -  if($('#boxSize').val() == '4x8'){
+          -   $('td.col10').hide();
+          -   $('th:contains("10")').hide();
+          -   $('td.col9').hide();
+          -   $('th:contains("9")').hide();
+          -   $('td.col8').hide();
+          -   $('th:contains("8")').hide();
+          -   $('td.col7').hide();
+          -   $('th:contains("7")').hide();
+          -   $('td.col6').hide();
+          -   $('th:contains("6")').hide();
+          -   $('td.col5').hide();
+          -   $('th:contains("5")').hide();
+          -   $('#box > table#boxLayout > tbody > tr:gt(7)').hide();
+          -   $('#boxSamp > table#boxLayout > tbody > tr:gt(7)').hide();
+          -  };
+          -  if($('#boxSize').val() == '8x8'){
+          -   $('td.col10').hide();
+          -   $('th:contains("10")').hide();
+          -   $('td.col9').hide();
+          -   $('th:contains("9")').hide();
+          -   $('#box > table#boxLayout > tbody > tr:gt(7)').hide();
+          -   $('#boxSamp > table#boxLayout > tbody > tr:gt(7)').hide();
+          -  }
+          -  if($('#boxSize').val() == '7x7'){
+          -   $('td.col10').hide();
+          -   $('th:contains("10")').hide();
+          -   $('td.col9').hide();
+          -   $('th:contains("9")').hide();
+          -   $('td.col8').hide();
+          -   $('th:contains("8")').hide();
+          -   $('#box > table#boxLayout > tbody > tr:gt(6)').hide();
+          -   $('#boxSamp > table#boxLayout > tbody > tr:gt(6)').hide();
+          -  }
+          -  if($('#boxSize').val() == '4x4'){
+          -   $('td.col10').hide();
+          -   $('th:contains("10")').hide();
+          -   $('td.col9').hide();
+          -   $('th:contains("9")').hide();
+          -   $('td.col8').hide();
+          -   $('th:contains("8")').hide();
+          -   $('td.col7').hide();
+          -   $('th:contains("7")').hide();
+          -   $('td.col6').hide();
+          -   $('th:contains("6")').hide();
+          -   $('td.col5').hide();
+          -   $('th:contains("5")').hide();
+          -   $('#box > table#boxLayout > tbody > tr:gt(3)').hide();
+          -   $('#boxSamp > table#boxLayout > tbody > tr:gt(3)').hide();
+          -  };
+          -   $('#boxLayout > tbody > tr > td:not(.col0)').click(function() { $('#sampleInfo').hide();
+          -     $('#searchItem').val($(this).html());
+          -     loadStorage($(this).html());
+          -     var sample = $(this).html();
+          -     $('#requestDialog').dialog({
+          -       resizable: false,
+          -       height:140,
+          -       width:350,
+          -       modal:false,
+          -       buttons: {
+          # -         "Request Test": function (){
+          # -           window.open('/uniflow?stepName=Request+Testing&lastForm=Y&recId='+sample, "_parent");
+          # -         },
+          -         "Show Info": function (){
+          -           $('#requestDialog').load('uniflow?callback=?&stepName=Ajax+Get+Stored+Sample+Info&specimenId=' + sample,
+          -             function(){
+          -               $('.specInfoTable > tbody > tr > td.col0').css({'background-color':'PaleTurquoise', 'text-align':'right'});
+          -               $('#requestDialog').css('height', 'auto');
+          -             });
+          -         },
+          -         Close: function() {
+          -           $(this).dialog("close");
+          -         }
+          -       }
+          -    });
+          -   });
+          - }
+          - function getContainerType(containerId) {alert(containerId);
+
+          - }
+        h3 Hit TAB instead of Enter to search storage.
+        vertical
+          select storageContents
+            sqlPreparedQuery~ select distinct content from storage
+            id= storageContents
+            style= display:none;
+            screenLabel~
+          text Search Stored Item:
+            id= searchItem
+            value= {_recId}
+            size= 50
+          hidden containerType
+            screenLabel~
+            id= containerType
+          hidden boxSize
+            screenLabel~
+            id= boxSize
+        vertical
+          # div
+          #   id= status
+          # div
+          #   id= comments
+        vertical
+          div
+            id= parents
+          div
+            id= children
+        vertical2
+          div
+            div
+              id= box
+            div
+              id= boxSamp
+          # div
+          #   style= position:fixed;top:20%;left:76%
+          #   id= sampleInfo
+
+        # div
+        #   id= requestDialog
+        #   title= Request Additional Testing?
+
+
+
+
+    step Visual Storage
+      form
+        include userAccountInfo
+        include stepInstructions
+        include jit
+        style
+          - .tip {
+          -     color: #111;
+          -     width: 139px;
+          -     background-color: white;
+          -     border:1px solid #ccc;
+          -     -moz-box-shadow:#555 2px 2px 8px;
+          -     -webkit-box-shadow:#555 2px 2px 8px;
+          -     -o-box-shadow:#555 2px 2px 8px;
+          -     box-shadow:#555 2px 2px 8px;
+          -     opacity:0.9;
+          -     filter:alpha(opacity=90);
+          -     font-size:10px;
+          -     font-family:Verdana, Geneva, Arial, Helvetica, sans-serif;
+          -     padding:7px;
+          - }
+        script
+          -  var icicle;
+
+          - $(document).ready(function() {
+          -  $('#stepFormSubmitButton').hide();
+          ###  GET DATA
+          - var json;
+          - $.getJSON('/uniflow?callback=?',{stepName: 'Ajax Archive System Jit'},
+          -  function(data,status) {
+          -    var containers = [];
+          -    var containersHash = {};
+          -    var len = data.length;
+          -    for (var i = 0; i < len; i++) {
+          -      var container = {"name":data[i].storageContainerId, "id":data[i].id, "children": [], "data":{"$color":data[i].color}};
+          -      containers[i] = container;
+          -      containersHash[data[i].storageContainerId] = container;
+          -      console.log(data[i].storageContainerId,container);
+          -    }
+          -    for (var i = 0; i < len; i++) {
+          -      var datum = data[i];
+          -      var child = containersHash[datum.content];
+          -      if (! child) child = {"name":datum.content, "id":datum.id2, "children": [], "data":{"$color":"gray"}};
+          -      containersHash[datum.storageContainerId].children.push(child);
+          -    }
+          -    json = containersHash["ARCHIVE SYSTEM"]
+          -
+          -    console.log(json);
+
+          -  var labelType, useGradients, nativeTextSupport, animate;
+
+          -  (function() {
+          -    var ua = navigator.userAgent,
+          -        iStuff = ua.match(/iPhone/i) || ua.match(/iPad/i),
+          -        typeOfCanvas = typeof HTMLCanvasElement,
+          -        nativeCanvasSupport = (typeOfCanvas == 'object' || typeOfCanvas == 'function'),
+          -        textSupport = nativeCanvasSupport
+          -          && (typeof document.createElement('canvas').getContext('2d').fillText == 'function');
+          -    //I'm setting this based on the fact that ExCanvas provides text support for IE
+          -    //and that as of today iPhone/iPad current text support is lame
+          -    labelType = (!nativeCanvasSupport || (textSupport && !iStuff))? 'Native' : 'HTML';
+          -    nativeTextSupport = labelType == 'Native';
+          -    useGradients = nativeCanvasSupport;
+          -    animate = !(iStuff || !nativeCanvasSupport);
+          -  })();
+          ### INITIALIZE ICICLE
+          -    // init Icicle
+          -    icicle = new $jit.Icicle({
+          #-      // id of the visualization container
+          -      injectInto: 'jitVisual',
+          #-      // whether to add transition animations
+          -      animate: animate,
+          #-      // nodes offset
+          -      offset: 1,
+          #-      // whether to add cushion type nodes
+          -      cushion: false,
+          #-      // do not show all levels at once
+          -      constrained: true,
+          -      levelsToShow: 4,
+          #-      // enable tips
+          -      Tips: {
+          -        enable: true,
+          -        type: 'Native',
+          #-        // add positioning offsets
+          -        offsetX: 20,
+          -        offsetY: 20,
+          #-        // implement the onShow method to
+          #-        // add content to the tooltip when a node
+          #-        // is hovered
+          -        onShow: function(tip, node){
+          #-          // count children
+          -          var count = 0;
+          -          node.eachSubnode(function(){
+          -            count++;
+          -          });
+          #-          // add tooltip info
+          -          tip.innerHTML = "<div class=\"tip-title\"><b>Name:</b> "
+          -              + node.name + "</div><div class=\"tip-text\">" + count
+          -              + " children</div>";
+          -        }
+          -      },
+          #-      // Add events to nodes
+          -      Events: {
+          -        enable: true,
+          -        onClick: function(node){console.log(node);
+          -          if (node) {
+          #-            //hide tips
+          -            icicle.tips.hide();
+          #-            // perform the enter animation
+          -            icicle.enter(node);
+          -          }
+          -        },
+          -        onRightClick: function(){
+          #-          //hide tips
+          -          icicle.tips.hide();
+          #-          // perform the out animation
+          -          icicle.out();
+          -        }
+          -      },
+          #-      // Add canvas label styling
+          -      Label: {
+          -        type: labelType, // "Native" or "HTML"
+          -        color: '#FFFFFF',
+          -        style: 'bold',
+          -        size: 12
+          -      },
+          #-      // Add the name of the node in the corresponding label
+          #-      // This method is called once, on label creation and only for DOM and
+          #-      // not
+          #-      // Native labels.
+          -      onCreateLabel: function(domElement, node){
+          -        domElement.innerHTML = node.name;
+          -        var style = domElement.style;
+          -        style.fontSize = '0.9em';
+          -        style.display = '';
+          -        style.cursor = 'pointer';
+          -        style.color = '#333';
+          -        style.overflow = 'hidden';
+          -      },
+          #-      // Change some label dom properties.
+          #-      // This method is called each time a label is plotted.
+          -      onPlaceLabel: function(domElement, node){
+          -        var style = domElement.style, width = node.getData('width'), height = node
+          -            .getData('height');
+          -        if (width < 7 || height < 7) {
+          -          style.display = 'none';
+          -        } else {
+          -          style.display = '';
+          -          style.width = width + 'px';
+          -          style.height = height + 'px';
+          -        }
+          -      }
+          -    });
+          -    // load data
+          -    icicle.loadJSON(json);
+          -    // compute positions and plot
+          -    icicle.refresh();
+          -    //end
+          -    var jit = $jit;
+          -    var gotoparent = jit.id('update');
+          -    jit.util.addEvent(gotoparent, 'click', function() {
+          -      icicle.out();
+          -    });
+          # -    var searchItem = jit.id('searchItem');
+          # -    jit.util.addEvent(searchItem, 'change', function() {alert(searchItem.val());
+          # -      icicle.enter({"name":searchItem.val()});
+          # -    });
+          -    var select = jit.id('s-orientation');
+          -    jit.util.addEvent(select, 'change', function () {
+          -      icicle.layout.orientation = select[select.selectedIndex].value;
+          -      icicle.refresh();
+          -    });
+          - });
+          - });
+
+          -  //init controls
+          -  function controls() {
+          -  }
+          -  //end
+        # vertical
+        #   text Search Item
+        #     id= searchItem
+        #     style= width:250px
+        vertical2
+          button Go To Parent
+            id= update
+          vertical
+            span Orientation
+              style= font-weight:bold;text-decoration:underline;
+            select Orientation
+              screenLabel~
+              id= s-orientation
+              option Horizontal
+                value= h
+              option Vertical
+                value= v
+
+        br
+
+        div
+          id= jitVisual
+          style= width:800px;
+            - position:relative;
+            - height:600px;
+            - overflow:hidden;
+
+
+    step Search Comments
+      nextStep Search Comments
+        recId {comment}
+        formNumber 0
+      form
+
+        include userAccountInfo
+        include stepInstructions
+        script
+          - $(document).ready(function() {
+          -   $('#stepFormSubmitButton').remove();
+          -   $('#searchButton').click(function(){
+          -     $('[name="stepForm"]').submit();
+          -   });
+          - })
+        formQuery~ select distinct case '{_recId}' when '' then '{comment}' else '{_recId}' end as 'comment'
+        vertical2
+          text comment
+            screenLabel~ Comment/Partial Comment
+            value= {comment}
+          button Search
+            screenLabel~
+            id= searchButton
+        vertical
+          table
+            class= stdTableSort
+            pasteOutputTable
+            sqlPreparedQuery~
+              - SELECT
+              -   sr.currentContainerId AS "Container Info Id",
+              -   c.containerType as "Container Type",
+              -   cn.note  as "Comment",
+              -   e.eventDate as "Entered On",
+              -   e.userId as "Entered By"
+              #-   ,getStorageParentage(cp.containerId) as "Storage Location"
+              - FROM containerNotes cn
+              -   INNER JOIN specimenRuns sr ON cn.containerId = sr.runId
+              -   INNER JOIN containers c ON sr.currentContainerId = c.containerId
+              -   INNER JOIN events e ON cn.eventId = e.eventId
+              -   WHERE cn.note LIKE '%{_:comment}%'
+              -   ORDER BY e.eventId DESC
+              - LIMIT 1000
+
+
+    step Partial Sample Id Search
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          text Partial Sample Id
+            required~ true
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          src= js/submitHide.js
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~
+              - SELECT c.containerId AS "Sample Info Id", c.containerType as 'Container Type', al.containerId AS "Storage ID", al.containerId AS "RemoveFromStorageId", sp.Value as "Sample Type"
+              - FROM containers c
+              - LEFT JOIN (SELECT c.content, co.containerId
+              -            FROM contents c
+              -            INNER JOIN containers co
+              -            ON c.containerId = co.containerId
+              -            AND c.attribute = 'self'
+              -            AND (c.contentType = 'specimenId' or c.contentType = 'oncoDxId' or c.contentType= 'aliquotId')) al
+              - on c.containerId = al.content
+              - LEFT JOIN sampleProperties sp
+              - ON c.containerId = sp.sampleId
+              - AND sp.property = 'Sample Type'
+              - WHERE (c.containerType = 'specimenId' or c.containerType = 'oncoDxId' or c.containerType= 'aliquotId')
+              - and c.containerId LIKE '%{Partial Sample Id}%'
+              - limit 5000
+
+    step View All Storage Locations
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          - $(document).ready(function() {
+          -   $('#stepFormSubmitButton').hide();
+          -   $('#tabpanel').tabs();
+          -
+          - });
+        vertical
+          div
+            id= tabpanel
+            class= ui-tabs ui-widget ui-widget-content ui-corner-all
+            ul
+              class= ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header ui-corner-all
+              li
+                class= ui-state-default ui-corner-top ui-tabs-selected ui-state-active
+                a
+                  span Labs/Rooms
+                  href= #labs
+              li
+                a
+                  span Freezers
+                  href= #freezers
+              li
+                a
+                  span Refrigerators
+                  href= #fridges
+              li
+                a
+                  span Shelves
+                  href= #shelves
+              li
+                a
+                  span Racks
+                  href= #racks
+             # li
+             #   a
+             #     span Boxes
+             #     href= #boxes
+              li
+                a
+                  span Other
+                  href= #other
+
+            div
+              id= labs
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+                    + from storageContainerInfo sci
+                    + inner join storage s on s.content = sci.storageContainerId
+                    + where (sci.model= 'Laboratory' or sci.model= 'Room')
+                    + order by sci.storageContainerId
+
+            div
+              id= freezers
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+                    + from storageContainerInfo sci
+                    + inner join storage s on s.content = sci.storageContainerId
+                    + where sci.type= 'Freezer'
+                    + order by sci.storageContainerId
+
+            div
+              id= fridges
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+                    + from storageContainerInfo sci
+                    + inner join storage s on s.content = sci.storageContainerId
+                    + where sci.type= 'Fridge'
+                    + order by sci.storageContainerId
+            div
+              id= shelves
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+                    + from storageContainerInfo sci
+                    + inner join storage s on s.content = sci.storageContainerId
+                    + where sci.type= 'Shelf'
+                    + order by sci.storageContainerId
+            div
+              id= racks
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+                    + from storageContainerInfo sci
+                    + inner join storage s on s.content = sci.storageContainerId
+                    + where sci.type= 'Storage Rack'
+                    + order by sci.storageContainerId
+          #  div
+          #    id= boxes
+          #    vertical
+          #      table
+          #        class= stdTableSort
+          #        sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+          #          + from storageContainerInfo sci
+          #          + inner join storage s on s.content = sci.storageContainerId
+          #          + where sci.type= 'Storage Box'
+          #          + order by sci.storageContainerId
+            div
+              id= other
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select distinct sci.storageContainerId as 'Storage Id', sci.Type, sci.Description, s.storageContainerId as 'Parent Id'
+                    + from storageContainerInfo sci
+                    + inner join storage s on s.content = sci.storageContainerId
+                    + where sci.type NOT IN ('Freezer', 'Lab', 'Room', 'Shelf', 'Storage Rack', 'Storage Box', 'Fridge')
+                    - and sci.model NOT IN ('Laboratory', 'Room')
+                    + order by sci.storageContainerId
+
+
+    ###################################################################################################
+    stepGroup Create Stores
+
+    step Create Storage
+
+      jsScripts
+        src js/storage/storeInBox.js
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          select Storage Type
+            option
+            option 4x4 Storage Box
+            option 4x8 Storage Box
+            option 7x7 Storage Box
+            option 8x8 Storage Box
+            option 9x9 Storage Box
+            option 10x10 Storage Box
+            option Fridge
+            option Freezer
+            option Other Storage Unit
+      nextStep Create {Storage Type}
+        formNumber 0
+
+    ################################################################################################################################
+    step Transfer Storage
+      form
+        include userAccountInfo
+        include stepInstructions
+        h2 This is to transfer the contents of one storage location to another, ie. move boxes and all their contents from one shelf to another.
+        vertical
+          container srcStorage
+            screenLabel~ Source Storage Container
+            acceptQueue~ any
+          container destStorage
+            screenLabel~ Destination Storage Container
+            acceptQueue~ any
+          comments Comments
+            required~ true
+      sqlPreparedStatement
+        - update storage
+        - set storageContainerId = ?, eventId = ?
+        - where storageContainerId = ?
+        string {destStorage}
+        long {_eventId}
+        string {srcStorage}
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ select 1 from storage where content = ?
+            string {destStorage}
+        sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+          - select 'ARCHIVE SYSTEM', 'storage', containerType, containerId, ?
+          - from containers
+          - where containerid = ?
+          long {_eventId}
+          string {destStorage}
+
+    #sql call reassignStoragePaths('{destStorage}')
+
+    ################################################################################################################################
+    step Remove Storage Location
+      form
+        include userAccountInfo
+        include stepInstructions
+        h2 THIS WILL DELETE THE STORAGE ITEM AND ALL OF ITS CONTENTS!!
+          style= color:red; font-weight:bold;
+        vertical
+          container Storage Container
+            acceptQueue~ any
+          comments Comments
+            required~ true
+
+
+      #### code not complete ####
+
+      sqlPreparedStatement
+        - DELETE FROM storage WHERE storageContainerId = ?
+        - AND storageContainerId <> 'ARCHIVE SYSTEM'
+        string {Storage Container}
+
+      sqlPreparedStatement
+        - DELETE FROM storage WHERE content = ?
+        string {Storage Container}
+
+      sqlPreparedStatement
+        - DELETE FROM storageContainerInfo WHERE storageContainerId = ?
+        - AND storageContainerId <> 'ARCHIVE SYSTEM'
+        string {Storage Container}
+
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory(containerId,eventId)
+        - VALUES(?,?)
+        string {Storage Container}
+        long {_eventId}
+
+
+
+    #  sql call deleteStorage('{Storage Container}', {_eventId})
+
+    ################################################################################################################################
+    # script
+    #   - $(document).ready(function() {
+    #   -   shelfqty = $('#shelfNum').val();
+    #   -   rackqty = $('#rackNum').val();
+    #   -   var i = 0;
+    #   -     for(i = 0; i <= shelfqty; i++){
+    #   -
+    #   -       alert(shelfqty);
+    #   -       var inners = document.createElement('div');
+    #   -        inners.html("<p>Shelf Id:</p>");
+    #   -       var currentHTML = $('#shelves').html();
+    #   -       inners.appendTo(currentHTML);
+    #   -
+    #   -      }
+    #   -
+    #   - });
+    step Add Fridge/Freezer Shelves
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical2
+              vertical
+                li Scan in the barcoder of the Fridge or Freezer you wish to add shelves to.
+                li Enter the number of shelves you will be adding to the Fridge or Freezer.
+                li NOTE: This will be expecting NEW shelves.  If you are moving a shelf and all of it's contents to a different storage location, please use Add to Storage Location - this step expects the shelf to already exist in the system.
+              vertical
+                img
+                  src= images/fridgeShelf.jpg
+                  style= height:100px; width:100px;
+        hr
+        vertical
+          text Fridge/Freezer Id
+          text num
+            screenLabel~ # of Shelves
+            required~ true
+            size= 2
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        style= width:auto;
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical2
+              vertical
+                li Scan in the barcodes of the shelves you are adding to the Fridge or Freezer.
+                li At the bottom, select whether or not you will be adding storage racks to these shelves. This will queue the Fridge or Freezer on to the next step.
+              vertical
+                img
+                  src= images/fridgeShelf.jpg
+                  style= height:100px; width:100px;
+        vertical2
+          img
+            src= images/fridge.png
+            style= height:50px; width:25px;
+
+          container storageId
+            screenLabel~ Fridge/Freezer Id:
+            deleteQueue~ Add Fridge/Freezer Shelves
+            value= {Fridge/Freezer Id}
+            readonly=
+            if~ {racks}
+              advanced~
+              equals~ true
+              insertQueue~ Add Fridge/Freezer Racks to Shelves
+            style= background:transparent; border:none; font: 16px Helvetica; color:blue;
+
+
+          text num
+            value= {num}
+            screenLabel~
+            style= display:none;
+            required~ true
+        vertical
+
+          table
+            class= stdTableSort
+            style= background:transparent; border:none;
+            sqlQuery~ SELECT @rowno:=@rowno+1 "#", '' AS "Shelf Id"
+              - FROM events,(SELECT @rowno:=0) r
+              - LIMIT {num}
+
+            columnSpecs~ t1
+              allowChangedRecordIds
+              column 1
+                inputType text
+                  readonly=
+                  style= background-color:transparent; border: 0;
+                  size= 1
+                  tabindex= 999
+              column 2
+                inputType container
+                  new~ true
+                  containerType~ Storage Shelf
+                  contentType~ Storage Shelf
+                  addContent~
+                  style= background-image:url(images/miniShelf.jpg); background-repeat:no-repeat; height:75px; width:85px;
+        vertical
+          checkbox racks
+            screenLabel~ Will you be adding Storage Racks to this Fridge/Freezer?
+      forRows t1
+        ifCondition {_columnInput_t1:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+            + VALUES(?, ?, 'Storage Shelf', ?, ?)
+            string {storageId}
+            string {_columnInput_t1:1}
+            string {_columnInput_t1:2}
+            long {_eventId}
+          sqlPreparedStatement~ insert into storageContainerInfo (storageContainerId, type, model, description,  eventId)
+            + VALUES (?, 'shelf', ?, 'Storage Shelf', ?)
+            string {_columnInput_t1:2}
+            string {_columnInput_t1:1}
+            long {_eventId}
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ select 1 from storage where content = ?
+            string {storageId}
+        sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+          - select 'ARCHIVE SYSTEM', 'storage', containerType, containerId, ?
+          - from containers
+          - where containerId = ?
+          long {_eventId}
+          string {storageId}
+      #sql call reassignStoragePaths('{storageId}')
+
+    ################################################################################################################################
+    step Add Fridge/Freezer Racks to Shelves
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical2
+              vertical
+                li Scan in the Fridge or Freezer to which you want to add Storage Racks
+                li Enter the # of racks you will be adding to the storage unit.
+                li NOTE: This is assuming you will be adding NEW Racks to the Fridge/Freezer.  If you wish to move a rack and all of it's contents to a different location, use Add to Storage Location - this step expects the storage rack to already be in the system.
+              vertical
+                img
+                  src= images/freezerRack.jpg
+                  style= width:100px; height:100px;
+        hr
+        vertical
+          text storageId
+            screenLabel~ Fridge/Freezer Id
+            required~ true
+          text num
+            screenLabel~ # of  Racks to Add to Fridge/Freezer
+            required~ true
+            size= 2
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical2
+              vertical
+                li Scan in the barcode for each storage rack and select the shelf it will belong to.
+                li This can be changed later, if needed.
+              vertical
+                img
+                  src= images/50mlRack.png
+                  style= width:100px; height:100px;
+        hr
+        vertical2
+          img
+            src= images/fridge.png
+            style= height:50px; width:25px;
+          container storageId
+            screenLabel~ Fridge/Freezer Id:
+            value= {storageId}
+            acceptQueue~ any
+            readonly=
+            deleteQueue~ Add Fridge/Freezer Racks to Shelves
+            style= background:transparent; border:none; font:16px Helvetica; color:blue;
+        vertical
+          text num
+            value= {num}
+            required~ true
+            style= display:none;
+            screenLabel~
+          table
+            class= stdTableSort
+            sqlQuery~ select '' as ' ', '' as 'Rack Id', '' as 'Shelf'
+              + FROM numbers
+              + limit {num}
+            columnSpecs~ t1
+              allowChangedRecordIds
+              column 1
+                inputType text
+                  style= background:transparent; border:none; background-image:url(images/50mlRack.png); background-repeat:no-repeat; background-size: 50px 60px; height:60px; width:70px;
+
+              column 2
+                inputType container
+                  new~ true
+                  containerType~ Storage Rack
+                  contentType~ Storage Rack
+                  addContent~
+                  style= background-image: url(images/barcodebkg.jpg);
+              column 3
+                inputType select
+                  sqlQuery~ select content from storage where storageContainerId = '{storageId}' and contentType like '%Shelf%'
+                  required~ true
+      forRows t1
+        sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT case when ? = '' then 'Archive System' else ? end, ?, ?, ?, ?
+          - FROM dual
+          - WHERE ? <> ''
+          string {_columnInput_t1:3}
+          string {_columnInput_t1:3}
+          string shelf
+          string Storage Rack
+          string {_columnInput_t1:2}
+          long {_eventId}
+          string {_columnInput_t1:2}
+        #sqlPreparedStatement~ update storage set storagePath = getStorageParentage(content) where content = ? and ? <> ''
+        #  string {_columnInput_t1:2}
+        #  string {_columnInput_t1:2}
+        sqlPreparedStatement~ insert into storageContainerInfo (storageContainerId, type, model, description, eventId)
+          - VALUES (?, 'Storage Rack', '50mL Conical Tube Storage Rack', '50mL Conical Tube Storage Rack', ?)
+          string {_columnInput_t1:2}
+          long {_eventId}
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ select 1 from storage where content = ?
+            string {storageId}
+        sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+          - select 'ARCHIVE SYSTEM', 'storage', containerType, containerId, ?
+          - from containers
+          - where containerId = ?
+          long {_eventId}
+          string {storageId}
+      #sql call reassignStoragePaths('{storageId}')
+
+    ################################################################################################################################
+    step  Add Storage Box to Rack
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical2
+              li Scan in the Box Id and the storage rack the box will be contained in.
+              img
+                src= images/50mlStore.jpeg
+                style= width:100px; height:100px;
+        hr
+        vertical
+          container Box Id
+            acceptQueue~ any
+          container Rack Id
+            acceptQueue~ any
+      sqlPreparedStatement~ delete from storage where content = ?
+        string {Box Id}
+      sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+        + VALUES (?, 'storage', 'Storage Box', ?, ?)
+        string {Rack Id}
+        string {Box Id}
+        long {_eventId}
+      #sql call reassignStoragePaths('{Box Id}')
+
+    ################################################################################################################################
+    step Add to Storage Unit
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical
+              li Use this step to add to storage units.
+              li For Example: You can add a Freezer to a Lab or Room, a Shelf to a Cabinet, etc.
+        vertical
+          text Storage Id
+            style= background-image: url(images/barcodebkg.jpg)
+            required~ true
+          text num
+            screenLabel~ Number of Parts to Add
+            size= 3
+            required~ true
+            value= 1
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical
+              li Scan in the items that will be contained in the storage unit below.
+              li The items are expected to be created already.  If you are adding shelves to a cabinet, both the cabinet and the shelves must already be be registered through the previous step: Create Other Storage Location or Create Fridge/Freezer.
+          table
+            class= stdTableSort
+            sqlQuery~ select storageContainerId as 'StorageId', CONCAT(type, ' ', model) as 'Storage Type', Description
+              + from storageContainerInfo
+              + where storageContainerId= '{Storage Id}'
+        vertical
+          container Storage Id
+            value= {Storage Id}
+            readonly=
+            acceptQueue~ any
+            style= background:transparent; border:none;
+
+          text num
+            screenLabel~
+            value= {num}
+            style= display:none
+
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~ select '' as 'Child Storage Id'
+              + from events
+              + Limit {num}
+
+            columnSpecs~ t2
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  acceptQueue~ any
+                  style= background-image: url(images/barcodebkg.jpg)
+      forRows t2
+        ifCondition {_columnInput_t2:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement~ delete from storage where content = ?
+            string {_columnInput_t2:1}
+          sqlPreparedStatement~ insert into storage (storageContainerId, location, contentType, content, eventId)
+            + SELECT ?, 'storage', type, ?, ?
+            + FROM storageContainerInfo
+            + WHERE storageContainerId = ?
+            string {Storage Id}
+            string {_columnInput_t2:1}
+            long {_eventId}
+            string {_columnInput_t2:1}
+          #sqlPreparedStatement~ update storage set storagePath = getStorageParentage(content) where content = ?
+          #  string {_columnInput_t2:1}
+
+    ################################################################################################################################
+    stepGroup Storage Hidden steps
+    step Create 4x4 Storage Box
+      form
+        data-parsley-validate=
+        include stepInstructions
+        hidden newBox
+          id= newBox
+          value= true
+        br
+        div
+          fieldset
+            legend Enter new box specifications
+            vertical
+              text boxId
+                screenLabel~ Storage Box Id:
+                class= barcodeBackground required
+                data-parsley-required= true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -         SELECT 1
+                  -         FROM containers
+                  -         WHERE containerId = '{_thisInput}')
+                  errorMessage~ This Storage Box already exists.
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                data-parsley-required= true
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+              number noRows
+                screenLabel~ Number of Rows:
+                # id= noRows
+                size= 4
+                value= 4
+                readonly=
+
+              number noCols
+                screenLabel~ Number of Columns:
+                # id= noCols
+                size= 4
+                value= 4
+                readonly=
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox}
+            advanced~
+            not~
+              equals~ true
+
+        hidden boxType
+          id= boxType
+          value= {boxType}
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        div
+          style= display:none;
+          vertical
+            container archiveSystem2
+              id= newboxtrue
+              class= hide
+              new~ false
+              acceptQueue~ any
+              value= ARCHIVE SYSTEM
+              configureIf~ {newBox}
+                advanced~
+                equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO containers (containerId, containerType, eventId)
+                - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+                string {boxId}
+                long {_eventId}
+                string {boxId}
+
+              sqlPreparedStatement~
+                - INSERT INTO containerHistory (containerId, eventId)
+                - SELECT ?, ? FROM dual
+                string {boxId}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+                - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+                string {boxId}
+                string {boxType}
+                int {noRows}
+                int {noCols}
+                string {boxDesc}
+                long {_eventId}
+
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 'self', 'Storage Box', ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM contents WHERE ? = containerId)
+          string {boxId}
+          string {boxId}
+          long {_eventId}
+          string {boxId}
+
+
+    ################################################################################################################################
+    step Create 4x8 Storage Box
+      form
+        data-parsley-validate=
+        include stepInstructions
+        hidden newBox
+          id= newBox
+          value= true
+        br
+        div
+          fieldset
+            legend Enter new box specifications
+            vertical
+              text boxId
+                screenLabel~ Storage Box Id:
+                class= barcodeBackground required
+                data-parsley-required= true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -         SELECT 1
+                  -         FROM containers
+                  -         WHERE containerId = '{_thisInput}')
+                  errorMessage~ This Storage Box already exists.
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                data-parsley-required= true
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+              number noRows
+                screenLabel~ Number of Rows:
+                # id= noRows
+                size= 4
+                value= 8
+                readonly=
+
+              number noCols
+                screenLabel~ Number of Columns:
+                # id= noCols
+                size= 4
+                value= 4
+                readonly=
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox}
+            advanced~
+            not~
+              equals~ true
+
+        hidden boxType
+          id= boxType
+          value= {boxType}
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        div
+          style= display:none;
+          vertical
+            container archiveSystem2
+              id= newboxtrue
+              class= hide
+              new~ false
+              acceptQueue~ any
+              value= ARCHIVE SYSTEM
+              configureIf~ {newBox}
+                advanced~
+                equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO containers (containerId, containerType, eventId)
+                - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+                string {boxId}
+                long {_eventId}
+                string {boxId}
+
+              sqlPreparedStatement~
+                - INSERT INTO containerHistory (containerId, eventId)
+                - SELECT ?, ? FROM dual
+                string {boxId}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+                - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+                string {boxId}
+                string {boxType}
+                int {noRows}
+                int {noCols}
+                string {boxDesc}
+                long {_eventId}
+
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 'self', 'Storage Box', ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM contents WHERE ? = containerId)
+          string {boxId}
+          string {boxId}
+          long {_eventId}
+          string {boxId}
+
+################################################################################################################################
+    step Create 7x7 Storage Box
+      form
+        data-parsley-validate=
+        include stepInstructions
+        hidden newBox
+          id= newBox
+          value= true
+        br
+        div
+          fieldset
+            legend Enter new box specifications
+            vertical
+              text boxId
+                screenLabel~ Storage Box Id:
+                class= barcodeBackground required
+                data-parsley-required= true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -         SELECT 1
+                  -         FROM containers
+                  -         WHERE containerId = '{_thisInput}')
+                  errorMessage~ This Storage Box already exists.
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                data-parsley-required= true
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+              number noRows
+                screenLabel~ Number of Rows:
+                # id= noRows
+                size= 4
+                value= 7
+                readonly=
+
+              number noCols
+                screenLabel~ Number of Columns:
+                # id= noCols
+                size= 4
+                value= 7
+                readonly=
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox}
+            advanced~
+            not~
+              equals~ true
+
+        hidden boxType
+          id= boxType
+          value= {boxType}
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        div
+          style= display:none;
+          vertical
+            container archiveSystem2
+              id= newboxtrue
+              class= hide
+              new~ false
+              acceptQueue~ any
+              value= ARCHIVE SYSTEM
+              configureIf~ {newBox}
+                advanced~
+                equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO containers (containerId, containerType, eventId)
+                - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+                string {boxId}
+                long {_eventId}
+                string {boxId}
+
+              sqlPreparedStatement~
+                - INSERT INTO containerHistory (containerId, eventId)
+                - SELECT ?, ? FROM dual
+                string {boxId}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+                - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+                string {boxId}
+                string {boxType}
+                int {noRows}
+                int {noCols}
+                string {boxDesc}
+                long {_eventId}
+
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 'self', 'Storage Box', ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM contents WHERE ? = containerId)
+          string {boxId}
+          string {boxId}
+          long {_eventId}
+          string {boxId}
+
+################################################################################################################################
+    step Create 8x8 Storage Box
+      form
+        include stepInstructions
+        data-parsley-validate=
+        hidden newBox
+          id= newBox
+          value= true
+        br
+        div
+          fieldset
+            legend Enter new box specifications
+            vertical
+              text boxId
+                screenLabel~ Storage Box Id:
+                class= barcodeBackground required
+                data-parsley-required= true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -         SELECT 1
+                  -         FROM containers
+                  -         WHERE containerId = '{_thisInput}')
+                  errorMessage~ This Storage Box already exists.
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                data-parsley-required= true
+                option
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+              number noRows
+                screenLabel~ Number of Rows:
+                # id= noRows
+                size= 4
+                value= 8
+                readonly=
+
+              number noCols
+                screenLabel~ Number of Columns:
+                # id= noCols
+                size= 4
+                value= 8
+                readonly=
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox}
+            advanced~
+            not~
+              equals~ true
+
+        hidden boxType
+          id= boxType
+          value= {boxType}
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        div
+          style= display:none;
+          vertical
+            container archiveSystem2
+              id= newboxtrue
+              class= hide
+              new~ false
+              acceptQueue~ any
+              value= ARCHIVE SYSTEM
+              configureIf~ {newBox}
+                advanced~
+                equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO containers (containerId, containerType, eventId)
+                - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+                string {boxId}
+                long {_eventId}
+                string {boxId}
+
+              sqlPreparedStatement~
+                - INSERT INTO containerHistory (containerId, eventId)
+                - SELECT ?, ? FROM dual
+                string {boxId}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+                - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+                string {boxId}
+                string {boxType}
+                int {noRows}
+                int {noCols}
+                string {boxDesc}
+                long {_eventId}
+
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 'self', 'Storage Box', ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM contents WHERE ? = containerId)
+          string {boxId}
+          string {boxId}
+          long {_eventId}
+          string {boxId}
+
+################################################################################################################################
+    step Create 9x9 Storage Box
+      form
+        data-parsley-validate=
+        include stepInstructions
+        hidden newBox
+          id= newBox
+          value= true
+        br
+        div
+          fieldset
+            legend Enter new box specifications
+            vertical
+              text boxId
+                screenLabel~ Storage Box Id:
+                class= barcodeBackground required
+                data-parsley-required= true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -         SELECT 1
+                  -         FROM containers
+                  -         WHERE containerId = '{_thisInput}')
+                  errorMessage~ This Storage Box already exists.
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                data-parsley-required= true
+                option
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+                option Numbered positions (1, 2, 3 ...)
+                  value= grid
+              number noRows
+                screenLabel~ Number of Rows:
+                # id= noRows
+                size= 4
+                value= 9
+                readonly=
+
+              number noCols
+                screenLabel~ Number of Columns:
+                # id= noCols
+                size= 4
+                value= 9
+                readonly=
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox}
+            advanced~
+            not~
+              equals~ true
+
+        hidden boxType
+          id= boxType
+          value= {boxType}
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        div
+          style= display:none;
+          vertical
+            container archiveSystem2
+              id= newboxtrue
+              class= hide
+              new~ false
+              acceptQueue~ any
+              value= ARCHIVE SYSTEM
+              configureIf~ {newBox}
+                advanced~
+                equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO containers (containerId, containerType, eventId)
+                - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+                string {boxId}
+                long {_eventId}
+                string {boxId}
+
+              sqlPreparedStatement~
+                - INSERT INTO containerHistory (containerId, eventId)
+                - SELECT ?, ? FROM dual
+                string {boxId}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+                - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+                string {boxId}
+                string {boxType}
+                int {noRows}
+                int {noCols}
+                string {boxDesc}
+                long {_eventId}
+
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 'self', 'Storage Box', ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM contents WHERE ? = containerId)
+          string {boxId}
+          string {boxId}
+          long {_eventId}
+          string {boxId}
+
+################################################################################################################################
+    step Create 10x10 Storage Box
+      form
+        data-parsley-validate=
+        include stepInstructions
+        hidden newBox
+          id= newBox
+          value= true
+        br
+        div
+          fieldset
+            legend Enter new box specifications
+            vertical
+              text boxId
+                screenLabel~ Storage Box Id:
+                class= barcodeBackground required
+                data-parsley-required= true
+                validate~ SELECT 1
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -         SELECT 1
+                  -         FROM containers
+                  -         WHERE containerId = '{_thisInput}')
+                  errorMessage~ This Storage Box already exists.
+              select boxType
+                id= boxType
+                screenLabel~ Box Layout Type:
+                class= required
+                data-parsley-required= true
+                option
+                option Coordinate positions (A01, B01 ...)
+                  value= plate
+                option Numbered positions (1, 2, 3 ...)
+                  value= grid
+              number noRows
+                screenLabel~ Number of Rows:
+                # id= noRows
+                size= 4
+                value= 10
+                readonly=
+
+              number noCols
+                screenLabel~ Number of Columns:
+                # id= noCols
+                size= 4
+                value= 10
+                readonly=
+
+      ### FORM 1 - Store in Box - Show box layout & content.
+      form
+        include stepInstructions
+        formPreparedQuery~ SELECT cols as 'noCols', rows as 'noRows'
+          - , layoutType as 'boxType'
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          string {boxId}
+          configureIf~ {newBox} != true
+
+        hidden boxType
+          id= boxType
+          value= {boxType}
+        hidden noRows
+          value= {noRows}
+        hidden noCols
+          value= {noRows}
+        hidden newBox
+          value= {newBox}
+
+        div
+          style= display:none;
+          vertical
+            container archiveSystem2
+              id= newboxtrue
+              class= hide
+              new~ false
+              acceptQueue~ any
+              value= ARCHIVE SYSTEM
+              configureIf~ {newBox}
+                advanced~
+                equals~ true
+              sqlPreparedStatement~
+                - INSERT INTO containers (containerId, containerType, eventId)
+                - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+                string {boxId}
+                long {_eventId}
+                string {boxId}
+
+              sqlPreparedStatement~
+                - INSERT INTO containerHistory (containerId, eventId)
+                - SELECT ?, ? FROM dual
+                string {boxId}
+                long {_eventId}
+
+              sqlPreparedStatement~
+                - INSERT INTO storageContainerInfo (storageContainerId, type, model, layoutType, rows, cols, description, eventId)
+                - VALUES (?, 'Storage Box', '', ?, ?, ?, ?, ?)
+                string {boxId}
+                string {boxType}
+                int {noRows}
+                int {noCols}
+                string {boxDesc}
+                long {_eventId}
+
+
+        vertical
+          text boxId
+            value= {boxId}
+            readonly= true
+            screenLabel~ Storage Box Id:
+            acceptQueue~ any
+            containerType~ storageId
+            validate~ SELECT 1
+              - FROM dual
+              - WHERE EXISTS ( SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?
+              -         AND type = 'Storage Box')
+              - OR NOT EXISTS (
+              -         SELECT 1
+              -         FROM storageContainerInfo
+              -         WHERE storageContainerId = ?)
+              errorMessage~ This item must be of storage type Box.
+              string {_thisInput}
+              string {_thisInput}
+
+            ### Create new box
+          ### box details
+          textArea boxDesc
+            screenLabel~ Description:
+            value= {boxDesc}
+            size= 35
+          text currentStorageLocation
+            id= currentStorageLocation
+            screenLabel~ Current Storage Location:
+            value= {currentStorageLocation}
+            readonly=
+            size= 35
+
+          ### Plate box in storage
+          select storeHere
+            id= storeHere
+            screenLabel~ Store this box:
+            acceptQueue~ any
+            required~ false
+            asContainer~
+            class= barcodeBackground
+            sqlPreparedQuery~
+              - SELECT storageContainerId
+              - FROM storageContainerInfo
+              - WHERE ifnull(layoutType,'') = ''
+              - ORDER BY storageContainerId
+
+
+        include storageBoxLayoutAndProcessing
+          configureIf~ {boxType}
+            advanced~
+            equals~ plate
+          parameter~ boxType
+            value= plate
+          parameter~ noCols
+            value= {noCols}
+          parameter~ noRows
+            value= {noRows}
+          parameter~ boxId
+            value= {boxId}
+
+
+      ### Store box sql
+      ifCondition {storeHere}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement~ INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+          - SELECT ?, 'storage', 'Storage Box', ?, ?
+          string {storeHere}
+          string {boxId}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, 'self', 'Storage Box', ?, ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM contents WHERE ? = containerId)
+          string {boxId}
+          string {boxId}
+          long {_eventId}
+          string {boxId}
+
+######## Create Freezer ########################################################################################################
+    step Create Freezer
+      form
+        include stepInstructions
+
+        table
+          sqlQuery~
+            - SELECT
+            -   '' as "Freezer Id"
+            -   , '' as "Freezer Type"
+            -   , '' as "Description"
+            -   , '' as "Storage Location"
+          columnSpecs~ freezer
+            allowChangedRecordIds
+            column 1
+              inputType container
+                new~ true
+                containerType~ Freezer
+                contentType~ Freezer
+                insertQueue~ Add Fridge/Freezer Shelves
+            column 2
+              inputType select
+                setName~ freezerTypes
+            column 3
+              inputType textArea
+            column 4
+              inputType container
+                # value= ARCHIVE SYSTEM
+                required~ false
+                acceptQueue~ any
+
+      forRows freezer
+        ifCondition {_columnInput_freezer:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO storageContainerInfo (storageContainerId, type, model, description, eventId)
+            - VALUES (?, 'Freezer', ?, ?, ?)
+            string {_columnInput_freezer:1}
+            string {_columnInput_freezer:2}
+            string {_columnInput_freezer:3}
+            long {_eventId}
+          sqlPreparedStatement
+            - INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+            - SELECT CASE WHEN ? = '' THEN 'Archive System' ELSE ? END,
+            -   'storage',
+            -   'Freezer',
+            -   ?,
+            -   ?
+            string {_columnInput_freezer:4}
+            string {_columnInput_freezer:4}
+            string {_columnInput_freezer:1}
+            long {_eventId}
+          #sqlPreparedStatement
+          #  - UPDATE storage
+          #  - SET storagePath = getStorageParentage(content)
+          #  - WHERE content = ?
+          #  string {_columnInput_freezer:1}
+
+######## Create Fridge #########################################################################################################
+    step Create Fridge
+      form
+        include stepInstructions
+
+        table
+          sqlQuery~
+            - SELECT
+            -   '' as "Fridge Id"
+            -   , '' as "Fridge Type"
+            -   , '' as "Description"
+            -   , '' as "Storage Location"
+          columnSpecs~ fridge
+            allowChangedRecordIds
+            column 1
+              inputType container
+                new~ true
+                containerType~ Fridge
+                contentType~ Fridge
+                addContent~
+                insertQueue~ Add Fridge/Freezer Shelves
+            column 2
+              inputType select
+                setName~ fridgeTypes
+            column 3
+              inputType textArea
+                required~ true
+            column 4
+              inputType container
+                value= Archive System
+                required~ false
+                acceptQueue~ any
+
+      forRows fridge
+        ifCondition {_columnInput_fridge:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO storageContainerInfo (storageContainerId, type, model, description, eventId)
+            - VALUES (?, ?, ?, ?, ?)
+            string {_columnInput_fridge:1}
+            string Fridge
+            string {_columnInput_fridge:2}
+            string {_columnInput_fridge:3}
+            long {_eventId}
+          sqlPreparedStatement
+            - INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+            - SELECT CASE WHEN ? = '' THEN 'Archive System' ELSE ? END,
+            -   ?,
+            -   ?,
+            -   ?,
+            -   ?
+            string {_columnInput_fridge:4}
+            string {_columnInput_fridge:4}
+            string storage
+            string Fridge
+            string {_columnInput_fridge:1}
+            long {_eventId}
+          #sqlPreparedStatement
+          #  - UPDATE storage
+          #  - SET storagePath = getStorageParentage(content)
+          #  - WHERE content = ?
+          #  string {_columnInput_fridge:1}
+
+######## Create Other Storage Unit #############################################################################################
+    step Create Other Storage Unit
+      form
+        include stepInstructions
+
+        vertical
+          text num
+            screenLabel~ Number of Storage Locations to Create
+            size= 2
+            value= 1
+
+      form
+        include stepInstructions
+
+        hidden num
+          value= {num}
+
+        table
+          sqlQuery~
+            - select
+            -   q.*
+            -   from
+            -   (SELECT @rank := 0) r
+            -   ,( SELECT
+            -   '' as "Storage Id"
+            -   , '' as "Storage Type"
+            -   , '' as "Storage Description"
+            -   , '' as "Location"
+            -   FROM numbers) q
+            - LIMIT {num}
+          columnSpecs~ storageUnits
+            allowChangedRecordIds
+            column 1
+              inputType container
+                new~ true
+                containerType~ {_columnInput:2}
+                contentType~ {_columnInput:2}
+                addContent~
+            column 2
+              inputType select
+                setName~ storageLocation
+            column 3
+              inputType textArea
+            column 4
+              inputType container
+                # value= ARCHIVE SYSTEM
+                acceptQueue~ any
+                required~ false
+      allowDuplicateContainerIds true
+
+      forRows storageUnits
+        ifCondition {_columnInput_storageUnits:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+            - SELECT
+            -   case when ? = '' then 'ARCHIVE SYSTEM' ELSE ? END
+            -   , 'storage'
+            -   , ?
+            -   , ?
+            -   , ?
+            string {_columnInput_storageUnits:4}
+            string {_columnInput_storageUnits:4}
+            string {_columnInput_storageUnits:2}
+            string {_columnInput_storageUnits:1}
+            long {_eventId}
+          sqlPreparedStatement
+            - INSERT INTO storageContainerInfo (storageContainerId, type, model, description, eventId)
+            - VALUES (?, ?, ?, ?, ?)
+            string {_columnInput_storageUnits:1}
+            string {_columnInput_storageUnits:2}
+            string {_columnInput_storageUnits:2}
+            string {_columnInput_storageUnits:3}
+            long {_eventId}
+
+
+

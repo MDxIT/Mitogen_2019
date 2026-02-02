@@ -1,0 +1,296 @@
+
+body {
+  font-family:arial;
+  font-size: 10pt;
+}
+
+.verticalCaption {
+  position:relative;
+  width:25px;
+  height:130px;
+  background-color:#86b5c2;
+  text-align: center;
+}
+.vertCapContent {
+  position: absolute;
+  top:30%;
+  left:-30px;
+  transform:rotate(-90deg);
+  color:white;
+}
+
+.infoHead {
+  width:305px;
+  text-align: center;
+  color:white;
+  background-color:#86b5c2;
+  margin:0;
+}
+
+.infoHead h3 {
+  margin:0;
+}
+
+.infoTable {
+  width:305px;
+  height:140px;
+  border:1px solid #86b5c2;
+}
+
+.infoTable .col0 {
+  width:85px;
+  font-size:12px;
+}
+
+.infoTable .col1{
+  font-weight: bold;
+  font-size:13px;
+}
+
+
+.drugResultHeader {
+  text-align:center;
+  background-color:#86b5c2;
+}
+.drugResultHeader h4 {margin: 0;color:white;}
+.drugResultHeader h3 {margin: 0;color:white;}
+
+.drugResultTable {
+  width:450px;
+  border:1px solid #86b5c2;
+  font-size: 11px;
+}
+
+.drugResultTable .col1,.drugResultTable .col2 ,.drugResultTable .col3 {
+  font-weight: bold;
+  padding:1px 3px;
+}
+
+.drugResultTable th {
+  text-align:left;
+  border-bottom:1px solid #86b5c2;
+}
+
+.toxResultsTable {
+  width:916px;
+  border:1px solid #86b5c2;
+  border-top:0;
+  margin-top:10px;
+  font-size: 11px;
+
+}
+.toxResultsTable caption {
+  text-align: left;
+  padding-left: 2px;
+  font-size:12pt;
+  border-left:1px solid #86b5c2;
+  border-right:1px solid #86b5c2;
+}
+.toxResultsTable th {
+  text-align:left;
+  background-color: lightgray;
+}
+
+.toxResultsTable .col0 {width:300px;}
+.toxResultsTable .col4 {width:300px;}
+
+.prescribed .r0 {background-color: #F0F0F0}
+.prescribed .r1 {background-color: #FFFFFF}
+
+.prescribedHeader h3 {background-color: #6ABC5E}
+.prescribedHeader h4 {background-color: #6ABC5E}
+
+.prescribed td, .prescribed th, .prescribed {border-color: #6ABC5E;}
+
+.reporttable{
+  border-collapse:collapse;
+  border: 1px solid black;
+  font-family:arial;
+  font-size:9pt;
+}
+
+td.reporttable {
+  border: 1px solid black;
+  padding: 2px;
+}
+
+td.reporttablehead {
+  font-weight:700;
+  border: 1px solid black;
+  padding: 2px;
+}
+.report_spacer {
+  border:1px solid blue;
+  width:100px;
+  height:20px;
+}
+.main_report {
+  border:0px solid red;
+  width: 800px;
+  float:left;
+  padding-top:0px;
+
+}
+.report_section_header {
+  font-size:10pt;
+  font-weight:bold;
+  text-align:left;
+}
+
+.report_section {
+  border:0px solid blue;
+  width: 100%;
+  float:left;
+  page-break-inside: avoid;
+}
+
+.report_header {
+  border-bottom:3px solid blue;
+  border-color: #2ECCFA;
+  float:left;
+  width:100%;
+  align:center;
+}
+
+.header_middle {
+  border:0px solid red;
+  margin-right:auto;
+  margin-left:220px;
+  width:250px;
+  color:black;
+  font-size:16pt;
+}
+
+.header_right {
+  border:0px solid blue;
+  float:right;
+  font-size:9pt;
+  vertical-align:top;
+  margin-top:-40px;
+}
+
+.field {
+  background: lightcyan;
+  width: 200px;
+}
+
+.value {
+  width: 200px;
+}
+
+table.patientInfo {
+  font-family:arial;
+  border-collapse:collapse;
+  margin:10px 0pt 15px;
+  font-size: 10pt;
+  width: 100%;
+  text-align: left;
+
+}
+
+.page {
+
+  height:1050px;
+  border:0px solid blue;
+}
+
+.pageBreak {
+  height:20px;
+}
+
+.cutoff {
+  text-align: center;
+}
+
+.result {
+  text-align: center;
+}
+
+.concentration {
+  text-align: center;
+}
+
+tr.r0 {background-color: #FFFFFF;}
+tr.r1 {background-color: #F0F0F0;}
+
+/*table.patientInfo tbody td {
+  color: black;
+  padding-left: 4px;
+  border-top: 1px solid black;
+  border-right: 1px solid black;
+  border-bottom:1px solid black;
+  padding-right: 4px;
+  padding-top: 2px;
+  padding-bottom: 1px;
+  background-color: #FFF;
+  vertical-align: top;
+}
+table.patientInfo tbody tr {
+
+
+}
+table.patientInfo td.patientInfoHeader {
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+  border-bottom:1px solid black;
+  border-right:none;
+  color:black;
+  font-size:10;
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-top: 2px;
+  padding-bottom: 1px;
+  background-color: #FFF;
+  vertical-align: top;
+
+}
+table.stdTableSort {
+  border: 1px solid black;
+  font-family:arial;
+  padding-right: 0px;
+  background-color: #CDCDCD;
+  margin:10px 0pt 10px;
+  font-size: 9pt;
+  width: 100%;
+  text-align: left;
+}
+
+
+table.references {
+  font-size:9px
+}
+
+table.stdTableSort thead tr th, table.stdTableSort tfoot tr th {
+  background-color: #e6EEEE;
+  border: 1px solid #FFF;
+  font-size: 9pt;
+  padding: 4px;
+  padding-right:5px;
+}
+table.stdTableSort thead tr .stdTh {
+  background-image: url(images/bg.gif);
+  background-repeat: no-repeat;
+  background-position: center right;
+  cursor: pointer;
+}
+table.stdTableSort tbody td {
+  color: #3D3D3D;
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-top: 2px;
+  padding-bottom: 1px;
+
+  background-color: #FFF;
+  vertical-align: top;
+}
+table.stdTableSort tbody tr.odd td {
+  background-color:#F0F0F6;
+}
+table.stdTableSort thead tr .headerSortUp {
+  background-image: url(images/asc.gif);
+}
+table.stdTableSort thead tr .headerSortDown {
+  background-image: url(images/desc.gif);
+}
+table.stdTableSort thead tr .headerSortDown, table.stdTableSort thead tr .headerSortUp {
+background-color: #8dbdd8;*/

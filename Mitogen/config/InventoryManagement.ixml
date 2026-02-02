@@ -1,0 +1,621 @@
+config
+  steps
+    stepGroup Inventory Management
+
+    step Manage All Vendors
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          src= js/inventoryManagement.js
+        vertical
+
+          div
+            id= accordion
+            h3 Add Vendor
+            div
+              vertical
+                text Vendor Name
+                  size= 50
+                  validate~ ! select value from validValues where setName = 'Vendor'
+                    errorMessage~ This Vendor already exists!
+                text Account Number
+
+
+            h3 Edit/Remove Vendor
+            div
+              vertical
+                table
+                  id= vendorTable
+                  sqlQuery~
+                    - SELECT
+                    -   '' as "Edit/Update"
+                    -   , vendor as "Vendor"
+                    -   , accountNumber as "Account#"
+                    -   , '' as "Remove"
+                    -   , vendorId as ""
+                    - FROM vendors
+                    - ORDER BY vendor ASC
+                  columnSpecs~ editVendor
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType text
+                        size= 50
+                    column 3
+                      inputType text
+                    column 4
+                      inputType checkbox
+                    column 5
+                      inputType text
+                        class= hiddenColumn
+                        readonly=
+
+            h3 List All
+            div
+              vertical
+                table
+                  sqlQuery~ select vendor as "Vendor", accountNumber as "Account Number" from vendors
+                    - order by vendor asc
+
+      sqlPreparedStatement insert into vendors (vendorId, vendor, accountNumber, eventId)
+        + SELECT ?, ?, ?, ?
+        + FROM dual
+        + WHERE ? <> ''
+        string {_getNextSequence:vendorId}
+        string {Vendor Name}
+        string {Account Number}
+        long {_eventId}
+        string {Vendor Name}
+
+      forRows editVendor
+        sqlPreparedStatement update vendors set vendor = ?, accountNumber = ?
+          - where vendorId = ?
+          - and ? = 'true'
+          string {_columnInput_editVendor:2}
+          string {_columnInput_editVendor:3}
+          string {_columnInput_editVendor:5}
+          string {_columnInput_editVendor:1}
+
+        sqlPreparedStatement delete from vendors where vendorId = ? and ? = 'true'
+          string {_columnInput_editVendor:5}
+          string {_columnInput_editVendor:4}
+
+    step Create Inventory Item
+      form
+        include userAccountInfo
+        include stepInstructions
+        include combobox
+
+        script
+          src= js/inventoryManagement.js
+
+        vertical
+          select Inventory Type
+            option Received Consumable
+            option Prepared Consumable
+            option Received Reagent
+            option Prepared Reagent
+            option Received Control
+            option Prepared Control
+            required~ true
+          text item
+            id= item
+            required~ true
+            screenLabel~ Name of Inventory Item (as on website)
+            size= 50;
+            validate~ ! select inventoryItem from inventoryItems where inventoryItem = '{item}'
+              errorMessage~ This item type already exists in inventory. The item name must be unique.
+          text itemDisplay
+            id= itemDisplay
+            screenLabel~ Item LIMS Display Name
+            size= 50
+          text Catalog Number
+          select Vendor
+            class= combobox
+            sqlQuery~ select concat(vendor, '-', accountNumber), vendor from vendors order by vendor asc
+            required~ true
+          number quantity
+            min~ 0
+            screenLabel~ Current Quantity
+            size= 8
+            value= 0.00
+            required~ false
+            validate~ ! select 1 from dual where '{quantity}' < 0
+              errorMessage~ The quantity must be a positive number
+            validate~ ! select 1 from dual where '{quantity}' = ''
+              errorMessage~ There must be decimal input for quantity. Enter 0.00 if the current quantity is unknown. This can be edited at a later time under Edit Inventory Items.
+          number Threshold
+            min~ 0
+            size= 8
+            value= 0.00
+            validate~ ! select 1 from dual where '{quantity}' = ''
+              errorMessage~ There must be decimal input for threshold. Enter 0.00 if the current threshold is unknown. This can be edited at a later time under Edit Inventory Items.
+          select units
+            screenLabel~ Units
+            required~ true
+            setName~ inventoryUnits
+
+      sqlPreparedStatement insert ignore into validValues (setName, displayValue, value, eventId)
+        - SELECT ?, ?, ?, ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {Inventory Type}
+        string {itemDisplay}
+        string {item}
+        long {_eventId}
+        string {item}
+
+      setFormQueryResult
+        sqlQuery SELECT vendorId as 'vendorId'
+          - FROM vendors
+          - WHERE vendor = '{Vendor}'
+
+      sqlPreparedStatement insert into inventoryItems (inventoryItem, inventoryType, catalogNumber, vendor, quantity, units, threshold, thresholdUnits, eventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {item}
+        string {Inventory Type}
+        string {Catalog Number}
+        string {_:vendorId}
+        string {quantity}
+        string {units}
+        string {Threshold}
+        string {units}
+        long {_eventId}
+        string {item}
+
+    step Edit Inventory Items
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          src= js/inventoryManagement.js
+        vertical
+          h3 Edit Inventory Type
+          div
+            id= edit
+            ul
+              li
+                a Received Consumables
+                  href= #receivedConsumables
+              li
+                a Prepared Consumables
+                  href= #preparedConsumables
+              li
+                a Received Reagents
+                  href= #recReagents
+              li
+                a Prepared Reagents
+                  href= #prepReagents
+              li
+                a Received Controls
+                  href= #recControls
+              li
+                a Prepared Controls
+                  href= #prepControls
+            div
+              id= receivedConsumables
+              table
+                class= stdTableBasic
+                sqlQuery~ SELECT
+                  -   CONCAT('<a href=/uniflow?stepName=Edit+Inventory+Item&recId=', ii.inventoryId, '>',ii.inventoryItem,'</a>') AS 'Item'
+                  - , ii.inventoryType AS 'Type'
+                  - , ii.catalogNumber AS 'CatNo'
+                  - , v.vendor AS 'Vendor'
+                  - , ii.quantity AS 'Qty'
+                  - , ii.units AS 'Units'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorID = ii.vendor
+                  - WHERE ii.inventoryType = 'Received Consumable'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= preparedConsumables
+              table
+                class= stdTableBasic
+                sqlQuery~ SELECT
+                  -   CONCAT('<a href=/uniflow?stepName=Edit+Inventory+Item&recId=', ii.inventoryId, '>',ii.inventoryItem,'</a>') AS 'Item'
+                  - , ii.inventoryType AS 'Type'
+                  - , ii.catalogNumber AS 'CatNo'
+                  - , v.vendor AS 'Vendor'
+                  - , ii.quantity AS 'Qty'
+                  - , ii.units AS 'Units'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorID = ii.vendor
+                  - WHERE ii.inventoryType = 'Prepared Consumable'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= recReagents
+              table
+                class= stdTableBasic
+                sqlQuery~ select
+                  -   CONCAT('<a href=/uniflow?stepName=Edit+Inventory+Item&recId=', ii.inventoryId, '>',ii.inventoryItem,'</a>') as 'Item'
+                  - , ii.inventoryType AS 'Type'
+                  - , ii.catalogNumber AS 'CatNo'
+                  - , v.vendor AS 'Vendor'
+                  - , ii.quantity AS 'Qty'
+                  - , ii.units AS 'Units'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorID = ii.vendor
+                  - WHERE ii.inventoryType = 'Received Reagent'
+                  - ORDER BY ii.inventoryItem ASC
+            div
+              id= prepReagents
+              table
+                class= stdTableBasic
+                sqlQuery~ select
+                  -   CONCAT('<a href=/uniflow?stepName=Edit+Inventory+Item&recId=', ii.inventoryId, '>',ii.inventoryItem,'</a>') as 'Item'
+                  - , ii.inventoryType AS 'Type'
+                  - , ii.catalogNumber AS 'CatNo'
+                  - , v.vendor AS 'Vendor'
+                  - , ii.quantity AS 'Qty'
+                  - , ii.units AS 'Units'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorID = ii.vendor
+                  - WHERE ii.inventoryType = 'Prepared Reagent'
+                  - ORDER BY ii.inventoryItem ASC
+            div
+              id= recControls
+              table
+                class= stdTableBasic
+                sqlQuery~ select
+                  -   CONCAT('<a href=/uniflow?stepName=Edit+Inventory+Item&recId=', ii.inventoryId, '>',ii.inventoryItem,'</a>') as 'Item'
+                  - , ii.inventoryType AS 'Type'
+                  - , ii.catalogNumber AS 'CatNo'
+                  - , v.vendor AS 'Vendor'
+                  - , ii.quantity AS 'Qty'
+                  - , ii.units AS 'Units'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorID = ii.vendor
+                  - WHERE ii.inventoryType = 'Received Control'
+                  - ORDER BY ii.inventoryItem ASC
+            div
+              id= prepControls
+              table
+                class= stdTableBasic
+                sqlQuery~ select
+                  -   CONCAT('<a href=/uniflow?stepName=Edit+Inventory+Item&recId=', ii.inventoryId, '>',ii.inventoryItem,'</a>') as 'Item'
+                  - , ii.inventoryType AS 'Type'
+                  - , ii.catalogNumber AS 'CatNo'
+                  - , v.vendor AS 'Vendor'
+                  - , ii.quantity AS 'Qty'
+                  - , ii.units AS 'Units'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorID = ii.vendor
+                  - WHERE ii.inventoryType = 'Prepared Control'
+                  - ORDER BY ii.inventoryItem ASC
+
+    step List Inventory Items
+      jsScripts
+        src js/inventoryManagement.js
+      form
+        include stepInstructions
+        vertical
+          h3 List Inventory Type
+          div
+            id= list
+            ul
+              li
+                a Received Consumables
+                  href= #recConsumablesList
+              li
+                a Prepared Consumables
+                  href= #prepConsumablesList
+              li
+                a Received Reagents
+                  href= #receivedList
+              li
+                a Prepared Reagents
+                  href= #preparedList
+              li
+                a Received Controls
+                  href= #recControlsList
+              li
+                a Prepared Controls
+                  href= #prepControlsList
+
+
+
+            div
+              id= recConsumablesList
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ii.inventoryItem AS 'Item',
+                  -   ii.catalogNumber AS 'Cat#',
+                  -   v.vendor AS 'Vendor',
+                  -   CONCAT(ii.quantity, ' ', ii.units) AS 'Qty',
+                  -   CASE
+                  -     WHEN ii.threshold = '' THEN ''
+                  -     ELSE CONCAT (ii.threshold, ' ', ii.thresholdUnits) END AS 'Threshold'
+                  - from inventoryItems ii
+                  - INNER JOIN vendors v ON v.vendorId = ii.vendor
+                  - WHERE ii.inventoryType = 'Received Consumable'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= prepConsumablesList
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ii.inventoryItem AS 'Item',
+                  -   ii.catalogNumber AS 'Cat#',
+                  -   v.vendor AS 'Vendor',
+                  -   CONCAT(ii.quantity, ' ', ii.units) AS 'Qty',
+                  -   CASE
+                  -     WHEN ii.threshold = '' THEN ''
+                  -     ELSE CONCAT (ii.threshold, ' ', ii.thresholdUnits) END AS 'Threshold'
+                  - from inventoryItems ii
+                  - INNER JOIN vendors v ON v.vendorId = ii.vendor
+                  - WHERE ii.inventoryType = 'Prepared Consumable'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= receivedList
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ii.inventoryItem AS 'Item',
+                  -   ii.catalogNumber AS 'Cat#',
+                  -   v.vendor AS 'Vendor',
+                  -   CONCAT(ii.quantity, ' ', ii.units) AS 'Qty',
+                  -   CASE
+                  -     WHEN ii.threshold = '' THEN ''
+                  -     ELSE CONCAT (ii.threshold, ' ', ii.thresholdUnits) END AS 'Threshold'
+                  - from inventoryItems ii
+                  - INNER JOIN vendors v ON v.vendorId = ii.vendor
+                  - WHERE ii.inventoryType = 'Received Reagent'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= preparedList
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ii.inventoryItem AS 'Item',
+                  -   ii.catalogNumber AS 'Cat#',
+                  -   v.vendor AS 'Vendor',
+                  -   CONCAT(ii.quantity, ' ', ii.units) AS 'Qty',
+                  -   CASE
+                  -     WHEN ii.threshold = '' THEN ''
+                  -     ELSE CONCAT (ii.threshold, ' ', ii.thresholdUnits) END AS 'Threshold'
+                  - from inventoryItems ii
+                  - INNER JOIN vendors v
+                  -   ON v.vendorId = ii.vendor
+                  - WHERE ii.inventoryType = 'Prepared Reagent'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= recControlsList
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ii.inventoryItem AS 'Item',
+                  -   ii.catalogNumber AS 'Cat#',
+                  -   v.vendor AS 'Vendor',
+                  -   CONCAT(ii.quantity, ' ', ii.units) AS 'Qty',
+                  -   CASE
+                  -     WHEN ii.threshold = '' THEN ''
+                  -     ELSE CONCAT (ii.threshold, ' ', ii.thresholdUnits) END AS 'Threshold'
+                  - from inventoryItems ii
+                  - INNER JOIN vendors v ON v.vendorId = ii.vendor
+                  - WHERE ii.inventoryType = 'Received Control'
+                  - ORDER BY ii.inventoryItem ASC
+
+            div
+              id= prepControlsList
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   ii.inventoryItem AS 'Item',
+                  -   ii.catalogNumber AS 'Cat#',
+                  -   v.vendor AS 'Vendor',
+                  -   CONCAT(ii.quantity, ' ', ii.units) AS 'Qty',
+                  -   CASE
+                  -     WHEN ii.threshold = '' THEN ''
+                  -     ELSE CONCAT (ii.threshold, ' ', ii.thresholdUnits) END AS 'Threshold'
+                  - FROM inventoryItems ii
+                  - INNER JOIN vendors v ON v.vendorId = ii.vendor
+                  - WHERE ii.inventoryType = 'Prepared Control'
+                  - ORDER BY ii.inventoryItem ASC
+
+
+##################################################################################################################################
+
+    step Reorder Inventory
+      form
+        include userAccountInfo
+        vertical
+          fieldset
+            legend What's This?
+              class= legend
+            vertical
+              li This table displays all inventory items with a currenty quantity less than the set threshold.
+              li It also displays whether that item is currently part of a purchase order in the system.
+              li As soon as the item is received, the quantity will be updated; as long as the new quantity is larger than the threshold, it will disappear from this list.
+              li If the current quantity is incorrect, it can be updated in <i> <a href=/uniflow?stepName=Edit+Inventory+Items>Edit Inventory Items</a></i>.
+              li ** NOTE: ** An item may be listed here whose parent item is in a Purchase Order waiting to be received.
+                </br>- For example, a specific kit may have been ordered and within that kit is a reagent listed here that is low,
+                </br>- but it is not directly associated with the PO# until the box is received.
+
+        vertical
+          table
+            class= stdTableBasic
+            sqlQuery~ select i.catalogNumber as 'CatalogNo', i.inventoryItem as 'Item', i.vendor as 'Vendor',
+              - CONCAT(i.quantity, ' ', i.units) as 'Current Qty',
+              - CONCAT(i.threshold,' ', i.thresholdUnits) as 'Threshold',
+              - IFNULL(GROUP_CONCAT(DISTINCT o.poNumber SEPARATOR ','), 'No Purchase Order') as 'In Purchase Order(s)'
+              - from inventoryItems i
+              - left outer join orderLog o on i.catalogNumber = o.catalogNumber and o.status IN ('requested', 'approved', 'pending')
+              - where i.quantity <= IFNULL(i.threshold,'0.00') and IFNULL(i.threshold,'0') NOT IN ('0', '0.00')
+              - group by i.catalogNumber
+
+
+
+    stepGroup Ajax Inventory
+    step Ajax Load Inventory Attributes
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select ii.inventoryItem as 'item', ii.inventoryType as 'type',
+          - v.vendor, ii.units, ii.threshold, ii.thresholdUnits
+          - from inventoryItems ii
+          - INNER JOIN vendors v
+          -   on ii.vendor = v.vendorId
+          - where ii.catalogNumber = '{catNo}'
+
+
+    step Ajax Load Inventory Attributes By Item
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select ii.catalogNumber as 'catNo', ii.inventoryType as 'type',
+          - v.vendor, ii.units, ii.threshold, ii.thresholdUnits
+          - from inventoryItems ii
+          - INNER JOIN vendors v
+          -   ON ii.vendor = v.vendorId
+          - where ii.inventoryItem = '{item}'
+
+
+    stepGroup Hidden Inventory Steps
+
+    step Edit Inventory Item
+      nextStep Edit Inventory Items
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        script
+          src= js/inventoryManagement.js
+
+        formPreparedQuery~ SELECT ii.*, v.vendor AS 'vendorName'
+          - FROM inventoryItems ii
+          - INNER JOIN vendors v
+          -   ON ii.vendor = v.vendorId
+          - WHERE ii.inventoryId = ?
+          string {_recId}
+
+        hidden _recId
+          value= {_recId}
+          screenLabel~
+          readonly=
+        div
+          id= warning
+          title= **Warning**
+          style= display:none;
+          vertical
+            span Are you sure you want to delete this item from inventory?
+            span This will also remove the item from all assigned tasks within the system.
+        vertical
+          checkbox remove
+            id= removeMe
+            screenLabel~
+            span Remove Item from Inventory
+        vertical
+          text item
+            id= item
+            value= {_:inventoryItem}
+            required~ true
+            screenLabel~ Inventory Item
+            size= 50;
+            validate~ ! select inventoryItem from inventoryItems where inventoryItem = '{item}' and inventoryType = '{Inventory Type}' and inventoryId <> '{_recId}'
+              errorMessage~ The edited item name already exists in inventory. Please enter a different item name.
+          select Inventory Type
+            option {_:inventoryType}
+              value= {_:inventoryType}
+            option Received Consumable
+            option Prepared Consumable
+            option Received Reagent
+            option Prepared Reagent
+            option Received Control
+            option Prepared Control
+            required~ true
+          text Catalog Number
+            value= {_:catalogNumber}
+          select Vendor
+            class= combobox
+            value= {_:vendorName}
+            sqlQuery~ select concat(vendor, '-', accountNumber), vendor from vendors order by vendor asc
+            required~ true
+          number quantity
+            value= {_:quantity}
+            min~ 0
+            screenLabel~ Current Quantity
+            size= 8
+            value= 0.00
+            required~ false
+            validate~ ! select 1 from dual where '{quantity}' < 0
+              errorMessage~ The quantity must be a positive number
+            validate~ ! select 1 from dual where '{quantity}' = ''
+              errorMessage~ There must be decimal input for quantity. Enter 0.00 if the current quantity is unknown. This can be edited at a later time under Edit Inventory Items.
+          number Threshold
+            value= {_:threshold}
+            min~ 0
+            size= 8
+            value= 0.00
+            validate~ ! select 1 from dual where '{quantity}' = ''
+              errorMessage~ There must be decimal input for threshold. Enter 0.00 if the current threshold is unknown. This can be edited at a later time under Edit Inventory Items.
+          select units
+            value= {_:units}
+            screenLabel~ Units
+            setName~ inventoryUnits
+
+      ifCondition {remove}
+        advanced~
+        not~
+          equals~ true
+        sqlPreparedStatement update inventoryUsage
+          - set inventoryItem = ?
+          - , units = ?
+          - where inventoryItem = (select inventoryItem from inventoryItems where inventoryId = ?)
+          string {item}
+          string {units}
+          string {_recId}
+
+        setFormQueryResult
+          sqlQuery SELECT vendorId as 'vendorId'
+            - FROM vendors
+            - WHERE vendor = '{Vendor}'
+
+        sqlPreparedStatement update inventoryItems
+          - set inventoryItem = ?
+          - , inventoryType = ?
+          - , catalogNumber = ?
+          - , vendor = ?
+          - , quantity = ?
+          - , threshold = ?
+          - , units = ?
+          - , thresholdUnits = ?
+          - where inventoryId = ?
+          string {item}
+          string {Inventory Type}
+          string {Catalog Number}
+          string {_:vendorId}
+          string {quantity}
+          string {Threshold}
+          string {units}
+          string {units}
+          string {_recId}
+
+      ifCondition {remove}
+        advanced~
+        equals~ true
+        sqlPreparedStatement delete from inventoryItems where inventoryId = ?
+          string {_recId}
+        sqlPreparedStatement delete from inventoryUsage where inventoryItem = (select inventoryItem from inventoryItems where inventoryId = ?)
+          string {_recId}
+

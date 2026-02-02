@@ -1,0 +1,316 @@
+config
+  steps
+    stepGroup Ajax Resources
+
+######### CONSUMABLES ###########
+    step Ajax_searchByConsumableType
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchByConsumableType
+        class= formatDateTable
+        caption Consumables By Consumable Type
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN expirationDate <= now() THEN CONCAT("<span style=color:red>",consumableId, "</span>")
+          -              ELSE consumableId END AS "Lookup Consumable Id",
+          -   consumableType AS "Type",
+          -   catalogNo AS "Catalog Number",
+          -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+          -   lotNumber AS "Lot Number",
+          -   v.vendor AS "Vendor",
+          -   projectType AS "Project",
+          -   costPerUnit AS "Cost Per Unit",
+          -   poNumber AS "PO Number",
+          -   DATE(receiveDate) AS "Date Received",
+          -   DATE(expirationDate) AS "Expiration Date",
+          -   status AS "Status"
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE consumableType = ?
+          string {value}
+        columnSpecs~ Ajax_searchByConsumableType
+          column 10
+            formatDate~
+          column 11
+            inputType date
+              readonly=
+              formatDate~
+              class= expireDate
+              convert~ false
+
+
+    step Ajax_consumablesInUse
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_consumablesInUse
+        class= formatDateTable
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN expirationDate <= now() THEN CONCAT("<span style=color:red>",consumableId, "</span>")
+          -              ELSE consumableId END AS "Lookup Consumable Id",
+          -   consumableType AS "Type",
+          -   catalogNo AS "Catalog Number",
+          -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+          -   lotNumber AS "Lot Number",
+          -   v.vendor AS "Vendor",
+          -   projectType AS "Project",
+          -   costPerUnit AS "Cost Per Unit",
+          -   poNumber AS "PO Number",
+          -   DATE(receiveDate) AS "Date Received",
+          -   DATE(expirationDate) AS "Expiration Date"
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE status = 'In Use'
+        columnSpecs~ Ajax_consumablesInUse
+          column 10
+            formatDate~
+          column 11
+            inputType date
+              readonly=
+              formatDate~
+              class= expireDate
+              convert~ false
+
+    step Ajax_consumablesUsed30d
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_consumablesUsed30d
+        class= formatDateTable
+        sqlPreparedQuery~
+          - SELECT
+          -   e.step as "Task",
+          -   CASE WHEN expirationDate <= now() THEN CONCAT("<span style=color:red>",consumableId, "</span>")
+          -              ELSE consumableId END AS "Lookup Consumable Id",
+          -   consumableType AS "Type",
+          -   catalogNo AS "Catalog Number",
+          -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+          -   lotNumber AS "Lot Number",
+          -   v.vendor AS "Vendor",
+          -   projectType AS "Project",
+          -   costPerUnit AS "Cost Per Unit",
+          -   poNumber AS "PO Number",
+          -   DATE(receiveDate) AS "Date Received",
+          -   DATE(expirationDate) AS "Expiration Date",
+          -   status AS "Status"
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - INNER JOIN resourceHistory h
+          - ON c.consumableId = h.containerId
+          - INNER JOIN events e
+          - ON h.eventId = e.eventId
+          - WHERE e.eventDate BETWEEN DATE(DATE_SUB(NOW(), INTERVAL 30 DAY)) AND DATE(NOW())
+          - ORDER BY e.eventId
+        columnSpecs~ Ajax_consumablesUsed30d
+          column 11
+            formatDate~
+          column 12
+            inputType date
+              readonly=
+              formatDate~
+              class= expireDate
+              convert~ false
+
+    step Ajax_consumablesReceivedToday
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_consumablesReceivedToday
+        class= formatDateTable
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN expirationDate <= now() THEN CONCAT("<span style=color:red>",consumableId, "</span>")
+          -              ELSE consumableId END AS "Lookup Consumable Id",
+          -   consumableType AS "Type",
+          -   catalogNo AS "Catalog Number",
+          -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+          -   lotNumber AS "Lot Number",
+          -   v.vendor AS "Vendor",
+          -   projectType AS "Project",
+          -   costPerUnit AS "Cost Per Unit",
+          -   poNumber AS "PO Number",
+          -   DATE(receiveDate) AS "Date Received",
+          -   DATE(expirationDate) AS "Expiration Date",
+          -   status AS "Status"
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE DATE(receiveDate) = DATE(NOW())
+        columnSpecs~ Ajax_consumablesUsed30d
+          column 10
+            formatDate~
+          column 11
+            inputType date
+              readonly=
+              formatDate~
+              class= expireDate
+              convert~ false
+
+    step Ajax_searchConsumablesByPO
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchConsumablesByPO
+        class= formatDateTable
+        caption Consumables By PO#
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN DATE(expirationDate) <= DATE(now()) THEN CONCAT("<span style=color:red>",consumableId, "</span>")
+          -              ELSE consumableId END AS "Lookup Consumable Id",
+          -   consumableType AS "Type",
+          -   catalogNo AS "Catalog Number",
+          -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+          -   lotNumber AS "Lot Number",
+          -   v.vendor AS "Vendor",
+          -   projectType AS "Project",
+          -   costPerUnit AS "Cost Per Unit",
+          -   poNumber AS "PO Number",
+          -   DATE(receiveDate) AS "Date Received",
+          -   DATE(expirationDate) AS "Expiration Date",
+          -   status AS "Status"
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE poNumber = ?
+          string {value}
+        columnSpecs~ Ajax_searchConsumablesByPO
+          allowChangedRecordIds
+          column 10
+            formatDate~
+          column 11
+            inputType date
+              readonly=
+              formatDate~
+              class= expireDate
+              convert~ false
+
+    step Ajax_searchConsumablesByCatalogNo
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchConsumablesByCatalogNo
+        class= formatDateTable
+        caption Consumables By Catalog Number
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN DATE(expirationDate) <= DATE(now()) THEN CONCAT("<span style=color:red>",consumableId, "</span>")
+          -              ELSE consumableId END AS "Lookup Consumable Id",
+          -   consumableType AS "Type",
+          -   catalogNo AS "Catalog Number",
+          -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+          -   lotNumber AS "Lot Number",
+          -   v.vendor AS "Vendor",
+          -   projectType AS "Project",
+          -   costPerUnit AS "Cost Per Unit",
+          -   poNumber AS "PO Number",
+          -   DATE(receiveDate) AS "Date Received",
+          -   DATE(expirationDate) AS "Expiration Date",
+          -   status AS "Status"
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE catalogNo LIKE (CASE ? WHEN '' THEN ? ELSE ? END)
+          string {value}
+          string {value}
+          string %{value}%
+        columnSpecs~ Ajax_searchConsumablesByCatalogNo
+          allowChangedRecordIds
+          column 10
+            formatDate~
+          column 11
+            inputType date
+              readonly=
+              formatDate~
+              class= expireDate
+              convert~ false
+
+    step Ajax Get Consumable Type
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT consumableType AS "type",
+          -   consumableId AS "containerId",
+          -   expirationDate AS "expDate",
+          -   curDate() AS "todayDate"
+          - FROM consumables
+          - WHERE consumableId = ?
+          - UNION
+          - SELECT '', '', '', ''
+          string {containerId}
+
+    step Ajax Get Prepared Container Data
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   c.consumableId AS "containerId",
+          -   c.consumableType AS "type",
+          -   CASE
+          -     WHEN co.expirationDate >= curdate() THEN "pass"
+          -     ELSE "fail"
+          -   END AS "expirationDate",
+          -   CASE
+          -     WHEN iu.inventoryItem = c.consumableType THEN "pass"
+          -     ELSE "fail"
+          -   END AS "typeMatch",
+          -   CASE ifNull(con.content, "empty")
+          -     WHEN "empty" THEN "pass" ELSE "fail" END AS "hasContent"
+          -   FROM consumables c
+          -     INNER JOIN containers co
+          -       ON c.consumableId = co.containerId
+          -     LEFT JOIN inventoryUsage iu
+          -       ON c.consumableType = iu.inventoryItem
+          -       AND iu.step = ?
+          -     LEFT JOIN contents con
+          -       ON con.containerId = c.consumableId
+          -       AND con.contentType in ('runId', 'controlRunId', 'poolRunId')
+          - WHERE c.consumableId = ?
+          - UNION
+          - SELECT '', '', 'fail', 'fail', 'fail'
+          string {currentStepName}
+          string {containerId}
+
+    step AjaxCheckUniqueContainerId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   1 AS "uniqueCheck"
+          - FROM containers
+          - WHERE containerId = ?
+          string {containerId}
+
+
+# ######### USAGE ##################
+
+    step Ajax Load Current Resources Table
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        caption Current Resources
+        sqlPreparedQuery~
+          - SELECT
+          -   iu.inventoryItem AS "Resource",
+          -   iu.step AS "Step Name",
+          -   CASE ii.inventoryType
+          -     WHEN 'Prepared Consumable' THEN 'N/A'
+          -     ELSE iu.amount
+          -   END AS "Amount",
+          -   iu.units AS "Units"
+          - FROM inventoryUsage iu
+          -   INNER JOIN inventoryItems ii ON iu.inventoryItem = ii.inventoryItem
+          - WHERE iu.step = ?
+          string {fromStep}
+

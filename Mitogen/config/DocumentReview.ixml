@@ -1,0 +1,238 @@
+config
+  steps
+
+    stepGroup Review Documents
+
+    step Document Review
+      ContentSecurityPolicy default-src https: 'unsafe-eval' 'unsafe-inline'; frame-src data:; img-src data: https:; object-src https: data:; frame-ancestors 'self'
+      Cache-Control no-cache
+      Cache-Control no-store
+      jsScripts
+        src js/documentReviewStandAlone.js
+      form
+        data-parsley-validate=
+        include stepInstructions
+        div
+          id= modal
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden docHere
+          value= false
+        div
+          topVertical
+            text theContainerId
+              id= theContainerId
+              screenLabel~ Container Id
+              class= barcodeBackground
+              required~ true
+              data-parsley-required= true
+              acceptQueue~ any
+
+      form
+        data-parsley-validate=
+        include stepInstructions
+        div
+          id= modal
+
+        configurePreparedQuery~ SELECT
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -     ELSE ?
+          -   END AS "currentContainerId",
+          -   CASE ?
+          -     WHEN 'false' THEN 'false'
+          -     ELSE 'true'
+          -   END AS "docHere"
+          string {theContainerId}
+          string {_recId}
+          string {_recId}
+          string {theContainerId}
+          string {docHere}
+
+
+        configurePreparedQuery~ SELECT
+          -   c.content AS "currentRunId",
+          -   c.contentType AS "contentType"
+          -   FROM contents c
+          -   WHERE c.containerId = ?
+          -     AND (c.contentType = 'runId' OR c.contentType = 'poolRunId')
+          string  {_:currentContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~ SELECT
+          -   containerType AS "containerType"
+          - FROM containers
+          - WHERE containerId = ?
+          string {_:currentContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~ SELECT
+          -   c.content AS "currentRequestId"
+          -   FROM contents c
+          -   WHERE c.containerId = ?
+          -     AND c.contentType = 'requestId'
+          -   UNION ALL
+          -   SELECT '' AS "currentRequestId"
+          string  {_:currentContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~ SELECT
+          - CASE
+          -   WHEN ? LIKE 'pool%' THEN ?
+          -   ELSE ?
+          - END AS 'containerComponentVal'
+          string {_:currentRunId}
+          string {_:currentRunId}
+          string {_:currentContainerId}
+
+        hidden stepName
+          id= stepName
+          value= Document Review
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden currentContentType
+          id= currentContentType
+          value= {_:contentType}
+
+        hidden currentContainerId
+          id= currentContainerId
+          value= {_:currentContainerId}
+
+        hidden currentRunId
+          id= currentRunId
+          value= {_:currentRunId}
+
+        hidden currentRequestId
+          id= currentRequestId
+          value= {_:currentRequestId}
+
+
+        fieldset
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ specimenId
+              or~ 
+                equals~ tubeId
+              or~ 
+                equals~ aliquotId
+            table
+              id= sampleListTable
+              sqlPreparedQuery
+                - SELECT
+                -   sr.currentContainerId AS "Sample Id",
+                -   CONCAT('<a href="/uniflow?lastForm=Y&stepName=Order+Form&nextStepInstance=View&recId=',rs.requestId,'">',rs.requestId,'</a>') AS "Request Id",
+                -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+                -   CONCAT(IFNULL(os.siteId, ''), CASE WHEN IFNULL(os.siteId, '') <> '' AND IFNULL(rf.mrn, '') <> '' THEN '-' ELSE '' END, IFNULL(rf.mrn, '')) AS "FacilityID-MRN",
+                -   IFNULL(DATE(pa.dob), '') AS "DOB",
+                -   GROUP_CONCAT(DISTINCT(t.name) SEPARATOR '<br>') AS "Tests"
+                - FROM specimenRuns sr
+                - LEFT JOIN contents c
+                -   ON sr.currentContainerId = c.content AND c.attribute <> 'self'
+                - INNER JOIN specimenMethods sm
+                -   ON sr.specimenMethodsId = sm.id
+                - INNER JOIN requestSpecimens rs
+                -   ON sm.requestSpecimensId = rs.id
+                - INNER JOIN requestForms rf
+                -   ON rs.requestId = rf.requestId
+                - LEFT JOIN patients pa
+                -   ON pa.patientId = rf.patientId
+                -   AND rs.patientId = pa.patientId
+                - INNER JOIN organizationSites os
+                -   ON os.siteId = rf.physicianSiteId
+                - LEFT JOIN tests t
+                -   ON sm.testCode = t.testCode
+                - WHERE sr.currentContainerId = ?
+                string {_:currentContainerId}
+
+
+          include containerComponent
+            parameter~ containerName
+              value= containerId
+            parameter~ containerScreenLabel
+              value= Container
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value=
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:containerComponentVal}
+
+            parameter~ useThisSequence
+              value=
+
+            #### BUILD SHEET CONFIGURATIONS
+            parameter~ containerCommentsInclude
+              value= No
+            parameter~ containerActionInclude
+              value= No
+            ### Leave containerGenerateFromSequence blank to allow containerType to not be added to the container options
+            parameter~ containerGenerateFromSequence
+              value=
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ includePriority
+              value= No
+            parameter~ parentIdRequired
+              value= false
+            parameter~ containerFileUpload
+              value= No
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+            parameter~ showContainerRunCount
+              value= No
+            parameter~ groupingContainerRunCount
+              value= No
+
+          include containerFilesRendering
+            parameter~ currentContainerId
+              value= {_:currentContainerId}
+            parameter~ docHere
+              value= {_:docHere}
+
+      forRows filesUploaded
+        ifCondition {_columnInput_filesUploaded:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement~
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - VALUES (?, ?, ?, ?)
+            string {_columnInput_filesUploaded:5}
+            string fileDeleted
+            string {_columnInput_filesUploaded:4}
+            long {_eventId}
+
+      # Container history for associated runs
+      forEach SELECT runId
+        - FROM specimenRuns
+        - WHERE currentParentId = ?
+        string {containerId}
+
+        sqlPreparedStatement
+          - INSERT INTO containerHistory (containerId, eventId)
+          - VALUES (?, ?)
+          string {_:runId}
+          long {_eventId}

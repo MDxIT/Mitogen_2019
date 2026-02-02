@@ -1,0 +1,281 @@
+config
+  steps
+
+    stepGroup Analysis Configuration
+
+    step Analysis Method Configuration
+      accessLevel 10
+      jsScripts
+        src js/fontawesome/js/all.min.js
+
+        src js/generalFunctions.js
+        src js/configuration/analysisConfigurationHelperFunctions.js
+        src js/configuration/analysisConfigurationFieldSubsections.js
+        src js/configuration/analysisConfigurationDataFields.js
+        src js/configuration/analysisConfigurationSave.js
+        src js/configuration/analysisConfiguration.js
+        src js/configuration/analysisConfigurationOnLoad.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link css/configuration/analysisConfiguration.css
+      form
+        include stepInstructions
+        ### data-parsley-validate= is applied via the javascript per documentation best practice
+        # data-parsley-validate=
+        div
+          id= modal
+
+        fieldset
+          div
+            id= tabs
+            ul
+              li
+                a Active
+                  href= #analysisMethodsActive
+
+              li
+                a Inactive
+                  href= #analysisMethodsInactive
+              div
+                id= createNewButtonDiv
+                button
+                  id= btnCreateNewAnalysisMethod
+                  value= Create new analysis method template
+
+            div
+              id= analysisMethodsActive
+            div
+              id= analysisMethodsInactive
+
+
+      form
+        include stepInstructions
+        ### data-parsley-validate= is applied via the javascript per documentation best practice
+        # data-parsley-validate=
+        div
+          id= modal
+
+        configurePreparedQuery~
+          - SELECT am.methodName,
+          -         am.methodDescription AS "templateDescription",
+          -         amv.id AS "versionId",
+          -         amv.analysisMethodsId,
+          -         amv.version AS "version",
+          -         amv.active,
+          -         am.analysisStepName AS "associatedStepName",
+          -         ps.stepName AS "associatedStepType"
+          -  FROM analysisMethods am
+          -  INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          -  LEFT JOIN protocolSteps ps ON ps.displayName = am.analysisStepName
+          -  WHERE amv.id = '{templateId}'
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -  andd.sequence AS "specimenColumn"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          - INNER JOIN analysisDataDefinition andd ON andd.analysisMethodVersionsId = amv.id
+          - WHERE amv.active = 1 AND amv.id = '{templateId}' AND andd.definerType = 'specimenColumn';
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -  andd.sequence AS "locationColumn"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          - INNER JOIN analysisDataDefinition andd ON andd.analysisMethodVersionsId = amv.id
+          - WHERE amv.active = 1 AND amv.id = '{templateId}' AND andd.definerType = 'locationColumn';
+          allowEmptyResults~
+
+
+        formOutputJython~
+          from analysis import AnalysisMethod
+          from general_functions import getValidValues
+          import json
+          ##
+          ## Implements AnalysisMethod class from analysis package to retrieve previously configured data
+          ##    Previously configured data is pulled via get_field_config, converted to JSON, and placed in a hidden text area to be consumed by the js
+          ##    
+          ## Implements getValidValues method from general_functions to retreive the configured units list
+          ##    Units object is converted to JSON and placed in a hidden text area to be consumed by the js 
+          ##
+
+          method_version_id = '{templateId}'
+          analysis_units_text = getValidValues(switchboard, 'analysisUnits')
+          analysis_units_text_json = json.dumps(analysis_units_text)
+
+          if method_version_id != 'newMethod':
+            template_object = AnalysisMethod(switchboard, method_version_id)
+            ## List of field objects configured for this method version
+            method_config = template_object.method_config
+            field_config_json = json.dumps(method_config)
+          else:
+            field_config_json = ''
+
+
+        topVertical
+          id= hiddenFields
+          style= display:none
+          textArea fieldConfig 
+            id= fieldConfig
+            value= {_j:field_config_json}
+          textArea analysisUnitsText 
+            id= analysisUnitsText
+            value= {_j:analysis_units_text_json}
+
+        hidden templateNameOrig
+          id= templateNameOrig
+          value= {_:methodName}
+
+        hidden templateNameId
+          id= templateNameId
+          value= {analysisMethodsId}
+
+        hidden methodVersionId
+          id= methodVersionId
+          value= {_:versionId}
+
+        hidden templateActiveOrig
+          id= templateActiveOrig
+          value= {_:active}
+
+
+        hidden templateVersionNumberOrig
+          id= templateVersionNumberOrig
+          value= {_:version}
+
+        hidden previousLoadData
+          id= previousLoadData
+
+        hidden previousMetaData
+          id= previousMetaData
+
+        hidden associatedStepType
+          id= associatedStepType
+          value= {_:associatedStepType}
+
+        hidden associatedPanelCodes
+          id= associatedPanelCodes
+
+
+        div
+          id= loadingProgress
+          img
+            src= images/loader.gif
+          span Loading Configuration Options...
+
+        div
+          id= configOptions
+          fieldset
+            fieldset
+              id= topSectionFieldset
+              topVertical
+                class= goLeft
+                text templateName
+                  screenLabel~ Analysis Template Name:
+                  id= templateName
+                  class= required
+                  required~ true
+                  data-parsley-required= true
+                  value= {_:methodName}
+                  ### check for template number and also for special characters.... such as tick marks and clear field if exists
+
+              div
+                class= goRight
+                label Template Version:
+                label !!! {_:version}
+                  id= versionNumber
+                text templateVersionNumber
+                  id= templateVersionNumber
+                  data-parsley-required= true
+                  value= {_:version}
+              topVertical
+                class= goLeft
+                textArea templateDescription
+                  screenLabel~ Template Description:
+                  id= templateDescription
+                  class= required
+                  required~ true
+                  data-parsley-required= true
+                  value= {_:templateDescription}
+                select templateActive
+                  screenLabel~ Template Active:
+                  id= templateActive
+                  class= required
+                  required~ true
+                  data-parsley-required= true
+                  option Yes
+                    value= 1
+                  option No
+                    value= 0
+                  value= {_:active}
+                select associatedStepName
+                  screenLabel~ Associated Step Name:
+                  id= associatedStepName
+                  option
+                  sqlQuery~
+                    - SELECT ps.displayName, ps.displayName
+                    - FROM protocolSteps ps
+                    - WHERE ps.stepName LIKE '%Analysis:%'
+                    - AND ps.displayName NOT IN ( SELECT analysisStepName
+                    -                             FROM analysisMethods am
+                    -                             INNER JOIN analysisMethodVersions amv
+                    -                                   ON am.id = amv.analysisMethodsId
+                    -                                   AND amv.active = '1'
+                    -                                   AND analysisStepName <> '')
+                  value= {_:associatedStepName}
+                textArea associatedPanelsPerStep
+                  screenLabel~ Panel/s:
+                  id= associatedPanelsPerStep
+                  readonly=
+
+              topVertical
+                class= goLeft toInstColumns
+                select specimenColumn
+                  screenLabel~ Specimen Column:
+                  id= specimenColumn
+                  class= toInstColumns columnSelect
+                  data-parsley-required= false
+                  data-parsley-column-order= false
+                  required~ false
+                  setName~ excelColumns
+                  value= {_:specimenColumn}
+
+                select locationColumn
+                  screenLabel~ Location Column:
+                  id= locationColumn
+                  class= toInstColumns columnSelect
+                  data-parsley-required= false
+                  data-parsley-column-order= false
+                  required~ false
+                  setName~ excelColumns
+                  value= {_:locationColumn}
+
+            fieldset
+              id= loadField
+              legend Load Previous Data
+              div
+                class= tableWrapper table-scroll
+                div
+                  id= prevDataTable
+
+            fieldset
+              id= metaField
+              legend Additional Meta Data
+              div
+                class= tableWrapper table-scroll
+                div
+                  id= metaDataLoad
+            div
+              id= dataFieldSectionsArea
+              class= dataFieldSectionsArea
+
+            div
+              id= dataFieldAddButtonSection
+              class= dataFieldAddButtonSection
+              button
+                id= btnCreateNewFieldSection
+                value= Add new field
+
+

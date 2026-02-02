@@ -1,0 +1,577 @@
+config
+  # Frameshift menu
+  nav TopMenu
+    div
+      id= topNavigationBar
+      div
+        id= topNavigationLogo
+        a
+          href= /uniflow?updateStepGroups=true&stepName=Welcome&userStepGroups=Welcome
+          img
+            class= topLogo
+            src= images/sunquestLogo.png
+
+      div
+        id= topNavigationMenu
+        ul
+          id= sample-menu-1
+          class= sf-menu
+
+  # Dashboards
+  nav DashboardMenu
+    li
+      a Inquiry
+        class= navLink topMenu
+        href= /uniflow?stepName=Lookup+Sample+Report&updateStepGroups=true
+          & &userStepGroups=Inquiry
+      ul
+        li
+          class= current
+          a Lookup Sample Report
+            class= navLink topMenu
+            href= /uniflow?stepName=Lookup+Sample+Report&updateStepGroups=true&userStepGroups=Inquiry
+        li
+          class= current
+          a CAP Checklist
+            class= navLink topMenu
+            href= /uniflow?stepName=CAP+Report&updateStepGroups=true&userStepGroups=CAP+Checklist
+        
+  # Order Entry
+  nav OrderEntryMenu
+    li
+      class= current
+      a Order Entry
+        class= navLink topMenu default-cursor
+        href= /uniflow?stepName=Order+Entry&updateStepGroups=true
+          & &userStepGroups=Orders
+          & &userStepGroups=Contact+Customer
+      ul
+        # Whole Order Form
+        li
+          class= current
+          a Orders
+            class= navLink topMenu
+            href= /uniflow?stepName=Order+Entry&updateStepGroups=true
+              & &userStepGroups=Orders
+        # Contact Customer
+        li
+          class= current
+          a Contact Customer
+            class= navLink topMenu
+            href= /uniflow?stepName=Contact+Customer&updateStepGroups=true
+              & &userStepGroups=Contact+Customer
+
+  # Workflows
+  nav WorkflowsMenu
+    li
+      class= current
+      a Workflows
+        class= navLink topMenu default-cursor
+        href= /uniflow?updateStepGroups=true
+
+
+
+  # Reporting
+  nav ReportingMenu
+    li
+      class= current
+      a Reporting
+        class= navLink topMenu default-cursor
+        href= /uniflow?stepName=Report Data Pending&updateStepGroups=true
+          & &userStepGroups=Reporting
+          & &userStepGroups=Result+Data+Review
+          & &userStepGroups=Sign+Out+Report
+          & &userStepGroups=Final+Report
+          & &userStepGroups=Modify+Report
+          & &userStepGroups=Manage+Signatures
+          & &userStepGroups=Exception+Handling
+      ul
+        # Report Data Pending
+        li
+          a Report Data Pending
+            class= navLink topMenu
+            href= /uniflow?stepName=Report+Data+Pending&updateStepGroups=true
+              & &userStepGroups=Reporting
+        # Result Data Review
+        li
+          a Result Data Review
+            class= navLink topMenu
+            href= /uniflow?stepName=Result+Data+Review&updateStepGroups=true
+              & &userStepGroups=Result+Data+Review
+        # Sign Out Report
+        li
+          a Sign Out Report
+            class= navLink topMenu
+            href= /uniflow?stepName=Sign+Out+Report&updateStepGroups=true
+              & &userStepGroups=Sign+Out+Report
+        # Final Report
+        li
+          a Final Report
+            class= navLink topMenu
+            href= /uniflow?stepName=Final+Report&updateStepGroups=true
+              & &userStepGroups=Final+Report
+
+        ## Modify Report
+        li
+          class= current
+          a Modify Report
+            class= navLink topMenu
+            href= /uniflow?stepName=Correct+Report&updateStepGroups=true
+              & &userStepGroups=Modify+Report
+
+          ul
+            # Correct Report
+            li
+              class= current
+              a Correct Report
+                href= /uniflow?stepName=Correct+Report&updateStepGroups=true&userStepGroups=Modify+Report
+            # Addend Report
+            li
+              class= current
+              a Addend Report
+                href= /uniflow?stepName=Addend+Report&updateStepGroups=true&userStepGroups=Modify+Report
+
+            # Amend Report
+            li
+              class= current
+              a Amend Report
+                href= /uniflow?stepName=Amend+Report&updateStepGroups=true&userStepGroups=Modify+Report
+
+            # Cancel Report
+            li
+              class= current
+              a Cancel Report
+                href= /uniflow?stepName=Cancel+Report&updateStepGroups=true&userStepGroups=Modify+Report
+
+            # Reject Report
+            li
+              class= current
+              a Reject Report
+                href= /uniflow?stepName=Reject+Report&updateStepGroups=true&userStepGroups=Modify+Report
+
+        # Manage Signatures
+        li
+          a Manage Signatures
+            class= navLink topMenu
+            href= /uniflow?stepName=Manage+Signatures&updateStepGroups=true
+              & &userStepGroups=Manage+Signatures
+        # Exception Handling
+        li
+          a Exception Handling
+            class= navLink topMenu
+            href= /uniflow?stepName=Exception+Handling&updateStepGroups=true
+              & &userStepGroups=Exception+Handling
+
+  # Lab Mangement
+  nav LabMangementMenu
+    li
+      class= current
+      a Lab Management
+        class= navLink topMenu default-cursor
+      ul
+        # Storage
+        li
+          a Storage
+            class= navLink topMenu
+            href= /uniflow?stepName=Store+in+Box&updateStepGroups=true
+              & &userStepGroups=Storage
+              & &userStepGroups=View Stores
+              & &userStepGroups=Create Stores
+          ul
+            li
+              class= current
+              a Storage
+                href= /uniflow?stepName=Store+in+Box&updateStepGroups=true
+                  & &userStepGroups=Storage
+            li
+              class= current
+              a View Stores
+                href= /uniflow?stepName=View+All+Storage+Locations&updateStepGroups=true
+                  & &userStepGroups=View Stores
+            li
+              class= current
+              a Create Stores
+                href= /uniflow?stepName=Create+Storage&updateStepGroups=true
+                  & &userStepGroups=Create Stores
+
+        # Resources
+        li
+          class= current
+          a QC Resources
+            class= navLink topMenu
+            href= /uniflow?stepName=View+Instruments&updateStepGroups=true
+              & &userStepGroups=Consumables
+              & &userStepGroups=Controls
+              & &userStepGroups=Instrument+Management
+              & &userStepGroups=Reagent+Management
+          ul
+            li
+              class= current
+              a Consumables
+                href= /uniflow?stepName=List+Consumables+Inventory&updateStepGroups=true
+                  & &userStepGroups=Consumables
+                class= navLink
+            li
+              class= current
+              a Controls
+                href= /uniflow?stepName=View+Control+Inventory&updateStepGroups=true
+                  & &userStepGroups=Controls
+                class= navLink
+            li
+              class= current
+              a Instruments
+                href= /uniflow?stepName=View+Instruments&updateStepGroups=true
+                  & &userStepGroups=Instrument+Management
+                class= navLink
+            li
+              class= current
+              a Reagents
+                href= /uniflow?stepName=List+Reagent+Inventory&updateStepGroups=true
+                  & &userStepGroups=Reagent+Management
+                class= navLink
+
+
+        # Inventory
+        li
+          a Inventory
+            class= navLink topMenu
+            href= /uniflow?stepName=List+Inventory+Items&updateStepGroups=true
+              & &userStepGroups=Inventory+Management
+              & &userStepGroups=Ordering+and+Receiving
+              & &userStepGroups=Manage+Inventory+Usage
+          ul
+            li
+              class= current
+              a Inventory
+                href= /uniflow?stepName=List+Inventory+Items&updateStepGroups=true
+                  & &userStepGroups=Inventory+Management
+                class= navLink
+            li
+              class= current
+              a Usage
+                href= /uniflow?stepName=Setup+Inventory+Usage+By+Task&updateStepGroups=true
+                  & &userStepGroups=Manage+Inventory+Usage
+
+        # Annotate Container
+        li
+          class= current
+          a Annotate Container
+            class= navLink topMenu
+            href= /uniflow?stepName=Annotate+Container&updateStepGroups=true
+              & &userStepGroups=Annotate
+
+        # Patients
+        li
+          class= current
+          a Patients
+            class= navLink
+            href= /uniflow?stepName=Patients&updateStepGroups=true
+              & &userStepGroups=Patients
+
+        # Insurance Providers
+        li
+          class= current
+          a Insurance Providers
+            class= navLink
+            href= /uniflow?stepName=Insurance Providers&updateStepGroups=true
+              & &userStepGroups=Admin
+
+        # Practice Admin
+        li
+          class= current
+          a Practice Admin
+            class= navLink
+            href= /uniflow?stepName=Physicians&updateStepGroups=true
+              & &userStepGroups=Practice+Administration
+
+        # Document Review
+        li
+          class= current
+          a Document Review
+            href= /uniflow?stepName=Document Review&updateStepGroups=true
+              - &userStepGroups=Review Documents
+
+  #ReportingUser
+  nav ReportingMenu
+    li
+      a Reporting
+        class= navLink topMenu
+        href= /uniflow?stepName=Completed+Reports&updateStepGroups=true
+          - &userStepGroups=Portal+Reporting
+      ul
+        # Reporting
+        li
+          class= current
+          a Completed Reports
+            class= navLink topMenu
+            href= /uniflow?stepName=Completed+Reports&updateStepGroups=true
+              - &userStepGroups=Portal+Reporting
+        li
+          class= current
+          a Previously Viewed Reports
+            class= navLink topMenu
+            href= /uniflow?stepName=Previously+Viewed+Reports&updateStepGroups=true
+              - &userStepGroups=Portal+Reporting
+        li
+          class= current
+          a Exception Handling
+            class= navLink topMenu
+            href= /uniflow?updateStepGroups=true&stepName=Exception+Handling&userStepGroups=Reporting
+
+
+  # Admin
+  nav SettingsMenu
+    li
+      class= current
+      a Settings
+        class= navLink topMenu
+        href= /uniflow?stepName=View+Task+Instructions&updateStepGroups=true
+          & &userStepGroups=Task+Instructions
+          & &userStepGroups=Tray+and+Transfer+Maps
+      ul
+        li
+          class= current
+          a Task Instructions
+            href= /uniflow?stepName=View+Task+Instructions&updateStepGroups=true&userStepGroups=Task+Instructions
+
+        li
+          class= current
+          a Tray Maps
+            href= /uniflow?stepName=Create+Tray/Transfer+Map&updateStepGroups=true
+              & &userStepGroups=Tray+and+Transfer+Maps
+
+  # Admin
+  nav AdminMenu
+    li
+      class= current
+      a Admin
+        class= navLink topMenu
+
+      ul
+        ## Workflow Configuration
+        li
+          class= current
+          a Workflow Configuration
+            class= navLink topMenu
+            href= /uniflow?stepName=Analysis+Method+Configuration&updateStepGroups=true
+              & &userStepGroups=Analysis Configuration
+              & &userStepGroups=Normalization Configuration
+              & &userStepGroups=Accessioning Configuration
+              & &userStepGroups=Fish+Admin
+              & &userStepGroups=Report+Configuration
+              & &userStepGroups=Tests
+
+          ul
+            # Analysis Configuration
+            li
+              class= current
+              a Analysis Configuration
+                href= /uniflow?stepName=Analysis Method Configuration&updateStepGroups=true&userStepGroups=Analysis Configuration
+            # Normalization Configuration
+            li
+              class= current
+              a Normalization Configuration
+                href= /uniflow?stepName=Normalization Configuration&updateStepGroups=true&userStepGroups=Normalization Configuration
+
+
+            # Accessioning Configuration
+            li
+              class= current
+              a Accessioning Configuration
+                class= navLink topMenu
+                href= /uniflow?stepName=Accessioning+Configuration&updateStepGroups=true
+                  & &userStepGroups=Accessioning Configuration
+
+            # FISH Configuration
+            li
+              class= current
+              a FISH Configuration
+                class= navLink topMenu
+                href= /uniflow?stepName=Manage+FISH+Cutoff+Values&updateStepGroups=true
+                  & &userStepGroups=Fish+Admin
+
+            # Reporting Configuration
+              li
+                class= current
+                a Report Configurations
+                  class= navLink topMenu
+                  href= /uniflow?stepName=Configure+Reports&updateStepGroups=true
+                    & &userStepGroups=Report+Configuration
+
+            # Tests Configuration
+            li
+              class= current
+              a Test Configuration
+                class= navLink
+                href= /uniflow?stepName=Tests&updateStepGroups=true
+                  & &userStepGroups=Tests
+
+            # Panels Configuration
+            li
+              class= current
+              a Panel Configuration
+                class= navLink
+                href= /uniflow?stepName=Panels&updateStepGroups=true
+                  & &userStepGroups=Tests
+
+            # Methods Configuration
+            li
+              class= current
+              a Method Configuration
+                class= navLink
+                href= /uniflow?stepName=Methods&updateStepGroups=true
+                  & &userStepGroups=Tests
+
+            # Sample ID Configuration
+            li
+              class= current
+              a Sample ID Configuration
+                class= navLink
+                href= /uniflow?stepName=Generated+ID+Configuration&updateStepGroups=true
+                  & &userStepGroups=Sample ID Configuration
+                
+        ## System Tools
+        li
+          class= current
+          a System Tools
+            class= navLink topMenu
+            href= /uniflow?stepName=Site+Configurations&updateStepGroups=true
+              & &userStepGroups=Sites
+              & &userStepGroups=Users
+              & &userStepGroups=User+Admin
+              & &userStepGroups=System+Tools
+
+          ul
+            # Site Configurations
+            li
+              class= current
+              a Site Configurations
+                class= navLink topMenu
+                href= /uniflow?stepName=Site+Configurations&updateStepGroups=true
+                  & &userStepGroups=Sites
+
+            # Users
+            li
+              class= current
+              a Users
+                class= navLink
+                href= /uniflow?stepName=Change+Your+Contact+Info&updateStepGroups=true
+                  & &userStepGroups=Users
+                  & &userStepGroups=User+Admin
+                  & &userStepGroups=Manage+User+Privileges
+            # set pin
+            li
+              class= current
+              a Set PIN
+                class= navLink
+                href= /uniflow?stepName=Set+PIN&updateStepGroups=true
+                  & &userStepGroups=Users
+                  & &userStepGroups=User+Admin
+                  & &userStepGroups=Manage+User+Privileges
+
+            # Manage Select List
+            li
+              class= current
+              a Manage Select List
+                href= /uniflow?stepName=Manage+SELECT+Lists&updateStepGroups=true
+                  & &userStepGroups=System+Tools
+
+        ## Workflow Setup
+        li
+          class= current
+          a Workflow Setup
+            class= navLink topMenu
+            href= /uniflow?stepName=Test+Compiler6x&updateStepGroups=true
+              & &userStepGroups=Compiler6x
+              & &userStepGroups=Routing
+
+
+
+          ul
+            # Buildsheet Compiler
+            li
+              class= current
+              a Buildsheet Compiler
+                class= navLink
+                href= /uniflow?stepName=Test Compiler6x&updateStepGroups=true
+                  & &userStepGroups=Compiler6x
+
+          # # Parameter Driven Routing
+            li
+              class= current
+              a Parameter Driven Routing
+                class= navLink topMenu default-cursor
+                href= /uniflow?stepName=Routing+Configuration&updateStepGroups=true
+                  & &userStepGroups=Routing
+
+
+
+        ## Print
+        li
+          class= current
+          a Print
+            class= navLink topMenu
+            href= /uniflow?stepName=Print+Barcode&updateStepGroups=true
+              & &userStepGroups=Barcode+Labels
+              & &userStepGroups=Reprint+My+Documents
+              & &userStepGroups=Label+Configuration
+              & &userStepGroups=Print+Server+Configuration
+          ul
+            # li
+            #   class= current
+            #   a Barcode Labels
+            #     href= /uniflow?stepName=Print+Barcode&updateStepGroups=true&userStepGroups=Barcode+Labels
+            #     class= navLink
+            li
+              class= current
+              a Reprint Documents
+                class= navLink
+                href= /uniflow?updateStepGroups=true&stepName=Reprint+My+Documents
+            li
+              class= current
+              a Label Configuration
+                class= navLink
+                href= /uniflow?updateStepGroups=true&stepName=Label+Configuration&userStepGroups=Label+Configuration
+            li
+              class= current
+              a Print Server Configuration
+                class= navLink
+                href= /uniflow?updateStepGroups=true&stepName=Print+Server+Configuration&userStepGroups=Print+Server+Configuration
+            li
+              class= current
+              a Auto Import Print Servers
+                href= /uniflow?updateStepGroups=true&stepName=Auto+Import+Print+Servers&userStepGroups=Print+Server+Configuration
+
+
+
+  # User Nav
+  nav UserMenu
+    li
+      class= current user-menu
+      a
+        class= navLink topMenu default-cursor
+        span
+          class= user-icon
+      ul
+        li
+          class= current
+          a Home
+            class= navLink
+            href= /uniflow?updateStepGroups=true&stepName=Welcome&userStepGroups=Welcome
+        li
+          class= current
+          a Settings
+            class= navLink
+            href= /uniflow?stepName=Change+Your+Password&updateStepGroups=true&userStepGroups=Users
+        li
+          class= current
+          a About
+            class= navLink
+            href= /uniflow?stepName=About
+
+  nav UserLogout
+    li
+      class= current
+      a Logout
+        href= /uniflow?logout=logout
+  # End FrameshiftMenu

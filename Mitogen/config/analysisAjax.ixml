@@ -1,0 +1,903 @@
+config
+  steps
+
+    step AjaxGetAnalysisResultOptions
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   value, displayValue
+          - FROM validValues
+          - WHERE setName = ?
+          - ORDER BY displayOrder
+          string {analysisResultSet}
+
+
+    step AjaxGetAnalysisColumns
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   x.columnLabel,
+          -   x.adefId
+          - FROM (
+          - SELECT
+          -   adef.`value` AS "columnLabel",
+          -   adef.id AS "adefId",
+          -   adef.definerType AS "definerType",
+          -   adef.sequence AS "sequence"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv
+          -   ON am.id = amv.analysisMethodsId
+          - INNER JOIN analysisDataDefinition adef
+          -   ON amv.id = adef.analysisMethodVersionsId
+          - WHERE am.methodName = ?
+          -   AND am.analysisStepName = ?
+          -   AND amv.active = 1
+          -   AND adef.definerType = 'data'
+          - UNION
+          - SELECT
+          -   adefLoad.`value`,
+          -   adefLoad.id,
+          -   adef.definerType,
+          -   adef.sequence
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv
+          -   ON am.id = amv.analysisMethodsId
+          - INNER JOIN analysisDataDefinition adef
+          -   ON amv.id = adef.analysisMethodVersionsId
+          - INNER JOIN analysisDataDefinition adefLoad
+          -   ON adef.loadDataAnalysisDataDefinitionId = adefLoad.id
+          - WHERE am.methodName = ?
+          -   AND am.analysisStepName = ?
+          -   AND amv.active = 1
+          -   AND adef.definerType = 'loadData'
+          - UNION
+          - SELECT
+          -   fis.`screenLabel`,
+          -   adef.id,
+          -   adef.definerType,
+          -   adef.sequence AS "sequence"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv
+          -   ON am.Id = amv.analysisMethodsId
+          - INNER JOIN analysisDataDefinition adef
+          -   ON amv.id = adef.analysisMethodVersionsId
+          - INNER JOIN formInputSettings fis
+          -   ON adef.formInputSettingsId = fis.id
+          - WHERE am.methodName = ?
+          -   AND am.analysisStepName = ?
+          -   AND amv.active = 1
+          -   AND adef.definerType = 'metaData'
+          -   AND ? = 'samples'
+          - ) x
+          - ORDER BY CASE x.definerType
+          -           WHEN 'metaData' THEN 1
+          -            WHEN 'loadData' THEN 2
+          -            WHEN 'modifier' THEN 3
+          -            WHEN 'data' THEN 4
+          -            ELSE 5
+          -          END, x.sequence
+          string {methodName}
+          string {thisStep}
+          string {methodName}
+          string {thisStep}
+          string {methodName}
+          string {thisStep}
+          string {tableType}
+
+    step ajaxGetAnalysisTableData
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - CALL sp_getAnalysisTableData(?, ?, ?, ?);
+          string {thisStep}
+          string {parentId}
+          string {tableType}
+          string {controlType}
+
+
+    step Post Analysis Data
+
+      form
+
+      ifCondition~ {parentResult}
+        advanced~
+        equals~ exceptionHandling
+        include routeContainer
+          parameter~ processContainerId
+            value= {parentId}
+            ### batch tray etc. containerId
+          parameter~ result
+            value= {parentResult}
+            ### will be batch action
+          parameter~ deleteFromStep
+            value= {thisStep}
+          parameter~ defaultNextStep
+            value= {nextStepRouting}
+          parameter~ routingContainerType
+            value=
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= grouping
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {thisStep}
+
+      ifCondition~ {parentResult}
+        advanced~
+        not~
+          equals~ exceptionHandling
+        jython
+
+          import json
+          import datetime
+          from com.uniconnect.uniflow.exception import SystemException
+          from java.sql import SQLException, Date
+          from java.text import SimpleDateFormat
+          from run import Run
+          import java.util.Date
+          from analysis import SaveAnalysisData
+
+          protocol_step = '{protocolStepName}'
+          method_ver = '{methodVersionId}'
+          save_obj = SaveAnalysisData(switchboard, method_ver, protocol_step)
+
+          sample_rows = r'''{analysisDataProcessingJson}'''.encode("utf-8")
+          sample_rows = json.loads(sample_rows)
+
+          save_obj.save_table_data(sample_rows)
+
+          control_rows = r'''{analysisControlDataProcessingJson}'''.encode("utf-8")
+          control_rows = json.loads(control_rows)
+
+          save_obj.save_table_data(control_rows, is_control=True)
+
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT ? AS 'parentId'
+            - FROM dual
+            - WHERE ? NOT IN (SELECT currentContainerId
+            -                 FROM poolRuns)
+            - UNION
+            - SELECT poolRunId AS "parentId"
+            - FROM poolRuns
+            - WHERE currentContainerId = ?
+            string {parentId}
+            string {parentId}
+            string {parentId}
+
+
+        ifCondition~ {_:parentId}
+          advanced~
+          not~
+            isBlank~
+
+          include analysis_routing
+            parameter~ parentContainerId
+              value= {_:parentId}
+            parameter~ currentStep
+              value= {thisStep}
+            parameter~ endOfWorkflow
+              value= {endOfWorkflow}
+            parameter~ parentResult
+              value= {parentResult}
+            parameter~ nextStepRouting
+              value= {nextStepRouting}
+
+        ifCondition~ {_:parentId}
+          advanced~
+          isBlank~
+          forEach
+            - SELECT sr.runId AS 'curRun',
+            - adr.result AS 'curRes',
+            - 'run' AS "runType"
+            - FROM specimenRuns sr
+            -   INNER JOIN analysisDataRuns adr
+            -     ON adr.specimenRunsId = sr.id
+            - WHERE adr.eventId = ?
+            - UNION
+            - SELECT pr.poolRunId AS 'curRun',
+            - adr.result AS 'curRes',
+            - 'poolRun' AS "runType"
+            - FROM poolRuns pr
+            -   INNER JOIN analysisPoolTubeDataRuns adr
+            -     ON adr.poolTubeRunsId = pr.id
+            - WHERE adr.eventId = ?
+            long {_eventId}
+            long {_eventId}
+
+            include routeContainer
+              parameter~ processContainerId
+                value= {_:curRun}
+              parameter~ result
+                value= {_:curRes}
+              parameter~ deleteFromStep
+                value= {thisStep}
+              parameter~ defaultNextStep
+                value= {nextStepRouting}
+              parameter~ routingContainerType
+                value=
+              parameter~ routingDirection
+                value= OUT
+              parameter~ routingType
+                value= {_:runType}
+              parameter~ endOfWorkflow
+                value= {endOfWorkflow}
+              parameter~ sourceStep
+                value= {thisStep}
+
+        validateSql SELECT 1 from dual WHERE '{_:PROCESSINGSUCCESSFUL}' = 'true'
+          errorMessage Data processing has failed. Results have not been saved.
+
+########## Analysis Configuration Ajax ###########
+
+    ### Get panels for analysis step.
+    step ajaxGetPanelsPerStep
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -  GROUP_CONCAT(DISTINCT PanelNames SEPARATOR ',') AS "ReturnedPanels",
+          -  GROUP_CONCAT(DISTINCT QUOTE(panelCodes) SEPARATOR ',') AS "panelCodes",
+          -  GROUP_CONCAT(DISTINCT panelCodes SEPARATOR ',') AS "panelCodeList",
+          -  GROUP_CONCAT(DISTINCT JSON_OBJECT('value', panelCodes, 'display', PanelNames) SEPARATOR ',')  AS "panelList"
+          -  FROM(
+          -       SELECT p.name AS 'PanelNames', p.panelCode AS 'panelCodes'
+          -         FROM protocolSteps ps
+          -           INNER JOIN protocolSteps ps1 ON ps.protocolLibraryId = ps1.protocolLibraryId
+          -           LEFT JOIN routingMatrix r on r.nextStep = ps1.displayName
+          -           LEFT JOIN panels p on r.panelCode = p.panelCode AND p.type = r.orderType
+          -         WHERE ps.displayName = ?
+          -           AND r.sourceStep IN ("Order Form", "Specimen Receiving")
+          -  UNION
+          -        SELECT p1.name AS 'PanelNames', p1.panelCode AS 'panelCodes'
+          -         FROM protocolSteps ps
+          -           INNER JOIN protocolSteps ps1 ON ps.protocolLibraryId = ps1.protocolLibraryId
+          -           LEFT JOIN routingMatrix r1 on r1.nextStep = ps1.displayName
+          -           LEFT JOIN testPanels t on r1.testCode = t.testCode
+          -           LEFT JOIN panels p1 on t.panelCode = p1.panelCode AND p1.type = r1.orderType
+          -         WHERE ps.displayName = ?
+          -           AND r1.sourceStep IN ("Order Form", "Specimen Receiving")
+          - UNION
+          -       SELECT p.name AS 'PanelNames', p.panelCode AS 'panelCodes'
+          -         FROM protocolSteps ps
+          -           INNER JOIN protocolSteps ps1 ON ps.protocolLibraryId = ps1.protocolLibraryId
+          -           LEFT JOIN routingMatrix r on r.nextStep = ps1.displayName
+          -           LEFT JOIN panels p on p.type = r.orderType
+          -       WHERE ps.displayName = ?
+          -         AND r.sourceStep IN ("Order Form", "Specimen Receiving")) c
+          -  WHERE (panelNames IS NOT NULL OR panelNames <> '')
+          -  ORDER BY panelNames DESC
+          string {selectedStep}
+          string {selectedStep}
+          string {selectedStep}
+
+
+    ## get the analysis methods list for form 0
+    step ajaxGetAllAnalysisMethodsList
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSON
+      table
+        sqlPreparedQuery~
+          -  SELECT am.methodName,
+          -         REPLACE(REPLACE(am.methodDescription,'\n','<br>'), '\r', '<br>') AS "description",
+          -         amv.id AS "versionId",
+          -         amv.analysisMethodsId,
+          -         amv.version,
+          -         amv.active
+          -         ,am.analysisStepName AS "stepName"
+          - FROM analysisMethods am
+          -   INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          -   LEFT JOIN protocolSteps ps ON am.analysisStepName = ps.displayName
+          - WHERE am.methodType = 'Analysis'
+          -  ORDER BY amv.analysisMethodsId, amv.version DESC
+
+
+    ## validate in the database that the template name exists
+    step ajaxCheckAnalysisMethodTemplateName
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        vertical
+          text templateName
+            value= {templateName}
+          text templateId
+            value= {templateId}
+
+      validateSql SELECT 1 from dual WHERE NOT EXISTS (SELECT 1 FROM analysisMethods WHERE methodName = ? ) OR ? = '' OR 1 =  (SELECT 1 FROM analysisMethods WHERE methodName = ? AND id = ?)
+        string {templateName}
+        string {templateName}
+        string {templateName}
+        string {templateId}
+        errorMessage Template name already exists.  Choose another name.
+
+
+    step ajaxGetPrevLoadData
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   GROUP_CONCAT(CONCAT(andd.loadDataAnalysisDataDefinitionId, '_', andd.sequence) SEPARATOR ',') AS "prevData"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          - INNER JOIN analysisDataDefinition andd ON andd.analysisMethodVersionsId = amv.id
+          - WHERE amv.active = 1 AND andd.loadDataAnalysisDataDefinitionId <> '' AND amv.id = ?
+          string {templateVerId}
+
+    step ajaxGetMetaData
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   GROUP_CONCAT(CONCAT(andd.formInputSettingsId, '_', andd.sequence) SEPARATOR ',') AS "prevData"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          - INNER JOIN analysisDataDefinition andd ON andd.analysisMethodVersionsId = amv.id
+          - WHERE amv.active = 1 AND andd.formInputSettingsId <> '' AND amv.id = ?
+          string {templateVerId}
+
+    step Save_Analysis_Template
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+
+      form
+        vertical
+          text templateName
+            value= {templateName}
+            required~ true
+          text associatedStepName
+            value= {associatedStepName}
+          text templateDescription
+            value= {templateDescription}
+            required~ true
+          number templateVersionNumber
+            value= {templateVersionNumber}
+            required~ true
+          text templateNameId
+            value= {templateNameId}
+            required~ true
+
+          number previousTemplateVersionId
+            value= {previousTemplateVersionId}
+
+          text templateActive
+            value= {templateActive}
+
+      setFormQueryResult processingSuccessful
+        value= false
+
+      validateSql SELECT 1 from dual WHERE ? >= 1
+        decimal {templateVersionNumber}
+        errorMessage Template version can not be negative
+
+      validateSql SELECT 1 from dual WHERE NOT EXISTS (SELECT 1 FROM analysisMethods WHERE methodName = '{templateName}' ) OR '{templateName}' = '' OR 1 =  (SELECT 1 FROM analysisMethods WHERE methodName = ? AND id = ?)
+        string {templateName}
+        string {templateNameId}
+        errorMessage Template name already exists.  Choose another name.
+
+      validateSql SELECT 1 from dual WHERE ? = 'newMethod' OR ? > (SELECT version FROM analysisMethodVersions WHERE id = ?)
+        string {templateNameId}
+        decimal {templateVersionNumber}
+        long {previousTemplateVersionId}
+        errorMessage Template version must be greater than previous template version
+
+      validateSql SELECT 1 from dual WHERE NOT EXISTS (SELECT 1 FROM analysisMethods WHERE methodName = ? ) OR 1 = (SELECT 1 FROM analysisMethods WHERE methodName = ? AND ? = id)
+        string {templateName}
+        string {templateName}
+        string {templateNameId}
+        errorMessage Template name already exists.  Choose another name.
+
+      ifCondition~ {templateNameId}
+        advanced~
+        equals~ newMethod
+        sqlPreparedStatement INSERT INTO analysisMethods (methodName, methodType, methodDescription, analysisStepName, eventId) VALUES (?, 'Analysis', ?, ?, ?)
+          string {templateName}
+          string {templateDescription}
+          string {associatedStepName}
+          long  {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS 'analysisMethodsId' FROM analysisMethods WHERE eventId = {_eventId}
+
+        else
+          setFormQueryResult
+            sqlPreparedQuery SELECT '{templateNameId}' AS 'analysisMethodsId' FROM dual
+
+          sqlPreparedStatement UPDATE analysisMethodVersions SET active = 0 WHERE id = ?
+            long {previousTemplateVersionId}
+
+          sqlPreparedStatement UPDATE analysisMethods SET methodName = ?, methodDescription = ?, analysisStepName = ? WHERE id = ?
+            string {templateName}
+            string {templateDescription}
+            string {associatedStepName}
+            string {_:analysisMethodsId}
+
+      ifCondition~
+        advanced~
+        sqlPreparedQuery~ SELECT 1 from dual WHERE ? = 'newMethod' OR ? > (SELECT version FROM analysisMethodVersions WHERE id = ?)
+          string {templateNameId}
+          decimal {templateVersionNumber}
+          string {previousTemplateVersionId}
+
+        sqlPreparedStatement INSERT INTO analysisMethodVersions (analysisMethodsId, version, active, eventId) VALUES (?, ?, ?, ?)
+          long {_:analysisMethodsId}
+          string {templateVersionNumber}
+          int {templateActive}
+          long  {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS 'analysisMethodVersionsId' FROM analysisMethodVersions WHERE eventId = ?
+            long {_eventId}
+
+        jython
+          import json
+          from com.uniconnect.uniflow.exception import SystemException
+          from java.sql import SQLException
+          from analysis import AnalysisMethod
+          ##
+          ## Implements AnalysisMethod from the analysis package
+          ##    all save_... functions are passed the appropriate object (json -> dict) which are are then accessed and saved
+          ##
+
+          method_version_id = '{_:analysisMethodVersionsId}'
+          method_id = '{_:analysisMethodsId}'
+
+          to_inst_config = r'''{toInstColumnsJSON}'''.encode("utf-8")
+          load_data_config = r'''{loadPreviousDataJson}'''.encode("utf-8")
+          meta_data_config = r'''{metaDataJson}'''.encode("utf-8")
+          field_data_config = r'''{templateFieldsJson}'''.encode("utf-8")
+
+          field_data_config = json.loads(field_data_config)
+          to_inst_config = json.loads(to_inst_config)
+          load_data_config = json.loads(load_data_config)
+          meta_data_config = json.loads(meta_data_config)
+
+          panel_list = '{associatedPanelsPerStep}'
+          panel_list = panel_list.split(',')
+
+          analysis_method = AnalysisMethod(switchboard, method_version_id)
+
+          analysis_method.save_method_panels(panel_list, method_id)
+
+          if load_data_config:
+            analysis_method.save_load_data_config(load_data_config)
+          if meta_data_config:
+            analysis_method.save_meta_data_config(meta_data_config)
+          if field_data_config:
+            analysis_method.save_field_data_config(field_data_config)
+          if to_inst_config:
+            analysis_method.save_to_inst_config(to_inst_config)
+
+        else
+          # This validate is to ensure an error when analysisMethodVersions fails
+          validateSql SELECT 1 from dual WHERE 1 = 2
+            errorMessage Template version not created
+          setFormQueryResult
+            sqlPreparedQuery SELECT '' AS 'analysisMethodVersionsId'
+
+      ## Validate that Each Field Name is unique within a template (can reuse names across templates).  "That field name already exists.  Choose another name."
+      validateSql ! SELECT 1 FROM dual WHERE EXISTS (SELECT a.value, COUNT(*) c
+        - FROM analysisDataDefinition a
+        - INNER JOIN analysisMethodVersions av ON a.analysisMethodVersionsId = av.id
+        - INNER JOIN analysisMethods am ON av.analysisMethodsId = am.id
+        - WHERE am.methodName = ? AND av.id = ? AND a.definerType = 'data'
+        - GROUP BY value HAVING c > 1)
+        string {templateName}
+        string  {_:analysisMethodVersionsId}
+        errorMessage Template cannot have duplicate field names. Enter unique field names.
+
+      validateSql SELECT 1 from dual WHERE '{_:PROCESSINGSUCCESSFUL}' = 'true'
+        errorMessage Data processing has failed. Results have not been saved.
+
+
+    step ajaxPrevDataTable
+      class uniflow.AjaxQuery
+      table
+        id= loadDataTable
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -      'false' AS "Include",
+          -      am.analysisStepName AS "Step",
+          -      andd.value AS "Field Name",
+          -      '' AS "Order",
+          -      '' AS "Column",
+          -      andd.id,
+          -      andd.dataType
+          - FROM
+          -     analysisMethodPanels amp
+          - INNER JOIN analysisMethodVersions amv
+          -      ON amp.analysisMethodId = amv.analysisMethodsId
+          -      AND amv.active = 1
+          - INNER JOIN analysisMethods am
+          -   ON amv.analysisMethodsId = am.id
+          - INNER JOIN analysisDataDefinition andd
+          -      ON amv.id = andd.analysisMethodVersionsId
+          - WHERE
+          -      amp.panelCode IN ({associatedPanels})
+          - AND
+          -      am.analysisStepName <> '' AND am.analysisStepName <> ?
+          - AND
+          -      (andd.definerType = 'data' OR andd.definerType = 'detector')
+          - ORDER BY am.analysisStepName
+          string {associatedStep}
+
+        columnSpecs~ loadDataTable
+          column 1
+            inputType checkbox
+              class= prevData_checkbox
+          column 2
+            inputType text
+              readonly=
+              class= prevDataStepName
+              style= border: none;
+          column 3
+            inputType text
+              readonly=
+              class= prevDataFieldName
+              style= border: none;
+          column 4
+            inputType text
+              class= prevData_order orderClass numberField
+              data-parsley-unique-value-load= true
+          column 5
+            inputType select
+              setName~ excelColumns
+              class= prevData_order orderClass columnSelect
+              data-parsley-column-order= false
+          column 6
+            inputType text
+              readonly=
+              class= prevDataDefId hiddenColumn
+          column 7
+            inputType text
+              readonly=
+              class= prevDataType hiddenColumn {stepType}
+
+    step ajaxMetaDataTable
+      class uniflow.AjaxQuery
+      table
+        id= metaDataTable
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   'false' AS "Include",
+          -   fis.screenLabel AS "Field Name",
+          -   '' AS "Order",
+          -   '' AS "Column",
+          -   fis.id,
+          -   fcp.section AS "Section"
+          - FROM panels p
+          - INNER JOIN formDefinition fd
+          -   ON p.type = fd.workflow
+          - INNER JOIN formConfigurableParts fcp
+          -   ON fcp.formType = fd.formType
+          -   AND fcp.inputType NOT IN('section', 'subSection')
+          - INNER JOIN formInputSettings fis
+          -   ON fis.formConfigurablePartsId = fcp.id AND fis.showField = 'true'
+          - LEFT JOIN analysisDataDefinition andd
+          -   ON andd.formInputSettingsId = fis.id
+          - WHERE p.panelCode IN ({associatedPanels})
+          - AND fcp.section IN (SELECT DISTINCT
+          -                         fcp.section
+          -                       FROM panels p
+          -                       INNER JOIN formDefinition fd
+          -                         ON p.type = fd.workflow
+          -                       INNER JOIN formInputSettings fis
+          -                         ON fd.id = fis.formDefinitionId AND fis.showField = 'true'
+          -                       INNER JOIN formConfigurableParts fcp
+          -                         ON fis.formConfigurablePartsId = fcp.id AND fcp.inputType IN('section')
+          -                       LEFT JOIN analysisDataDefinition andd
+          -                         ON andd.formInputSettingsId = fis.id
+          -                       WHERE p.panelCode IN ({associatedPanels}))
+          - AND fcp.subSection IN (SELECT DISTINCT
+          -                         fcp.subSection
+          -                       FROM panels p
+          -                       INNER JOIN formDefinition fd
+          -                         ON p.type = fd.workflow
+          -                       INNER JOIN formInputSettings fis
+          -                         ON fd.id = fis.formDefinitionId AND fis.showField = 'true'
+          -                       INNER JOIN formConfigurableParts fcp
+          -                         ON fis.formConfigurablePartsId = fcp.id AND fcp.inputType IN('subSection')
+          -                       LEFT JOIN analysisDataDefinition andd
+          -                         ON andd.formInputSettingsId = fis.id
+          -                       WHERE p.panelCode IN ({associatedPanels})) #this is a comment {stepType}
+          - GROUP BY fcp.inputName
+          - ORDER BY case inputType
+          -             when 'section' then 1
+          -             when 'subsection' then 2
+          -          end,
+          -          instance,
+          -          CAST(substring_index(fcp.order, '-', 1) AS UNSIGNED),
+          -          CAST(substring_index(substring_index(fcp.order, '-', 2), '-', -1) AS UNSIGNED),
+          -          CAST(substring_index(fcp.order, '-', -1) AS UNSIGNED)
+        columnSpecs~ userDefTbl
+          column 1
+            inputType checkbox
+              class= metaData_checkbox
+          column 2
+            inputType text
+              readonly=
+              class= metaDataFieldName
+              style= border: none;
+          column 3
+            inputType text
+              class= metaData_order orderClass numberField
+              data-parsley-unique-value-meta= true
+          column 4
+            inputType select
+              setName~ excelColumns
+              class= metaData_order orderClass columnSelect
+              data-parsley-column-order= false
+          column 5
+            inputType text
+              class= formInputId hiddenColumn {stepType}
+          column 6
+            inputType text
+              class= hiddenColumn
+
+    step ajaxGetStepName
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT stepName AS "stepType"
+          - FROM protocolSteps
+          - WHERE displayName = ?
+          string {selectedStep}
+
+    step Ajax Create Analysis File
+
+      form
+        vertical
+
+      jython
+        from analysis import ManualDownload
+
+        filePath = '{_configPath}private/csvFiles/{groupContainerString}.csv'
+        gContainerId = '{groupContainerString}'
+        methodVer = '{methodVersion}'
+
+        gc = ManualDownload(switchboard, gContainerId)
+        gc.writeCsv(methodVer, filePath)
+
+
+    step Ajax Download Analysis File
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 6
+      class uniflow.DownloadFile
+      sourceFileName {groupContainerString}.csv
+      documentsFolder {_configPath}private/csvFiles/
+
+
+# DEAD CODE?
+
+#     step ajaxGetTemplateFields
+#       ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+#       class uniflow.AjaxJSON
+#       table
+#         sqlPreparedQuery~
+#           - SELECT andd.analysisMethodVersionsId,
+#           -        am.analysisStepName AS "associatedStep",
+#           -        andd.definerType AS "fieldType",
+#           -        andd.sequence AS "tableFieldOrder",
+#           -        andd.VALUE AS "fieldName",
+#           -        andd.dataType AS "dataType",
+#           -        andd.sigFig AS "sigFigs",
+#           -        andd.report AS "reportOption",
+#           -        andd.resultCode AS "resultCode",
+#           -        andd.units AS "units",
+#           -        adl.analysisDataDefinitionId,
+#           -        adl.lowerLimit AS "minLimit",
+#           -        adl.upperLimit AS "maxLimit",
+#           -        adl.discrete AS "discrete",
+#           -        adi.analysisDataLimitsId,
+#           -        adi.belowLower AS "belowLowerResult",
+#           -        adi.equalLower AS "equalLowerResult",
+#           -        rrw.belowLowerWording AS "belowLowerWording",
+#           -        rrw.belowLowerWording AS "belowThresholdWording",
+#           -        rrw.equalLowerWording AS "equalLowerWording",
+#           -        rrw.equalLowerWording AS "equalThresholdWording",
+#           -        rrw.betweenLowerUpperWording AS "betweenLowerUpperWording",
+#           -        rrw.equalUpperWording AS "equalUpperWording",
+#           -        rrw.aboveUpperWording AS "aboveUpperWording",
+#           -        rrw.aboveUpperWording AS "aboveThresholdWording",
+#           -        rrw.equalDiscreteWording AS "equalDiscreteWording",
+#           -        rrw.notEqualDiscreteWording AS "notEqualDiscreteWording",
+#           -        adi.betweenLowerUpper AS "betweenLowerUpperResult",
+#           -        adi.equalUpper AS "equalUpperResult",
+#           -        adi.aboveUpper AS "aboveUpperResult",
+#           -        adi.equalDiscrete AS "equalDiscreteResult",
+#           -        adi.notEqualDiscrete AS "notEqualDiscreteResult",
+#           -        adicssc.analysisDataInterpretationId,
+#           -        adicssc.belowLower AS "belowLowerCSS",
+#           -        adicssc.equalLower AS "equalLowerCSS",
+#           -        adicssc.betweenLowerUpper AS "betweenLowerUpperCSS",
+#           -        adicssc.equalUpper AS "equalUpperCSS",
+#           -        adicssc.aboveUpper AS "aboveUpperCSS",
+#           -        adicssc.equalDiscrete AS "equalDiscreteCSS",
+#           -        adicssc.notEqualDiscrete AS "notEqualDiscreteCSS",
+#           -        Group_Concat(admo.modifierOptionName ORDER BY admo.id SEPARATOR ',') AS "modifierList"
+#           - FROM analysisMethods am
+#           - INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+#           - INNER JOIN analysisDataDefinition andd ON andd.analysisMethodVersionsId = amv.id
+#           - LEFT JOIN analysisDataLimits adl ON andd.id = adl.analysisDataDefinitionId
+#           - LEFT JOIN reportResultWording rrw ON adl.id = rrw.analysisDataLimitsId
+#           - LEFT JOIN analysisDataInterpretation adi ON  adi.analysisDataLimitsId = adl.id
+#           - LEFT JOIN analysisDataInterpretationCSSClass adicssc ON  adicssc.analysisDataInterpretationId = adi.id
+#           - LEFT JOIN analysisDataModifierOptions admo ON  andd.id = admo.analysisDataDefinitionId
+#           - WHERE amv.id = ? AND andd.definerType = 'data'
+#           - GROUP BY adl.analysisDataDefinitionId, andd.VALUE
+#           - ORDER BY andd.definerType DESC, andd.sequence
+#           string {templateVId}
+
+#     step ajaxGetSampleLoadData
+#       ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+#       allowUnsafeParameters~
+#       class uniflow.AjaxJSONObjects
+#       jython
+#         import json
+#         import java.lang.StringBuilder
+#         import com.uniconnect.uniflow.TabularDataGenerator
+#         import com.uniconnect.uniflow.Node
+#         analysisDataDefIdList = "{analysisDataDefIdList}".split(",")
+#         runIdList = "{runIdList}".split(",")
+
+#         for i in range(len(analysisDataDefIdList)):
+#           currentItem = analysisDataDefIdList[i]
+#           currentItem = currentItem.strip()
+#           analysisDataDefIdList[i] = currentItem.strip("'")
+
+#         for i in range(len(runIdList)):
+#           currentItem = runIdList[i]
+#           currentItem = currentItem.strip()
+#           runIdList[i] = currentItem.strip("'")
+
+#         tbl = com.uniconnect.uniflow.Node("table")
+#         sqlNode = tbl.add(jythonNode.parent.get("sqlPreparedQuery~").makeClone())
+#         sqlData = "SELECT sr.runId, ad.analysisDataDefinitionId, CASE addef.dataType WHEN 'decimal' THEN CASE addef.sigFig "
+#         sqlData += "WHEN 0 THEN ROUND(ad.decimalResult, 0) WHEN 1 THEN ROUND(ad.decimalResult, 1) WHEN 2 THEN ROUND(ad.decimalResult, 2) "
+#         sqlData += "WHEN 3 THEN ROUND(ad.decimalResult, 3) WHEN 4 THEN ROUND(ad.decimalResult, 4) WHEN 5 THEN ROUND(ad.decimalResult, 5) "
+#         sqlData += "WHEN 6 THEN ROUND(ad.decimalResult, 6) END    WHEN 'varchar' THEN ad.varcharResult   WHEN 'dateTime' THEN ad.dateTimeResult "
+#         sqlData += "END AS 'result', ad.actualInterpretation, ad.referenceRange, ad.id AS 'analysisDataId' FROM analysisData ad "
+#         sqlData += "INNER JOIN analysisDataRuns adr ON ad.analysisDataRunsId = adr.id INNER JOIN specimenRuns sr ON adr.specimenRunsId = sr.id "
+#         sqlData += "INNER JOIN analysisDataDefinition addef ON ad.analysisDataDefinitionId = addef.id WHERE ad.analysisDataDefinitionId IN "
+#         sqlData += "(" + ",".join("?" for thing in analysisDataDefIdList) + ") AND sr.runId in ("
+#         sqlData += ",".join("?" for thing in runIdList) + ") UNION SELECT sr.runId, addef.id AS 'analysisDataDefinitionId', "
+#         sqlData += "fcp.inputName, '', '', '' FROM specimenRuns sr INNER JOIN analysisDataDefinition addef ON addef.id IN ( "
+#         sqlData += ",".join("?" for thing in analysisDataDefIdList) + ") "
+#         sqlData += "AND addef.definerType = 'metaData' INNER JOIN formInputSettings fis ON addef.formInputSettingsId = fis.id "
+#         sqlData += "INNER JOIN formConfigurableParts fcp ON fis.formConfigurablePartsId = fcp.id WHERE sr.runId in ( "
+#         sqlData += ",".join("?" for thing in runIdList) + ") UNION "
+#         sqlData += "SELECT pr.poolRunId, ad.analysisDataDefinitionId, CASE addef.dataType WHEN 'decimal' THEN CASE addef.sigFig "
+#         sqlData += "WHEN 0 THEN ROUND(ad.decimalResult, 0) WHEN 1 THEN ROUND(ad.decimalResult, 1) WHEN 2 THEN ROUND(ad.decimalResult, 2) "
+#         sqlData += "WHEN 3 THEN ROUND(ad.decimalResult, 3) WHEN 4 THEN ROUND(ad.decimalResult, 4) WHEN 5 THEN ROUND(ad.decimalResult, 5) "
+#         sqlData += "WHEN 6 THEN ROUND(ad.decimalResult, 6) END WHEN 'varchar' THEN ad.varcharResult WHEN 'dateTime' THEN ad.dateTimeResult END AS 'result', "
+#         sqlData += "ad.actualInterpretation, ad.referenceRange, ad.id FROM analysisPoolTubeData ad INNER JOIN analysisPoolTubeDataRuns adr "
+#         sqlData += "ON ad.analysisPoolTubeDataRunsId = adr.id INNER JOIN poolRuns pr ON adr.poolTubeRunsId = pr.id "
+#         sqlData += "INNER JOIN analysisDataDefinition addef ON ad.analysisDataDefinitionId = addef.id "
+#         sqlData += "WHERE ad.analysisDataDefinitionId in (" + ",".join("?" for thing in analysisDataDefIdList) + ") AND pr.poolRunId in ("
+#         sqlData += ",".join("?" for thing in runIdList) + ") "
+
+#         for parm in analysisDataDefIdList:
+#           sqlNode.add("string", parm)
+
+#         for parm in runIdList:
+#           sqlNode.add("string", parm)
+
+#         for parm in analysisDataDefIdList:
+#           sqlNode.add("string", parm)
+
+#         for parm in runIdList:
+#           sqlNode.add("string", parm)
+
+#         for parm in analysisDataDefIdList:
+#           sqlNode.add("string", parm)
+
+#         for parm in runIdList:
+#           sqlNode.add("string", parm)
+
+#         sqlNode.value = sqlData
+#         switchboard.log(str(tbl))
+#         sb = java.lang.StringBuilder(150*30)
+#         sb.append("[")
+#         tdg = com.uniconnect.uniflow.TabularDataGenerator()
+#         tdg.generateTableData(tbl, sb, switchboard)
+#         sb.append("]")
+#         switchboard.out.print(sb.toString());
+#         switchboard.out.close();
+#       sqlPreparedQuery~ SELECT 1 AS "empty"
+
+#     step ajaxGetControlLoadData
+#       ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+#       allowUnsafeParameters~
+#       class uniflow.AjaxJSONObjects
+#       jython
+#         import json
+#         import java.lang.StringBuilder
+#         import com.uniconnect.uniflow.TabularDataGenerator
+#         import com.uniconnect.uniflow.Node
+#         controlRunIdList = "{controlRunIdList}".split(",")
+#         analysisDataDefIdList = "{analysisDataDefIdList}".split(",")
+
+#         for i in range(len(controlRunIdList)):
+#           currentItem = controlRunIdList[i]
+#           currentItem = currentItem.strip()
+#           controlRunIdList[i] = currentItem.strip("'")
+
+#         for i in range(len(analysisDataDefIdList)):
+#           currentItem = analysisDataDefIdList[i]
+#           currentItem = currentItem.strip()
+#           analysisDataDefIdList[i] = currentItem.strip("'")
+
+#         tbl = com.uniconnect.uniflow.Node("table")
+#         sqlNode = tbl.add(jythonNode.parent.get("sqlPreparedQuery~").makeClone())
+#         sqlData = "SELECT cr.controlRunId AS 'runId', acd.analysisDataDefinitionId, CASE addef.dataType WHEN 'decimal' THEN acd.decimalResult "
+#         sqlData += "WHEN 'varchar' THEN acd.varcharResult WHEN 'dateTime' THEN acd.dateTimeResult END AS 'result', actualInterpretation, "
+#         sqlData += "referenceRange, addef.units FROM analysisControlData acd INNER JOIN analysisControlDataRuns acdr "
+#         sqlData += "ON acd.analysisControlDataRunsId = acdr.id INNER JOIN controlRuns cr ON acdr.controlRunsId = cr.id "
+#         sqlData += "INNER JOIN analysisDataDefinition addef ON acd.analysisDataDefinitionId = addef.id WHERE cr.controlRunId in ("
+#         sqlData += ",".join("?" for thing in controlRunIdList) + ") AND acd.analysisDataDefinitionId in ("
+#         sqlData += ",".join("?" for thing in analysisDataDefIdList) + ")"
+
+#         for parm in controlRunIdList:
+#           sqlNode.add("string", parm)
+
+#         for parm in analysisDataDefIdList:
+#           sqlNode.add("string", parm)
+
+#         sqlNode.value = sqlData
+#         switchboard.log(str(tbl))
+#         sb = java.lang.StringBuilder(150*30)
+#         sb.append("[")
+#         tdg = com.uniconnect.uniflow.TabularDataGenerator()
+#         tdg.generateTableData(tbl, sb, switchboard)
+#         sb.append("]")
+#         switchboard.out.print(sb.toString());
+#         switchboard.out.close();
+#       sqlPreparedQuery~ SELECT 1 AS "empty"
+
+#     step ajaxGetSampleMetaData
+#       ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+#       allowUnsafeParameters~
+#       class uniflow.AjaxJSONObjects
+#       jython
+#         import json
+#         import java.lang.StringBuilder
+#         import com.uniconnect.uniflow.TabularDataGenerator
+#         import com.uniconnect.uniflow.Node
+
+#         runIdList = "{runIdList}".split(",")
+
+#         for i in range(len(runIdList)):
+#           currentItem = runIdList[i]
+#           currentItem = currentItem.strip()
+#           runIdList[i] = currentItem.strip("'")
+
+#         tbl = com.uniconnect.uniflow.Node("table")
+#         sqlNode = tbl.add(jythonNode.parent.get("sqlPreparedQuery~").makeClone())
+#         sqlData = "SELECT * FROM vw_runmetadata WHERE runId IN (" + ",".join("?" for thing in runIdList) + ")"
+
+#         for parm in runIdList:
+#           sqlNode.add("string", parm)
+
+#         sqlNode.value = sqlData
+#         switchboard.log(str(tbl))
+#         sb = java.lang.StringBuilder(150*30)
+#         sb.append("[")
+#         tdg = com.uniconnect.uniflow.TabularDataGenerator()
+#         tdg.generateTableData(tbl, sb, switchboard)
+#         sb.append("]")
+#         switchboard.out.print(sb.toString());
+#         switchboard.out.close();
+#       sqlPreparedQuery~ SELECT 1 AS "empty"
+
+
+
+

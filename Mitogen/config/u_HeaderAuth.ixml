@@ -1,0 +1,12 @@
+config
+  #SSOUserIdHeader X-SQ-UserPrincipal
+  #SSOUserHostHeader X-Original-Host
+  #SSOLogoutURL  Shibboleth.sso/Logout
+  
+  # optional
+  #SSOUserGroupIdHeader X-SQ-UserGroups
+  #SSOUserAccessLevelIdHeader X-SQ-AccessLevel
+  #SSOFirstNameHeader X-SQ-UserFirstName
+  #SSOLastNameHeader X-SQ-UserLastName
+  #SSOEmailHeader X-SQ-UserEmail
+  

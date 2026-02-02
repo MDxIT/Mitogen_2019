@@ -1,0 +1,127 @@
+    step [$$STEP_NAME$$]
+      form
+        data-parsley-validate=
+
+        script
+          src= js/analysis/toDI_f0.js
+        script
+          src= js/analysis/toFromDI.js
+
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden stepName
+          id= stepName
+          value= {_step}
+        hidden groupingContainerLabel
+          id= groupingContainerLabel
+          value= [$$Batch_Screen_Label$$]
+
+        include analysisTemplateRequired
+          include stepInstructions
+
+          div
+            id= errorMessage
+
+          table
+            id= groupingContainersToDI
+            sqlPreparedQuery~
+              - SELECT
+              -   q.containerId AS "[$$Batch_Screen_Label$$]",
+              -   cp.value AS "Category",
+              -   vv.displayValue AS "Priority",
+              -   DATE(e.eventDate) AS "Queued Date",
+              -   u.name AS "Queued By",
+              -   '', ''
+              - FROM queues q
+              - LEFT JOIN containerProperties cp
+              -   ON q.containerId = cp.containerId
+              -   AND cp.property = 'Container Category'
+              - LEFT JOIN containerProperties cp2
+              -   ON q.containerId = cp2.containerId
+              -   AND cp2.property = 'Container Priority'
+              - LEFT JOIN validValues vv
+              -   ON cp2.value = vv.value
+              -   AND vv.setName = 'priority'
+              - INNER JOIN events e
+              -   ON q.eventId = e.eventId
+              - INNER JOIN userInfo u
+              -   ON e.userId = u.userId
+              - WHERE q.step = ?
+              - ORDER BY e.eventId
+              string {_step}
+
+
+    step [$$STEP_NAME$$] - HOLD
+      form
+        data-parsley-validate=
+
+        script
+          src= js/analysis/toDI_f0.js
+        script
+          src= js/analysis/toFromDI.js
+
+        include stepInstructions
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        configurePreparedQuery~
+          - SELECT 'YES' AS "dataConfigured"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions aver
+          -   ON am.id = aver.analysisMethodsId
+          - INNER JOIN analysisDataDefinition adef
+          -   ON adef.analysisMethodVersionsId = aver.id
+          - WHERE am.analysisStepName = ?
+          -   AND aver.active = 1
+          - UNION
+          - SELECT 'NO'
+          string [$$STEP_NAME$$]
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden stepName
+          id= stepName
+          value= {_step}
+        hidden groupingContainerLabel
+          id= groupingContainerLabel
+          value= [$$Batch_Screen_Label$$]
+
+
+        div
+          id= errorMessage
+
+        table
+          id= groupingContainersToDI
+          sqlPreparedQuery~
+            - SELECT
+            -   q.containerId AS "[$$Batch_Screen_Label$$]",
+            -   cp.value AS "Category",
+            -   vv.displayValue AS "Priority",
+            -   DATE(e.eventDate) AS "Queued Date",
+            -   u.name AS "Queued By",
+            -   ''
+            - FROM queues q
+            - LEFT JOIN containerProperties cp
+            -   ON q.containerId = cp.containerId
+            -   AND cp.property = 'Container Category'
+            - LEFT JOIN containerProperties cp2
+            -   ON q.containerId = cp2.containerId
+            -   AND cp2.property = 'Container Priority'
+            - LEFT JOIN validValues vv
+            -   ON cp2.value = vv.value
+            -   AND vv.setName = 'priority'
+            - INNER JOIN events e
+            -   ON q.eventId = e.eventId
+            - INNER JOIN userInfo u
+            -   ON e.userId = u.userId
+            - WHERE q.step = ?
+            - ORDER BY e.eventId
+            string {_step}

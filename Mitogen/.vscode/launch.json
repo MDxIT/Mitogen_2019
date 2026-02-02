@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug (Launch) - Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-RunUniflow<MitogenLIMS>",
+            "request": "launch",
+            "mainClass": "com.sunquest.mitogen.lims.RunUniflow",
+            "projectName": "MitogenLIMS",
+            "vmArgs": "-Dpython.cachedir.skip=false -Dlog4j.configurationFile=D:\\Development\\frameshift\\bin\\log4j2-console.yml -Dorg.eclipse.jetty.server.Request.maxFormContentSize=750000 -Dorg.eclipse.jetty.server.Request.maxFormKeys=4000 -Duniflow.home=D:\\Development\\frameshift -Duniflow.config=D:\\Development\\frameshift\\config -Duniflow.port=-1 -Duniflow.SSLport=8443"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-HL7gui<MitogenLIMS>",
+            "request": "launch",
+            "mainClass": "com.sunquest.mitogen.lims.hl7.HL7gui",
+            "projectName": "MitogenLIMS"
+        }
+    ]
+}

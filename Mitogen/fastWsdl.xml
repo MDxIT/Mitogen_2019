@@ -1,0 +1,293 @@
+This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://www.geneinsight.com/fast/api/v1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="DataLoadService" targetNamespace="http://www.geneinsight.com/fast/api/v1">
+<wsdl:types>
+<xs:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://www.geneinsight.com/fast/api/v1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" elementFormDefault="unqualified" targetNamespace="http://www.geneinsight.com/fast/api/v1" version="1.0">
+<xs:import namespace="http://www.w3.org/2005/05/xmlmime"/>
+<xs:element name="cancelDataLoad" type="tns:cancelDataLoad"/>
+<xs:element name="cancelDataLoadResponse" type="tns:cancelDataLoadResponse"/>
+<xs:element name="deleteDataLoad" type="tns:deleteDataLoad"/>
+<xs:element name="deleteDataLoadResponse" type="tns:deleteDataLoadResponse"/>
+<xs:element name="deleteSample" type="tns:deleteSample"/>
+<xs:element name="deleteSampleResponse" type="tns:deleteSampleResponse"/>
+<xs:element name="getDataLoadStatus" type="tns:getDataLoadStatus"/>
+<xs:element name="getDataLoadStatusResponse" type="tns:getDataLoadStatusResponse"/>
+<xs:element name="startFileDataLoad" type="tns:startFileDataLoad"/>
+<xs:element name="startFileDataLoadResponse" type="tns:startFileDataLoadResponse"/>
+<xs:element name="startUrlDataLoad" type="tns:startUrlDataLoad"/>
+<xs:element name="startUrlDataLoadResponse" type="tns:startUrlDataLoadResponse"/>
+<xs:complexType name="getDataLoadStatus">
+<xs:sequence>
+<xs:element minOccurs="0" name="dataLoadId" type="xs:long"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getDataLoadStatusResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="tns:dataLoadStatus"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="dataLoadStatus">
+<xs:sequence>
+<xs:element minOccurs="0" name="dataLoadId" type="xs:long"/>
+<xs:element minOccurs="0" name="status" type="tns:status"/>
+<xs:element minOccurs="0" name="message" type="xs:string"/>
+<xs:element minOccurs="0" name="percentComplete" type="xs:int"/>
+<xs:element minOccurs="0" name="estimatedCompletion" type="xs:dateTime"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="startFileDataLoad">
+<xs:sequence>
+<xs:element minOccurs="0" name="file" type="tns:dataFile"/>
+<xs:element minOccurs="0" name="defaultAnnotationSource" type="xs:string"/>
+<xs:element minOccurs="0" name="referenceBuild" type="xs:string"/>
+<xs:element minOccurs="0" name="target" type="tns:dataLoadTarget"/>
+<xs:element minOccurs="0" name="sampleDataExistsStrategy" type="tns:sampleDataExistsStrategy"/>
+<xs:element minOccurs="0" name="mergeStrategy" type="tns:annotationRecordMergeStrategy"/>
+<xs:element minOccurs="0" name="sampleDataCollectionName" type="xs:string"/>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="labBatchName" type="xs:string"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="loadConfig" type="tns:dataLoadConfig"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="customScript" type="xs:string"/>
+<xs:element minOccurs="0" name="annotationRecordTimestamp" type="xs:dateTime"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="emailNoticeTo" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="dataFile">
+<xs:sequence>
+<xs:element minOccurs="0" name="name" type="xs:string"/>
+<xs:element minOccurs="0" name="data" type="xs:base64Binary" xmime:expectedContentTypes="application/octet-stream"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="dataLoadConfig">
+<xs:sequence>
+<xs:element minOccurs="0" name="name" type="xs:string"/>
+<xs:element name="recordErrorLimit" type="xs:int"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="startFileDataLoadResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="xs:long"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="startUrlDataLoad">
+<xs:sequence>
+<xs:element minOccurs="0" name="url" type="xs:string"/>
+<xs:element minOccurs="0" name="defaultAnnotationSource" type="xs:string"/>
+<xs:element minOccurs="0" name="referenceBuild" type="xs:string"/>
+<xs:element minOccurs="0" name="target" type="tns:dataLoadTarget"/>
+<xs:element minOccurs="0" name="sampleDataExistsStrategy" type="tns:sampleDataExistsStrategy"/>
+<xs:element minOccurs="0" name="mergeStrategy" type="tns:annotationRecordMergeStrategy"/>
+<xs:element minOccurs="0" name="sampleDataCollectionName" type="xs:string"/>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="labBatchName" type="xs:string"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="loadConfig" type="tns:dataLoadConfig"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="customScript" type="xs:string"/>
+<xs:element minOccurs="0" name="annotationRecordTimestamp" type="xs:dateTime"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="emailNoticeTo" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="startUrlDataLoadResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="xs:long"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="deleteDataLoad">
+<xs:sequence>
+<xs:element minOccurs="0" name="dataLoadId" type="xs:long"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="deleteDataLoadResponse">
+<xs:sequence/>
+</xs:complexType>
+<xs:complexType name="cancelDataLoad">
+<xs:sequence>
+<xs:element minOccurs="0" name="dataLoadId" type="xs:long"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="cancelDataLoadResponse">
+<xs:sequence/>
+</xs:complexType>
+<xs:complexType name="deleteSample">
+<xs:sequence>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="deleteSampleResponse">
+<xs:sequence/>
+</xs:complexType>
+<xs:simpleType name="status">
+<xs:restriction base="xs:string">
+<xs:enumeration value="PENDING"/>
+<xs:enumeration value="RUNNING"/>
+<xs:enumeration value="SUCCESSFUL"/>
+<xs:enumeration value="FAILED"/>
+<xs:enumeration value="CANCELED"/>
+</xs:restriction>
+</xs:simpleType>
+<xs:simpleType name="dataLoadTarget">
+<xs:restriction base="xs:string">
+<xs:enumeration value="ANNOTATION_DATA"/>
+<xs:enumeration value="SAMPLE_DATA"/>
+</xs:restriction>
+</xs:simpleType>
+<xs:simpleType name="sampleDataExistsStrategy">
+<xs:restriction base="xs:string">
+<xs:enumeration value="FAIL"/>
+<xs:enumeration value="CANCEL"/>
+<xs:enumeration value="OVERWRITE"/>
+</xs:restriction>
+</xs:simpleType>
+<xs:simpleType name="annotationRecordMergeStrategy">
+<xs:restriction base="xs:string">
+<xs:enumeration value="MERGE"/>
+<xs:enumeration value="REPLACE"/>
+<xs:enumeration value="APPEND"/>
+</xs:restriction>
+</xs:simpleType>
+</xs:schema>
+</wsdl:types>
+<wsdl:message name="startFileDataLoadResponse">
+<wsdl:part element="tns:startFileDataLoadResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="deleteSampleResponse">
+<wsdl:part element="tns:deleteSampleResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="deleteSample">
+<wsdl:part element="tns:deleteSample" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getDataLoadStatusResponse">
+<wsdl:part element="tns:getDataLoadStatusResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="startUrlDataLoadResponse">
+<wsdl:part element="tns:startUrlDataLoadResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="deleteDataLoad">
+<wsdl:part element="tns:deleteDataLoad" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="cancelDataLoadResponse">
+<wsdl:part element="tns:cancelDataLoadResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="cancelDataLoad">
+<wsdl:part element="tns:cancelDataLoad" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="deleteDataLoadResponse">
+<wsdl:part element="tns:deleteDataLoadResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getDataLoadStatus">
+<wsdl:part element="tns:getDataLoadStatus" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="startFileDataLoad">
+<wsdl:part element="tns:startFileDataLoad" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="startUrlDataLoad">
+<wsdl:part element="tns:startUrlDataLoad" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:portType name="DataLoad">
+<wsdl:operation name="getDataLoadStatus">
+<wsdl:input message="tns:getDataLoadStatus" name="getDataLoadStatus"></wsdl:input>
+<wsdl:output message="tns:getDataLoadStatusResponse" name="getDataLoadStatusResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="startFileDataLoad">
+<wsdl:input message="tns:startFileDataLoad" name="startFileDataLoad"></wsdl:input>
+<wsdl:output message="tns:startFileDataLoadResponse" name="startFileDataLoadResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="startUrlDataLoad">
+<wsdl:input message="tns:startUrlDataLoad" name="startUrlDataLoad"></wsdl:input>
+<wsdl:output message="tns:startUrlDataLoadResponse" name="startUrlDataLoadResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="deleteDataLoad">
+<wsdl:input message="tns:deleteDataLoad" name="deleteDataLoad"></wsdl:input>
+<wsdl:output message="tns:deleteDataLoadResponse" name="deleteDataLoadResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="cancelDataLoad">
+<wsdl:input message="tns:cancelDataLoad" name="cancelDataLoad"></wsdl:input>
+<wsdl:output message="tns:cancelDataLoadResponse" name="cancelDataLoadResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="deleteSample">
+<wsdl:input message="tns:deleteSample" name="deleteSample"></wsdl:input>
+<wsdl:output message="tns:deleteSampleResponse" name="deleteSampleResponse"></wsdl:output>
+</wsdl:operation>
+</wsdl:portType>
+<wsdl:binding name="DataLoadServiceSoapBinding" type="tns:DataLoad">
+<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+<wsdl:operation name="getDataLoadStatus">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="getDataLoadStatus">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="getDataLoadStatusResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="startFileDataLoad">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="startFileDataLoad">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="startFileDataLoadResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="startUrlDataLoad">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="startUrlDataLoad">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="startUrlDataLoadResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="deleteDataLoad">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="deleteDataLoad">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="deleteDataLoadResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="cancelDataLoad">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="cancelDataLoad">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="cancelDataLoadResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="deleteSample">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="deleteSample">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="deleteSampleResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+</wsdl:binding>
+<wsdl:service name="DataLoadService">
+<wsdl:port binding="tns:DataLoadServiceSoapBinding" name="DataLoadPort">
+<soap:address location="https://chw-fast.geneinsight.com/fast/api/v1/ws/DataLoadService"/>
+</wsdl:port>
+</wsdl:service>
+<wsp:Policy wsu:Id="UsernameUnsecureTransportPolicy">
+<wsp:ExactlyOne>
+<wsp:All>
+<sp:SupportingTokens xmlns:sp="http://docs.oasis-open.org/ws-sx/ws-securitypolicy/200702">
+<wsp:Policy>
+<sp:UsernameToken sp:IncludeToken="http://docs.oasis-open.org/ws-sx/ws-securitypolicy/200702/IncludeToken/AlwaysToRecipient">
+<wsp:Policy>
+<sp:WssUsernameToken10/>
+</wsp:Policy>
+</sp:UsernameToken>
+</wsp:Policy>
+</sp:SupportingTokens>
+</wsp:All>
+</wsp:ExactlyOne>
+</wsp:Policy>
+</wsdl:definitions>

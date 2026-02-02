@@ -1,0 +1,242 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= [$$Batch_Screen_Label$$]
+          parameter~ currentStep
+            value= [$$STEP_NAME$$]
+          parameter~ acceptQueue
+            value= [$$STEP_NAME$$]
+          parameter~ containerType
+            value= batchId
+
+      form
+        data-parsley-validate=
+
+        script
+          src= js/components/container.js
+        script
+          src= js/tasks/processBatch/processBatch_form1.js
+
+        include stepInstructions
+        div
+          id= modalId
+
+        configurePreparedQuery~ SELECT
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -     ELSE ?
+          -   END AS "batchId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+      # PARAMETERS FOR EXISTING CONTROLS
+        configurePreparedQuery~
+          - SELECT
+          -   CASE WHEN EXISTS
+          -     (
+          -       SELECT cr.controlRunId
+          -       FROM controlRuns cr
+          -       WHERE cr.currentParentId = ?
+          -     ) THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "existingControls"
+          - FROM DUAL
+          string {_:batchId}
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+        printerControls
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        include containerComponent
+          parameter~ containerName
+            value= batchId
+          parameter~ containerScreenLabel
+            value= [$$Batch_Screen_Label$$]
+          parameter~ containerReadonly
+            value= true
+          parameter~ containerNew
+            value= false
+          parameter~ containerAsSelect
+            value= false
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= batchId
+          parameter~ containerRequired
+            value= No
+          parameter~ containerAdditionalClasses
+            value=
+          parameter~ containerValue
+            value= {_:batchId}
+          parameter~ useThisSequence
+            value=
+          parameter~ containerCommentsInclude
+            value= [$$Batch_Comments$$]
+          parameter~ containerActionInclude
+            value= [$$Action_Option$$]
+          parameter~ containerGenerateFromSequence
+            value= No
+          parameter~ containerShowStorageLocation
+            value= No
+          parameter~ containerPrintBarcode
+            value= Yes
+          parameter~ containerCategoryInclude
+            value= [$$View_Batch_Type$$]
+          parameter~ includePriority
+            value= [$$View_Batch_Priority$$]
+          parameter~ containerActionOptions
+            value= passfail
+          parameter~ containerFileUpload
+            value= [$$Document_Upload$$]
+
+        br
+
+        include controlComponent
+          parameter~ controls_stepName
+            value= {_step}
+          parameter~ controls_commentsInclude
+            value= [$$Sample_Comments$$]
+          parameter~ controls_commentHistory
+            value= [$$Sample_Comment_History$$]
+          parameter~ controls_validateOrTransfer
+            value= Validate
+          parameter~ existingControls
+            value= {_:existingControls}
+          parameter~ addControls
+            value= No
+          parameter~ groupingContainerId
+            value= {_:batchId}
+          parameter~ controlIdGen
+            value=
+          parameter~ printBarcodes
+            value= No
+
+        br
+
+        include sampleList_table
+          parameter~ col1
+            value= [$$Sample_Display_Column_1$$]
+          parameter~ col2
+            value= [$$Sample_Display_Column_2$$]
+          parameter~ col3
+            value= [$$Sample_Display_Column_3$$]
+          parameter~ col4
+            value= [$$Sample_Display_Column_4$$]
+          parameter~ col5
+            value= [$$Sample_Display_Column_5$$]
+          parameter~ col6
+            value= [$$Sample_Display_Column_6$$]
+          parameter~ prioritySetName
+            value=  priority
+          parameter~ print
+            value= [$$Print_Sample_Details$$]
+          parameter~ action
+            value= No
+          parameter~ comments
+            value= [$$Sample_Comments$$]
+          parameter~ commentHistory
+            value= [$$Sample_Comment_History$$]
+          parameter~ actionSetName
+            value= passfail
+          parameter~ counter
+            value= No
+          parameter~ validateOrTransfer
+            value= Validate
+          parameter~ printAll
+            value= SELECTED
+          parameter~ scanAll
+            value= true
+          parameter~ parentId
+            value= {_:batchId}
+          parameter~ parentIdRequired
+            value= true
+          parameter~ fileType
+            value= [$$File_Category$$]
+          parameter~ containerIdGen
+            value=
+
+      ### Data processsing section
+      include sampleList_SQL
+        parameter~ validateOrTransfer
+          value= Validate
+
+      include controlListTableSQL
+        parameter~ validateOrTransfer
+          value= Validate
+        parameter~ existingControls
+          value= {existingControls}
+        parameter~ currentParentId
+          value= {batchId}
+        parameter~ currentParentPosition
+          value=
+        parameter~ controlIdGen
+          value=
+
+      # Route batch
+      include routeContainer
+        parameter~ processContainerId
+          value= {batchId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value=
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+      # Route samples
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~
+          not~
+            isBlank~
+
+          include routeContainer
+            parameter~ processContainerId
+              value= {_columnInput_samples:9}
+            parameter~ result
+              value=
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value= [$$NEXT_STEP$$]
+            parameter~ routingDirection
+              value= OUT
+            parameter~ routingType
+              value= run
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_step}
+
+          # Update specimen run to remove sample from batch
+          sqlPreparedStatement~
+            - UPDATE specimenRuns
+            - SET currentParentId = NULL,
+            -     currentParentPosition = NULL,
+            -     lastUpdatedEventId = ?
+            - WHERE runId = ?
+            long {_eventId}
+            string {_columnInput_samples:9}
+

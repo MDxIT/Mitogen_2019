@@ -1,0 +1,21 @@
+config
+  HL7
+    # HL7 Processor Class Name
+    className com.sunquest.mitogen.lims.hl7.HL7MitoProcessingHandler
+    # default: false 
+    HL7Enabled true
+
+    # default: /sftp/sunquest/incoming
+    #HL7IncomingDirectory <custom_incoming>
+
+    # default: Switchboard.configPath+"private/hl7/processing"
+    #HL7ProcessingDirectory <custom_processing>
+
+    # default: Switchboard.configPath+"private/hl7/done"
+    #HL7DoneDirectory <custom_done>
+
+    # default: Switchboard.configPath+"private/hl7/failed"
+    #HL7FailedDirectory <custom_failed>
+
+    # regex to define which filenames to process
+    HL7FilenameRegex (?i).*(ADT|ORU|ORM).*

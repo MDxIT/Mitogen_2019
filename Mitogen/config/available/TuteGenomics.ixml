@@ -1,0 +1,825 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Tute Genomics Integration
+
+    #########################################################################################
+    # Upload the sample, and get the sample id from the response:
+    # POST https://app.tutegenomics.com/api/samples
+    # Using the sample id, kick off the annotation and give some information about the sample in the post body. From the response, get the analysis id (the analysis id is sometimes called the annotation id):
+    #   POST https://app.tutegenomics.com/api/samples/{sampleId}
+    # Using the analysis id, send PHI information in the post body:
+    #   POST https://app.tutegenomics.com/api/v2/analysis/{analysisId}/metadata
+    # Wait for the annotation to complete. In the response, there is a field called 'status' that will say 'Complete' when it's done:
+    #   GET https://app.tutegenomics.com/api/samples/{sampleId}?
+    # Using the analysis id, create a new report. Be sure to set the 'save' parameter to true. You will also be required to include a report template id. Use 159 as the report template id for now. The response will include the entire report in JSON format and the report id. You will need only the report id:
+    #   POST https://app.tutegenomics.com/api/reports
+    # Using the report id, get the pdf of the report:
+    #   GET https://app.tutegenomics.com/api/reports/{reportId}?export=pdf
+    ########################################################################################
+    step Generate Token First Time
+      accessLevel 12
+      form
+        include userAccountInfo
+        vertical
+          text test  
+      jython
+        import javax.json.Json
+        import javax.json.JsonArray
+        import javax.json.JsonObject
+        import javax.json.JsonReader
+        import javax.json.JsonValue
+        import java.io.StringReader
+        import urllib2
+        headers = ~{'username': 'cbmaddox','password': 'uniflow2014'~}
+        request = urllib2.Request('https://app.tutegenomics.com/api/tokens', headers=headers)
+      #  request = urllib2.Request('https://app.tutegenomics.com/api/tokens', headers=headers)
+        request.get_method = lambda: 'POST'
+        response_body = urllib2.urlopen(request).read()
+        print response_body
+        reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+        obj = reader.readObject()
+        print obj['token']
+        print obj['date_expired']
+        currentKey = str(obj['token'])
+        expirationDate = str(obj['date_expired'])
+        insertTuteKey = switchboard.connection.prepareStatement("insert into tuteKey (currentKey, expirationDate, eventId) values (?, ?, ?)")
+        insertTuteKey.setString(1, currentKey)
+        insertTuteKey.setString(2, expirationDate)
+        insertTuteKey.setLong(3, switchboard.eventId)
+        insertTuteKey.executeUpdate()
+      sql delete from tuteKey where eventId <> {_eventId}
+    #########################################################################################
+    # Upload the sample, and get the sample id from the response:
+    # POST https://app.tutegenomics.com/api/samples
+    # Using the sample id, kick off the annotation and give some information about the sample in the post body. From the response, get the analysis id (the analysis id is sometimes called the annotation id):
+    #   POST https://app.tutegenomics.com/api/samples/{sampleId}
+    # Using the analysis id, send PHI information in the post body:
+    #   POST https://app.tutegenomics.com/api/v2/analysis/{analysisId}/metadata
+    # Wait for the annotation to complete. In the response, there is a field called 'status' that will say 'Complete' when it's done:
+    #   GET https://app.tutegenomics.com/api/samples/{sampleId}?
+    # Using the analysis id, create a new report. Be sure to set the 'save' parameter to true. You will also be required to include a report template id. Use 159 as the report template id for now. The response will include the entire report in JSON format and the report id. You will need only the report id:
+    #   POST https://app.tutegenomics.com/api/reports
+    # Using the report id, get the pdf of the report:
+    #   GET https://app.tutegenomics.com/api/reports/{reportId}?export=pdf
+    ########################################################################################
+    step Upload VCF File
+      
+    ### This step uploads the sameple and begins the analysis/annotation. ###
+      form
+        include userAccountInfo
+        fieldset 
+          legend Directions
+            class= legend
+          vertical
+            li Choose the queued Report Id from the select box.
+            li Upload the appropriate VCF file for analysis and reporting.  
+            li The Report Id will queue for *NEXT STEP* to await completion of analysis.
+        fieldset
+          legend Queued Requests 
+            class= legend
+          table
+            sqlQuery~ select rf.Id as 'Request Id'
+              - ,rf.specimenId as 'Specimen'
+              - , concat(pa.firstName, ' ', pa.lastName) as 'Patient'
+              - , concat(phy.firstName, ' ', phy.lastName) as 'Physician'
+              - from requestForms rf 
+              - join queues q on q.containerId = rf.Id
+              - join entities pa on pa.entityId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - join entities org on org.entityId = rf.organizationId
+              - where q.step = '{_step}' or rf.Id = 'R1000' or rf.Id = 'CR9939' group by rf.Id
+        vertical
+          select requestId
+            option
+            option R1000
+            option CR9939
+            sqlQuery select containerId from queues where step = '{_step}'
+            screenLabel~ Request Id
+          file vcfFile
+            screenLabel~ VCF File
+            destinationFolderName~ vcfFiles
+            destinationFilePrefix~ VCF_000000000
+
+      ifCondition select currentKey from tuteKey where expirationDate < now() 
+        jython
+          import javax.json.Json
+          import javax.json.JsonArray
+          import javax.json.JsonObject
+          import javax.json.JsonReader
+          import javax.json.JsonValue
+          import java.io.StringReader
+          import urllib2
+          headers = ~{'username': 'cbmaddox','password': 'uniflow2014'~}
+          request = urllib2.Request('https://app.tutegenomics.com/api/tokens', headers=headers)
+          request.get_method = lambda: 'POST'
+          response_body = urllib2.urlopen(request).read()
+          print response_body
+          reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+          obj = reader.readObject()
+          print obj['token']
+          print obj['date_expired']
+          currentKey = str(obj['token'])
+          expirationDate = str(obj['date_expired'])
+          insertTuteKey = switchboard.connection.prepareStatement("insert into tuteKey (currentKey, expirationDate, eventId) values (?, ?, ?)")
+          insertTuteKey.setString(1, currentKey)
+          insertTuteKey.setString(2, expirationDate)
+          insertTuteKey.setLong(3, switchboard.eventId)
+          insertTuteKey.executeUpdate()
+        sql delete from tuteKey where eventId <> {_eventId}
+      setFormQueryResult
+        sqlQuery~ select currentKey from tuteKey
+      setFormQueryResult
+        sqlQuery~ select 'https://demo.uniconnect.com/{vcfFile}' as 'uriPath', '{vcfFile}' as 'fileName' from dual
+      setFormQueryResult
+        sqlQuery~ select specimenId as 'sampleId' from requestForms  where Id = '{requestId}'
+#       setFormQueryResult
+#         sqlQuery~ select containerId as 'sampleId', containerType as 'sampleType' from containers where containerId = 'TICTEST9'
+      exec cp public/vcfFiles/{_:fileName} private/ngsData/{_:fileName} 
+      jython
+        import javax.json.Json
+        import javax.json.JsonArray
+        import javax.json.JsonObject
+        import javax.json.JsonReader
+        import javax.json.JsonValue
+        import java.io.StringReader
+        import urllib2
+        class BetterHTTPErrorProcessor(urllib2.BaseHandler):
+          # a substitute/supplement to urllib2.HTTPErrorProcessor
+          # that doesn't raise exceptions on status codes 201,204,206
+          def http_error_201(self, request, response, code, msg, hdrs):
+            return response
+          def http_error_204(self, request, response, code, msg, hdrs):
+            return response
+          def http_error_206(self, request, response, code, msg, hdrs):
+            return response
+        opener = urllib2.build_opener(BetterHTTPErrorProcessor)
+        urllib2.install_opener(opener)
+        # name = sampleId or specimenId no PHI
+        # name & subjectId linked to sequence because they MUST BE UNIQUE ###
+        values = """~{"vcf_uri": "https://demo.uniconnect.com/vcfFiles/{_:fileName}"
+          - ,"user_id": "1793"
+          - ,"name": "{requestId}_{_eventId}"
+          - ,"subject_id": "{requestId}_{_eventId}"
+          - ,"project": "UNIPROJECT_01"
+          - ,"build": "hg19"
+          - ,"family_id": "0"
+          - ,"file_format": "vcf"
+          - ,"multi_sample": "all"
+          - ,"notifyByEmail": "N"
+          - ~}"""
+#        switchboard.log(values)
+        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+        request = urllib2.Request('https://app.tutegenomics.com/api/samples', data=values, headers=headers)
+        response_body = urllib2.urlopen(request).read()
+        print response_body
+        reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+        obj = reader.readObject()
+        print obj['sample_id']
+        tuteSampleId = str(obj['sample_id'])
+        insertTuteKey = switchboard.connection.prepareStatement("insert into containerProperties (containerId, property, value, eventId) values (?, ?, ?, ?)")
+        insertTuteKey.setString(1, '{_:sampleId}')
+        insertTuteKey.setString(2, 'tuteSampleId')
+        insertTuteKey.setString(3, tuteSampleId)
+        insertTuteKey.setLong(4, switchboard.eventId)
+        insertTuteKey.executeUpdate()
+        deleteFromQueue = switchboard.connection.prepareStatement("delete from queues where containerId = ? and step = ?")
+        deleteFromQueue.setString(1, '{requestId}')
+        deleteFromQueue.setString(2, '{_step}')
+        deleteFromQueue.executeUpdate()
+        insertToQueue = switchboard.connection.prepareStatement("insert into queues (containerId, step, eventId) values (?, ?, ?)")
+        insertToQueue.setString(1, '{requestId}')
+        insertToQueue.setString(2, 'Tute Report Status')
+        insertToQueue.setLong(3, switchboard.eventId)
+        insertToQueue.executeUpdate()
+        
+    step Tute Dashboard 
+      
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          - var $unique = $('input.unique');
+          - $unique.click(function() { 
+          -     var name = $(this).attr("name");
+          -     if (name == 't1_1_6') { $('#sampleId').val('27317'); };
+          -     if (name == 't1_2_6') { $('#sampleId').val('27316'); };
+          -     $unique.filter(':checked').not(this).removeAttr('checked');
+          -   });
+          -  $('#stepFormSubmitButton').click(function() {
+          -    var url = 'https://app.tutegenomics.com/analysis/dashboard/id/'+ $('#sampleId').val(); +'#/singleAnalysis'
+          -   window.open(url, '_blank')  
+          -   });
+          - });
+        hidden sampleId 
+          value= 27318
+          id= sampleId
+        fieldset 
+          legend Directions
+            class= legend
+          vertical
+            li Select the row for the specific requestId you want to view the dashboard for.  
+            li Click submit to view the Tute Genomics Dashboard for the associated Analysis.  
+        fieldset
+          table
+            sqlQuery~ select rf.Id as 'Request Id'
+              - ,rf.specimenId as 'Specimen'
+              - ,rf.tissueType as 'Analysis Type'
+              - , concat(pa.firstName, ' ', pa.lastName) as 'Patient'
+              - , concat(phy.firstName, ' ', phy.lastName) as 'Physician'
+              - ,'' as 'View Dashboard'
+              - from requestForms rf 
+              - join queues q on q.containerId = rf.Id
+              - join entities pa on pa.entityId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - where q.step = '{_step}'
+            columnSpecs~ t1
+              column 6
+                inputType checkbox
+                  class= unique
+#       form
+#         include userAccountInfo
+#         script 
+#           - $(document).ready(function(){
+#           -     $(this).scrollTop(0);
+#           -   });
+#         div 
+#           iframe 
+#             src= !!! https://app.tutegenomics.com/analysis/dashboard/id/{sampleId}#/singleAnalysis
+#             width= 1000px
+#             height= 1000px
+    step Tute Read QC 
+      
+      form
+        script
+          - $(document).ready(function(){
+          - var $unique = $('input.unique');
+          - $unique.click(function() {
+          -     var name = $(this).attr("name"); 
+          -     if (name == 't1_0_6') { $('#qcType').val('CF-FASTQ/sampleone_S4_L001_R1_001.stats-fastqc.html'); };
+          -     if (name == 't1_1_6') { $('#qcType').val('Nextera-FASTQ/samplethree_S2_L001_R1_001.stats-fastqc.html'); };
+          -     if (name == 't1_2_6') { $('#qcType').val('Nimblegen-FASTQ/sampletwo_S2_L001_R1_001.stats-fastqc.html'); };
+          -     $unique.filter(':checked').not(this).removeAttr('checked');
+          -   });
+          - });
+        include userAccountInfo
+        hidden QC Type 
+          id= qcType
+        fieldset 
+          legend Directions
+            class= legend
+          vertical
+            li Select the row for the specific requestId you want to view the dashboard for.  
+            li Choose the QC File to view.  
+            li Click submit to view the QC Metrics.  
+        vertical 
+          table
+            sqlQuery~ select rf.Id as 'Request Id'
+              - ,rf.specimenId as 'Specimen'
+              - , tissueType as 'Analysis Type'
+              - , concat(pa.firstName, ' ', pa.lastName) as 'Patient'
+              - , concat(phy.firstName, ' ', phy.lastName) as 'Physician'
+              - , '' as 'Select'
+              - from requestForms rf 
+              - join queues q on q.containerId = rf.Id
+              - join entities pa on pa.entityId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - where q.step = '{_step}'
+            columnSpecs~ t1    
+              column 6
+                inputType checkbox 
+                  class= unique
+      form
+        include userAccountInfo
+        script 
+          - $(document).ready(function(){
+          -     $(this).scrollTop(0);
+          -   });
+        div 
+          iframe 
+            src= !!! https://demo.uniconnect.com/{QC Type}
+            width= 1200px
+            height= 1000px
+
+    step Tute Alignment QC 
+      form
+        script
+          - $(document).ready(function(){
+          - var $unique = $('input.unique');
+          - $unique.click(function() {
+          -     var name = $(this).attr("name"); 
+          -     if (name == 't1_0_6') { $('#qcType').val('CF'); };
+          -     if (name == 't1_1_6') { $('#qcType').val('Nextera'); };
+          -     if (name == 't1_2_6') { $('#qcType').val('Nimblegen'); };
+          -     $unique.filter(':checked').not(this).removeAttr('checked');
+          -   });
+          - });
+        include userAccountInfo
+        hidden QC Type 
+          id= qcType
+        fieldset 
+          legend Directions
+            class= legend
+          vertical
+            li Select the row for the specific requestId you want to view the dashboard for.  
+            li Choose the QC File to view.  
+            li Click submit to view the QC Metrics.  
+        vertical 
+          table
+            sqlQuery~ select rf.Id as 'Request Id'
+              - ,rf.specimenId as 'Specimen'
+              - , tissueType as 'Analysis Type'
+              - , concat(pa.firstName, ' ', pa.lastName) as 'Patient'
+              - , concat(phy.firstName, ' ', phy.lastName) as 'Physician'
+              - , '' as 'Select'
+              - from requestForms rf 
+              - join queues q on q.containerId = rf.Id
+              - join entities pa on pa.entityId = rf.patientId
+              - join entities phy on phy.entityId = rf.physicianId
+              - where q.step = '{_step}'
+            columnSpecs~ t1    
+              column 6
+                inputType checkbox 
+                  class= unique
+      form
+        include userAccountInfo
+        script 
+          - $(document).ready(function(){
+          -     $(this).scrollTop(0);
+          -   });
+        div 
+          iframe 
+            src= !!! https://demo.uniconnect.com/{QC Type}/qualimapReport.html
+            width= 1200px
+            height= 1000px
+
+    step Tute Report Status
+      
+      form 
+        include userAccountInfo
+        fieldset
+          legend Directions
+            class= legend
+          vertical
+            li Requests below have been submitted to Tute for Processing
+            li A completed report has each of the following:
+              ul 
+                li Tute Sample Id
+                li Analysis Id
+                li Report Id
+                li Status of <b>Completed</b>
+            li When complete the Request will queue for Completed NGS Report.
+        vertical
+          table
+            sqlQuery~ select rf.Id as 'Request Id', rf.specimenId as 'Specimen'
+              - ,ifnull(tr.sampleId, 'NOT PRESENT') as 'Tute Sample Id'
+              - ,ifnull(tr.analysisId, 'NOT PRESENT') as 'Analysis Id'
+              - ,ifnull(tr.reportId, 'NOT PRESENT') as 'Report'
+              - ,ifnull(tr.status, 'NOT PRESENT') as 'Status'
+              - from requestForms rf 
+              - join queues q on q.containerId = rf.Id
+              - left join tuteReportIds tr on tr.containerId = rf.specimenId
+              - where q.step = '{_step}'
+
+    step Completed NGS Reports
+      
+      form
+        script
+          - $(document).ready(function() {
+          -   $('.hide').parent().addClass('hide');
+          -   $('th:contains("Hidden")').addClass('hide');
+          -   $('.hide').hide();
+          - ;}) 
+        include userAccountInfo
+        table 
+          sqlQuery~ select rf.Id as 'Hidden', rf.Id as 'Request Id', concat('REPORT-',rf.Id) as 'Report Id'
+            - ,rf.specimenId as 'Specimen'
+            - , concat(pa.firstName, ' ', pa.lastName) as 'Patient'
+            - , concat(phy.firstName, ' ', phy.lastName) as 'Physician'
+            - ,'' as 'Sign Out','' as 'Resubmit for New Report'
+            - ,'' as 'Queue to Upload New VCF'
+            - from requestForms rf 
+            - join queues q on q.containerId = rf.Id
+            - join entities pa on pa.entityId = rf.patientId
+            - join entities phy on phy.entityId = rf.physicianId
+            - where q.step = '{_step}'
+          columnSpecs~ t1
+            column 1 
+              inputType container
+                recordContainerHistory~ false
+                class= hide
+                if~ {_columnInput:7} == true
+                  sql update requestForms set initialReleaseEventId = {_eventId} where id = '{_columnInput:1}' and initialReleaseEventId is null
+                  sql update requestForms set signedEventId = {_eventId} where id = '{_columnInput:1}'
+                  sql delete from queues where step = '{_step}'
+                    - and containerId = '{_columnInput:1}'
+                  sql insert into queues (containerId, step, eventId) values ('REPORT-{_columnInput:1}', 'Final Report', {_eventId})
+#                   sql
+#                     - insert into queues (containerId, step, eventId)
+#                     - select '{_columnInput:1}', 'Bill For Tests', {_eventId}
+#                     - from dual
+#                     - where not exists (select 1 from queues where containerId = '{_columnInput:1}' and step = 'Bill For Tests')
+#                   sql
+#                     - insert into queues (containerId, step, eventId)
+#                     - select '{_columnInput:1}', 'Export For Billing', {_eventId}
+#                     - from dual
+#                     - where not exists (select 1 from queues where containerId = '{_columnInput:1}' and step = 'Export For Billing')
+                  sql insert into containerHistory (containerId, eventId) values
+                    - ('REPORT-{_columnInput:1}', {_eventId})
+                if~ {_columnInput:8} == true
+#                   sql delete from queues where step = '{_step}' and containerId = '{_columnInput:1}'
+                  sql insert into queues (containerId, step, eventId) values
+                    - ('{_columnInput:1}','_resubmitFiles', {_eventId})
+                if~ {_columnInput:9} == true
+                  sql delete from queues where step = '{_step}' and containerId = '{_columnInput:1}'
+                  sql insert into queues (containerId, step, eventId) values
+                    - ('{_columnInput:1}','Upload VCF File', {_eventId}) 
+                  sql delete from tuteReportIds where containerId = (select specimenId from requestForms where Id = '{_columnInput:1}')
+                  sql delete from containerProperties where containerId = (select specimenId from requestForms where Id = '{_columnInput:1}') and property = 'tuteSampleId'
+            column 7
+              inputType checkbox
+            column 8
+              inputType checkbox
+            column 9 
+              inputType checkbox
+      allowDuplicateContainerIds true
+      forEach select containerId as 'tuteRequestId' from queues where step = '_resubmitFiles' and eventId = {_eventId}
+        setFormQueryResult
+          sqlQuery~ select currentKey from tuteKey
+        setFormQueryResult
+          sqlQuery~ select analysisId as 'tuteAnalysisId' from tuteReportIds tr
+            - join requestForms rf on rf.specimenId = tr.containerId
+            - where rf.Id = '{_:tuteRequestId}' 
+        setFormQueryResult
+          sqlQuery~ select analysisId as 'tuteAnalysisId', rf.specimenId as 'patientSpecimenId' from tuteReportIds tr
+            - join requestForms rf 
+            - on rf.specimenId = tr.containerId 
+            - where rf.Id = '{_:tuteRequestId}' 
+        ## This selects patient information for the report header.  ##
+        setFormQueryResult~ 
+          sqlQuery~ select rf.Id as 'requestId'
+            - ,concat(pa.firstName, ' ', pa.lastName) as 'patientName'
+            - ,pat.dob as 'patientDOB'
+            - ,pat.gender as 'patientGender'
+            - ,right(pat.ssn, 4) as 'patientSSN'
+#             - ,paad.line1 as 'patientAddress1'
+#             - ,concat(ifnull(paad.city,''), ', ', ifnull(paad.state,''), ' ', ifnull(paad.zip,'')) as 'patientAddress2'
+            - ,pat.mrn as 'patientId'
+            - ,rf.organizationId as 'clientId'
+            - ,concat(phy.firstName, ' ', phy.lastName) as 'requestingPhysician'
+            - ,date_format(rf.collectionDate, '%m/%d/%Y') as 'collectionDate'
+            - ,date_format(rec.eventDate, '%m/%d/%Y') as 'receivedDate'
+            - ,date_format(sysDate(), '%m/%d/%Y') as 'reportDate'
+            - ,rf.sampleType as 'specimenType'
+            - ,'Jeremy' as 'testingPersonnel'
+            - from requestForms rf
+            - join entities pa on pa.entityId = rf.patientId
+            - join entities phy on phy.entityId = rf.physicianId
+            - join events rec on rec.eventId = rf.receiveEventId
+            - left join patients pat on pat.patientId = rf.patientId
+            - where rf.Id = '{_:tuteRequestId}' 
+        setFormQueryResult~
+          sqlQuery~ select phad.address1 as 'physicianAddress1'
+            - ,concat(ifnull(phad.city,''), ', ', ifnull(phad.state,''), ' ', ifnull(phad.postalCode,'')) as 'physicianAddress2'
+            - from requestForms rf
+            - join entities ph on ph.entityId = rf.organizationId
+            - left join entityAddresses phad on phad.entityId = ph.entityId
+            - where rf.Id = '{_:tuteRequestId}' 
+        jython
+          import javax.json.Json
+          import javax.json.JsonArray
+          import javax.json.JsonObject
+          import javax.json.JsonReader
+          import javax.json.JsonValue
+          import java.io.StringReader
+          import urllib2
+          class BetterHTTPErrorProcessor(urllib2.BaseHandler):
+            # a substitute/supplement to urllib2.HTTPErrorProcessor
+            # that doesn't raise exceptions on status codes 201,204,206
+            def http_error_201(self, request, response, code, msg, hdrs):
+              return response
+            def http_error_204(self, request, response, code, msg, hdrs):
+              return response
+            def http_error_206(self, request, response, code, msg, hdrs):
+              return response
+          headers = ~{'username': 'cbmaddox','token': '{_:currentKey}', 'Content-Type': 'application/json'~}
+          opener = urllib2.build_opener(BetterHTTPErrorProcessor)
+          urllib2.install_opener(opener)
+          values = """~{"patient.dob": "{_:patientDOB}",
+            -     "patient.name": "{_:patientName}",
+            -     "patient.gender": "{_n:patientGender}",
+            -     "patient.lastFourOfSS": "{_:patientSSN}",
+            -     "patient.id": "{_:patientId}",
+            -     "provider.clientAddress1": "{_:physicianAddress1}",
+            -     "provider.clientAddress2": "{_:physicianAddress2}",
+            -     "provider.requestingPhysician": "{_:requestingPhysician}",
+            -     "specimen.accession": "{_:requestId}",
+            -     "specimen.dateCollected": "{_:collectionDate}",
+            -     "specimen.dateReported": "{_:reportDate}",
+            -     "specimen.dateReceived": "{_:receivedDate}",
+            -     "specimen.specimenType": "{_:specimenType}"
+            - ~}"""
+          request = urllib2.Request('https://app.tutegenomics.com/api-dev/v2/analysis/{_:tuteAnalysisId}/metadata', data=values, headers=headers)
+          response_body = urllib2.urlopen(request).read()
+          print response_body
+        setFormQueryResult
+          sqlQuery~ select reportId from tuteReportIds tr 
+            - join requestForms rf on rf.specimenId = tr.containerId
+            - where rf.Id = '{_:tuteRequestId}'
+        jython
+          import javax.json.Json
+          import javax.json.JsonArray
+          import javax.json.JsonObject
+          import javax.json.JsonReader
+          import javax.json.JsonValue
+          import java.io.StringReader
+          import urllib2
+          class BetterHTTPErrorProcessor(urllib2.BaseHandler):
+            # a substitute/supplement to urllib2.HTTPErrorProcessor
+            # that doesn't raise exceptions on status codes 201,204,206
+            def http_error_201(self, request, response, code, msg, hdrs):
+              return response
+            def http_error_204(self, request, response, code, msg, hdrs):
+              return response
+            def http_error_206(self, request, response, code, msg, hdrs):
+              return response
+
+          headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+          opener = urllib2.build_opener(BetterHTTPErrorProcessor)
+          urllib2.install_opener(opener)
+          #userId for cbmaddox: 1607
+          values = """~{"user_id": "1607"
+            - ,"analysis_id": "{_:tuteAnalysisId}"
+            - ,"template_id": "159"
+            - ,"save": "true"
+            - ~}"""
+  #        switchboard.log(values)analysis/{analysisId goes here}/metadata
+  #        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+          request = urllib2.Request('https://app.tutegenomics.com/api/reports', data=values, headers=headers)
+          response_body = urllib2.urlopen(request).read()
+          print response_body
+          reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+          obj = reader.readObject()
+          reportId = str(obj['id'])
+          reportName =  str(obj['name'])
+          updateTuteReportId = switchboard.connection.prepareStatement("update tuteReportIds set reportId = ?, reportName = ?, eventId = ? where containerId = '{_:patientSpecimenId}' and analysisId = '{_:tuteAnalysisId}'")
+          updateTuteReportId.setString(1, reportId)
+          updateTuteReportId.setString(2, reportName)
+          updateTuteReportId.setLong(3, switchboard.eventId)
+          updateTuteReportId.executeUpdate()
+        jython
+          import urllib2
+          headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+        #  https://app.tutegenomics.com/api/reports/{reportId}/print-pdf
+          request = urllib2.Request('https://app.tutegenomics.com/api/reports/{_:reportId}/?export=pdf', headers=headers)
+          # This opens the URL message
+          response_body = urllib2.urlopen(request)
+          # This creates an  empty pdf to write to
+          f = open('private/reports/tuteReports/REPORT-{_:tuteRequestId}.pdf', 'w')
+          # Read URL Response and write it to the open pdf file
+          f.write(response_body.read())
+          # Close file and URL response
+          response_body.close()
+          f.close()
+
+
+
+
+  timerTask RunAnalysis
+    intervalMinutes 2
+    conditionalTransactionInstructions
+      ifCondition select containerId from queues where step = 'Tute Report Status'
+        jython
+          switchboard.isUpdateTransaction = True 
+    setFormQueryResult
+      sqlQuery~ select currentKey from tuteKey
+    forEach select q.containerId as 'tuteRequestId' from queues q
+      - join requestForms rf on rf.Id = q.containerId
+      - left join tuteReportIds tr on tr.containerid = rf.specimenId
+      - where q.step = 'Tute Report Status' and tr.sampleId is NULL
+      setFormQueryResult
+        sqlQuery~ select value as 'tuteSampleId', rf.specimenId as 'patientSpecimenId' from containerProperties cp
+          - join requestForms rf on rf.specimenId = cp.containerId and cp.property = 'tuteSampleId'
+          - where rf.Id = '{_:tuteRequestId}' 
+      jython
+        import javax.json.Json
+        import javax.json.JsonArray
+        import javax.json.JsonObject
+        import javax.json.JsonReader
+        import javax.json.JsonValue
+        import java.io.StringReader
+        import urllib2
+        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+        request = urllib2.Request('https://app.tutegenomics.com/api/samples/{_:tuteSampleId}', headers=headers)
+        response_body = urllib2.urlopen(request).read()
+        print response_body
+        reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+        obj = reader.readObject()
+        analysisId = str(obj['annotation_id'])
+        print obj['annotation_id']
+        status = str(obj['status'])
+        switchboard.log(status)
+      #  print obj['status']
+        insertTuteReportId = switchboard.connection.prepareStatement("insert ignore into tuteReportIds (containerId, sampleId, analysisId, eventId) values (?, ?, ?, ?)")
+        insertTuteReportId.setString(1, '{_:patientSpecimenId}')
+        insertTuteReportId.setString(2, '{_:tuteSampleId}')
+        insertTuteReportId.setString(3, analysisId)
+        insertTuteReportId.setLong(4, switchboard.eventId)
+        insertTuteReportId.executeUpdate()
+      setFormQueryResult
+        sqlQuery~ select analysisId as 'tuteAnalysisId' from tuteReportIds tr
+          - join requestForms rf on rf.specimenId = tr.containerId
+          - where rf.Id = '{_:tuteRequestId}' 
+      ## This selects patient information for the report header.  ##
+      setFormQueryResult~ 
+        sqlQuery~ select rf.Id as 'requestId'
+          - ,concat(pa.firstName, ' ', pa.lastName) as 'patientName'
+          - ,pat.dob as 'patientDOB'
+          - ,pat.gender as 'patientGender'
+          - ,right(pat.ssn, 4) as 'patientSSN'
+#           - ,paad.line1 as 'patientAddress1'
+#           - ,concat(ifnull(paad.city,''), ', ', ifnull(paad.state,''), ' ', ifnull(paad.zip,'')) as 'patientAddress2'
+          - ,pat.mrn as 'patientId'
+          - ,rf.organizationId as 'clientId'
+          - ,concat(phy.firstName, ' ', phy.lastName) as 'requestingPhysician'
+          - ,date_format(rf.collectionDate, '%m/%d/%Y') as 'collectionDate'
+          - ,date_format(rec.eventDate, '%m/%d/%Y') as 'receivedDate'
+          - ,date_format(sysDate(), '%m/%d/%Y') as 'reportDate'
+          - ,rf.sampleType as 'specimenType'
+          - ,'clinton' as 'testingPersonnel'
+          - from requestForms rf
+          - join entities pa on pa.entityId = rf.patientId
+          - join entities phy on phy.entityId = rf.physicianId
+          - join events rec on rec.eventId = rf.receiveEventId
+          - left join patients pat on pat.patientId = rf.patientId
+          - where rf.Id = '{_:tuteRequestId}' 
+      setFormQueryResult~
+        sqlQuery~ select phad.address1 as 'physicianAddress1'
+          - ,concat(ifnull(phad.city,''), ', ', ifnull(phad.state,''), ' ', ifnull(phad.postalCode,'')) as 'physicianAddress2'
+          - from requestForms rf
+          - join entities ph on ph.entityId = rf.organizationId
+          - left join entityAddresses phad on phad.entityId = rf.organizationId
+          - where rf.Id = '{_:tuteRequestId}' 
+      jython
+        import javax.json.Json
+        import javax.json.JsonArray
+        import javax.json.JsonObject
+        import javax.json.JsonReader
+        import javax.json.JsonValue
+        import java.io.StringReader
+        import urllib2
+        class BetterHTTPErrorProcessor(urllib2.BaseHandler):
+          # a substitute/supplement to urllib2.HTTPErrorProcessor
+          # that doesn't raise exceptions on status codes 201,204,206
+          def http_error_201(self, request, response, code, msg, hdrs):
+            return response
+          def http_error_204(self, request, response, code, msg, hdrs):
+            return response
+          def http_error_206(self, request, response, code, msg, hdrs):
+            return response
+        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}', 'Content-Type': 'application/json'~}
+        opener = urllib2.build_opener(BetterHTTPErrorProcessor)
+        urllib2.install_opener(opener)
+        values = """~{"patient.dob": "{_:patientDOB}",
+          -     "patient.name": "{_:patientName}",
+          -     "patient.gender": "{_n:patientGender}",
+          -     "patient.lastFourOfSS": "{_:patientSSN}",
+          -     "patient.id": "{_:patientId}",
+          -     "provider.clientAddress1": "{_:physicianAddress1}",
+          -     "provider.clientAddress2": "{_:physicianAddress2}",
+          -     "provider.requestingPhysician": "{_:requestingPhysician}",
+          -     "specimen.accession": "{_:requestId}",
+          -     "specimen.dateCollected": "{_:collectionDate}",
+          -     "specimen.dateReported": "{_:reportDate}",
+          -     "specimen.dateReceived": "{_:receivedDate}",
+          -     "specimen.specimenType": "{_:specimenType}"
+          - ~}"""
+        request = urllib2.Request('https://app.tutegenomics.com/api-dev/v2/analysis/{_:tuteAnalysisId}/metadata', data=values, headers=headers)
+        response_body = urllib2.urlopen(request).read()
+        print response_body
+    forEach select q.containerId as 'tuteRequestId' from queues q
+      - join requestForms rf on rf.Id = q.containerId
+      - left join tuteReportIds tr on tr.containerid = rf.specimenId
+      - where q.step = 'Tute Report Status' and tr.sampleId is NOT NULL
+      - and tr.status is null
+      setFormQueryResult
+        sqlQuery~ select value as 'tuteSampleId', rf.specimenId as 'patientSpecimenId' from containerProperties cp
+          - join requestForms rf on rf.specimenId = cp.containerId and cp.property = 'tuteSampleId'
+          - where rf.Id = '{_:tuteRequestId}' 
+      jython
+        import javax.json.Json
+        import javax.json.JsonArray
+        import javax.json.JsonObject
+        import javax.json.JsonReader
+        import javax.json.JsonValue
+        import java.io.StringReader
+        import urllib2
+        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+        request = urllib2.Request('https://app.tutegenomics.com/api/samples/{_:tuteSampleId}', headers=headers)
+        response_body = urllib2.urlopen(request).read()
+        print response_body
+        reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+        obj = reader.readObject()
+        analysisId = str(obj['annotation_id'])
+        print obj['annotation_id']
+        status = str(obj['status'])
+        switchboard.log(status)
+        if status == 'Completed':
+          updateTuteReportId = switchboard.connection.prepareStatement("update tuteReportIds set status = ? where containerId = ?")
+          updateTuteReportId.setString(1, status)
+          updateTuteReportId.setString(2, '{_:patientSpecimenId}')
+          updateTuteReportId.executeUpdate()
+
+  timerTask RetrieveCompletedReport
+    intervalMinutes 2
+    conditionalTransactionInstructions
+      ifCondition select containerId from queues where step = 'Tute Report Status'
+        jython
+          switchboard.isUpdateTransaction = True 
+    setFormQueryResult
+      sqlQuery~ select currentKey from tuteKey
+    forEach select q.containerId as 'tuteRequestId' from queues q
+      - join requestForms rf on rf.Id = q.containerId
+      - left join tuteReportIds tr on tr.containerid = rf.specimenId
+      - where q.step = 'Tute Report Status' and tr.status = 'Completed'
+      setFormQueryResult
+        sqlQuery~ select analysisId as 'tuteAnalysisId', rf.specimenId as 'patientSpecimenId' from tuteReportIds tr
+          - join requestForms rf 
+          - on rf.specimenId = tr.containerId 
+          - where rf.Id = '{_:tuteRequestId}' 
+      jython
+        import javax.json.Json
+        import javax.json.JsonArray
+        import javax.json.JsonObject
+        import javax.json.JsonReader
+        import javax.json.JsonValue
+        import java.io.StringReader
+        import urllib2
+        class BetterHTTPErrorProcessor(urllib2.BaseHandler):
+          # a substitute/supplement to urllib2.HTTPErrorProcessor
+          # that doesn't raise exceptions on status codes 201,204,206
+          def http_error_201(self, request, response, code, msg, hdrs):
+            return response
+          def http_error_204(self, request, response, code, msg, hdrs):
+            return response
+          def http_error_206(self, request, response, code, msg, hdrs):
+            return response
+
+        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+        opener = urllib2.build_opener(BetterHTTPErrorProcessor)
+        urllib2.install_opener(opener)
+        #userId for cbmaddox: 1607
+        values = """~{"user_id": "1607"
+          - ,"analysis_id": "{_:tuteAnalysisId}"
+          - ,"template_id": "159"
+          - ,"save": "true"
+          - ~}"""
+#        switchboard.log(values)analysis/{analysisId goes here}/metadata
+#        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+        request = urllib2.Request('https://app.tutegenomics.com/api/reports', data=values, headers=headers)
+        response_body = urllib2.urlopen(request).read()
+        print response_body
+        reader = javax.json.Json.createReader(java.io.StringReader(response_body))
+        obj = reader.readObject()
+        reportId = str(obj['id'])
+        reportName =  str(obj['name'])
+        updateTuteReportId = switchboard.connection.prepareStatement("update tuteReportIds set reportId = ?, reportName = ?, eventId = ? where containerId = '{_:patientSpecimenId}' and analysisId = '{_:tuteAnalysisId}'")
+        updateTuteReportId.setString(1, reportId)
+        updateTuteReportId.setString(2, reportName)
+        updateTuteReportId.setLong(3, switchboard.eventId)
+        updateTuteReportId.executeUpdate()
+    forEach select q.containerId as 'tuteRequestId' from queues q
+      - join requestForms rf on rf.Id = q.containerId
+      - left join tuteReportIds tr on tr.containerid = rf.specimenId
+      - where q.step = 'Tute Report Status' and tr.status = 'Completed'
+      - and tr.reportId is NOT NULL
+      setFormQueryResult
+        sqlQuery~ select reportId from tuteReportIds tr 
+          - join requestForms rf on rf.specimenId = tr.containerId
+          - where rf.Id = '{_:tuteRequestId}'
+      jython
+        import urllib2
+        headers = ~{'username': 'cbmaddox','token': '{_:currentKey}'~}
+      #  https://app.tutegenomics.com/api/reports/{reportId}/print-pdf
+        request = urllib2.Request('https://app.tutegenomics.com/api/reports/{_:reportId}/?export=pdf', headers=headers)
+        # This opens the URL message
+        response_body = urllib2.urlopen(request)
+        # This creates an  empty pdf to write to
+        f = open('private/reports/tuteReports/REPORT-{_:tuteRequestId}.pdf', 'w')
+        # Read URL Response and write it to the open pdf file
+        f.write(response_body.read())
+        # Close file and URL response
+        response_body.close()
+        f.close()
+      sql delete from queues where containerId = '{_:tuteRequestId}' and step = 'Tute Report Status'
+      sql insert into queues (containerId, step, eventId) values ('{_:tuteRequestId}', 'Completed NGS Reports', {_eventId})
+
+
+
+
+

@@ -1,0 +1,27 @@
+#siteDetailsMainTable {
+  display: none;
+  border-collapse: separate;
+}
+
+.detailInfo {
+  float:left;
+  padding: 5px;
+}
+
+.detailInfo td {
+   margin: 20px;
+}
+
+.detailInfo .col0 {
+  width:100px;
+  text-align: right;
+  padding-right:15px;
+}
+
+#siteGeneral tr:nth-child(1) {
+  float:left;
+}
+
+#siteGeneral .col1 input {
+  width:250px;
+}

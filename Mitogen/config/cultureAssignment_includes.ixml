@@ -1,0 +1,147 @@
+config
+  includes
+    ### Culture Dashboard Include
+    includeable cultureDashboard
+      ### PARAMETERS IN
+      ###   currentDayTable -- The current day table has value set to Yes, otherwise other tables are set to No
+      ###   dateValue -- Passes in the target date
+      ### PARAMETERS OUT
+      ###   None
+      div
+        table
+          id= cultureDashboard
+          sqlPreparedQuery
+            - SELECT
+            -   'false' AS '',
+            -   sr.currentContainerId AS 'Specimen ID',
+            -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS 'Patient Name',
+            -   IFNULL(rf.mrn, '') AS 'MRN',
+            -   IFNULL(DATE(pa.dob), '') AS 'DOB',
+            -   CONCAT(incubationTime,' ','HOURS') AS 'Incubation Time',
+            -   cultureType AS 'Culture Type',
+            -   '' AS 'Cell Count',
+            -   '' AS 'Comments',
+            -   "Override" AS '',
+            -   ca.id AS 'Hidden',
+            -   ca.runId AS 'Hidden',
+            -   CASE
+            -       WHEN DATE_ADD(incubationStartEventDate, INTERVAL incubationTime HOUR) <= ? THEN 'available'
+            -       ELSE 'notAvailable' END AS 'Hidden',
+            -   incubationStartEventDate AS 'Hidden'
+            - FROM cultureAssignments ca
+            -  INNER JOIN specimenRuns sr ON ca.runId = sr.runId
+            -   AND sr.completedEventId IS NULL
+            -  INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+            -  INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+            -  INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+            -  LEFT JOIN patients pa ON pa.patientId = rf.patientId AND rs.patientId = pa.patientId
+            - WHERE ca.incubationEndEventId IS NULL
+            -   AND CASE
+            -         WHEN ? = 'Yes' THEN DATE_FORMAT(DATE_ADD(incubationStartEventDate, INTERVAL incubationTime HOUR ),'%Y-%m-%d') <= ?
+            -         ELSE DATE_FORMAT(DATE_ADD(incubationStartEventDate, INTERVAL incubationTime HOUR ),'%Y-%m-%d') = ?
+            -         END
+            string {_currentDateTime}
+            string {_includeParm:currentDayTable}
+            string {_includeParm:dateValue}
+            string {_includeParm:dateValue}
+          columnSpecs~ {_includeParm:tableName}
+            allowChangedRecordIds true
+            column 1
+              inputType checkbox
+                class= dashboardCheckbox
+                required~ false
+            column 8
+              inputType textArea
+                class= cellCount
+            column 9
+              inputType textArea
+                class= comments
+            column 10
+              inputType button
+                class= override
+            column 11
+              inputType text
+                class= cultureAssignmentId hideColumn
+            column 12
+              inputType text
+                class= runId hideColumn
+            column 13
+              inputType text
+                class= completionStatus hideColumn
+            column 14
+              inputType text
+                class= startTime hideColumn
+
+
+    includeable cultureDashboard_SQL
+      ### PARAMETERS IN
+      ###   tableName -- Passes in the table name of each table on form
+      ###   sourceStep -- Passes in the source step name
+      ###   nextStepRouting -- Passes nextStep from protocolSteps table
+      ### PARAMETERS OUT
+      ###   None
+      allowDuplicateContainerIds
+
+      setFormQueryResult sourceStep
+        value= {_includeParm:sourceStep}
+
+      setFormQueryResult nextStepRouting
+        value= {_includeParm:nextStepRouting}
+
+      forRows {_includeParm:tableName}
+        ifCondition {_columnInput_{_includeParm:tableName}:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - INSERT INTO containerHistory(containerId,eventId)
+            - VALUES(?,?)
+            string {_columnInput_{_includeParm:tableName}:12}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - UPDATE cultureAssignments
+            - SET cellCount = ?,
+            - incubationEndEventId = ?,
+            - incubationEndEventDate = ?,
+            - actualIncubationTime = TIMESTAMPDIFF(HOUR,?,?)
+            - WHERE id = ?
+            string {_columnInput_{_includeParm:tableName}:8}
+            long {_eventId}
+            string {_currentDateTime}
+            string {_columnInput_{_includeParm:tableName}:14}
+            string {_currentDateTime}
+            int {_columnInput_{_includeParm:tableName}:11}
+
+          ifCondition {_columnInput_{_includeParm:tableName}:9}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement
+              - INSERT INTO containerNotes(containerId, noteType, note, eventId)
+              - VALUES(?,?,?,?)
+              string {_columnInput_{_includeParm:tableName}:12}
+              string comment
+              string {_columnInput_{_includeParm:tableName}:9}
+              long {_eventId}
+
+          include routeContainer
+            parameter~ processContainerId
+              value= {_columnInput_{_includeParm:tableName}:12}
+            parameter~ result
+              value=
+            parameter~ deleteFromStep
+              value=
+            parameter~ defaultNextStep
+              value= {_:nextStepRouting}
+            parameter~ routingDirection
+              value= OUT
+            parameter~ routingType
+              value= run
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_:sourceStep}
+
+
+
+

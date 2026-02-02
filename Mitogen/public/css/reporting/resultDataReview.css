@@ -1,0 +1,99 @@
+.floatCards {
+  width: 1400px;
+}
+
+.orderBanner {
+  float:left;
+}
+
+.patientBanner {
+  float: right;
+}
+
+.summarySection {
+  padding: 10px 30px 10px 0px;
+}
+
+.editInstance {
+  bottom: 60px !important;
+}
+
+.reportSection {
+  margin-top: 25px;
+}
+
+#previewBtn:disabled {
+  color: rgba(0,0,0,.26) !important; 
+  border: 1px solid !important;
+  cursor: default;
+}
+
+.actionsBottomFixed {
+  position: fixed;
+  bottom: 8px;
+  height: 50px;
+  width: calc( 100vw - 248px );
+  margin-left: -50px;
+  box-shadow: 0 -5px 5px -5px #333;
+  background: white;
+  z-index: 1;
+}
+
+.version-div {
+  z-index: 1;
+}
+
+.action-btn {
+  float: right;
+  margin: 10px;
+}
+
+#saveBtn, #approveBtn {
+  color: #fff !important;
+  background-color: #1976D2 !important;
+}
+
+#approveBtn {
+  margin-right: 20px !important;
+}
+
+.reportableResultSection {
+  margin-top: 170px;
+}
+
+.verticalFlex textArea {
+  width: 100% !important;
+}
+
+.verticalFlex select {
+  width: 30% !important;
+}
+
+.verticalFlex label {
+  z-index: 1 !important;
+}
+
+.patientCard {
+  width: 48% !important;
+  float: left;
+}
+
+.orderCard {
+  width: 47% !important;
+  float: left;
+  margin-left: 1% !important;
+}
+
+.formDiv {
+  margin-top: 10px !important;
+}
+
+.editNewResult {
+  width: 100%;
+}
+
+.interpretationChanged {
+  color:red;
+  font-size:smaller;
+  margin: 0px;
+}

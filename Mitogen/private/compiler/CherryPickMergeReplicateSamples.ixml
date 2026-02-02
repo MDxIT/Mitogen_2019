@@ -1,0 +1,564 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= Tray Id
+          parameter~ currentStep
+            value= [$$STEP_NAME$$]
+          parameter~ containerType
+            value= trayId
+          parameter~ acceptQueue
+            value= {_step}
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+        script
+          src= js/tasks/cherryPicking/cherryPicking.js
+        script
+          src= js/tasks/mergeReplicates.js
+        script
+          src= js/components/printBarcode.js
+        script
+          src= js/components/container.js
+
+        include stepInstructions
+
+
+        configurePreparedQuery~
+          - SELECT CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -   ELSE ? END AS "trayId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+        configurePreparedQuery~
+          - SELECT value AS "trayRows"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayRowNumber'
+          string {_:trayId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT value AS "trayColumns"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayColumnNumber'
+          string {_:trayId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT value AS "trayType"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayType'
+          string {_:trayId}
+          allowEmptyResults~
+
+      # PARAMETERS FOR GENERATE NEW SEQUENCE
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "mergeSampleReadonly"
+          string [$$Generate_Sample_ID$$]
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= No
+          parameter~ currentLoop
+            value= N/A
+
+
+        printerControls
+          configureIf~ [$$Print_Merge_Sample_Barcode$$]
+            advanced~
+            equals~ Yes
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        hidden groupingContainerId
+          value= {groupingContainerId}
+        hidden _recId
+          value= {_recId}
+        hidden plateGridConfig
+          value= true
+          id= plateGridConfig
+        
+        fieldset
+
+          br
+          div
+            button viewSource
+              id= viewSource
+              screenLabel~
+              value= View Source Layout
+          br
+
+          div
+            configureIf~ {_:trayType}
+              advanced~
+              equals~ plate
+                ignoreCase~
+            include trayComponent
+              parameter~ containerNameParm
+                value= trayId
+              parameter~ containerValue
+                value= {_:trayId}
+              parameter~ containerScreenLabel
+                value= [$$Tray_Screen_Label$$]
+              parameter~ containerType
+                value= trayId
+              parameter~ containerRequired
+                value= false
+              parameter~ containerReadonly
+                value= true
+              parameter~ containerNew
+                value= false
+              parameter~ acceptQueue
+                value= [$$STEP_NAME$$]
+              parameter~ containerAsSelect
+                value= false
+              parameter~ containerGenerateFromSequence
+                value= No
+              parameter~ useThisSequence
+                value= trayId
+              parameter~ containerAdditionalClasses
+                value=
+              parameter~ containerCommentsInclude
+                value= [$$Plate_Comments$$]
+              parameter~ containerShowStorageLocation
+                value= No
+              parameter~ containerPrintBarcode
+                value= No
+              parameter~ containerActionInclude
+                value= No
+              parameter~ containerActionOptions
+                value= passfail
+              parameter~ containerCategoryInclude
+                value= [$$View_Tray_Category$$]
+              parameter~ includePriority
+                value= [$$View_Tray_Priority$$]
+              parameter~ trayLabel
+                value= Plate
+              parameter~ trayType
+                value= plate
+              parameter~ trayRowNumber
+                value= {_:trayRows}
+              parameter~ trayColumnNumber
+                value= {_:trayColumns}
+              parameter~ platePrintLayout
+                value= [$$Print_Plate_Layout$$]
+              parameter~ plateAllowSampleDuplicates
+                value= Yes
+              parameter~ userClass1
+                value=
+              parameter~ trayInputReadyOnly
+                value= true
+              parameter~ sampleScanReadOnly
+                value= Yes
+              parameter~ trayToTray
+                value= false
+              parameter~ containerFileUpload
+                value= [$$Document_Upload$$]
+
+          div
+            configureIf~ {_:trayType}
+              advanced~
+              equals~ grid
+                ignoreCase~
+            include trayComponent
+              parameter~ containerNameParm
+                value= trayId
+              parameter~ containerValue
+                value= {_:trayId}
+              parameter~ containerScreenLabel
+                value= [$$Tray_Screen_Label$$]
+              parameter~ containerType
+                value= trayId
+              parameter~ containerRequired
+                value= false
+              parameter~ containerReadonly
+                value= true
+              parameter~ containerNew
+                value= false
+              parameter~ acceptQueue
+                value= [$$STEP_NAME$$]
+              parameter~ containerAsSelect
+                value= false
+              parameter~ containerGenerateFromSequence
+                value= No
+              parameter~ useThisSequence
+                value= trayId
+              parameter~ containerAdditionalClasses
+                value=
+              parameter~ containerCommentsInclude
+                value= [$$Plate_Comments$$]
+              parameter~ containerShowStorageLocation
+                value= No
+              parameter~ containerPrintBarcode
+                value= No
+              parameter~ containerActionInclude
+                value= No
+              parameter~ containerActionOptions
+                value= passfail
+              parameter~ containerCategoryInclude
+                value= [$$View_Tray_Category$$]
+              parameter~ includePriority
+                value= [$$View_Tray_Priority$$]
+              parameter~ trayLabel
+                value= Grid
+              parameter~ trayType
+                value= grid
+              parameter~ trayRowNumber
+                value= {_:trayRows}
+              parameter~ trayColumnNumber
+                value= {_:trayColumns}
+              parameter~ platePrintLayout
+                value= [$$Print_Plate_Layout$$]
+              parameter~ plateAllowSampleDuplicates
+                value= Yes
+              parameter~ userClass1
+                value=
+              parameter~ trayInputReadyOnly
+                value= true
+              parameter~ sampleScanReadOnly
+                value= Yes
+              parameter~ trayToTray
+                value= false
+              parameter~ containerFileUpload
+                value= [$$Document_Upload$$]
+
+
+        br
+
+        topVertical
+          select keepOnQueue
+            screenLabel~ Keep Source Tray On Queue
+            class= required
+            id= keepOnQueue
+            data-parsley-required= true
+            setName~ yesNo
+            value= [$$Keep_Source_On_Queue$$]
+
+          select sampleFilter
+            screenLabel~ Sample Filter
+            class= required
+            id= sampleFilter
+            data-parsley-required= true
+            option
+            sqlPreparedQuery~
+              - SELECT currentContainerId FROM specimenRuns WHERE currentParentId = ?
+              string {_:trayId}
+
+
+        fieldset
+
+          ## Sample List for tray
+          include sampleList_table
+            parameter~ col1
+              value= [$$Sample_Display_Column_1$$]
+            parameter~ col2
+              value= [$$Sample_Display_Column_2$$]
+            parameter~ col3
+              value= [$$Sample_Display_Column_3$$]
+            parameter~ col4
+              value= [$$Sample_Display_Column_4$$]
+            parameter~ col5
+              value= [$$Sample_Display_Column_5$$]
+            parameter~ col6
+              value= [$$Sample_Display_Column_6$$]
+            parameter~ comments
+              value= [$$Sample_Comments$$]
+            parameter~ commentHistory
+              value= [$$Sample_Comment_History$$]
+            parameter~ print
+              value= No
+            parameter~ fileCategory
+              value=
+            parameter~ parentId
+              value= {_:trayId}
+            parameter~ parentIdRequired
+              value= true
+            parameter~ counter
+              value= No
+            parameter~ scanAll
+              value= false
+            parameter~ printAll
+              value= Selected
+            parameter~ action
+              value= No
+            parameter~ actionSetName
+              value= passFail
+            parameter~ prioritySetName
+              value= priority
+            parameter~ validateOrTransfer
+              value= Validate
+            parameter~ fileType
+              value= [$$File_Category$$]
+            parameter~ containerIdGen
+              value=
+
+
+          include containerComponent
+            parameter~ containerName
+              value= mergedSample
+            parameter~ containerScreenLabel
+              value= [$$Sample_Screen_Label$$]
+            parameter~ containerReadonly
+              value= {_:mergeSampleReadonly}
+            parameter~ containerNew
+              value= true
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= tubeId
+            parameter~ containerRequired
+              value= false
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value=
+            parameter~ useThisSequence
+              value= tubeId
+            parameter~ containerCommentsInclude
+              value= [$$Sample_Tube_Comments$$]
+            parameter~ containerActionInclude
+              value= No
+            parameter~ containerGenerateFromSequence
+              value= [$$Generate_Sample_ID$$]
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= [$$Print_Merge_Sample_Barcode$$]
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ includePriority
+              value= No
+            parameter~ parentIdRequired
+              value= false
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+
+      allowDuplicateContainerIds true
+
+      setFormQueryResult specimenMethodsId
+        value=
+
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~
+          not~
+            isBlank~
+
+          setFormQueryResult
+            sqlPreparedQuery~
+              - SELECT
+              -   sr.runId AS 'currentRunId',
+              -   sr.specimenMethodsId,
+              -   sr.parentWorkflowSpecimenRunId,
+              -   rs.specimenId AS 'currentSpecimen',
+              -   rs.requestId
+              - FROM specimenRuns sr
+              - INNER JOIN specimenMethods sm 
+              -   ON sm.id = sr.specimenMethodsId
+              - INNER JOIN requestSpecimens rs 
+              -   ON rs.id = sm.requestSpecimensId
+              - WHERE sr.currentContainerId = ? AND sr.currentParentId = ? LIMIT 1
+              string {_columnInput_samples:4}
+              string {trayId}
+
+          sqlPreparedStatement~
+            - UPDATE specimenRuns
+            - SET
+            -   currentParentId = NULL,
+            -   completedResult = 'Done',
+            -   completedEventId = ?,
+            -   lastUpdatedEventId = ?
+            - WHERE runId = ?
+            long {_eventId}
+            long {_eventId}
+            string {_columnInput_samples:9}
+
+          ifCondition
+            advanced~
+            sqlPreparedQuery~ ! SELECT 1
+              - FROM containerHistory
+              - WHERE containerId = ?
+              - AND eventId = ?
+              string {_columnInput_samples:9}
+              long {_eventId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_samples:9}
+              long {_eventId}
+
+        ## Insert sample comments into containerNotes
+
+        ifCondition {_columnInput_samples:1}
+          advanced~
+          equals~ true
+          and~ {_columnInput_samples:8}
+            not~
+              isBlank~
+          and~ {_columnInput_samples:4}
+            not~
+              isBlank~
+          and~ {_columnInput_samples:9}
+            not~
+              isBlank~
+          sqlPreparedStatement INSERT INTO containerNotes
+            - (containerId, noteType, note, eventId)
+            - VALUES (?, 'comment', ?, ?)
+            string {_columnInput_samples:9}
+            string {_columnInput_samples:8}
+            long {_eventId}
+
+      ifCondition {_:specimenMethodsId}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement INSERT INTO contents
+          - (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, 1, 'specimenId', ?, ?)
+          string {mergedSample}
+          string {_:currentSpecimen}
+          long {_eventId}
+
+        sqlPreparedStatement INSERT INTO contents
+          - (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, 1, 'requestId', ?, ?)
+          string {mergedSample}
+          string {_:requestId}
+          long {_eventId}
+
+        ifCondition {_:parentWorkflowSpecimenRunId}
+          advanced~
+          not~
+            equals~ 0
+          setFormQueryResult 
+            sqlPreparedQuery~
+              - SELECT 
+              -   runId AS 'parentRunId'
+              - FROM specimenRuns
+              - WHERE id = ?
+              string {_:parentWorkflowSpecimenRunId}
+          else 
+            setFormQueryResult parentRunId
+              value= {_:currentRunId}
+
+        include createNewRun
+          parameter~ specimenMethodsId
+            value= {_:specimenMethodsId}
+          parameter~ processContainerId
+            value= {mergedSample}
+          parameter~ runType
+            value= process
+          parameter~ processRunWorkflowParentRunId
+            value= {_:parentRunId}
+          parameter~ currentParentId
+            value=
+          parameter~ currentParentPosition
+            value=
+
+        sqlPreparedStatement
+          - INSERT INTO containerNotes (containerId, noteType, note, eventId) 
+          - SELECT ?, noteType, note, eventId
+          - FROM containerNotes
+          - WHERE containerId = ?
+          -   AND eventId = ?
+          string {_:runId}  
+          string {mergedSample}
+          string {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO containerProperties (containerId, property, value, eventId) 
+          - SELECT ?, property, value, eventId
+          - FROM containerProperties
+          - WHERE containerId = ?
+          -   AND eventId = ?
+          string {_:runId}  
+          string {mergedSample}
+          string {_eventId}
+
+        ifCondition~ [$$Generate_Sample_ID$$]
+          advanced~
+          equals~ Use Existing Identifier
+          or~
+            equals~ User Generated
+          and~
+            sqlPreparedQuery~
+              - SELECT 1 
+              - FROM containerFiles
+              - WHERE eventId = ?
+              -   AND containerId = ''
+              long {_eventId}
+          
+          sqlPreparedStatement
+            - UPDATE containerFiles
+            -   SET containerId = ?
+            - WHERE eventId = ? 
+            -   AND containerId = ''
+            string {_:runId}
+            string {_eventId}
+
+        # OUT CONTAINER ROUTING, APPLIES NEXT STEP DEFAULT
+        include routeContainer
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= group
+          parameter~ processContainerId
+            value= {_:runId}
+          parameter~ result
+            value= {mergedSample_Action}
+          parameter~ deleteFromStep
+            value= 
+          parameter~ defaultNextStep
+            value= [$$NEXT_STEP$$]
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+
+      # USED FOR DEQUEUEING TRAY
+      ifCondition {keepOnQueue}
+        advanced~
+        equals~ No
+        include routeContainer
+          parameter~ routingDirection
+            value= IN
+          parameter~ routingType
+            value= group
+          parameter~ processContainerId
+            value= {trayId}
+          parameter~ result
+            value= {trayId_Action}
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= Store
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+

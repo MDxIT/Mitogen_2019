@@ -1,0 +1,41 @@
+/* configure reports css */
+
+.ui-tab {
+  cursor: pointer !important;
+}
+
+.ui-state-disabled {
+  pointer-events:none;
+}
+
+#reportReferenceBox {
+  width:700px;
+  min-height:100px;
+}
+
+.referenceTables {
+  width:100%;
+}
+
+#informationHeader {
+  width: 60%;
+}
+
+.logoSelect {
+  width: 300px !important;
+}
+
+.cancelResult{
+  color: Orange;
+}
+.cancelResult:hover{
+  color: Dodgerblue;
+}
+.verticalFlex textarea.interpretationText{
+  width: 300px;
+  height: 60px;
+}
+
+.addMarginLeft {
+  margin-left: 100px;
+}

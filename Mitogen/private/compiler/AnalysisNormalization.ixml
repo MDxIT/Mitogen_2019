@@ -1,0 +1,605 @@
+    step [$$STEP_NAME$$]
+
+      form
+
+        data-parsley-validate=
+
+        include normalizationTemplateRequired
+
+          include stepInstructions
+
+          script
+            src= js/tasks/normalization.js
+
+          script
+            src= js/tasks/dilutionCalc.js
+
+          script
+            src= js/components/printBarcode.js
+
+          configurePreparedQuery~
+            - SELECT
+            -   addef.loadDataAnalysisDataDefinitionId AS "analysisDataDefinitionId"
+            - FROM analysisMethods am
+            -   INNER JOIN analysisMethodVersions amv
+            -     ON am.id = amv.analysisMethodsId
+            -   INNER JOIN analysisDataDefinition addef
+            -     ON amv.id = addef.analysisMethodVersionsId
+            -     AND addef.definerType = 'loadData'
+            - WHERE am.analysisStepName = ?
+            -   AND amv.active = 1
+            string [$$STEP_NAME$$]
+            allowEmptyResults~
+
+          hidden indicator
+            value= SELECT
+            id= indicator
+
+          hidden sampleComments
+            value= [$$Sample_Comments$$]
+            id= sampleComments
+          hidden sampleCommentHistory
+            value= [$$Sample_Comment_History$$]
+            id= sampleCommentHistory
+          hidden requireTransfer
+            value= [$$Require_Transfer$$]
+            id= requireTransfer
+
+          hidden stepName
+            id= stepName
+            value= [$$STEP_NAME$$]
+
+          hidden printSampleBarcode
+            value= [$$Print_Sample_Barcodes$$]
+            id= normPrintSampleBarcode
+
+          configurePreparedQuery~
+            - SELECT ' printContainerBarcode ' AS "printContainerBarcode"
+            - FROM dual
+            - WHERE ? = 'Yes'
+            string [$$Print_Sample_Barcodes$$]
+            allowEmptyResults~
+
+
+          formPreparedQuery~
+            - SELECT ? AS "minVol",
+            -        ? AS "maxVol",
+            -        ? AS "targetConc",
+            -        ? AS "targetVol"
+            decimal [$$Min_Pipette_Vol$$]
+            decimal [$$Max_Container_Vol$$]
+            decimal [$$Default_Final_Conc$$]
+            decimal [$$Default_Min_Final_Vol$$]
+
+          include resourcesComponent
+            parameter~ includeResources
+              value= [$$QC_Resources$$]
+            parameter~ currentLoop
+              value= N/A
+
+
+          printerControls
+            configureIf~ [$$Print_Sample_Barcodes$$]
+              advanced~
+              equals~ Yes
+            defaultPrinter~
+            defaultDocument~
+            variables~
+
+          div
+            id= printThis
+
+            fieldset
+              br
+              vertical2
+                text minVol
+                  screenLabel~ Minimum Pipette Volume
+                  id= minVolume
+                  class= smallNumberInput normLimits
+                  value= {_:minVol}
+                  data-parsley-required=
+                  readonly=
+                    configureIf~ [$$Allow_Value_Edits$$]
+                      advanced~
+                      equals~ No
+                text maxVol
+                  screenLabel~ Maximum Container Volume
+                  id= maxVolume
+                  class= smallNumberInput normLimits
+                  value= {_:maxVol}
+                  data-parsley-required=
+                  readonly=
+                    configureIf~ [$$Allow_Value_Edits$$]
+                      advanced~
+                      equals~ No
+                text goalConc
+                  screenLabel~ Target Concentration
+                  id= finalConcentration
+                  class= smallNumberInput normLimits
+                  value= {_:targetConc}
+                  data-parsley-required=
+                  readonly=
+                    configureIf~ [$$Allow_Value_Edits$$]
+                      advanced~
+                      equals~ No
+                text goalVol
+                  screenLabel~ Target Volume
+                  id= finalVolume
+                  class= smallNumberInput normLimits
+                  value= {_:targetVol}
+                  data-parsley-required=
+                  readonly=
+                    configureIf~ [$$Allow_Value_Edits$$]
+                      advanced~
+                      equals~ No
+              span (Changing these setting will result in recalculation of all enter values and clearing of entered actual volumes.)
+                class= smallWarning
+                configureIf~ [$$Allow_Value_Edits$$]
+                  advanced~
+                  equals~ Yes
+
+            table
+              id= normTable
+              sqlPreparedQuery~
+                - SELECT
+                -   sr.runId,
+                -   sr.currentContainerId AS "Sample",
+                -   sr.currentParentPosition AS "Position",
+                -   '' AS "Barcode Scan",
+                -   ROUND(ad.decimalResult, 4) AS "Stock Concentration",
+                -   cp.value AS "Sample Volume",
+                -   '' AS "Calculated Stock Volume",
+                -   '' AS "Calculated Diluent Volume",
+                -   '' AS "Actual Stock Volume",
+                -   '' AS "Actual Diluent Volume",
+                -   '' AS "Actual Final Concentration",
+                -   '' AS "Result",
+                -   '' AS "Comments",
+                -   'qr.id',
+                -   GROUP_CONCAT(cn.note SEPARATOR '<br />') AS "Comment History",
+                -   IFNULL(p.firstName,'') as "Patient First Name",
+                -   IFNULL(p.lastName,'') as "Patient Last Name",
+                -   IFNULL(DATE(p.dob), '') AS "DOB",
+                -   IFNULL(rf.mrn, '') AS "MRN",
+                -   rf.requestId AS "ReqId"
+                - FROM specimenRuns sr
+                -   INNER JOIN queues q
+                -     ON sr.runId = q.containerId
+                -   LEFT JOIN containerNotes cn
+                -     ON sr.runId = cn.containerId
+                -   LEFT JOIN containerProperties cp
+                -     ON sr.currentContainerId = cp.containerId
+                -     AND cp.property = 'Volume'
+                -   INNER JOIN analysisDataRuns adr
+                -     ON (sr.id = adr.specimenRunsId OR sr.parentWorkflowSpecimenRunId = adr.specimenRunsId)
+                -   INNER JOIN analysisData ad
+                -     ON adr.id = ad.analysisDataRunsId
+                -     AND ad.analysisDataDefinitionId = ?
+                -   INNER JOIN specimenMethods sm
+                -      ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs
+                -     ON sm.requestSpecimensId = rs.Id
+                -   INNER JOIN requestForms rf
+                -     ON rs.requestId = rf.requestId
+                -   INNER JOIN patients p
+                -     ON rf.patientId = p.patientId
+                - WHERE q.step = ?
+                - GROUP BY sr.runId
+                int {_:analysisDataDefinitionId}
+                string [$$STEP_NAME$$]
+              columnSpecs~ normTable
+                allowChangedRecordIds
+
+                column 1
+                  inputType container
+                    acceptQueue~ any
+                    class= hideColumn
+                column 2
+                  inputType container
+                    acceptQueue~ any
+                    readonly=
+                    recordContainerHistory~ false
+                    class= sampleOnQueue
+                column 4
+                  configureIf~ [$$Require_Transfer$$]
+                    advanced~
+                    equals~ No
+                  inputType text
+                    class= barcodeBackground tubeScan sampleInput
+                    validate~ select 1
+                      - FROM dual
+                      - WHERE ? = ?
+                      - OR NOT EXISTS (SELECT 1 FROM containers WHERE containerId = ?)
+                      - OR ? = ''
+                      string {_thisInput}
+                      string {_columnInput:2}
+                      string {_thisInput}
+                      string {_thisInput}
+                      errorMessage~ You can only normalize in the parent tube, or a new, empty tube.
+
+                column 4
+                  configureIf~ [$$Require_Transfer$$]
+                    advanced~
+                    equals~ Yes
+                  inputType container
+                    acceptQueue~ any
+                    new~ true
+                    addContent~
+                    containerType= tubeId
+                    required~ false
+                    class= barcodeBackground tubeScan sampleInput
+                    data-parsley-trigger= keyup
+                column 5
+                  inputType text
+                    readonly=
+                    class= initialConcentration recalculate
+                column 6
+                  inputType text
+                    class= initialVolume recalculate smallNumberInput initialInput
+                column 7
+                  inputType text
+                    class= sampleVolume smallNumberInput recalculate
+                    readonly=
+                column 8
+                  inputType text
+                    class= diluentVolume smallNumberInput recalculate
+                    readonly=
+                column 9
+                  inputType text
+                    class= actualStockVolume smallNumberInput recalculateActual
+                column 10
+                  inputType text
+                    class= actualDiluentVolume smallNumberInput recalculateActual
+                column 11
+                  inputType text
+                    class= actualConcentration smallNumberInput
+                    readonly=
+                column 12
+                  inputType select
+                    class= normResult
+                    sqlPreparedQuery~
+                      - SELECT value FROM validValues WHERE setName = 'passfail' AND value <> 'exceptionHandling'
+                    required~ false
+                column 13
+                  inputType textArea
+                    class= normComments
+                column 14
+                  inputType text
+                    class= hideColumn
+                column 16
+                  inputType text
+                    class= hideColumn
+                column 17
+                  inputType text
+                    class= hideColumn
+                column 18
+                  inputType date
+                    formatDate~
+                    convert~ false
+                    class= hideColumn
+                column 19
+                  inputType text
+                    class= hideColumn
+                column 20
+                  inputType text
+                    class= hideColumn
+
+
+
+
+
+
+      forRows normTable
+        ifCondition {_columnInput_normTable:4}
+          advanced~
+          not~
+            isBlank~
+
+          sqlPreparedStatement
+            - UPDATE specimenRuns
+            -   SET lastUpdatedEventId = ?
+            - WHERE runId = ?
+            long {_eventId}
+            string {_columnInput_normTable:1}
+
+          #If scanned container is new, add container information to containers, contents, containerHistory
+          ifCondition
+            advanced~
+            sqlPreparedQuery~ SELECT 1
+              - FROM dual
+              - WHERE NOT EXISTS (SELECT 1 FROM containers WHERE containerId = ?)
+              - AND ? = 'No'
+              string {_columnInput_normTable:4}
+              string [$$Require_Transfer$$]
+
+            sqlPreparedStatement
+              - INSERT INTO containers (containerId, containerType, accountId, eventId)
+              - VALUES (?, 'tubeId', ?, ?)
+              string {_columnInput_normTable:4}
+              string {_accountId}
+              long {_eventId}
+
+            sqlPreparedStatement
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_normTable:4}
+              long {_eventId}
+
+            sqlPreparedStatement
+              - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+              - VALUES (?, 'self', 'tubeId', ?, ?)
+              string {_columnInput_normTable:4}
+              string {_columnInput_normTable:4}
+              long {_eventId}
+
+            sqlPreparedStatement
+              - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+              - SELECT ?, attribute, contentType, content, ?
+              - FROM contents
+              - WHERE containerId = ?
+              string {_columnInput_normTable:4}
+              long {_eventId}
+              string {_columnInput_normTable:2}
+
+          ifCondition [$$Require_Transfer$$]
+            advanced~
+            equals~ Yes
+
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT specimenMethodsId
+                - FROM specimenRuns
+                - WHERE runId = ?
+                string {_columnInput_normTable:1}
+
+            include createNewRun
+              parameter~ specimenMethodsId
+                value= {_:specimenMethodsId}
+              parameter~ processContainerId
+                value= {_columnInput_normTable:4}
+              parameter~ runType
+                value= process
+              parameter~ processRunWorkflowParentRunId
+                value= {_columnInput_normTable:1}
+              parameter~ currentParentId
+                value=
+              parameter~ currentParentPosition
+                value=
+
+            include routeContainer
+              parameter~ processContainerId
+                value= {_columnInput_normTable:1}
+              parameter~ result
+                value=
+              parameter~ deleteFromStep
+                value= {_step}
+              parameter~ defaultNextStep
+                value= Store
+              parameter~ routingDirection
+                value= IN
+              parameter~ routingType
+                value= run
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}
+
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT ? AS "normalizationRunId"
+                string {_:runId}
+
+            else
+              sqlPreparedStatement
+                - UPDATE specimenRuns
+                -   SET lastUpdatedEventId = ?
+                - WHERE runId = ?
+                long {_eventId}
+                string {_columnInput_normTable:1}
+
+              setFormQueryResult
+                sqlPreparedQuery~ SELECT ? AS "normalizationRunId"
+                  string {_columnInput_normTable:1}
+
+
+          ifCondition {_columnInput_normTable:12}
+            advanced~
+            equals~ manual dilute
+
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT  ? + ? AS "tubeVolume"
+                decimal {_columnInput_normTable:10}
+                decimal {_columnInput_normTable:9}
+
+            else
+
+              setFormQueryResult
+                sqlPreparedQuery~ SELECT  ? + ? AS "tubeVolume"
+                  decimal {_columnInput_normTable:8}
+                  decimal {_columnInput_normTable:7}
+
+
+          include routeContainer
+            parameter~ processContainerId
+              value= {_:normalizationRunId}
+            parameter~ result
+              value= {_columnInput_normTable:12}
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value= [$$NEXT_STEP$$]
+            parameter~ routingDirection
+              value= OUT
+            parameter~ routingType
+              value= run
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_step}
+
+
+
+          ifCondition
+            advanced~
+            sqlPreparedQuery~ SELECT 1 FROM analysisDataRuns adr
+              - INNER JOIN specimenRuns sr ON adr.specimenRunsId = sr.Id
+              - WHERE sr.runId = ? and adr.analysisMethodVersionId = 1
+              string {_:normalizationRunId}
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT adr.id AS "analysisDataRunsId" FROM analysisDataRuns adr
+              - INNER JOIN specimenRuns sr ON adr.specimenRunsId = sr.Id and adr.analysisMethodVersionId = 1
+              - WHERE sr.runId = ?
+              string {_:normalizationRunId}
+
+            else
+              sqlPreparedStatement
+                - INSERT INTO analysisDataRuns (specimenRunsId, currentContainerId, currentParentId, currentParentPosition, eventId, analysisMethodVersionId)
+                - SELECT sr.id, ?, currentParentId, currentParentPosition, ?, 1
+                - FROM specimenRuns sr
+                - WHERE sr.runId = ?
+                string {_columnInput_normTable:4}
+                long {_eventId}
+                string {_:normalizationRunId}
+              setFormQueryResult
+                sqlPreparedQuery~ SELECT LAST_INSERT_ID() AS "analysisDataRunsId"
+
+
+          ## Calculated Final Concentration
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Calculated Final Concentration'
+            int {_:analysisDataRunsId}
+            decimal {_columnInput_normTable:11}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+            
+          ## Calculated Sample Volume
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Calculated Sample Volume'
+            int {_:analysisDataRunsId}
+            decimal {_columnInput_normTable:7}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+          ## Calculated Diluent Volume
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable) 
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Calculated Diluent Volume'
+            int {_:analysisDataRunsId}
+            decimal {_columnInput_normTable:8}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+          ## Actual Sample Volume
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Actual Sample Volume'
+            int {_:analysisDataRunsId}
+            decimal {_columnInput_normTable:9}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+          ## Actual Final Concentration
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Actual Final Concentration'
+            int {_:analysisDataRunsId}
+            decimal {_columnInput_normTable:11}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+          ## Actual Diluent Volume
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Actual Diluent Volume'
+            int {_:analysisDataRunsId}
+            decimal {_columnInput_normTable:10}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+          ## Target Concentration
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Target Concentration'
+            int {_:analysisDataRunsId}
+            decimal {goalConc}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+          ## Target Volume
+          sqlPreparedStatement
+            - INSERT INTO analysisData (analysisDataRunsId, analysisDataDefinitionId, decimalResult, eventId, stepName, isReportable)
+            - SELECT ?, id, ?, ?, ?, ?
+            - FROM analysisDataDefinition
+            - WHERE value = 'Target Volume'
+            int {_:analysisDataRunsId}
+            decimal {goalVol}
+            long {_eventId}
+            string [$$STEP_NAME$$]
+            int 1
+
+
+          sqlPreparedStatement
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - VALUES (?,'Volume',?,?)
+            string {_columnInput_normTable:4}
+            string {_:tubeVolume}
+            long {_eventId}
+
+
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT ?, attribute, contentType, content, ?
+            - FROM contents
+            - WHERE containerId = ?
+            string {_columnInput_normTable:4}
+            long {_eventId}
+            string {_columnInput_normTable:2}
+
+
+          sqlPreparedStatement
+            - UPDATE specimenRuns
+            -   SET currentContainerId = ?,
+            -       currentParentId = NULL,
+            -       currentParentPosition = NULL
+            - WHERE runId = ?
+            string {_columnInput_normTable:4}
+            string {_:normalizationRunId}
+
+
+          ifCondition {_columnInput_normTable:13}
+            advanced~
+            not~
+              isBlank~
+
+            sqlPreparedStatement
+              - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+              - VALUES (?,'Normalization Notes',?,?)
+              string {_:normalizationRunId}
+              string {_columnInput_normTable:13}
+              long {_eventId}
+
+      allowDuplicateContainerIds
+
+
+

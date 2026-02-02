@@ -1,0 +1,1867 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Project Management
+
+############ Manage Projects ############
+    step Manage Projects
+      accessLevel 10
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('#openNotes').load('uniflow?callback=?&stepName=All+Projects+Ajax');
+          -   $('#displayNotesDiv').tabs();
+          #-   $('#stepFormSubmitButton').hide();
+          - });
+
+        fieldset
+          legend Create New Project
+            class= legend
+          vertical
+            container projectId
+              value= P{_getNextSequence:projectId}
+              readonly=
+              new~ true
+              required~ false
+            text Title
+              required~ false
+            comments Notes
+
+        fieldset
+          legend Active Projects
+            class= legend
+          table
+            class= stdTableSort
+            sqlQuery~ select '' as 'Inactivate', p.projectId, p.title as 'Title',
+              - count(distinct t.ticketId) as 'Total Tickets', count(distinct n.noteId) as 'Total Notes', count(distinct m.milestoneId) as 'Total Milestones', e.comments as 'Notes'
+              - from projects p
+              - left join notes n on n.projectId = p.projectId
+              - left join tickets t on t.projectId = p.projectId
+              - left join milestones m on m.projectId = p.projectId
+              - inner join events e on e.eventId = p.eventId
+              - where p.active = 'true'
+              - group by p.projectId
+              - order by p.title
+            columnSpecs~ t1
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType container
+                  style= width: 50px; background-color: transparent; border: none;
+                  readonly= readonly
+                  acceptQueue~ any
+                  if~ {_columnInput:1} 
+                    advanced~
+                    equals~ true
+                    sql update projects set active = 'false' where projectId = '{_columnInput:2}'
+        fieldset
+          legend Inactive Projects
+            class= legend
+          table
+            class= stdTableSort
+            sqlQuery~ select '' as 'Activate', p.projectId, p.title as 'Title',
+              - count(distinct t.ticketId) as 'Total Tickets', count(distinct n.noteId) as 'Total Notes', count(distinct m.milestoneId) as 'Total Milestones', e.comments as 'Notes'
+              - from projects p
+              - left join notes n on n.projectId = p.projectId
+              - left join tickets t on t.projectId = p.projectId
+              - left join milestones m on m.projectId = p.projectId
+              - inner join events e on e.eventId = p.eventId
+              - where p.active = 'false'
+              - group by p.projectId
+              - order by p.title
+            columnSpecs~ t2
+              allowChangeRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType container
+                  style= width: 50px; background-color: transparent; border: none;
+                  readonly= readonly
+                  acceptQueue~ any
+                  if~ {_columnInput:1} 
+                    advanced~
+                    equals~ true
+                    sql update projects set active = 'true' where projectId = '{_columnInput:2}'
+
+      sql insert into projects (projectId, title, active, eventId)
+        - select '{projectId}', '{Title}', 'true', {_eventId} from dual where '{Title}' <> ''
+
+
+############ Edit Ticket Assignment Permissions ############
+    step Edit Ticket Assignment Permissions
+      accessLevel 10
+      form
+        include userAccountInfo
+        vertical
+          select User
+            option
+            sqlQuery~ select concat(name, ' (', userId, ')') as name, userId from userInfo where active = 'true' order by name
+      form
+        include userAccountInfo
+        formQuery~ select (select group_concat(toUserId separator ',')
+          - from ticketAssignments where fromUserId = '{User}' group by fromUserId) as 'toUserIds' from dual
+        formQuery~ select name as userName from userInfo where userId = '{User}'
+
+        script
+          - $(document).ready(function(){
+          -   var prevToUserIds = $('#prevToUserIds').val().split(',');
+          -   for(i = 0; i < prevToUserIds.length; i++){
+          -     var checkboxTd = $('input[type="text"][value="'+prevToUserIds[i]+'"]').parent().prev().prev();
+          -     checkboxTd.children('input[type="checkbox"]').attr('checked','checked');
+          -   }
+          - });
+        span {userName} Can Assign To:
+          style= font-size: 16px; font-weight: bold; padding-left: 2px;
+        hidden User
+          value= {User}
+        hidden prevToUserIds
+          id= prevToUserIds
+          value= {_resultSet:toUserIds}
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~ select userId as '', name as 'Name', userId as 'User Id'
+              - from userInfo where active = 'true' order by name, userId
+            columnSpecs~ t1
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType text
+                  style= background: transparent; border: none;
+                  readonly= readonly
+              column 3
+                inputType text
+                  style= background: transparent; border: none;
+                  readonly= readonly
+                  sql insert ignore into ticketAssignments (fromUserId, toUserId)
+                    + select '{User}', '{_columnInput:3}' from dual
+                    + where '{_columnInput:1}' = 'true'
+                  sql delete from ticketAssignments
+                    + where '{_columnInput:1}' <> 'true' and fromUserID = '{User}' and toUserId = '{_columnInput:3}'
+
+
+############ Project Details ############
+    step Project Details
+      form
+        include userAccountInfo
+        vertical
+          text _recId
+            new~ false
+            acceptQueue~ any
+            screenLabel~ Project Id
+            validate~ select * from projects p where p.projectId = '{_recId}'
+        table
+          class= stdTableSort
+          sqlQuery~ select p.projectId, p.title as 'Title', p.active as 'Active',
+            - count(distinct t.ticketId) as 'Total Tickets', count(distinct n.noteId) as 'Total Notes', count(distinct m.milestoneId) as 'Total Milestones', e.comments as 'Notes'
+            - from projects p
+            - left join notes n on n.projectId = p.projectId
+            - left join tickets t on t.projectId = p.projectId
+            - left join milestones m on m.projectId = p.projectId
+            - inner join events e on e.eventId = p.eventId
+            - where p.active = 'true'
+            - group by p.projectId
+            - order by p.active desc, p.title
+
+      form
+        include userAccountInfo
+        formQuery~ select p.projectId, p.title, e.comments
+          - from projects p, events e
+          - where p.eventId = e.eventId and p.projectId = '{_recId}'
+        style
+          - .tab { float: left; margin: 0.5em 0.5em 0 0; cursor: pointer; }
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - var projectId;
+          - $(document).ready(function(){
+          -   if($('#notesCount').val() != '0'){
+          -     $('#notesLink').html('Project Notes (' +  $('#notesCount').val() + ')');
+          -   } else{
+          -     $('#notesLink').html('Project Notes');
+          -   }
+          -   if($('#ticketsCount').val() != '0'){
+          -     $('#ticketsLink').html('Project Tickets (' +  $('#ticketsCount').val() + ')');
+          -   } else{
+          -     $('#ticketsLink').html('Project Tickets');
+          -   }
+          -   if($('#milestonesCount').val() != '0'){
+          -     $('#milestonesLink').html('Project Milestones (' +  $('#milestonesCount').val() + ')');
+          -   } else{
+          -     $('#milestonesLink').html('Project Milestones');
+          -   }
+          -   setupMilestones();
+          -   $('#projectDiv').tooltip(); //Creates title attribute hover
+          -   $('#projectDiv').tabs();
+          - });
+          -
+          -
+
+        fieldset
+          legend Instructions
+            class= legend
+          vertical
+            div
+              li Click on <span class="ui-icon ui-icon-plusthick" style="display:inline-block; margin-bottom:-2px;"></span> on a corresponding tab to create a new note, ticket, or milestone.
+              li Click on an id to edit or view it in more detail.
+        fieldset
+          legend Project Information
+            class= legend
+          vertical
+            output Project Id:
+              value= {_resultSet:projectId}
+            output Title:
+              value= {_resultSet:title}
+            output Notes:
+              value= {_resultSet:comments}
+
+        br
+
+        formQuery~ select (select count(*) from notes where projectId = '{_recId}') as notesCount,
+          - (select count(*) from tickets where projectId = '{_recId}') as ticketsCount,
+          - (select count(*) from milestones where projectId = '{_recId}') as milestonesCount
+
+        hidden projectId
+          id= projectId
+          value= {_recId}
+        hidden notesCount
+          id= notesCount
+          value= {_resultSet:notesCount}
+        hidden ticketsCount
+          id= ticketsCount
+          value= {_resultSet:ticketsCount}
+        hidden milestonesCount
+          id= milestonesCount
+          value= {_resultSet:milestonesCount}
+        div
+          id= projectDiv
+          ul
+            li
+              a Project Notes
+                href= #notes
+                id= notesLink
+              span
+                class= ui-icon ui-icon-plusthick tab
+                onclick= location.href='/uniflow?stepName=Create+Note&projectId='+$('#projectId').val()
+                title= Create Note
+            li
+              a Project Tickets
+                href= #tickets
+                id= ticketsLink
+              span
+                class= ui-icon ui-icon-plusthick tab
+                onclick= location.href='/uniflow?stepName=Open+Ticket&projectId='+$('#projectId').val()
+                title= Open Ticket
+            li
+              a Project Milestones
+                href= #milestones
+                id= milestonesLink
+              span
+                class= ui-icon ui-icon-plusthick tab
+                onclick= location.href='/uniflow?stepName=Create+Milestone&projectId='+$('#projectId').val()
+                title= Create Milestone
+          div
+            id= notes
+            table
+              class= stdTableSort
+              sqlQuery~ select
+                - n.noteId, n.title as 'Title', DATE_FORMAT(n.meetingDate, '%m/%d/%Y') as 'Meeting Date',
+                - concat("<a href='/projectNotes/",n.document,"'>",n.document,"</a>") as 'Document',
+                - n.description as 'Description', e.eventDate as 'Created',
+                - case q.step
+                -   when 'Open Project Notes' then 'OPEN'
+                -   when 'Archived Project Notes' then 'ARCHIVED'
+                -   else 'NEW'
+                - END as 'Status',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewNoteHistory(""", c.containerId, """);'>History</a>") end as History
+                #"""
+                - from containers c
+                - INNER JOIN events e on e.eventId=c.eventId
+                - INNER JOIN notes n on n.noteId=c.containerId
+                - LEFT JOIN containerProperties cp ON cp.containerId=c.containerId AND cp.property='history'
+                - INNER JOIN queues q on q.containerId=c.containerId
+                - WHERE c.containerType='noteId' AND n.projectId = '{_recId}'
+                - GROUP BY c.containerId
+                - order by q.step desc, n.eventId desc
+          div
+            id= tickets
+            table
+              class= stdTableSort
+              sqlQuery~ select t.ticketId,
+                - case when t.relatedNoteId is null then '' else n.noteId END as 'Related Note Id', t.milestoneId as 'Related Milestone Id',
+                - e.userId as 'Created By', t.assignedTo as 'Assigned To',
+                - t.description as 'Description', concat("<a href='/tickets/", t.image, "'>", t.image,"</a>") as 'Image',
+                - case q.step
+                -   when 'Open Development Tickets' then 'OPEN'
+                -   when 'Archived Project Notes' then 'ARCHIVED'
+                -   else 'NEW'
+                - END as 'Status',
+                - t.stepName as 'Step Name', e.eventDate as 'Opened',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewTicketHistory(""", t.ticketId, """);'>History</a>") end as 'History'
+                #-"""
+                - from tickets t
+                - LEFT JOIN events e ON e.eventId=t.eventId
+                - INNER JOIN queues q ON q.containerId=t.ticketId
+                - LEFT JOIN containerProperties cp ON cp.containerId=t.ticketId AND cp.property='history'
+                - LEFT JOIN notes n ON t.relatedNoteId=n.noteId
+                - where t.projectId = '{_recId}'
+                - group by t.ticketId
+                - order by q.step desc, t.eventId desc
+          div
+            id= milestones
+            fieldset
+              legend Table Format
+                class= legend
+              table
+                class= stdTableSort
+                id= milestonesTable
+                style= width: 600px;
+                sqlQuery~ select milestoneId, description as 'Description', DATE_FORMAT(startDate, '%m/%d/%Y') as 'Start Date',
+                  - DATE_FORMAT(endDate, '%m/%d/%Y') as 'End Date'
+                  - from milestones where projectId = '{_resultSet:projectId}' order by startDate asc, endDate asc, description
+            fieldset
+              style= padding-top: 20px;
+              legend Graphical Format
+                class= legend
+              div
+                id= idLabels
+                style= width: 45px; float: left;
+              div
+                id= existingProgressWrapper
+                style= width: 600px; margin-left: 45px; border: 1px solid #a2a5aa; position: relative; background-image:url('/images/milestoneGraph.png'); background-position: 0 1px;
+                div
+                  id= todayBar
+                  style= position: absolute; left: 0; top: 0; height: 100%; border-right: 2px solid #e17009;
+              div
+                id= dateLabels
+                style= width: 600px; height: 20px; position: relative; margin-left: 45px;
+
+        div
+          id= historyDialog
+          style= display: none;
+
+############ Manage Notes ############
+    step Manage Notes
+      form
+        include userAccountInfo
+        style
+          - .hiddenRow{ display: none; }
+          - #filters td { padding: 5px; }
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - $(document).ready(function(){
+          -   updateCounts($('#openCount').val(), $('#archivedCount').val());
+          -   $('#creation1').datepicker({ dateFormat: 'yy-mm-dd', changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#creation2').datepicker( "option", "minDate", selectedDate ); }
+          -   });
+          -   $('#creation2').datepicker({ dateFormat: 'yy-mm-dd', changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#creation1').datepicker( "option", "maxDate", selectedDate ); }
+          -   });
+          -   $('#meeting1').datepicker({ dateFormat: 'yy-mm-dd', changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#meeting2').datepicker( "option", "minDate", selectedDate ); }
+          -   });
+          -   $('#meeting2').datepicker({ dateFormat: 'yy-mm-dd', changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#meeting1').datepicker( "option", "maxDate", selectedDate ); }
+          -   });
+          -   $('#displayDiv').tooltip();
+          -   $('#displayDiv').tabs();
+          - });
+          -
+          -
+          - function filter(){
+          -   $('#displayDiv tr').removeClass('hiddenRow');
+          -
+          -   //Project
+          -   if($('#project').val() != 'All'){
+          -     $('#displayDiv td.col1 a:not(:containsExact("'+$('#project').val()+'"))').parent().parent().addClass('hiddenRow');
+          -     $('#displayDiv td.col1:empty').parent().addClass('hiddenRow');
+          -   }
+          -   //Created by
+          -   if($('#createdBy').val() != 'All'){
+          -     $('#displayDiv td.col7:not(:containsExact("'+$('#createdBy').val()+'"))').parent().addClass('hiddenRow');
+          -   }
+          -   //Has document
+          -   if($('#document').is(':checked')){
+          -     $('#displayDiv td.col4').each(function(){
+          -       if($.trim($(this).text()) == ''){
+          -         $(this).parent().addClass('hiddenRow');
+          -       }
+          -     });
+          -   }
+          -   //Creation date
+          -   if(!$('#creationAll').is(':checked')){
+          -     var date1 = $('#creation1').val();
+          -     var date2 = $('#creation2').val();
+          -     $('#displayDiv td.col6').each(function(){
+          -       if(!containsDate(date1, date2, $(this).html())){
+          -         $(this).parent().addClass('hiddenRow');
+          -       }
+          -     });
+          -   }
+          -   //Meeting date
+          -   if(!$('#meetingAll').is(':checked')){
+          -     var date1 = $('#meeting1').val();
+          -     var date2 = $('#meeting2').val();
+          -     $('#displayDiv td.col6').each(function(){
+          -       if(!containsDate(date1, date2, $(this).html())){
+          -         $(this).parent().addClass('hiddenRow');
+          -       }
+          -     });
+          -   }
+          -   //Description
+          -   if($('#description').val() != ''){
+          -     $('#displayDiv td.col5:not(:containsIgnoreCase("'+$('#description').val()+'"))').parent().addClass('hiddenRow');
+          -   }
+          -   updateCounts();
+          - }
+          -
+          -
+          - function updateCounts(openCountVisible, archivedCountVisible){
+          -   if(!openCountVisible) openCountVisible = $('#openNotes tbody tr:not(.hiddenRow)').length;
+          -   if(!archivedCountVisible) archivedCountVisible = $('#archivedNotes tbody tr:not(.hiddenRow)').length;
+          -   if(openCountVisible != 0){
+          -     $('#openLink').html('Open Notes (' +  openCountVisible + ')');
+          -   } else{
+          -     $('#openLink').html('Open Notes');
+          -   }
+          -   if(archivedCountVisible != 0){
+          -     $('#archivedLink').html('Archived Notes (' +  archivedCountVisible + ')');
+          -   } else{
+          -     $('#archivedLink').html('Archived Notes');
+          -   }
+          - }
+          -
+
+        formQuery~ select (select count(*) from queues q
+          - inner join notes n on n.noteId = q.containerId
+          - inner join projects p on p.projectId = n.projectId
+          - where q.step='Open Project Notes' and p.active = 'true') as openCount,
+          - (select count(*) from queues q
+          - inner join notes n on n.noteId = q.containerId
+          - inner join projects p on p.projectId = n.projectId
+          - where q.step='Archived Project Notes' and p.active = 'true') as archivedCount
+
+        hidden openCount
+          id= openCount
+          value= {_resultSet:openCount}
+        hidden archivedCount
+          id= archivedCount
+          value= {_resultSet:archivedCount}
+
+        fieldset
+          legend Instructions
+            class= legend
+          vertical
+            div
+              li Use the selectors and text fields below to filter the notes.
+              li Click on <span class="ui-icon ui-icon-plusthick" style="display:inline-block; margin-bottom:-2px;"></span> on the tab to create a new note.
+              li Click on a noteId to edit or view it in more detail.
+        fieldset
+          id= filters
+          legend Filters
+            class= legend
+          rowGroups
+            rowGroup
+              select Project
+                id= project
+                option All
+                sqlQuery~ select title from projects order by title
+              select Created by
+                id= createdBy
+                option All
+                sqlQuery~ select distinct e.userId from notes n, events e where n.eventId = e.eventId order by e.userId
+              checkbox Has Document
+                id= document
+          rowGroups
+            rowGroup
+              date creation1
+                screenLabel~ Creation Date is between
+                id= creation1
+                class= date
+                onchange= $('#creationAll').attr('checked', false);
+              date creation2
+                screenLabel~ and
+                id= creation2
+                class= date
+                onchange= $('#creationAll').attr('checked', false);
+              checkbox creationAll
+                screenLabel~ Include All
+                checked= checked
+                id= creationAll
+                onclick= if(this.checked) resetCreationDates();
+            rowGroup
+              date meeting1
+                screenLabel~ Meeting Date is between
+                id= meeting1
+                class= date
+                onchange= $('#meetingAll').attr('checked', false);
+              date meeting2
+                screenLabel~ and
+                id= meeting2
+                class= date
+                onchange= $('#meetingAll').attr('checked', false);
+              checkbox meetingAll
+                screenLabel~ Include All
+                checked= checked
+                id= meetingAll
+                onclick= if(this.checked) resetMeetingDates();
+          rowGroups
+            rowGroup
+              text Description contains
+                id= description
+              button
+                onclick= filter();
+                value= Filter
+              button
+                onclick= clearFilters();
+                value= Reset Filters
+        div
+          id= displayDiv
+          ul
+            li
+              a Open Notes
+                href= #openNotes
+                id= openLink
+              span
+                class= ui-icon ui-icon-plusthick
+                style= float: left; margin: 0.5em 0.5em 0 0; cursor: pointer;
+                onclick= location.href='/uniflow?stepName=Create+Note'
+                title= Create Note
+            li
+              a Archived Notes
+                href= #archivedNotes
+                id= archivedLink
+          div
+            id= openNotes
+            table
+              class= stdTableSort
+              sqlQuery~ select c.containerId as 'noteId', concat('<a href="/uniflow?lastForm=Y&stepName=Project+Details&recId=', n.projectId, '">', p.title, '</a>') as 'Project', n.title as 'Title', 
+                - DATE_FORMAT(n.meetingDate, '%m/%d/%Y') as 'Meeting Date',
+                - concat("<a href='/projectNotes/",n.document,"'>",n.document,"</a>") as 'Document',
+                - n.description as 'Description', e.eventDate as 'Created', e.userId as 'Created By',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewNoteHistory(""", c.containerId, """);'>History</a>") end as 'History'
+                #"""
+                - from containers c
+                - INNER JOIN queues q ON q.containerId=c.containerId and q.step='Open Project Notes'
+                - INNER JOIN events e on e.eventId=c.eventId
+                - INNER JOIN notes n on n.noteId=c.containerId
+                - LEFT JOIN containerProperties cp ON cp.containerId=c.containerId AND cp.property='history'
+                - LEFT JOIN projects p ON p.projectId = n.projectId
+                - WHERE c.containerType='noteId' and p.active = 'true'
+                - GROUP BY c.containerId
+                - ORDER BY e.eventDate DESC
+          div
+            id= archivedNotes
+            table
+              class= stdTableSort
+              sqlQuery~ select c.containerId as 'noteId', concat('<a href="/uniflow?lastForm=Y&stepName=Project+Details&recId=', n.projectId, '">', p.title, '</a>') as 'Project', n.title as 'Title', 
+                - DATE_FORMAT(n.meetingDate, '%m/%d/%Y') as 'Meeting Date',
+                - concat("<a href='/projectNotes/",n.document,"'>",n.document,"</a>") as 'Document',
+                - n.description as 'Description', e.eventDate as 'Created', e.userId as 'Created By',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewNoteHistory(""", c.containerId, """);'>History</a>") end as 'History'
+                - from containers c
+                - INNER JOIN queues q ON q.containerId=c.containerId and q.step='Archived Project Notes'
+                - INNER JOIN events e on e.eventId=c.eventId
+                - INNER JOIN notes n on n.noteId=c.containerId
+                - LEFT JOIN containerProperties cp ON cp.containerId=c.containerId AND cp.property='history'
+                - LEFT JOIN projects p ON p.projectId = n.projectId
+                - WHERE c.containerType='noteId' and p.active = 'true'
+                - GROUP BY c.containerId
+                - ORDER BY e.eventDate DESC
+
+        div
+          id= historyDialog
+          style= display: none;
+
+############ Manage Tickets ############
+    step Manage Tickets
+      form
+        include userAccountInfo
+        style
+          - .hiddenRow{ display: none; }
+          - #filters td { padding: 5px; }
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - $(document).ready(function(){
+          -   updateCounts($('#openCount').val(), $('#onHoldCount').val(), $('#closedCount').val());
+          -   $('#creation1').datepicker({ dateFormat: 'yy-mm-dd', changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#creation2').datepicker( "option", "minDate", selectedDate ); }
+          -   });
+          -   $('#creation2').datepicker({ dateFormat: 'yy-mm-dd', changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#creation1').datepicker( "option", "maxDate", selectedDate ); }
+          -   });
+          -
+          -   $('#displayDiv').tooltip();
+          -   $('#displayDiv').tabs();
+          - });
+          -
+          - function filter(){
+          -   $('#displayDiv tr').removeClass('hiddenRow');
+          -
+          -   //Project
+          -   if($('#project').val() != 'All'){
+          -     $('#displayDiv td.col1 a:not(:containsExact("'+$('#project').val()+'"))').parent().parent().addClass('hiddenRow');
+          -     $('#displayDiv td.col1:empty').parent().addClass('hiddenRow');
+          -   }
+          -   //Related Note
+          -   if($('#note').val() != 'All'){
+          -     $('#displayDiv td.col2 a:not(:containsExact("'+$('#note').val()+'"))').parent().parent().addClass('hiddenRow');
+          -     $('#displayDiv td.col2:empty').parent().addClass('hiddenRow');
+          -   }
+          -   //Related Milestone
+          -   if($('#milestone').val() != 'All'){
+          -     $('#displayDiv td.col3 a:not(:containsExact("'+$('#milestone').val()+'"))').parent().parent().addClass('hiddenRow');
+          -     $('#displayDiv td.col3:empty').parent().addClass('hiddenRow');
+          -   }
+          -   //Step Name
+          -   if($('#stepName').val() != 'All'){
+          -     $('#displayDiv td.col8:not(:containsExact("'+$('#stepName').val()+'"))').parent().addClass('hiddenRow');
+          -   }
+          -   //Created by
+          -   if($('#createdBy').val() != 'All'){
+          -     $('#displayDiv td.col4:not(:containsExact("'+$('#createdBy').val()+'"))').parent().addClass('hiddenRow');
+          -   }
+          -   //Assigned to
+          -   if($('#assignedTo').val() != 'All'){
+          -     $('#displayDiv td.col5:not(:containsExact("'+$('#assignedTo').val()+'"))').parent().addClass('hiddenRow');
+          -   }
+          -   //Priority
+          -   if($('#priority').val() != 'All'){
+          -     $('#openTickets td.col10 span:not(:containsExact("'+$('#priority').val()+'"))').parent().parent().addClass('hiddenRow');
+          -     $('#onHoldTickets td.col10 span:not(:containsExact("'+$('#priority').val()+'"))').parent().parent().addClass('hiddenRow');
+          -     $('#closedTickets tr').addClass('hiddenRow');
+          -   }
+          -   //Has image
+          -   if($('#document').is(':checked')){
+          -     $('#displayDiv td.col7').each(function(){
+          -       if($.trim($(this).text()) == ''){
+          -         $(this).parent().addClass('hiddenRow');
+          -       }
+          -     });
+          -   }
+          -   //Creation date
+          -   if(!$('#creationAll').is(':checked')){
+          -     var date1 = $('#creation1').val();
+          -     var date2 = $('#creation2').val();
+          -     $('#displayDiv td.col9').each(function(){
+          -       if(!containsDate(date1, date2, $(this).html())){
+          -         $(this).parent().addClass('hiddenRow');
+          -       }
+          -     });
+          -   }
+          -   //Description
+          -   if($('#description').val() != ''){
+          -     $('#displayDiv td.col6:not(:containsIgnoreCase("'+$('#description').val()+'"))').parent().addClass('hiddenRow');
+          -   }
+          -
+          -   updateCounts();
+          - }
+          -
+          - function updateCounts(openCountVisible, onHoldCountVisible, closedCountVisible){
+          -   if(!openCountVisible) openCountVisible = $('#openTickets tbody tr:not(.hiddenRow)').length;
+          -   if(!onHoldCountVisible) onHoldCountVisible = $('#onHoldTickets tbody tr:not(.hiddenRow)').length;
+          -   if(!closedCountVisible) closedCountVisible = $('#closedTickets tbody tr:not(.hiddenRow)').length;
+          -   if(openCountVisible != 0){
+          -     $('#openLink').html('Open Tickets (' +  openCountVisible + ')');
+          -   } else{
+          -     $('#openLink').html('Open Tickets');
+          -   }
+          -   if(onHoldCountVisible != 0){
+          -     $('#onHoldLink').html('On Hold Tickets (' +  onHoldCountVisible + ')');
+          -   } else{
+          -     $('#onHoldLink').html('On Hold Tickets');
+          -   }
+          -   if(closedCountVisible != 0){
+          -     $('#closedLink').html('Closed Tickets (' +  closedCountVisible + ')');
+          -   } else{
+          -     $('#closedLink').html('Closed Tickets');
+          -   }
+          - }
+
+        formQuery~ select (select count(*) from queues q
+          - inner join tickets t on q.containerId = t.ticketId
+          - inner join projects p on p.projectId = t.projectId
+          - where q.step='Open Development Tickets' and p.active = 'true') as openCount,
+          - (select count(*) from queues q
+          - inner join tickets t on q.containerId = t.ticketId
+          - inner join projects p on p.projectId = t.projectId
+          - where q.step='OnHold Development Tickets' and p.active = 'true') as onHoldCount,
+          - (select count(*) from queues q
+          - inner join tickets t on q.containerId = t.ticketId
+          - inner join projects p on p.projectId = t.projectId
+          - where q.step='Closed Development Tickets' and p.active = 'true') as closedCount
+
+        hidden openCount
+          id= openCount
+          value= {_resultSet:openCount}
+        hidden onHoldCount
+          id= onHoldCount
+          value= {_resultSet:onHoldCount}
+        hidden closedCount
+          id= closedCount
+          value= {_resultSet:closedCount}
+
+        fieldset
+          legend Instructions
+            class= legend
+          vertical
+            div
+              li Use the selectors and text fields below to filter the tickets.
+              li Click on <span class="ui-icon ui-icon-plusthick" style="display:inline-block; margin-bottom:-2px;"></span> on the tab to open a new ticket.
+              li Click on a ticketId to edit or view it in more detail.
+        fieldset
+          id= filters
+          legend Filters
+            class= legend
+          rowGroups
+            rowGroup
+              select Project
+                id= project
+                option All
+                sqlQuery~ select title from projects order by title
+              select Related Note
+                id= note
+                option All
+                sqlQuery~ select distinct concat(n.noteId, ' - ', n.title) as 'title', n.noteId from notes n, tickets t
+                  - where n.noteId = t.relatedNoteId order by n.title
+              select Related Milestone
+                id= milestone
+                option All
+                sqlQuery~ select distinct concat(m.milestoneId, ' - ', m.description) as 'description', m.milestoneId
+                  - from milestones m, tickets t where m.milestoneId = t.milestoneId order by m.description
+              select Step Name
+                id= stepName
+                option All
+                sqlQuery~ select distinct stepName from tickets where stepName <> '' order by stepName
+          rowGroups
+            rowGroup
+              select Created by
+                id= createdBy
+                option All
+                sqlQuery~ select distinct e.userId from tickets t, events e where t.eventId = e.eventId order by e.userId
+              select Assigned to
+                id= assignedTo
+                option All
+                sqlQuery~ select distinct assignedTo from tickets where assignedTo <> '' order by assignedTo
+              select Priority
+                id= priority
+                option All
+                option Low
+                option Medium
+                option High
+                option Urgent
+              checkbox Has Image
+                id= document
+          rowGroups
+            rowGroup
+              text creation1
+                screenLabel~ Opened Date is between
+                id= creation1
+                class= date
+                onchange= $('#creationAll').attr('checked', false);
+              text creation2
+                screenLabel~ and
+                id= creation2
+                class= date
+                onchange= $('#creationAll').attr('checked', false);
+              checkbox creationAll
+                screenLabel~ Include All
+                checked= checked
+                id= creationAll
+                onclick= if(this.checked) resetCreationDates();
+          rowGroups
+            rowGroup
+              text Description contains
+                id= description
+              button
+                onclick= filter();
+                value= Filter
+              button
+                onclick= clearFilters();
+                value= Reset Filters
+        div
+          id= displayDiv
+          ul
+            li
+              a Open Tickets
+                href= #openTickets
+                id= openLink
+              span
+                class= ui-icon ui-icon-plusthick
+                style= float: left; margin: 0.5em 0.5em 0 0; cursor: pointer;
+                onclick= location.href='/uniflow?stepName=Open+Ticket'
+                title= Open Ticket
+            li
+              a On Hold Tickets
+                href= #onHoldTickets
+                id= onHoldLink
+            li
+              a Closed Tickets
+                href= #closedTickets
+                id= closedLink
+          div
+            id= openTickets
+            table
+              class= stdTableSort
+              sqlQuery~ select t.ticketId, concat('<a href="/uniflow?lastForm=Y&stepName=Project+Details&recId=', t.projectId, '">', p.title, '</a>') as 'Project',
+                - t.relatedNoteId as 'Related Note Id',
+                - t.milestoneId as 'Related Milestone Id',
+                - e.userId as 'Created By', t.assignedTo as 'Assigned To',
+                - t.description as 'Description', concat("<a href='/tickets/", t.image, "'>", t.image,"</a>") as 'Image',
+                - t.stepName as 'Step Name', e.eventDate as 'Opened',
+                - case t.priority
+                -  when 0 then '<span style="color:#90fc31; font-weight: bold;">Low</span>'
+                -  when 1 then '<span style="color:#ffc618; font-weight: bold;">Medium</span>'
+                -  when 2 then '<span style="color:#ff5a00; font-weight: bold;">High</span>'
+                -  when 3 then '<span style="color:#ff0000; font-weight: bold;">Urgent</span>'
+                - end as 'Priority',
+                - case datediff(now(), e.eventDate)
+                -  when 0 then concat('<span style="color:#000;">',timediff(now(), e.eventDate),'</span>')
+                -  when 1 then '<span style="color:#025afd;">1 Day</span>'
+                -  when 2 then '<span style="color:#02c6fe;">2 Days</span>'
+                -  when 3 then '<span style="color:#01ffc6;">3 Days</span>'
+                -  when 4 then '<span style="color:#00fd5b;">4 Days</span>'
+                -  when 5 then '<span style="color:#01fd33;">5 Days</span>'
+                -  when 6 then '<span style="color:#5bfd32;">6 Days</span>'
+                -  when 7 then '<span style="color:#c7fc2e;">7 Days</span>'
+                -  when 8 then '<span style="color:#ffc618;">8 Days</span>'
+                -  when 9 then '<span style="color:#ff5a00;">9 Days</span>'
+                -  else concat('<span style="color:#ff0000;">',datediff(now(), e.eventDate),' Days</span>')
+                - end as 'Time in System',
+                - t.workHours as 'Hours Worked',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewTicketHistory(""", t.ticketId, """);'>History</a>") end as 'History'
+                - from tickets t
+                - LEFT JOIN events e ON e.eventId=t.eventId
+                - INNER JOIN queues q ON q.containerId=t.ticketId and q.step='Open Development Tickets'
+                - LEFT JOIN containerProperties cp ON cp.containerId=t.ticketId AND cp.property='history'
+                - LEFT JOIN notes n ON t.relatedNoteId=n.noteId
+                - LEFT JOIN projects p ON p.projectId = t.projectId
+                - where p.active = 'true'
+                - group by t.ticketId
+                - ORDER BY t.priority desc, e.eventDate desc
+          div
+            id= onHoldTickets
+            table
+              class= stdTableSort
+              sqlQuery~ select t.ticketId, concat('<a href="/uniflow?lastForm=Y&stepName=Project+Details&recId=', t.projectId, '">', p.title, '</a>') as 'Project',
+                - t.relatedNoteId as 'Related Note Id',
+                - t.milestoneId as 'Related Milestone Id',
+                - e.userId as 'Created By', t.assignedTo as 'Assigned To',
+                - t.description as 'Description', concat("<a href='/tickets/", t.image, "'>", t.image,"</a>") as 'Image',
+                - t.stepName as 'Step Name', e.eventDate as 'Opened',
+                - case t.priority
+                -  when 0 then '<span style="color:#90fc31; font-weight: bold;">Low</span>'
+                -  when 1 then '<span style="color:#ffc618; font-weight: bold;">Medium</span>'
+                -  when 2 then '<span style="color:#ff5a00; font-weight: bold;">High</span>'
+                -  when 3 then '<span style="color:#ff0000; font-weight: bold;">Urgent</span>'
+                - end as 'Priority',
+                - case datediff(now(), e.eventDate)
+                -  when 0 then concat('<span style="color:#000;">',timediff(now(), e.eventDate),'</span>')
+                -  when 1 then '<span style="color:#025afd;">1 Day</span>'
+                -  when 2 then '<span style="color:#02c6fe;">2 Days</span>'
+                -  when 3 then '<span style="color:#01ffc6;">3 Days</span>'
+                -  when 4 then '<span style="color:#00fd5b;">4 Days</span>'
+                -  when 5 then '<span style="color:#01fd33;">5 Days</span>'
+                -  when 6 then '<span style="color:#5bfd32;">6 Days</span>'
+                -  when 7 then '<span style="color:#c7fc2e;">7 Days</span>'
+                -  when 8 then '<span style="color:#ffc618;">8 Days</span>'
+                -  when 9 then '<span style="color:#ff5a00;">9 Days</span>'
+                -  else concat('<span style="color:#ff0000;">',datediff(now(), e.eventDate),' Days</span>')
+                - end as 'Time in System',
+                - t.workHours as 'Hours Worked',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewTicketHistory(""", t.ticketId, """);'>History</a>") end as 'History'
+                - from tickets t
+                - LEFT JOIN events e ON e.eventId=t.eventId
+                - INNER JOIN queues q ON q.containerId=t.ticketId and q.step='OnHold Development Tickets'
+                - LEFT JOIN containerProperties cp ON cp.containerId=t.ticketId AND cp.property='history'
+                - LEFT JOIN notes n ON t.relatedNoteId=n.noteId
+                - LEFT JOIN projects p ON p.projectId = t.projectId
+                - where p.active = 'true'
+                - group by t.ticketId
+                - ORDER BY e.eventDate DESC
+          div
+            id= closedTickets
+            table
+              class= stdTableSort
+              sqlQuery~ select t.ticketId, concat('<a href="/uniflow?lastForm=Y&stepName=Project+Details&recId=', t.projectId, '">', p.title, '</a>') as 'Project',
+                - t.relatedNoteId as 'Related Note Id',
+                - t.milestoneId as 'Related Milestone Id',
+                - e.userId as 'Created By', t.assignedTo as 'Assigned To',
+                - t.description as 'Description', concat("<a href='/tickets/", t.image, "'>", t.image,"</a>") as 'Image',
+                - t.stepName as 'Step Name', e2.eventDate as 'Closed', t.workHours as 'Hours Worked',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewTicketHistory(""", t.ticketId, """);'>History</a>") end as 'History'
+                - from tickets t
+                - LEFT JOIN events e ON e.eventId=t.eventId
+                - INNER JOIN queues q ON q.containerId=t.ticketId and q.step='Closed Development Tickets'
+                - LEFT JOIN events e2 ON e2.eventId=q.eventId
+                - LEFT JOIN containerProperties cp ON cp.containerId=t.ticketId AND cp.property='history'
+                - LEFT JOIN notes n ON t.relatedNoteId=n.noteId
+                - LEFT JOIN projects p ON p.projectId = t.projectId
+                - where p.active = 'true'
+                - group by t.ticketId
+                - ORDER BY e.eventDate DESC
+
+        div
+          id= historyDialog
+          style= display: none;
+
+
+############ Manage Milestones ############
+    step Manage Milestones
+      form
+        include userAccountInfo
+        vertical
+          select projectId
+            screenLabel~ Select Project:
+            option
+            sqlQuery~ select title, projectId from projects order by title
+            required~ true
+      form
+        ENCTYPE= multipart/form-data
+        include userAccountInfo
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - $(document).ready(function(){
+          -   setupMilestones();
+          -   $('#existingProgressWrapper').tooltip(); //Creates title attribute hover
+          -   $('#displayDiv').tabs();
+          - });
+
+        formQuery~ select title, projectId from projects where projectId = '{projectId}'
+
+        fieldset
+          legend Instructions
+            class= legend
+          vertical
+            div
+              li Click on <span class="ui-icon ui-icon-plusthick" style="display:inline-block; margin-bottom:-2px;"></span> on the tab to create a new note.
+              li Click on a milestoneId to edit or view it in more detail.
+        vertical
+          span Viewing Milestones for Project {_resultSet:title}
+          br
+        div
+          id= displayDiv
+          ul
+            li
+              a Current Milestones
+                href= #milestones
+                id= milestonesLink
+              span
+                class= ui-icon ui-icon-plusthick
+                style= float: left; margin: 0.5em 0.5em 0 0; cursor: pointer;
+                onclick= location.href='/uniflow?stepName=Create+Milestone'
+                title= Create Milestone
+            li
+              a Milestone Tickets
+                href= #tickets
+                id= ticketsLink
+          div
+            id= milestones
+            fieldset
+              legend Table Format
+                class= legend
+              table
+                class= stdTableSort
+                id= milestonesTable
+                style= width: 600px;
+                sqlQuery~ select m.milestoneId, m.description as 'Description', DATE_FORMAT(m.startDate, '%m/%d/%Y') as 'Start Date', DATE_FORMAT(m.endDate, '%m/%d/%Y') as 'End Date'
+                  - from milestones m
+                  - inner join projects p ON p.projectId = m.projectId and p.projectId = '{projectId}'
+                  - order by p.title, m.startDate asc, m.endDate asc, m.description
+            fieldset
+              style= padding-top: 20px;
+              legend Graphical Format
+                class= legend
+              div
+                id= idLabels
+                style= width: 45px; float: left;
+              div
+                id= existingProgressWrapper
+                style= width: 600px; margin-left: 45px; border: 1px solid #a2a5aa; position: relative; background-image:url('/images/milestoneGraph.png'); background-position: 0 1px;
+                div
+                  id= todayBar
+                  style= position: absolute; left: 0; top: 0; height: 100%; border-right: 2px solid #e17009;
+              div
+                id= dateLabels
+                style= width: 600px; height: 20px; position: relative; margin-left: 45px;
+
+          div
+            id= tickets
+            table
+              class= stdTableSort
+              sqlQuery~ select t.milestoneId as 'Related Milestone Id', t.ticketId,
+                - case q.step
+                -   when 'Open Development Tickets' then 'OPEN'
+                -   when 'OnHold Development Tickets' then 'ON HOLD'
+                -   when 'Closed Development Tickets' then 'CLOSED'
+                -   else 'NEW'
+                - END as 'Status',
+                - concat('<a href="/uniflow?lastForm=Y&stepName=Project+Details&recId=', t.projectId, '">', p.title, '</a>') as 'Project',
+                - t.relatedNoteId as 'Related Note Id',
+                - e.userId as 'Created By', t.assignedTo as 'Assigned To',
+                - t.description as 'Description', concat("<a href='/tickets/", t.image, "'>", t.image,"</a>") as 'Image',
+                - t.stepName as 'Step Name',
+                - case t.priority
+                -  when 0 then '<span style="color:#90fc31; font-weight: bold;">Low</span>'
+                -  when 1 then '<span style="color:#ffc618; font-weight: bold;">Medium</span>'
+                -  when 2 then '<span style="color:#ff5a00; font-weight: bold;">High</span>'
+                -  when 3 then '<span style="color:#ff0000; font-weight: bold;">Urgent</span>'
+                - end as 'Priority',
+                - case datediff(now(), e.eventDate)
+                -  when 0 then concat('<span style="color:#000;">',timediff(now(), e.eventDate),'</span>')
+                -  when 1 then '<span style="color:#025afd;">1 Day</span>'
+                -  when 2 then '<span style="color:#02c6fe;">2 Days</span>'
+                -  when 3 then '<span style="color:#01ffc6;">3 Days</span>'
+                -  when 4 then '<span style="color:#00fd5b;">4 Days</span>'
+                -  when 5 then '<span style="color:#01fd33;">5 Days</span>'
+                -  when 6 then '<span style="color:#5bfd32;">6 Days</span>'
+                -  when 7 then '<span style="color:#c7fc2e;">7 Days</span>'
+                -  when 8 then '<span style="color:#ffc618;">8 Days</span>'
+                -  when 9 then '<span style="color:#ff5a00;">9 Days</span>'
+                -  else concat('<span style="color:#ff0000;">',datediff(now(), e.eventDate),' Days</span>')
+                - end as 'Time in System',
+                - t.workHours as 'Hours Worked',
+                - case when cp.value is null then '' else
+                - concat("<a href='javascript:void(0)' onclick='viewTicketHistory(""", t.ticketId, """);'>History</a>") end as 'History'
+                - from tickets t
+                - LEFT JOIN events e ON e.eventId=t.eventId
+                - INNER JOIN queues q ON q.containerId=t.ticketId
+                - LEFT JOIN containerProperties cp ON cp.containerId=t.ticketId AND cp.property='history'
+                - LEFT JOIN notes n ON t.relatedNoteId=n.noteId
+                - INNER JOIN projects p ON p.projectId = t.projectId AND t.projectId = '{projectId}'
+                - INNER JOIN milestones m ON m.milestoneId = t.milestoneId
+                - where p.active = 'true'
+                - group by t.ticketId
+                - ORDER BY t.milestoneId, q.step asc, t.priority desc, e.eventDate desc
+
+        div
+          id= historyDialog
+          style= display: none;
+
+
+############ Ticket Notifications ############
+    step Ticket Notifications
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('input[type=checkbox]').each(function(){
+          -     if($(this).attr('isSet') == 'true') $(this).attr('checked', 'checked');
+          -   });
+          - });
+
+        formQuery~ select 
+          - case when n1.isSet is null then 'false' else n1.isSet end as 'ticketsAssigned',
+          - case when n2.isSet is null then 'false' else n2.isSet end as 'ticketsClose',
+          - case when n3.isSet is null then 'false' else n3.isSet end as 'ticketsIAssignedClose'
+          - from userInfo u 
+          - left join notificationPreferences n1 on n1.userId = u.userId and n1.notificationId = 'ticketsAssigned'
+          - left join notificationPreferences n2 on n2.userId = u.userId and n2.notificationId = 'ticketsClose'
+          - left join notificationPreferences n3 on n3.userId = u.userId and n3.notificationId = 'ticketsIAssignedClose'
+          - where u.userId = '{_userId}'
+          
+        fieldset
+          legend Instructions
+            class= legend
+          vertical
+            span Select the the instances you wish to be notified about and press Submit.
+        br
+        fieldset
+          legend Tickets
+            class= legend
+          vertical
+            checkbox ticketsAssigned 
+              screenLabel~ Tickets are assigned to me
+              isSet= {_resultSet:ticketsAssigned}
+            checkbox ticketsClose
+              screenLabel~ Tickets that are assigned to me close
+              isSet= {_resultSet:ticketsClose}
+            checkbox ticketsIAssignedClose
+              screenLabel~ Tickets that I assigned close
+              isSet= {_resultSet:ticketsIAssignedClose}
+      
+      sql~ delete from notificationPreferences where userId = '{_userId}'
+      
+      sql~ insert into notificationPreferences (notificationId, userId, isSet) 
+        - values ('ticketsAssigned', '{_userId}', '{ticketsAssigned}')
+        
+      sql~ insert into notificationPreferences (notificationId, userId, isSet) 
+        - values ('ticketsClose', '{_userId}', '{ticketsClose}')
+        
+      sql~ insert into notificationPreferences (notificationId, userId, isSet) 
+        - values ('ticketsIAssignedClose', '{_userId}', '{ticketsIAssignedClose}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#************ StepGroup Project Hidden Steps (includes all create/update) ************
+    stepGroup Project Hidden Steps
+
+############ Create Note ############
+    step Create Note
+      _nextStep Project Details
+        recId {projectId}
+        formNum 2
+      form
+        include userAccountInfo
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - $(document).ready(function() {
+          -   $( "#meetingDate" ).datepicker({dateFormat: 'yy-mm-dd'});
+          -   var urlProjectId = getParameterByName('projectId');
+          -   if(urlProjectId != ''){
+          -     $('#project').val(urlProjectId);
+          -   }
+          - })
+
+        ENCTYPE= multipart/form-data
+        vertical
+          container noteId
+            value= N{_getNextSequence:projectNoteId}
+            readonly=
+            new~ true
+            insertQueue~ Open Project Notes
+          select projectId
+            id= project
+            screenLabel~ Project
+            option
+            sqlQuery~ select title, projectId from projects where active = 'true'
+            required~ true
+          text Title
+            required~ true
+          date meetingDate
+            id= meetingDate
+            class= date
+            screenLabel~ Meeting Date
+          textArea Description
+            required~ true
+          file Document
+            destinationFolderName~ projectNotes
+            destinationFilePrefix~ N000000
+            required~ false
+
+      sql insert into notes (noteId, projectId, title, meetingDate, document, description, eventId)
+        - VALUES ('{noteId}', '{projectId}', '{Title}', '{meetingDate}', '{Document}', '{Description}', {_eventId})
+
+
+############ Update Note ############
+    step Update Note
+      form
+        include userAccountInfo
+        vertical
+          text _recId
+            new~ false
+            acceptQueue~ any
+            screenLabel~ Note Id
+
+      form
+        include userAccountInfo
+        formQuery~ select n.projectId, p.title as 'project', n.title, DATE_FORMAT(n.meetingDate, '%m/%d/%Y') 'meetingDate', n.document, n.description, DATE_FORMAT(e.eventDate, '%m/%d/%Y') as 'createdDate',
+          - case q.step
+          -  when 'Open Project Notes' then 'OPEN'
+          -  when 'Archived Project Notes' then 'ARCHIVED'
+          -  when 'Closed Project Notes' then 'CLOSED'
+          -  else 'NEW'
+          - END as 'status'
+          - from containers c
+          - INNER JOIN events e on e.eventId=c.eventId
+          - INNER JOIN notes n on n.noteId=c.containerId
+          - INNER JOIN queues q on q.containerId=c.containerId
+          - LEFT JOIN projects p on p.projectId=n.projectId
+          - WHERE c.containerType='noteId' and n.noteId = '{_recId}'
+          - GROUP BY n.noteId
+
+        div
+          id= historyDialog
+        hidden currentStatus
+          id= currentStatus
+          value= {_resultSet:status}
+        hidden _recId
+          value= {_recId}
+        vertical
+          container noteId
+            value= {_recId}
+            id= noteId
+            readonly=
+            style= background: transparent; border: none;
+            new~ false
+            acceptQueue~ any
+            screenLabel~ Note Id
+
+            if~ {Status} 
+              advanced~
+              equals~ OPEN
+              if~ {currentStatus} 
+                advanced~
+                not~
+                  equals~ OPEN
+                insertQueue~ Open Project Notes
+              deleteQueue~ Archived Project Notes
+            if~ {Status} 
+              advanced~
+              equals~ ARCHIVED
+              if~ {currentStatus} 
+                advanced~
+                not~
+                  equals~ ARCHIVED
+                insertQueue~ Archived Project Notes
+              deleteQueue~ Open Project Notes
+          output Project
+            value= <a href='/uniflow?lastForm=Y&stepName=Project+Details&recId={_resultSet:projectId}'>{_resultSet:project}</a>
+          output Title
+            value= {_resultSet:title}
+          output Created Date
+            value= {_resultSet:createdDate}
+          output Meeting Date
+            value= {_resultSet:meetingDate}
+          output Description
+            value= {_resultSet:description}
+          output Document
+            value= <a id='docLink' href='/projectNotes/{_resultSet:document}'>{_resultSet:document}</a>
+          file newDoc
+            id= newDoc
+            screenLabel~ Replace Document
+            destinationFolderName~ projectNotes
+            destinationFilePrefix~ N000000
+            required~ false
+
+          select Status
+            id= status
+            option {_resultSet:status}
+            option OPEN
+            option ARCHIVED
+          comments Comments
+        table
+          class= stdTableSort
+          caption Note History
+          sqlQuery~ select e.userId as 'User Id', DATE_FORMAT(e.eventDate, '%m/%d/%Y') as 'Date', cp.value as 'Action', e.comments as 'Comments'
+            - from containerProperties cp
+            - LEFT JOIN events e ON e.eventId=cp.eventId
+            - WHERE cp.containerId='{_recId}' AND cp.property='history'
+            - ORDER BY e.eventDate,e.eventId DESC
+
+
+
+      sql~ update notes set document = '{newDoc}' where noteId = '{noteId}' and '{newDoc}' <> ''
+
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{noteId}', '','history','Status changed to {Status} <br/> Document changed to {newDoc}',{_eventId} from dual
+        - where '{currentStatus}' <> '{Status}' and '{newDoc}' <> ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{noteId}', '','history','Status changed to {Status}',{_eventId} from dual
+        - where '{currentStatus}' <> '{Status}' and '{newDoc}' = ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{noteId}', '','history','Document changed to {newDoc}',{_eventId} from dual
+        - where '{currentStatus}' = '{Status}' and '{newDoc}' <> ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{noteId}', '','history','No action; see comments',{_eventId} from dual
+        - where '{currentStatus}' = '{Status}' and '{newDoc}' = '' and '{Comments}' <> ''
+
+      nextStep Update Note
+        recId {noteId}
+        formNumber 1
+
+
+
+############ Open Ticket ############
+    step Open Ticket
+      form
+        ENCTYPE= multipart/form-data
+
+        include userAccountInfo
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - $(document).ready(function(){
+          -   var urlProjectId = getParameterByName('projectId');
+          -   if(urlProjectId != ''){
+          -     $('#project').val(urlProjectId);
+          -     loadNotes();
+          -     loadMilestones();
+          -   }
+          - });
+          - function loadNotes(){
+          -   if($('#project').val() != ''){
+          -     $.getJSON('/uniflow?callback=?&stepName=Notes+From+Project+Ajax&projectId='+$('#project').val(),{}, function(data,status) {
+          -       var notesSelect = $('#note').attr('disabled', false).html('').append('<option></option>');
+          -       $.each(data, function(i,item){
+          -         notesSelect.append('<option value="'+item.noteId+'">'+item.name+'</option>');
+          -       });
+          -     });
+          -   } else{
+          -     $('#note').attr('disabled', true);
+          -   }
+          - }
+          -
+          - function loadMilestones(){
+          -   if($('#project').val() != ''){
+          -     $.getJSON('/uniflow?callback=?&stepName=Milestones+From+Project+Ajax&projectId='+$('#project').val(),{}, function(data,status) {
+          -       var milestonesSelect = $('#milestone').attr('disabled', false).html('').append('<option></option>');
+          -       $.each(data, function(i,item){
+          -         milestonesSelect.append('<option value="'+item.milestoneId+'">'+item.name+'</option>');
+          -       });
+          -     });
+          -   } else{
+          -     $('#milestone').attr('disabled', true);
+          -   }
+          - }
+        div
+          id= notesDiv
+          style= display: none;
+        div
+          id= milestonesDiv
+          style= display: none;
+        vertical
+          container ticketId
+            new~ true
+            value= T{_getNextSequence:projectTicketId}
+            readonly=
+            insertQueue~ Open Development Tickets
+            screenLabel~ Ticket Id
+          select Project
+            id= project
+            option
+            sqlQuery~ select title, projectId from projects where active = 'true'
+          #  required~ true
+            onchange= loadNotes(); loadMilestones();
+          select noteId
+            id= note
+            disabled= disabled
+            screenLabel~ Related Note
+
+          select milestoneId
+            id= milestone
+            disabled= disabled
+            screenLabel~ Related Milestone
+          select Assigned To
+            option Unassigned
+            sqlQuery~ select concat(u.name, ' (', u.userId, ')') as name, u.userId
+              - from userInfo u, ticketAssignments t
+              - where u.userId = t.toUserId and t.fromUserId = '{_userId}' and u.active = 'true'
+              - order by name
+          select Priority
+            value= 1
+            option Low
+              value= 0
+            option Medium
+              value= 1
+            option High
+              value= 2
+            option Urgent
+              value= 3
+          text Step Name
+          textArea Description
+            required~
+          file Image
+            destinationFolderName~ tickets
+            destinationFilePrefix~ T000000
+            required~ false
+
+
+
+      sql insert into tickets (ticketId, projectId, relatedNoteId, milestoneId, assignedTo, stepName, image, description, priority, eventId)
+        - values ('{ticketId}', '{Project}', '{noteId}', '{milestoneId}', '{Assigned To}', '{Step Name}', '{Image}', '{Description}', {Priority}, {_eventId})
+
+      notification ticketsAssigned
+        conditionQuery select '{ticketId}', '{Project}', '{Description}', u1.email, u2.email
+          - from notificationPreferences n
+          - inner join userInfo u1 on u1.userId = n.userId
+          - inner join userInfo u2 on u2.userId = '{_userId}'
+          - where n.notificationId = 'ticketsAssigned' and n.isSet = 'true'
+          - and n.userId = '{Assigned To}'
+        emailAddressColumn 4
+          recipientIdColumn 5
+        subject Ticket assigned from {5}
+        message
+          html
+            body {5} assigned you the following ticket:<br/><br/>Ticket Id: {1}<br/>Project Id: {2}<br/>Description: {3}
+
+      notification wrikeTicket
+        conditionQuery select distinct
+          -   '{ticketId}'
+          -   , p.title
+          -   , '{Description}'
+          -   , 'wrike@wrike.com'
+          -   , u2.email
+          -   , u.name
+          -   , '{Step Name}'
+          -   , case '{Priority}' when 3 then 'URGENT' when 2 then 'HIGH' when 1 then 'medium' when 0 then 'low' end
+          -   , '{Project}' 
+          - from userInfo u, projects p
+          - left join userInfo u2
+          - on u2.userId = '{Assigned To}'
+          - where u.userId = '{_userId}'
+          - and p.projectId = '{Project}'
+        emailAddressColumn 4
+          recipientIdColumn 5
+        subject [PMDX/{9}] {8} - {1}:{7} - {2}
+        message
+          html
+            body Step: {7} <br /> Description: {3} <br /> Requested By: {6}
+
+############ Update Ticket ############
+    step Update Ticket
+      form
+        include userAccountInfo
+
+        vertical
+          text _recId
+            new~ false
+            acceptQueue~ any
+            screenLabel~ Ticket ID:
+
+      form
+        include userAccountInfo
+        style
+          - #emailButton { position: relative; top: 27px; left: 277px;}
+
+        formQuery~ select t.ticketId, t.projectId, p.title as 'project', t.assignedTo, t.workHours,
+          - t.description, t.image, t.stepName, e.userId, u.email,
+          - case q.step
+          -   when 'Open Development Tickets' then 'OPEN'
+          -   when 'OnHold Development Tickets' then 'ON HOLD'
+          -   when 'Closed Development Tickets' then 'CLOSED'
+          -   else 'NEW'
+          - END as 'status', t.priority,
+          - case t.priority
+          -  when 0 then '<span style="color:#90fc31; font-weight: bold;">Low</span>'
+          -  when 1 then '<span style="color:#ffc618; font-weight: bold;">Medium</span>'
+          -  when 2 then '<span style="color:#ff5a00; font-weight: bold;">High</span>'
+          -  when 3 then '<span style="color:#ff0000; font-weight: bold;">Urgent</span>'
+          - end as 'priorityText',
+          - case datediff(now(), e.eventDate)
+          -  when 0 then concat('<span style="color:#000;">',timediff(now(), e.eventDate),'</span>')
+          -  when 1 then '<span style="color:#025afd;">1 Day</span>'
+          -  when 2 then '<span style="color:#02c6fe;">2 Days</span>'
+          -  when 3 then '<span style="color:#01ffc6;">3 Days</span>'
+          -  when 4 then '<span style="color:#00fd5b;">4 Days</span>'
+          -  when 5 then '<span style="color:#01fd33;">5 Days</span>'
+          -  when 6 then '<span style="color:#5bfd32;">6 Days</span>'
+          -  when 7 then '<span style="color:#c7fc2e;">7 Days</span>'
+          -  when 8 then '<span style="color:#ffc618;">8 Days</span>'
+          -  when 9 then '<span style="color:#ff5a00;">9 Days</span>'
+          -  else concat('<span style="color:#ff0000;">',datediff(now(), e.eventDate),' Days</span>')
+          - end as 'time',
+          - case when t.relatedNoteId is null then '' else
+          -   concat("<a href='/uniflow?lastForm=Y&stepName=Update+Note&recId=",n.noteId,"'>",
+          -   n.noteId, '-',n.title,"</a>")
+          - END as note,
+          - case when t.milestoneId is null then '' else
+          -   concat("<a href='/uniflow?lastForm=Y&stepName=Update+Milestone&recId=",m.milestoneId,"'>",
+          -   m.milestoneId, '-',m.description,"</a>")
+          - END as milestone
+          - from tickets t
+          - LEFT JOIN events e ON e.eventId=t.eventId
+          - LEFT JOIN userInfo u on u.userId = e.userId
+          - INNER JOIN queues q ON q.containerId=t.ticketId
+          - LEFT JOIN notes n ON t.relatedNoteId=n.noteId
+          - LEFT JOIN milestones m ON t.milestoneId=m.milestoneId
+          - LEFT JOIN projects p On p.projectId=t.projectId
+          - LEFT JOIN containerProperties cp ON cp.containerId=t.ticketId AND cp.property='history'
+          - WHERE t.ticketId = '{_recId}'
+
+        hidden currentStatus
+          id= currentStatus
+          value= {_resultSet:status}
+        hidden currentAssignee
+          id= currentAssignee
+          value= {_resultSet:assignedTo}
+        hidden projectId
+          value= {_resultSet:projectId}
+        hidden createdBy
+          value= {_resultSet:userId}
+        hidden description
+          value= {_resultSet:description}
+
+
+        div
+          id= emailButton
+          a !!!Email {_:userId}
+            class= button
+            href= !!!mailto:{_:email}?Subject=Ticket%20{_recId}
+
+        vertical
+          container ticketId
+            acceptQueue~ any
+            new~ false
+            screenLabel~ Ticket Id
+            value= {_recId}
+            id= ticketId
+            readonly= {_resultSet:status}
+            style= background: transparent; border: none;
+
+            if~ {Status} 
+              advanced~
+              equals~ OPEN
+              if~ {currentStatus} 
+                advanced~
+                not~
+                  equals~ OPEN
+                insertQueue~ Open Development Tickets
+              deleteQueue~ Closed Development Tickets
+              deleteQueue~ OnHold Development Tickets
+            if~ {Status} 
+              advanced~
+              equals~ CLOSED
+              if~ {currentStatus} 
+                advanced~
+                not~
+                  equals~ CLOSED
+                insertQueue~ Closed Development Tickets
+              deleteQueue~ Open Development Tickets
+              deleteQueue~ OnHold Development Tickets
+            if~ {Status} 
+              advanced~
+              equals~ ON HOLD
+              if~ {currentStatus}
+                advanced~
+                not~
+                  equals~ ON HOLD
+                insertQueue~ OnHold Development Tickets
+              deleteQueue~ Open Development Tickets
+              deleteQueue~ Closed Development Tickets
+
+          output c
+            value= {_resultSet:userId}
+            screenLabel~ Created By
+          output Project
+            value= <a href='/uniflow?lastForm=Y&stepName=Project+Details&recId={_resultSet:projectId}'>{_resultSet:project}</a>
+          output Related Note
+            value= {_resultSet:note}
+          output Related Milestone
+            value= {_resultSet:milestone}
+          output d
+            value= {_resultSet:description}
+            screenLabel~ Description
+          output Step Name
+            value= {_resultSet:stepName}
+          output Image
+            value= <a id='imageLink' href='/tickets/{_resultSet:image}'>{_resultSet:image}</a>
+          file newImage
+            id= newImage
+            screenLabel~ Replace Image
+            destinationFolderName~ tickets
+            destinationFilePrefix~ T000000
+            required~ false
+          select Assigned To
+            id= assignedTo
+            option {_resultSet:assignedTo}
+            option Unassigned
+            sqlQuery~ select concat(u.name, ' (', u.userId, ')') as name, u.userId
+              - from userInfo u, ticketAssignments t
+              - where u.userId = t.toUserId and t.fromUserId = '{_userId}' and u.active = 'true'
+              - order by name
+          select newPriority
+            screenLabel~ Priority
+            option {_resultSet:priorityText}
+              value= {_resultSet:priority}
+            option Low
+              value= 0
+            option Medium
+              value= 1
+            option High
+              value= 2
+            option Urgent
+              value= 3
+          select Status
+            id= status
+            option {_resultSet:status}
+            option OPEN
+            option CLOSED
+            option ON HOLD
+          text workHours
+            value= {_resultSet:workHours}
+            screenLabel~ Estimated Hours Worked (Ex. 4:30)
+            validate~ format (\d:\d\d|\d\d\:\d\d)
+              errorMessage~ Time must be in time format.
+          comments Comments
+
+        table
+          class= stdTableSort
+          caption Ticket History
+          sqlQuery~ select e.userId as 'User Id', DATE_FORMAT(e.eventDate, '%m/%d/%Y') as 'Date', cp.value as 'Action', e.comments as 'Comments'
+            - from containerProperties cp
+            - LEFT JOIN events e ON e.eventId=cp.eventId
+            - WHERE cp.containerId='{_recId}' AND cp.property='history'
+            - ORDER BY e.eventDate,e.eventId DESC
+
+
+      sql update tickets set assignedTo = '{Assigned To}', priority = '{newPriority}', workHours = '{workHours}'
+        - where ticketId = '{ticketId}'
+      sql update tickets set image = '{newImage}' where ticketId = '{ticketId}' and '{newImage}' <> ''
+
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Status changed to {Status} <br/> Assignment changed from {currentAssignee} to {Assigned To}',{_eventId} from dual
+        - where '{currentStatus}' <> '{Status}' and '{currentAssignee}' <> '{Assigned To}' and '{newImage}' = ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Status changed to {Status}',{_eventId} from dual
+        - where '{currentStatus}' <> '{Status}' and '{currentAssignee}' = '{Assigned To}' and '{newImage}' = ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Assignment changed from {currentAssignee} to {Assigned To}',{_eventId} from dual
+        - where '{currentStatus}' = '{Status}' and '{currentAssignee}' <> '{Assigned To}' and '{newImage}' = ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','No action; see comments',{_eventId} from dual
+        - where '{currentStatus}' = '{Status}' and '{currentAssignee}' = '{Assigned To}' and '{Comments}' <> '' and '{newImage}' = ''
+      #These all include image being changed
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Status changed to {Status} <br/> Assignment changed from {currentAssignee} to {Assigned To} <br/> Image changed to {newImage}',{_eventId} from dual
+        - where '{currentStatus}' <> '{Status}' and '{currentAssignee}' <> '{Assigned To}' and '{newImage}' <> ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Status changed to {Status} <br/> Image changed to {newImage}',{_eventId} from dual
+        - where '{currentStatus}' <> '{Status}' and '{currentAssignee}' = '{Assigned To}' and '{newImage}' <> ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Assignment changed from {currentAssignee} to {Assigned To} <br/> Image changed to {newImage}',{_eventId} from dual
+        - where '{currentStatus}' = '{Status}' and '{currentAssignee}' <> '{Assigned To}' and '{newImage}' <> ''
+      sql insert into containerProperties (containerId,attribute,property,value,eventId)
+        - select '{ticketId}', '','history','Image changed to {newImage}',{_eventId} from dual
+        - where '{currentStatus}' = '{Status}' and '{currentAssignee}' = '{Assigned To}' and '{newImage}' <> ''
+
+      notification ticketsAssigned
+        conditionQuery select '{ticketId}', '{projectId}', '{description}', u1.email, u2.email
+          - from notificationPreferences n
+          - inner join userInfo u1 on u1.userId = n.userId
+          - inner join userInfo u2 on u2.userId = '{_userId}'
+          - where n.notificationId = 'ticketsAssigned' and n.isSet = 'true'
+          - and '{currentAssignee}' <> '{Assigned To}' and n.userId = '{Assigned To}'
+        emailAddressColumn 4
+          recipientIdColumn 5
+        subject Ticket assigned from {5}
+        message
+          html
+            body {5} assigned you the following ticket:<br/><br/>Ticket Id: {1}<br/>Project Id: {2}<br/>Description: {3}
+
+      notification ticketsClose
+        conditionQuery select '{ticketId}', '{projectId}', '{description}', u1.email, u2.email
+          - from notificationPreferences n
+          - inner join userInfo u1 on u1.userId = n.userId
+          - inner join userInfo u2 on u2.userId = '{_userId}'
+          - where n.notificationId = 'ticketsClose' and n.isSet = 'true'
+          - and '{currentStatus}' <> '{Status}' and '{Status}' = 'CLOSED' and n.userId = '{Assigned To}'
+        emailAddressColumn 4
+          recipientIdColumn 5
+        subject Ticket closed by {5}
+        message
+          html
+            body The following ticket assigned to you has been closed:<br/><br/>Ticket Id: {1}<br/>Project Id: {2}<br/><br/>Description: {3}
+
+      notification ticketsIAssignedClose
+        conditionQuery select '{ticketId}', '{projectId}', '{description}', u1.email, u2.email
+          - from notificationPreferences n
+          - inner join userInfo u1 on u1.userId = n.userId
+          - inner join userInfo u2 on u2.userId = '{_userId}'
+          - and n.notificationId = 'ticketsIAssignedClose' and n.isSet = 'true'
+          - and '{currentStatus}' <> '{Status}' and '{Status}' = 'CLOSED' and n.userId = '{createdBy}'
+        emailAddressColumn 4
+          recipientIdColumn 5
+        subject Ticket closed by {5}
+        message
+          html
+            body The following ticket that you assigned has been closed:<br/><br/>Ticket Id: {1}<br/>Project Id: {2}<br/><br/>Description: {3}
+
+      notification wrikeTicket
+        conditionQuery select distinct
+          -   '{ticketId}'
+          -   , p.title
+          -   , '{Comments}'
+          -   , 'wrike@wrike.com'
+          -   , u2.email
+          -   , u.name
+          -   , '{Step Name}'
+          -   , case '{Priority}' when 3 then 'URGENT' when 2 then 'HIGH' when 1 then 'medium' when 0 then 'low' end
+          -   , case '{Project}' when 'all' then '' else '{Project}' end         
+          - from userInfo u, projects p
+          - left join userInfo u2
+          - on u2.userId = '{Assigned To}'
+          - where u.userId = '{_userId}'
+          - and p.projectId = '{Project}'
+        emailAddressColumn 4
+          recipientIdColumn 5
+        subject RE: [PMDX/{9}] {8} - {1}:{7} - {2}
+        message
+          html
+            body {3} <br /> Requested By: {6}
+
+      nextStep Update Ticket
+        recId {ticketId}
+        formNumber 1
+
+
+############ Create Milestone ############
+    step Create Milestone
+      form
+        include userAccountInfo
+        script
+          type= text/javascript
+          src= js/projects.js
+        script
+          - $(document).ready(function() {
+          -   $('#startDate').datepicker({ dateFormat: 'yy-mm-dd', defaultDate: "+1w", changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#endDate').datepicker( "option", "minDate", selectedDate ); }
+          -   });
+          -   $('#endDate').datepicker({ dateFormat: 'yy-mm-dd', defaultDate: "+1w", changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#startDate').datepicker( "option", "maxDate", selectedDate ); }
+          -   });
+          -   var urlProjectId = getParameterByName('projectId');
+          -   if(urlProjectId != ''){
+          -     $('#project').val(urlProjectId);
+          -   }
+          - });
+        vertical
+          container milestoneId
+            value= M{_getNextSequence:projectMilestoneId}
+            readonly=
+            new~ true
+          select Project
+            id= project
+            option
+            sqlQuery~ select title, projectId from projects where active = 'true' order by title
+            required~ true
+          textArea Description
+            required~ true
+          date Start Date
+            id= startDate
+            class= date
+            required~ true
+          date End Date
+            id= endDate
+            class= date
+            required~ true
+
+      sql insert into milestones (milestoneId, projectId, description, startDate, endDate, eventId)
+        + SELECT '{milestoneId}', '{Project}', '{Description}', '{Start Date}', '{End Date}', {_eventId} FROM dual
+        + WHERE '{milestoneId}'!='' AND '{Description}'!= ''
+
+
+
+############ Update Milestone ############
+    step Update Milestone
+      form
+        include userAccountInfo
+        vertical
+          text _recId
+            screenLabel~ Milestone Id
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#startDate').datepicker({ dateFormat: 'yy-mm-dd', defaultDate: "+1w", changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#endDate').datepicker( "option", "minDate", selectedDate ); }
+          -   });
+          -   $('#endDate').datepicker({ dateFormat: 'yy-mm-dd', defaultDate: "+1w", changeMonth: true,
+          -     onClose: function( selectedDate ) { $('#startDate').datepicker( "option", "maxDate", selectedDate ); }
+          -   });
+          - });
+
+        formQuery~ select m.milestoneId, m.projectId, p.title as 'project', m.description, m.startDate, m.endDate,
+          - e.eventDate, e.userId
+          - from milestones m
+          - inner join events e on e.eventId = m.eventId
+          - inner join projects p on p.projectId = m.projectId
+          - where m.milestoneId = '{_recId}'
+        vertical
+          container milestoneId
+            value= {_recId}
+            id= noteId
+            readonly=
+            style= background: transparent; border: none;
+            new~ false
+            acceptQueue~ any
+            screenLabel~ Milestone Id
+          output Created On
+            value= {_resultSet:eventDate}
+          output Created By
+            value= {_resultSet:userId}
+          select Project
+            option {_resultSet:project}
+              value= {_resultSet:projectId}
+            sqlQuery~ select title, projectId from projects where active = 'true'
+            required~ true
+          textArea Description
+            value= {_resultSet:description}
+            required~ true
+          text Start Date
+            value= {_resultSet:startDate}
+            id= startDate
+            required~ true
+          text End Date
+            value= {_resultSet:endDate}
+            id= endDate
+            required~ true
+
+      sql update milestones
+        - set projectId = '{Project}', description = '{Description}', startDate = '{Start Date}', endDate = '{End Date}'
+        - where milestoneId = '{milestoneId}'
+
+      nextStep Update Milestone
+        recId {milestoneId}
+        formNumber 1
+
+
+
+
+    step Open Development Tickets
+      form
+        include userAccountInfo
+
+    step OnHold Development Tickets
+      form
+        include userAccountInfo
+
+    step Closed Development Tickets
+      form
+        include userAccountInfo
+
+    step Open Project Notes
+      form
+        include userAccountInfo
+
+    step Archived Project Notes
+      form
+        include userAccountInfo
+
+
+
+
+

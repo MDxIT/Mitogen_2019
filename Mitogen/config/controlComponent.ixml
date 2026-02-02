@@ -1,0 +1,61 @@
+config
+  steps
+    stepGroup Control Component
+    step Control Component
+
+      form
+
+        p THIS FORM IS FOR TESTING ONLY
+        P THIS IS NOT PART OF THE COMPONENT
+
+        vertical
+          container batchOrTray
+            screenLabel~ BatchId or TrayId
+            acceptQueue~ any
+
+          select containerCommentsInclude
+            option
+            option Yes
+            Option No
+
+          select containerActionInclude
+            option
+            option Yes
+            Option No
+
+          select validateOrTransfer
+            option 
+            option Validate
+            option Transfer
+
+
+
+      form
+        script
+          src= js/components/controlComponent.js
+
+        include controlComponent
+
+          #### BUILD SHEET CONFIGURATIONS
+          parameter~ containerCommentsInclude
+            value= {containerCommentsInclude}
+
+          parameter~ containerActionInclude
+            value= {containerActionInclude}
+
+          parameter~ stepName
+            value= Control Component
+
+          parameter~ validateOrTransfer
+            value= {validateOrTransfer}
+
+          parameter~ actionSetName
+            value= passfail
+
+          parameter~ containerId
+            value= {batchOrTray}
+
+
+
+
+

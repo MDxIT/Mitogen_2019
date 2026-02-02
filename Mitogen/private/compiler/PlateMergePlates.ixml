@@ -1,0 +1,36 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        vertical
+          text Text1
+            value= [$$plate_Select$$]
+
+          text Text2
+            value= [$$plate_Comments$$]
+
+          text Text3
+            value= [$$plate_Comment_History$$]
+
+          text Text4
+            value= [$$print_plate_baRCODE$$]
+
+          text Text5
+            value= [$$new_plateId$$]
+
+          text Text6
+            value= [$$print_plate_layout$$]
+
+          text Text7
+            value= [$$QC_Resources$$]
+
+          text Text8
+            value= [$$Master_Mix$$]
+
+          text Text9
+            value= [$$data_element$$]
+
+          text Text10
+            value= [$$add_plate_Controls$$]
+
+          text Text11
+            value= [$$destination_plate_routing$$]

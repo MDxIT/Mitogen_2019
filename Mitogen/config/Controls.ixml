@@ -1,0 +1,3374 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Ajax Controls
+
+    step Ajax Get Control Qualification
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select c.controlId as 'containerId', c.controlType as 'type',
+          - IFNULL(q.qualification, 'NOT QUALIFIED') as 'qualification',
+          - c.expirationDate as 'expDate', curDate() as 'todayDate'
+          - from controls c
+          - left outer join qualifications q on c.controlId = q.containerId
+          - and q.qualification = ? and q.expirationDate > curDate()
+          - where c.controlId = ?
+          - union
+          - select '','','','',''
+          - from dual
+          string {qualification}
+          string {containerId}
+
+    step Ajax Get Control Units
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select unitOfMeasure
+          - from controls
+          - where controlId = ?
+          string {controlId}
+
+    step Ajax Get Control Inventory Units
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select i.units
+          - from inventoryItems i
+          - where inventoryItem = ?
+          string {inventoryType}
+
+
+    step Ajax_controlsInUse
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_controlsInUse
+        sqlPreparedQuery~ select controlId as 'ControlId',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  receivedDate as 'RecDate',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - from controls
+          - where status = 'In Use'
+
+    step Ajax_controlsAlmostExpired
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_controlsAlmostExpired
+        sqlPreparedQuery~ select controlId as 'ControlId',
+          -  catalogNo as 'CatNo',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - from controls
+          - where DATEDIFF(expirationDate, curDate()) <= 30
+          - order by expirationDate asc
+
+    step Ajax_controlsToQC
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_controlsToQC
+        sqlPreparedQuery~ select q.containerId as 'ControlId',
+          -  c.controlType as 'Type',
+          -  c.lotNumber as 'Lot',
+          -  c.expirationDate as 'ExpDate',
+          -  c.qcStatus as 'QC Status',
+          -  c.status as 'Status'
+          - from queues q
+          - inner join controls c
+          -   on c.controlId = q.containerId
+          - where q.step = 'QC Control'
+
+    step Ajax_problemControls
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_problemControls
+        sqlPreparedQuery~ select controlId as 'ControlId',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  receivedDate as 'RecDate',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - from controls
+          - where (qcStatus = 'Fail' or qcStatus = 'Retest')
+
+    step Ajax_QCSoon
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_QCSoon
+        sqlPreparedQuery~ select q.containerId as 'ControlId',
+          - q.expirationDate as 'QC Exp Date',
+          - c.controlType as 'Type',
+          - c.lotNumber as 'Lot',
+          - c.expirationDate as 'CTRL Exp Date'
+          - from qualifications q
+          - inner join controls c on q.containerId = c.controlId
+          - where q.qualification = 'NEEDS QC'
+          - and (q.expirationDate >= curDate() and q.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+          - order by q.expirationDate asc
+
+    step Ajax_searchByControlType
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchByControlType
+        caption Search By Control Type Results
+        sqlPreparedQuery~ select controlId as 'ControlId',
+          -  catalogNo as 'CatNo',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  receivedDate as 'RecDate',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - from controls
+          - where controlType LIKE ?
+          - limit 150
+          string %{value}%
+
+    step Ajax_searchControlsByCatalogNumber
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchControlsByCatalogNumber
+        caption Search By Catalog No. Results
+        sqlPreparedQuery~
+          -  SELECT
+          -  controlId as 'ControlId',
+          -  catalogNo as 'CatNo',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  receivedDate as 'RecDate',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - from controls
+          - where catalogNo LIKE ?
+          - limit 150
+          string %{value}%
+
+    step Ajax_searchControlsByLotNumber
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchControlsByLotNumber
+        caption Search By Lot Number Results
+        sqlPreparedQuery~ select controlId as 'ControlId',
+          -  catalogNo as 'CatNo',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  receivedDate as 'RecDate',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - from controls
+          - where lotNumber LIKE ?
+          - limit 150
+          string %{value}%
+
+    step Ajax_searchControlsByPONumber
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchControlsByPONumber
+        caption Search By PO Number Results
+        sqlPreparedQuery~
+          - SELECT
+          -  poNumber as 'PO#',
+          -  controlId as 'ControlId',
+          -  catalogNo as 'CatNo',
+          -  controlType as 'Type',
+          -  lotNumber as 'Lot',
+          -  receivedDate as 'RecDate',
+          -  expirationDate as 'ExpDate',
+          -  qcStatus as 'QC Status',
+          -  status as 'Status'
+          - FROM controls
+          - WHERE poNumber LIKE ?
+          - limit 150
+          string %{value}%
+
+    stepGroup Controls
+
+    step View Control Inventory
+      jsScripts
+        src js/resources/viewInventory.js
+
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(controlId) AS 'Current'
+          - FROM controls
+          - WHERE expirationDate > curDate()
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -  COUNT(controlId) AS 'InUse'
+          - FROM controls
+          - WHERE status = 'In Use'
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -  COUNT(controlId) AS 'ExpireSoon'
+          - FROM controls
+          - WHERE DATEDIFF(expirationDate, curDate()) < 30
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(q.containerId) AS 'NeedsQC'
+          - FROM qualifications q
+          - INNER JOIN controls c ON q.containerId = c.controlId
+          - WHERE q.qualification = 'NEEDS QC'
+          -   AND (q.expirationDate >= curDate()
+          -   AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -  COUNT(containerId) AS 'Qualify'
+          - FROM queues
+          - WHERE step = 'QC Control'
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -  COUNT(controlId) AS 'Problem'
+          - FROM controls
+          - WHERE (qcStatus = 'Fail' or qcStatus = 'Retest')
+          allowEmptyResults~
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Status Report
+          div
+            class= sectionContent horizontalFlex-spaceevenly
+            div
+              id= controlsInUse
+              class=  verticalFlex-center inventoryStatBlock
+              span In Use
+                class= statusLabel
+              span {_resultSet:InUse}
+                class= statusCount
+            div
+              id= controlsAlmostExpired
+              class= verticalFlex-center inventoryStatBlock
+              span Expiring
+                class= statusLabel
+              span {_resultSet:ExpireSoon}
+                class= statusCount
+            div
+              id= controlsToQC
+              class= verticalFlex-center inventoryStatBlock
+              span QC Today
+                class= statusLabel
+              span {_resultSet:Qualify}
+                class= statusCount
+            div
+              id= QCSoon
+              class= verticalFlex-center inventoryStatBlock
+              span QC Soon
+                class= statusLabel
+              span {_resultSet:NeedsQC}
+                class= statusCount
+            div
+              id= problemControls
+              class= verticalFlex-center inventoryStatBlock
+              span Issues
+                class= statusLabel
+              span {_resultSet:Problem}
+                class= statusCount
+          vertical
+            div
+              id= statusTable
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Details
+          div
+            class= sectionContent
+            div
+              id= lists
+              ul
+                li
+                  a Search Inventory
+                    href= #searchList
+                li
+                  a Current Inventory
+                    href= #currentList
+                li
+                  a Recently Expired
+                    href= #expiredList
+                # li
+                #   a Recently Disposed
+                #     href= #disposedList
+                li
+                  a Expiring Soon
+                    href= #expSoon
+                li
+                  a QC Soon
+                    href= #qcsoonBreakdown
+
+              div
+                id= searchList
+                vertical2
+                  select Control Type
+                    class= inventoryDetailsControlType
+                    id= searchByControlType_value
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      -  controlType
+                      - FROM controls
+                      - ORDER BY controlType
+                  button
+                    class= button
+                    name= Search1
+                    value= Search
+                    id= searchByControlType
+
+                  text Catalog Number
+                    id= searchControlsByCatalogNumber_value
+                  button
+                    class= button
+                    name= Search2
+                    value= Search
+                    id= searchControlsByCatalogNumber
+
+                  text Lot Number
+                    id= searchControlsByLotNumber_value
+                  button
+                    class= button
+                    name= Search4
+                    value= Search
+                    id= searchControlsByLotNumber
+
+                  text PO Number
+                    id= searchControlsByPONumber_value
+                  button
+                    class= button
+                    name= Search3
+                    value= Search
+                    id= searchControlsByPONumber
+
+                div
+                  div
+                    id= searchByControlType_div
+                  div
+                    id= searchControlsByCatalogNumber_div
+                  div
+                    id= searchControlsByPONumber_div
+                  div
+                    id= searchControlsByLotNumber_div
+              div
+                id= currentList
+                span {_resultSet:Current}
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   controlId AS 'ID',
+                    -   controlType AS 'Control',
+                    -   lotNumber AS 'Lot',
+                    -   status AS 'Status'
+                    - FROM controls
+                    - WHERE expirationDate > curDate()
+                    - ORDER BY status, controlType, controlId
+              div
+                id= expiredList
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   controlId AS 'ControlId',
+                    -   controlType AS 'Type',
+                    -   lotNumber AS 'Lot',
+                    -   expirationDate AS 'Exp Date'
+                    - FROM controls
+                    - WHERE DATEDIFF(curDate(), expirationDate) <= 90 AND DATEDIFF(curDate(), expirationDate) >= 0
+
+              # div
+              #   id= disposedList
+              #   table
+              #     class= stdTableBasic
+              #     sqlPreparedQuery~
+              #       - SELECT
+              #       -   c.controlId AS 'ControlId',
+              #       -   c.controlType AS 'Type',
+              #       -   c.lotNumber AS 'Lot',
+              #       -   c.vendor AS 'Vendor',
+              #       -   c.expirationDate AS 'Exp Date',
+              #       -   c.status AS 'Status'
+              #       - FROM controlHistory c
+              #       - INNER JOIN containerHistory ch ON c.controlId = ch.containerId
+              #       - INNER JOIN events e ON ch.eventId = e.eventId AND e.step = 'Dispose Control'
+              #       - WHERE c.status = 'Disposed'
+              #       - AND DATEDIFF(curDate(), e.eventDate ) <= 90
+              div
+                id= expSoon
+                table
+                  class= twoDayExpirationTable stdTableBasic
+                  caption 2 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   c.controlId AS 'ControlId',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'Exp Date'
+                    - FROM controls c
+                    - WHERE (c.expirationDate >= curDate() AND c.expirationDate <= DATE_ADD(curDate(), INTERVAL 2 DAY))
+                    - ORDER BY c.expirationDate ASC
+
+                table
+                  class= fiveDayExpirationTable stdTableBasic
+                  caption 5 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   c.controlId AS 'ControlId',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'Exp Date'
+                    - FROM controls c
+                    - WHERE (c.expirationDate > DATE_ADD(curDate(), INTERVAL 2 DAY) AND c.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+                    - ORDER BY c.expirationDate ASC
+
+                table
+                  class= fourteenDayExpirationTable stdTableBasic
+                  caption 14 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   c.controlId AS 'ControlId',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'Exp Date'
+                    - FROM controls c
+                    - WHERE (c.expirationDate > DATE_ADD(curDate(),INTERVAL 5 DAY) AND c.expirationDate <= DATE_ADD(curDate(), INTERVAL 14 DAY))
+                    - ORDER BY c.expirationDate ASC
+
+                table
+                  class= oneMonthExpirationTable stdTableBasic
+                  caption 1 Month
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   c.controlId AS 'ControlId',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'Exp Date'
+                    - FROM controls c
+                    - WHERE (c.expirationDate > DATE_ADD(curDate(), INTERVAL 14 DAY) AND c.expirationDate <= DATE_ADD(curDate(), INTERVAL 30 DAY))
+                    - ORDER BY c.expirationDate ASC
+
+              div
+                id= qcsoonBreakdown
+                table
+                  class= twoDayQCSoonTable stdTableBasic
+                  caption 2 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS 'ControlId',
+                    -   q.expirationDate AS 'QC Exp Date',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'RGT Exp Date'
+                    - FROM qualifications q
+                    - INNER JOIN controls c ON q.containerId = c.controlId
+                    - WHERE q.qualification = 'NEEDS QC'
+                    - AND (q.expirationDate >= curDate() AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 2 DAY))
+                    - ORDER BY q.expirationDate ASC
+
+                table
+                  class= fiveDayQCSoonTable stdTableBasic
+                  caption 5 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS 'ControlId',
+                    -   q.expirationDate AS 'QC Exp Date',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'RGT Exp Date'
+                    - FROM qualifications q
+                    - INNER JOIN controls c ON q.containerId = c.controlId
+                    - WHERE q.qualification = 'NEEDS QC'
+                    - AND (q.expirationDate > DATE_ADD(curDate(), INTERVAL 2 DAY) AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+                    - ORDER BY q.expirationDate ASC
+                table
+                  class= fourteenDayQCSoonTable stdTableBasic
+                  caption 14 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS 'ControlId',
+                    -   q.expirationDate AS 'QC Exp Date',
+                    -   c.controlType AS 'Type',
+                    -   c.lotNumber AS 'Lot',
+                    -   c.expirationDate AS 'RGT Exp Date'
+                    - FROM qualifications q
+                    - INNER JOIN controls c ON q.containerId = c.controlId
+                    - WHERE q.qualification = 'NEEDS QC'
+                    - AND (q.expirationDate > DATE_ADD(curDate(),INTERVAL 5 DAY) AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 14 DAY))
+                    - ORDER BY q.expirationDate ASC
+
+    step Create Control Type
+
+      form
+        include stepInstructions
+        vertical
+          div
+            fieldset
+              legend  Instructions
+                class= legend
+              vertical
+                span 1. Enter a control type that will be expected in inventory.
+                span 2. The control can be <i>received</i> from a vendor or <i>prepared</i> in-house.
+                span 3. This step will not allow duplicate control names.
+                span 4. Required fields must be filled to submit.
+                span 5. Units selected should be the units the item will be tracked in throughout the system.
+                span 6. All fields can be edited in <a href=/uniflow?stepName=Edit+Inventory+Items>Edit Inventory Items</a> under the Controls tab.
+        hr
+        vertical
+          text Control Name
+            size= 50;
+            validate~ ! select value from validValues where (setName = 'Received Control' or setName = 'Prepared Control')
+              + AND value = '{Control Name}'
+              errorMessage~ This Control already exists!
+              required~ true
+            class= required
+          select Control Type
+            option
+            option Received Control
+            option Prepared Control
+            required~ true
+            class= required
+          text Catalog Number
+          select Vendor
+            sqlQuery~ select vendor from vendors order by vendor desc
+          text quantity
+            screenLabel~ Current Quantity
+            value= 0.00
+          text Threshold
+            screenLabel~ Threshold
+            placeholder= 0.00
+          select units
+            setName~ controlAdminUnits
+            screenLabel~ Units
+            required~ true
+            class= required
+
+      setFormQueryResult
+        sqlPreparedQuery SELECT vendorId as 'vendorId'
+          - FROM vendors
+          - WHERE vendor = ?
+          string {Vendor}
+
+      sqlPreparedStatement insert into validValues
+        - (
+        -   setName,
+        -   displayValue,
+        -   value,
+        -   displayOrder,
+        -   eventId
+        - )
+        - SELECT ?, ?, ?, ?, ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {Control Type}
+        string {Control Name}
+        string {Control Name}
+        int 1
+        long {_eventId}
+        string {Control Type}
+
+      sqlPreparedStatement insert into inventoryItems
+        - (
+        -   inventoryItem,
+        -   inventoryType,
+        -   catalogNumber,
+        -   vendor,
+        -   quantity,
+        -   units,
+        -   threshold,
+        -   thresholdUnits,
+        -   eventId
+        - )
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {Control Name}
+        string {Control Type}
+        string {Catalog Number}
+        string {_:vendorId}
+        float {quantity}
+        string {units}
+        string {Threshold}
+        string {units}
+        long {_eventId}
+        string {Control Name}
+#################################################################################################################################################
+
+    step Receive Multiple Controls
+      jsScripts
+        src js/controls.js
+      form
+        include stepInstructions
+        data-parsley-validate=
+        vertical
+          fieldset
+            style= background:white;
+            legend Instructions
+              class= legend
+            vertical
+              span Enter the number of controls to receive.
+
+        hr
+        vertical
+          number num
+            screenLabel~ Number of Controls to Barcode
+            size= 2
+            value= 2
+            min~ 0
+            data-parsley-required= true
+            data-parsley-type= integer
+
+
+
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        formQuery~ select DATE_ADD(curDate(), INTERVAL 60 DAY) as 'Expire'
+
+        hidden num
+          value= {num}
+          screenLabel~
+
+        hidden expDate
+          id= expDate
+          value= {_:Expire}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+
+        vertical
+          div
+            fieldset
+              legend Instructions
+                class= legend
+              vertical
+                span 1. Enter the information for the controls.
+                span 2. Scan the corresponding barcodes.
+                span 3. Use the copy checkbox to copy information down to the next row.
+                span 4. Fill out all additional fields outlined in red.
+
+          div
+            vertical
+              table
+                id= receiveMe
+                sqlPreparedQuery~
+                  - SELECT
+                  -   '' AS 'Copy',
+                  -   '' AS 'Barcode',
+                  -   '' AS 'Cat#',
+                  -   '' AS 'Item',
+                  -   '' AS 'Lot#',
+                  -   '' AS 'Parent Lot',
+                  -   '' AS 'Qty',
+                  -   '' AS 'Units',
+                  -   '' AS 'Storage ID',
+                  -   '0.00' AS 'Cost/Unit',
+                  -   curDate() AS 'Received',
+                  -   ? AS 'Exp Date',
+                  -   '' AS 'QCType',
+                  -   '' AS 'Category'
+                  - FROM numbers
+                  - LIMIT ?
+                  string {_:Expire}
+                  int {num}
+                columnSpecs~ receiveControls
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                      class= receiveMultipleControlsCopyCheckbox
+                      tabIndex= 3
+                  column 2
+                    inputType container
+                      class= receiveMultipleControlsBarcode barcodeBackground required
+                      new~ true
+                      tabIndex= 1
+                      containerType~ Control
+                      data-parsley-required= true
+                  column 3
+                    inputType text
+                      class= catNo
+                      size= 8
+                      tabIndex= 2
+                  column 4
+                    inputType select
+                      class= item required
+                      sqlPreparedQuery~
+                        - SELECT
+                        -   inventoryItem
+                        - FROM inventoryItems
+                        - WHERE inventoryType = 'Received Control'
+                        - ORDER BY inventoryItem ASC
+                      style= width:100px;
+                      tabIndex= 2
+                      required=
+                  column 5
+                    inputType text
+                      class= lot required
+                      required=
+                      size= 6
+                      tabIndex= 2
+                  column 6
+                    inputType text
+                      class= parent
+                      size= 5
+                      tabIndex= 2
+                  column 7
+                    inputType number
+                      class= qty required
+                      required= true
+                      size= 3
+                      tabIndex= 2
+                      min~ 0
+                      data-parsley-required= true
+                      data-parsley-type= integer
+
+                  column 8
+                    inputType text
+                      class= units hiddenColumn
+                      size= 5
+                      readonly=
+                      tabIndex= 2
+                  column 9
+                    inputType text
+                      class= text storageId
+                      tabIndex= 2
+                  column 10
+                    inputType number
+                      size= 6
+                      class= cost
+                      tabIndex= 2
+                      min~ 0.00
+                      required= false
+                      data-parsley-required= false
+                      data-parsley-type= number
+                  column 11
+                    inputType date
+                      class= dateRec datePicker required
+                      tabIndex= 2
+                      formatDate~
+                      convert~ false
+                      data-parsley-required= true
+                  column 12
+                    inputType date
+                      class= expDate datePickerFuture required
+                      tabIndex= 2
+                      formatDate~
+                      convert~ false
+                      data-parsley-required= true
+                  column 13
+                    inputType select
+                      class= qcType required
+                      required=
+                      option Critical
+                      option Non-Critical
+                      tabIndex= 2
+
+                  column 14
+                    inputType text
+                      class= category
+                      readonly=
+                      tabIndex= 2
+
+
+      forRows receiveControls
+        validateSql SELECT 1 FROM dual WHERE ? >= ?
+          string {_columnInput_receiveControls:12}
+          string {_columnInput_receiveControls:11}
+          errorMessage The Expiration date must be greater than or equal to the Received date.
+
+        #containers
+        sqlPreparedStatement update containers
+          - set containerType = 'Control',
+          -   expirationDate = ?
+          - where containerId = ?
+          string {_columnInput_receiveControls:12}
+          string {_columnInput_receiveControls:2}
+        sqlPreparedStatement insert into controls
+          - (
+          -   controlId,  controlType, catalogNo,
+          -   quantity, unitOfMeasure, lotNumber,
+          -   parentLot, vendor, storageId,
+          -   costPerUnit, poNumber, receivedDate,
+          -   expirationDate, qcType,
+          -   qcStatus,
+          -   status,
+          -   eventId
+          - )
+          - SELECT ?, ?, ?,
+          -   ?, ?, ?,
+          -   ?, i.vendor, CASE WHEN ? = '' THEN NULL ELSE ? END,
+          -   ?, '', ?,
+          -   ?, ?,
+          -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+          -     WHEN ? = 'Non-Critical' THEN 'N/A' END,
+          -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+          -     WHEN ? = 'Non-Critical' THEN 'In Use' END,
+          -   ?
+          - FROM inventoryItems i
+          - WHERE i.inventoryItem = ?
+          string {_columnInput_receiveControls:2}
+          string {_columnInput_receiveControls:4}
+          string {_columnInput_receiveControls:3}
+          float {_columnInput_receiveControls:7}
+          string {_columnInput_receiveControls:8}
+          string {_columnInput_receiveControls:5}
+          string {_columnInput_receiveControls:6}
+          string {_columnInput_receiveControls:9}
+          string {_columnInput_receiveControls:9}
+          string {_columnInput_receiveControls:10}
+          string {_columnInput_receiveControls:11}
+          string {_columnInput_receiveControls:12}
+          string {_columnInput_receiveControls:13}
+          string {_columnInput_receiveControls:13}
+          string {_columnInput_receiveControls:13}
+          string {_columnInput_receiveControls:13}
+          string {_columnInput_receiveControls:13}
+          long {_eventId}
+          string {_columnInput_receiveControls:4}
+
+        #controls
+        #qualification record for non-critical
+        sqlPreparedStatement insert into qualifications
+          - (
+          -   containerId,
+          -   qualification,
+          -   step,
+          -   expirationDate,
+          -   eventId
+          - )
+          - SELECT ?, 'Control QC', '*ALL*', ?, ?
+          - FROM dual
+          - WHERE ? = 'Non-Critical'
+          -   AND ? = 'Received Control'
+          string {_columnInput_receiveControls:2}
+          string {_columnInput_receiveControls:12}
+          long {_eventId}
+          string {_columnInput_receiveControls:13}
+          string {_columnInput_receiveControls:14}
+
+        sqlPreparedStatement insert into qualifications
+          - (
+          -   containerId,
+          -   qualification,
+          -   step,
+          -   expirationDate,
+          -   eventId
+          - )
+          - SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 60 DAY), ?
+          - FROM dual
+          - WHERE ? = 'Critical'
+          -   AND ? = 'Received Control'
+          string {_columnInput_receiveControls:2}
+          long {_eventId}
+          string {_columnInput_receiveControls:13}
+          string {_columnInput_receiveControls:14}
+
+
+        ## insert to qualify reagent if critical, insert to sort step if unknown
+        sqlPreparedStatement insert into queues
+          - (
+          -   containerId,
+          -   step,
+          -   eventId
+          - )
+          - SELECT ?, 'QC Control', ?
+          - FROM dual
+          - WHERE ? = 'Critical'
+          string {_columnInput_receiveControls:2}
+          long {_eventId}
+          string {_columnInput_receiveControls:13}
+
+        ## update the quantities for items received, both barcoded items and line items
+        sqlPreparedStatement update inventoryItems
+          - set quantity = (quantity + ?)
+          - where catalogNumber = ?
+          -   and inventoryItem = ?
+          float {_columnInput_receiveControls:7}
+          string {_columnInput_receiveControls:3}
+          string {_columnInput_receiveControls:4}
+
+
+
+
+###################################################################################################################################################
+
+    step Receive Control
+      jsScripts
+        src js/controls.js
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        formQuery~ select DATE_ADD(curDate(), INTERVAL 90 DAY) as 'exp'
+
+        formQuery~ formattedExpDate
+          formatDate~
+          value= {_:exp}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          container controlId
+            screenLabel~ Control ID
+            new~ true
+            containerType~ Control
+            contentType~ Control
+            if~ {QC}
+              advanced~
+              equals~ Critical
+              insertQueue~ QC Control
+            class= required barcodeBackground
+
+          select controlType
+            id= type
+            class= required receiveSingleControlType
+            required~ true
+            screenLabel~ Control Type
+            option
+            sqlPreparedQuery~
+              - SELECT
+              -   inventoryItem
+              - FROM inventoryItems
+              - WHERE inventoryType = 'Received Control'
+              - ORDER BY inventoryItem ASC
+
+          text catNo
+            id= receiveSingleControlCatNo
+            screenLabel~ Catalog Number
+
+          select vendor
+            id= vendor
+            screenLabel~ Vendor
+            option
+            sqlQuery~ select vendor
+              - from vendors
+              - order by vendor asc
+
+          select project
+            screenLabel~ Project
+            setName~ projectName
+            title= SETNAME:projectName
+            required~ false
+
+          text lot
+            screenLabel~ Lot Number
+            required~ true
+            class= required
+
+          text parentLot
+            screenLabel~ Parent Lot
+
+          text storageId
+            class=
+            screenLabel~ Storage Id
+
+          number quantity
+            screenLabel~ Qty
+            value= 0.00
+            min~ 0.00
+            size= 5
+            data-parsley-required= true
+            data-parsley-type= number
+            class= required
+
+          text units
+            id= units
+            readonly=
+
+          text poNumber
+            screenLabel~ PO Number
+
+          text costPerUnit
+            id= cost
+            screenLabel~ Cost Per Unit
+            value= 0.00
+
+          date receivedDate
+            convert~ false
+            screenLabel~ Received Date
+            value= {_currentDateFormatted}
+            class= required datePicker
+            required=
+
+          date expDate
+            convert~ false
+            screenLabel~ Expiration Date
+            value= {_:formattedExpDate}
+            class= required datePickerFuture
+            required=
+            validate~ SELECT 1 FROM dual WHERE ? >= ?
+              string {expDate}
+              string {receivedDate}
+              errorMessage~ The Expiration date must be greater than or equal to the Received date.
+
+          select QC
+            option Critical
+            option Non-Critical
+            class= required
+
+
+      setFormQueryResult
+        sqlPreparedQuery SELECT vendorId as 'vendorId'
+          - FROM vendors
+          - WHERE vendor = ?
+          string {vendor}
+
+      sqlPreparedStatement insert into controls
+        - (
+        -   controlId, controlType, catalogNo,
+        -   quantity, quantityInside, unitOfMeasure,
+        -   lotNumber, parentLot, vendor,
+        -   storageId, projectType, costPerUnit,
+        -   poNumber, receivedDate, expirationDate,
+        -   qcStatus,
+        -   qcType,
+        -   status,
+        -   eventId, lastUpdateEventId
+        - )
+        - SELECT ?, ?, ?,
+        -   ?, '', ?,
+        -   ?, ?, ?,
+        -   CASE WHEN ? = '' THEN NULL ELSE ? END, ?, ?,
+        -   ?, ?, ?,
+        -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -     WHEN ? = 'Non-Critical' THEN 'N/A' END,
+        -   ?,
+        -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -     WHEN ? = 'Non-Critical' THEN 'In Use' END,
+        -   ?, ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {controlId}
+        string {controlType}
+        string {catNo}
+        float {quantity}
+        string {units}
+        string {lot}
+        string {parentLot}
+        string {vendorId}
+        string {storageId}
+        string {storageId}
+        string {project}
+        string {costPerUnit}
+        string {poNumber}
+        string {receivedDate}
+        string {expDate}
+        string {QC}
+        string {QC}
+        string {QC}
+        string {QC}
+        string {QC}
+        long {_eventId}
+        long {_eventId}
+        string {controlId}
+
+      sqlPreparedStatement update inventoryItems
+        - set quantity = (quantity + ?)
+        - where inventoryItem = ?
+        float {quantity}
+        string {controlType}
+
+      #qualification record for non-critical
+      sqlPreparedStatement insert into qualifications
+        - (
+        -   containerId,
+        -   qualification,
+        -   step,
+        -   expirationDate,
+        -   eventId
+        - )
+        - SELECT ?, 'Control QC', '*ALL*', ?, ?
+        - FROM dual
+        - WHERE ? = 'Non-Critical'
+        string {controlId}
+        string {expDate}
+        long {_eventId}
+        string {QC}
+
+      sqlPreparedStatement insert into qualifications
+        - (
+        -   containerId,
+        -   qualification,
+        -   step,
+        -   expirationDate,
+        -   eventId
+        - )
+        - SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 60 DAY), ?
+        - FROM dual
+        - WHERE ? = 'Critical'
+        string {controlId}
+        long {_eventId}
+        string {QC}
+
+      sqlPreparedStatement update containers set expirationDate = ? where containerId = ?
+        string {expDate}
+        string {controlId}
+
+ ############################################################################################
+
+    step Create Controls
+      jsScripts
+        src js/controls.js
+
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+        include stepInstructions
+        vertical
+        div
+          fieldSet
+            class= createControlsInstructions1
+            legend Instructions
+              class= legend
+            vertical
+              li 1. Please enter the number of controls being used to create the in-house prepared control.
+              li 2. If two aliquots of the same reagent type are needed, please enter two, both will need to be scanned.
+              li 3. The next form will require each component to be scanned, it will verify that all components have passed QC standards of the system.
+        hr
+        vertical
+          number num
+            screenLabel~ # of Components
+            size= 3
+            required~ true
+            validate~ format (^[0-9]*$)
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+        div
+          fieldSet
+            class= createControlsInstructions2
+            legend Instructions
+              class= legend
+            vertical
+              span Fill out information below.
+        hr
+        hidden num
+          value= {num}
+        vertical
+          div
+            vertical
+              select Control Name
+                required~ true
+                option
+                sqlPreparedQuery~
+                  - SELECT
+                  -   inventoryItem
+                  - FROM inventoryItems
+                  - WHERE inventoryType = 'Prepared Control'
+                class= required createControlName
+                data-parsley-required= true
+              container control
+                class= createControlControlId required barcodeBackground
+                screenLabel~ Control ID
+                new~ true
+                containerType~ Control
+                data-parsley-required= true
+                required=
+              text Lot Number
+                value= Lot{_getNextSequence:preparedLotId}
+                required~ true
+                class= required
+                data-parsley-required= true
+              date Creation Date
+                convert~ false
+                value= {_currentDateFormatted}
+                required~ true
+                class= datePicker required
+                data-parsley-required= true
+              date Expiration Date
+                convert~ false
+                required~ true
+                class= datePickerFuture required
+                data-parsley-required= true
+              select QC Type
+                option Critical
+                option Non-Critical
+                class= required
+                data-parsley-required= true
+              number Quantity
+                size= 4
+                value= 0.00
+                min~ 0.00
+                data-parsley-required= true
+                data-parsley-type= number
+                class= required
+
+              text Units
+                id= units
+                class= createControlUnits
+                readonly=
+
+
+          div
+            table
+              caption Components
+              sqlPreparedQuery~ SELECT '' as 'Component', '0.00' as 'Quantity', '' as 'Unit'
+                - FROM numbers
+                - LIMIT ?
+                int {num}
+              columnSpecs~ t1
+                allowChangedRecordIds
+                column 1
+                  inputType resource
+                    class= required createControlComponentResource barcodeBackground
+                    acceptQueue~ any
+                    required~ true
+                    data-parsley-required= true
+
+
+                column 2
+                  inputType number
+                    size= 6
+                    value= 0.00
+                    data-parsley-required= true
+                    data-parsley-type= number
+                    class= required
+                    min~ 0.00
+      ## THIS CAN BE DEDUCTED FROM TOTAL REAGENT VOLUME
+                column 3
+                  inputType text
+                    class= units
+                    size= 6
+                    readonly=
+
+
+      forRows t1
+        sqlPreparedStatement insert into contents
+          - (
+          -   containerId,
+          -   attribute,
+          -   contentType,
+          -   content,
+          -   eventId
+          - )
+          - VALUES
+          - (
+          -   ?,
+          -   'self',
+          -   'Component',
+          -   ?,
+          -   ?
+          - )
+          string {control}
+          string {_columnInput_t1:1}
+          long {_eventId}
+
+        ifCondition {_columnInput_t1:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement update controls
+            - set quantity = (quantity - ?)
+            - where controlId = ?
+            float {_columnInput_t1:2}
+            string {_columnInput_t1:1}
+
+          sqlPreparedStatement update inventoryItems
+            - set quantity = (quantity - ?)
+            - where inventoryItem =
+            -   (
+            -     SELECT controlType
+            -     from controls
+            -     where controlId = ?
+            -   )
+            float {_columnInput_t1:2}
+            string {_columnInput_t1:1}
+
+      sqlPreparedStatement insert into controls
+        - (
+        -   controlId, controlType, quantity,
+        -   unitOfMeasure, lotNumber, vendor,
+        -   receivedDate, expirationDate, qcType,
+        -   qcStatus,
+        -   status,
+        -   eventId
+        - )
+        - SELECT ?, ?, ?,
+        -   ?, ?, 'In House',
+        -   ?, ?, ?,
+        -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -     WHEN ? = 'Non-Critical' THEN 'N/A' ELSE 'N/A' END,
+        -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -     WHEN ? = 'Non-Critical' THEN 'In Use' ELSE 'Pending QC' END,
+        -   ?
+        - FROM dual
+        string {control}
+        string {Control Name}
+        float {Quantity}
+        string {Units}
+        string {Lot Number}
+        string {Creation Date}
+        string {Expiration Date}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        long {_eventId}
+
+      sqlPreparedStatement insert into qualifications
+        - (
+        -   containerId,
+        -   qualification,
+        -   step,
+        -   expirationDate,
+        -   eventId
+        - )
+        - SELECT ?, 'Control QC', '*ALL*', ?, ?
+        - FROM dual
+        - WHERE ? = 'Non-Critical'
+        string {control}
+        string {Expiration Date}
+        long {_eventId}
+        string {QC Type}
+
+
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Critical
+        sqlPreparedStatement insert into queues
+          - (containerId, step, eventId)
+          - VALUES (?, ?, ?)
+          string {control}
+          string QC Control
+          long {_eventId}
+
+      sqlPreparedStatement insert into qualifications
+        - (
+        -   containerId,
+        -   qualification,
+        -   step,
+        -   expirationDate,
+        -   eventId
+        - )
+        - SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 60 DAY), ?
+        - FROM dual
+        - WHERE ? = 'Critical'
+        string {control}
+        long {_eventId}
+        string {QC Type}
+
+      sqlPreparedStatement update containers set expirationDate = ? where containerId = ?
+        string {Expiration Date}
+        string {control}
+
+#################################################################################################
+    step Create Control Dilutions
+      jsScripts
+        src js/controls.js
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+        include stepInstructions
+        vertical
+          fieldset
+            legend Instructions
+              class= legend
+            vertical
+              li Scan in the Parent Control
+              li Enter the # of Diluents being used
+              li Enter the # of Aliquots
+
+        vertical
+          container parent
+            containerType~ Control
+            required~ true
+            acceptQueue~ any
+            class= createControlDilutionsParentControl barcodeBackground
+            screenLabel~ Parent Control
+            validate~ SELECT 1
+              - FROM controls
+              - WHERE controlId = ?
+              - AND status = 'In Use'
+              string {parent}
+              errorMessage~ This control is not in use.
+
+          number num
+            screenLabel~ Number of Diluents
+            size= 3
+            required~ true
+            validate~ format (^[0-9]*$)
+            value= 1
+
+          number num2
+            screenLabel~ Number of Aliquots
+            size= 3
+            required~ true
+            validate~ format (^[0-9]*$)
+            value= 2
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        formPreparedQuery~
+          - SELECT
+          -  ({num} + 0) AS 'num'
+
+        formPreparedQuery~
+          - SELECT
+          -  ({num2} + 0) AS 'num2'
+
+        formPreparedQuery~
+          - SELECT IFNULL(c.controlType, 'Not a control') as 'controlType',
+          - c.expirationDate as 'expirationDate', unitOfMeasure
+          - from controls c
+          - where c.controlId = '{parent}'
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden num
+          value= {_:num}
+
+        hidden num2
+          value= {_:num2}
+
+        hidden parent
+          value= {parent}
+
+        hidden currentDate
+          value= {_currentDate}
+
+        vertical
+          div
+            class= createControlDilutionsControlDiv
+            text Control Type
+              class= createControlDilutionsControlType
+              screenLabel~
+              value= {_:controlType}
+              readonly=
+
+        vertical
+          resource control
+            class= createControlDilutionsControl
+            acceptQueue~ any
+            value= {parent}
+            readonly=
+            screenLabel~ Parent Control
+
+          date Expiration Date
+            convert~ false
+            value= {_:formattedExpDate}
+            screenLabel~ Expiration Date for Dilutions
+            class= datePickerFuture required
+            required=
+
+          select QC Type
+            option Critical
+            option Non-Critical
+            required=
+            class= required
+
+          number amt
+            screenLabel~ Amount Used
+            id= parentAmt
+            size= 4
+            class= required
+            required=
+
+          text Units
+            class= createControlDilutionsUnit
+            id= units
+            value= {_resultSet:unitOfMeasure}
+            readonly=
+
+        vertical
+          table
+            id= parentTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' as 'DILUENTS',
+              -   '0.00' as 'Vol',
+              -   '' as 'Units'
+              - FROM numbers
+              - LIMIT ?
+              int {_:num}
+            columnSpecs~ parents
+              allowChangedRecordIds
+              column 1
+                inputType resource
+                  class= diluteControlResource required barcodeBackground
+                  acceptQueue~ any
+                  data-parsley-required= true
+
+              column 2
+                inputType number
+                  size= 4
+                  class= diluentVolumes required
+                  min~ 0.01
+                  required=
+                  data-parsley-required= true
+                  data-parsley-type= number
+
+
+              column 3
+                inputType text
+                  class= units
+                  readonly=
+                  size= 5
+
+
+        vertical
+          table
+            sqlPreparedQuery~
+              - SELECT
+              -   '' as ' ',
+              -   '' as 'Aliquots',
+              -   '0.00' as 'Qty',
+              -   'uL' as 'Units'
+              - FROM numbers
+              - LIMIT ?
+              int {_:num2}
+            columnSpecs~ t1
+              allowChangedRecordIds
+              column 1
+                inputType text
+                  class= createControlDilutionsAliquot
+                  img
+                    class= createControlDilutionsAliquotImg
+                    src= images/aliquot.jpg
+
+              column 2
+                inputType container
+                  new~ true
+                  containerType~ Control
+                  contentType~ Control
+                  addContent~
+                  class= required barcodeBackground
+                  data-parsley-required= true
+                  if~ {QC Type}
+                    advanced~
+                    equals~ Critical
+                    insertQueue~ QC Control
+
+              ####  YOU CAN USE COLUMN 3 AND 4 TO DEDUCT FROM REAGENT TOTAL IF YOU WISH TO TRACK VOLUME USED
+              column 3
+                inputType number
+                  size= 4
+                  min~ 0.01
+                  required=
+                  data-parsley-required= true
+                  data-parsley-type= number
+                  class= required
+
+              column 4
+                inputType select
+                  option uL
+                  option mL
+
+      ## update parent control volume
+      sqlPreparedStatement
+        - UPDATE controls
+        -   SET quantity = (quantity - ?)
+        - WHERE controlId = ?
+        float {amt}
+        string {control}
+
+      validateSql ! SELECT 1 FROM controls WHERE controlId = ? AND sign(quantity) = -1
+        string {control}
+        errorMessage There is not enough of the parent container to create the dilution.
+
+      validateSql select 1 from dual where ? >= ?
+        string {Expiration Date}
+        string {currentDate}
+        errorMessage The Expiration date must be greater than or equal to the current date.
+
+
+      forRows parents
+        ifCondition {_columnInput_parents:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement update controls
+            - set quantity = (quantity - ?)
+            - where controlId = ?
+            float {_columnInput_parents:2}
+            string {_columnInput_parents:1}
+
+          validateSql ! SELECT 1 FROM controls WHERE controlId = ? AND sign(quantity) = -1
+            string {_columnInput_parents:1}
+            errorMessage There is not enough diluent volume to create dilution.
+
+          sqlPreparedStatement update inventoryItems
+            - set quantity = (quantity - ?)
+            - where inventoryItem =
+            - (
+            -   SELECT controlType
+            -   from controls
+            -   where controlId = ?
+            - )
+            float {_columnInput_parents:2}
+            string {_columnInput_parents:1}
+
+        ## Create conversion code to subtract amount from volume
+      forRows t1
+        ifCondition {_columnInput_t1:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO contents(containerId,attribute,contentType,content,eventId)
+            - SELECT ?, 'self', 'Parent Control', ?, ?
+            - FROM dual
+            string {_columnInput_t1:2}
+            string {control}
+            long {_eventId}
+
+          sqlPreparedStatement
+            -  INSERT INTO controls(controlId, controlType, quantity,
+            -                      unitOfMeasure, lotNumber, parentLot,
+            -                      vendor, receivedDate, openDate,
+            -                      expirationDate, qcType,qcStatus,status, eventId)
+            - SELECT
+            -   ?,
+            -   c.controlType,
+            -   ?,
+            -   ?,
+            -   c.lotNumber,
+            -   c.parentLot,
+            -   c.vendor,
+            -   curDate(),
+            -   curDate(),
+            -   ?,
+            -   ?,
+            -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+            -        WHEN ? = 'Non-Critical' THEN 'N/A'
+            -        ELSE c.qcStatus END,
+            -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+            -        WHEN ? = 'Non-Critical' THEN 'In Use'
+            -        ELSE c.status END,
+            -   ?
+            - FROM controls c
+            - WHERE c.controlId = ?
+            string {_columnInput_t1:2}
+            float {_columnInput_t1:3}
+            string {_columnInput_t1:4}
+            string {Expiration Date}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            long {_eventId}
+            string {control}
+
+          sqlPreparedStatement
+            -  INSERT INTO qualifications(containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -   'NEEDS QC',
+            -   '*ALL*',
+            -   ?,
+            -   ?
+            - FROM DUAL
+            - WHERE ? = 'Critical'
+            string {_columnInput_t1:2}
+            string {Expiration Date}
+            long {_eventId}
+            string {QC Type}
+
+          sqlPreparedStatement
+            - INSERT INTO qualifications(containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -  'CONTROL QC',
+            -  '*ALL*',
+            -  ?,
+            -  ?
+            - FROM DUAL
+            - WHERE ? = 'Non-Critical'
+            string {_columnInput_t1:2}
+            string {Expiration Date}
+            long {_eventId}
+            string {QC Type}
+
+      sqlPreparedStatement
+        - UPDATE containers
+        -   SET expirationDate = ?
+        - WHERE containerId IN (SELECT controlId FROM controls WHERE eventId = ? )
+        string {Expiration Date}
+        long {_eventId}
+
+#######################################################################
+
+    step Create Control Aliquots
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+        include stepInstructions
+        vertical
+        div
+          fieldSet
+            class= createControlsInstructions2
+            legend Instructions
+              class= legend
+            vertical
+              span 1. Enter the number of aliquots created.
+              span 2. The next form will require each aliquot to be scanned.
+              span 3. Aliquots will inherit all properties of the parent control.
+        hr
+        vertical
+          container parent
+            containerType~ Control
+            required~ true
+            screenLabel~ Parent ID
+            acceptQueue~ any
+            class= createControlDilutionsParentControl barcodeBackground
+            validate~ SELECT 1
+              - FROM controls
+              - WHERE controlId = ?
+              - AND status = 'In Use'
+              string {parent}
+              errorMessage~ This control is not in use.
+
+
+          number num
+            screenLabel~ # of Aliquots
+            size= 3
+            required~ true
+            validate~ format (^[0-9]*$)
+
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        formPreparedQuery~
+          - SELECT
+          -   controlType,
+          -   lotNumber,
+          -   status,
+          -   qcType,
+          -   expirationDate AS 'expirationDate',
+          -   unitofMeasure
+          - FROM controls
+          - WHERE controlId = ?
+          string {parent}
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden parent
+          value= {parent}
+
+        vertical
+          fieldset
+            class= createControlsInstructions2
+            legend Instructions
+              class= legend
+            vertical
+              li 1. Check to make sure the information on the left is correct.
+              li 2. Scan in the aliquots. They will inherit all properties of the parent control.
+        hr
+        fieldset
+          legend Parent Control
+          vertical
+            resource control
+              screenLabel~ Parent
+              value= {parent}
+              acceptQueue~ any
+              readonly=
+              class= createControlDilutionsParentControl
+
+          vertical
+            span <b>Control Type:</b> {_resultSet:controlType}
+            span <b>Lot:</b> {_resultSet:lotNumber}
+            span <b>Control Status:</b> {_resultSet:status}
+
+        fieldset
+          legend Aliquot Information
+          vertical
+            text num
+              style= display:none;
+              screenLabel~
+              value= {num}
+              required~ false
+
+            date Open Date
+              convert~ false
+              value= {_currentDateFormatted}
+              readonly=
+
+            date Expiration Date
+              convert~ false
+              value= {_:formattedExpDate}
+              class= datePickerFuture required
+              required=
+
+            select QC Type
+              screenLabel~ QC Type for Aliquots
+              option {_:qcType}
+                value= {_:qcType}
+              option Critical
+              option Non-Critical
+
+          vertical
+            number totalAmount
+              class= required
+              screenLabel~ Total Amount Aliquotted
+              size= 4
+              value= 0.00
+              min~ 0.01
+              data-parsley-required= true
+              data-parsley-required= number
+
+            text totalUnits
+              screenLabel~ Units
+              readonly=
+              size= 4
+              value= {_:unitOfMeasure}
+
+          vertical
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -  '' as ' ',
+                -  '' as 'Aliquots',
+                -  '0.00' as 'Vol',
+                -  '' as 'Units'
+                - FROM numbers
+                - LIMIT ?
+                int {num}
+              columnSpecs~ aliquotTable
+                allowChangedRecordIds
+                column 1
+                  inputType text
+                    style= display:none
+                    img
+                      class= createControlDilutionsAliquotImg
+                      src= images/aliquot.jpg
+                column 2
+                  inputType container
+                    new~ true
+                    containerType~ Control
+                    contentType~ Control
+                    addContent~
+                    class= createControlControlId required barcodeBackground
+                    data-parsley-required= true
+
+                column 3
+                  inputType number
+                    size= 4
+                    data-parsley-required= true
+                    data-parsley-required= number
+                    class= required
+                    min~ 0.01
+                column 4
+                  inputType select
+                    option uL
+                    option mL
+                    data-parsley-required=
+                    class= required
+
+      validateSql SELECT 1 FROM dual WHERE ? >= ?
+        string {Expiration Date}
+        string {Open Date}
+        errorMessage The Expiration date must be greater than or equal to the current date.
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET quantity = (quantity - ?)
+        - WHERE controlId = ?
+        float {totalAmount}
+        string {control}
+
+      validateSql ! SELECT 1 FROM controls WHERE controlId = ? AND sign(quantity) = -1
+        string {control}
+        errorMessage There is not enough of the parent container to create the dilution.
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems
+        -  SET quantity = (quantity - ?)
+        - WHERE inventoryItem = (SELECT controlType FROM controls WHERE controlId = ?)
+        float {totalAmount}
+        string {control}
+
+
+      forRows aliquotTable
+        ifCondition {_columnInput_aliquotTable:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT ?, 'self', 'Parent Control', ?, ?
+            - FROM dual
+            string {_columnInput_aliquotTable:2}
+            string {control}
+            long {_eventId}
+
+          sqlPreparedStatement
+            -  INSERT INTO controls(controlId, controlType, quantity,
+            -                      unitOfMeasure, lotNumber, parentLot,
+            -                      vendor, receivedDate, openDate,
+            -                      expirationDate, qcStatus,status,qcType, eventId)
+            - SELECT
+            -   ?,
+            -   c.controlType,
+            -   ?,
+            -   ?,
+            -   c.lotNumber,
+            -   c.parentLot,
+            -   c.vendor,
+            -   c.receivedDate,
+            -   c.openDate,
+            -   ?,
+            -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+            -        WHEN ? = 'Non-Critical' THEN 'N/A'
+            -        ELSE c.qcStatus END,
+            -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+            -        WHEN ? = 'Non-Critical' THEN 'In Use'
+            -        ELSE c.status END,
+            -   ?,
+            -   ?
+            - FROM controls c
+            - WHERE c.controlId = ?
+            string {_columnInput_aliquotTable:2}
+            float {_columnInput_aliquotTable:3}
+            string {_columnInput_aliquotTable:4}
+            string {Expiration Date}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            long {_eventId}
+            string {control}
+
+
+          sqlPreparedStatement
+            -  INSERT INTO qualifications(containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -   'NEEDS QC',
+            -   '*ALL*',
+            -   ?,
+            -   ?
+            - FROM DUAL
+            - WHERE ? = 'Critical'
+            string {_columnInput_aliquotTable:2}
+            string {Expiration Date}
+            long {_eventId}
+            string {QC Type}
+
+          sqlPreparedStatement
+            - INSERT INTO qualifications(containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -  'CONTROL QC',
+            -  '*ALL*',
+            -  ?,
+            -  ?
+            - FROM DUAL
+            - WHERE ? = 'Non-Critical'
+            string {_columnInput_aliquotTable:2}
+            string {Expiration Date}
+            long {_eventId}
+            string {QC Type}
+
+
+          sqlPreparedStatement insert into queues (containerId, step, eventId)
+            - SELECT ?, 'QC Control', ?
+            - FROM dual
+            - WHERE ? = 'Critical'
+            string {_columnInput_aliquotTable:2}
+            long {_eventId}
+            string {QC Type}
+
+
+      sqlPreparedStatement
+        - UPDATE containers
+        -   SET expirationDate = ?
+        - WHERE containerId IN (SELECT controlId FROM controls WHERE eventId = ? )
+        string {Expiration Date}
+        long {_eventId}
+
+
+    step QC Control
+
+      cssLinks
+        link css/controlsAdmin.css
+
+      queueQuery select q.containerId,
+        - c.controlType,
+        - c.lotNumber,
+        - GROUP_CONCAT(co.containerId SEPARATOR ' | ') as 'Aliquots',
+        - c.status,
+        - c.receivedDate,
+        - e.eventId
+        - from queues q
+        - inner join controls c
+        -   on q.containerId = c.controlId
+        - inner join events e
+        -   on q.eventId = e.eventId
+        - left outer join contents co
+        -   on q.containerId = co.content
+        -   and co.contentType = 'Parent Control'
+        - where q.step = 'QC Control'
+        - group by q.containerId
+        - order by c.controlType, c.receivedDate
+
+      queueSelectRecId
+
+      form
+        include stepInstructions
+        ENCTYPE= multipart/form-data
+        vertical
+          div
+            fieldset
+              class= createControlsInstructions2
+              legend  Instructions
+                class= legend
+              vertical
+                li Once a control has been tested, the results can be recorded here.
+                li The user can select to either Pass, Fail, or Retest the control and record the results for just the individual control or for the entire lot.
+                li Only those of the same lot#, vendor, controlType, and receive date will receive the pass/fail/retest results.
+
+        hr
+        vertical
+          container _recId
+            screenLabel~ Control ID
+            class= createControlControlId barcodeBackground
+            acceptQueue~ {_step}
+            containerType~ Control
+            recordContainerHistory~ false
+
+      form
+        include stepInstructions
+        data-parsley-validate=
+        ENCTYPE= multipart/form-data
+        formPreparedQuery~
+          - SELECT
+          -   c.lotNumber,
+          -   c.expirationDate AS 'expirationDate',
+          -   c.controlType,
+          -   c.receivedDate,
+          -   v.vendor AS 'vendorName',
+          -   c.vendor AS 'vendor'
+          - FROM controls c
+          - LEFT JOIN vendors v ON v.vendorId = c.vendor
+          - where c.controlId = '{_recId}'
+
+        formQuery~ formattedExpDate
+          convertDateTime~ false
+          formatDate~
+          value= {_:expirationDate}
+
+        formQuery~ formattedReceivedDate
+          convertDateTime~ false
+          formatDate~
+          value= {_:receivedDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden vendorId
+          value= {_:vendor}
+
+        vertical
+          div
+            fieldset
+              class= createControlsInstructions2
+              legend  Explanation
+                class= legend
+              vertical
+                li Once a control has been tested, its results can be recorded here.
+                li The user can select to either Pass, Fail, or Retest the control and record the results for just the individual control or for the entire lot.
+                li Only those of the same lot#, vendor, controlType, and receive date will receive the pass/fail/retest results.
+
+        hr
+        vertical2
+          div
+            vertical
+              div
+                class= QCControlControlTypeDiv
+                vertical
+                  text Control Type
+                    class= QCControlControlType
+                    screenLabel~
+                    value= {_resultSet:controlType}
+                    readonly=
+                    size= 100
+                  span Lot #: {_:lotNumber}
+                  span Expiration Date: {_:formattedExpDate}
+                  span Received Date: {_:formattedReceivedDate}
+                  span Vendor: {_:vendorName}
+
+            vertical
+              container _recId
+                acceptQueue~ any
+                value= {_recId}
+                readonly=
+                screenLabel~ Control ID
+                size= 40
+                ### If something needs retesting, it will simply be re-queued to this step.
+                if~ {Test Status}
+                  advanced~
+                  equals~ Retest
+                  deleteQueue~ QC Control
+                  insertQueue~ QC Control
+                if~ {Test Status}
+                  advanced~
+                  equals~ Fail
+                  deleteQueue~ QC Control
+                if~ {Test Status}
+                  advanced~
+                  equals~ Pass
+                  deleteQueue~ QC Control
+                class= barcodeBackground
+
+            vertical
+              select Option
+                option For Lot
+                option For Individual
+
+              text lot
+                screenLabel~
+                required~ true
+                value= {_resultSet:lotNumber}
+                style= display:none
+
+              text recDate
+                screenLabel~
+                value= {_:receivedDate}
+                style= display:none
+
+              text today
+                screenLabel~
+                value= {_currentDate}
+                style= display:none
+
+              text vendorName
+                screenLabel~
+                value= {_resultSet:vendorName}
+                style= display:none
+
+              select Test Status
+                option
+                option Pass
+                option Fail
+                option Retest
+                required~ true
+                data-parsley-required= true
+                class= required
+
+              file qcFile
+                screenLabel~ Attach File
+                destinationFolderName~ documents/QCFiles
+                required~ false
+
+              ### step will be re-worked at a later date, currently step names do not populate and the functionality does not exist
+              select steps
+                screenLabel~ Qualified Steps
+                # size= 2
+                # multiple=
+                required~ true
+                data-parsley-required= true
+                class= required
+                option *ALL*
+                # option Specific Step Name
+
+              date expirationDate
+                convert~ false
+                dateFormat~ {_dateShortFormat}
+                class= date datePicker required
+                screenLabel~ Expiration Date
+                value= {_:formattedExpDate}
+                required~ true
+                data-parsley-required= true
+
+              comments Comments
+          div
+            table
+              caption All controls of same lot, vendor, type, and received date
+              sqlPreparedQuery~
+                - SELECT q.containerId AS 'Control'
+                - , c.lotNumber AS 'Lot'
+                - , c.controlType AS 'Type'
+                - , c.receivedDate AS 'Rec Date'
+                - , v.vendor AS 'Vendor'
+                - FROM queues q
+                - INNER JOIN controls c ON q.containerId = c.controlId
+                - INNER JOIN vendors v ON c.vendor = v.vendorId
+                - WHERE q.step = ?
+                -   AND c.controlId IN (SELECT controlId from controls where lotNumber = ? and receivedDate = ?
+                -   AND vendor = ? AND controlType = ? and controlId <> ?)
+                string {_step}
+                string {_:lotNumber}
+                string {_:receivedDate}
+                string {_:vendor}
+                string {_:controlType}
+                string {_recId}
+
+
+      sqlPreparedStatement update events set comments = ? where eventId = ?
+        string {Test Status}. {Comments}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+        - VALUES (?, 'QC Reagent', ?, ?)
+        string {_recId}
+        string {Comments}
+        long {_eventId}
+
+      sqlPreparedStatement insert into containerFiles (containerId, fileType, fileName, location, eventId)
+        - SELECT ?, 'Control QC File', ?, 'documents/QCFiles', ?
+        - FROM dual
+        - WHERE ? <> ''
+        string {_recId}
+        string {qcFile}
+        long {_eventId}
+        string {qcFile}
+
+      ## HAD TO OPEN THE REAGENT TO QC IT, SO IT GETS AN OPEN DATE HERE ##
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET openDate = ?
+        - WHERE controlId = ?
+        string {today}
+        string {_recId}
+
+      ## INSERTING QUALIFICATION RECORD(S) FOR INDIVIDUALLY PASSED REAGENT ##
+      ifCondition {Test Status}
+        advanced~
+        equals~ Pass
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -    ?,
+          -   'Control QC',
+          -    ?,
+          -    ?,
+          -    ?
+          - FROM controls c
+          - WHERE c.controlId = ?
+          -   AND ? = 'For Individual'
+          string {_recId}
+          string {steps}
+          string {expirationDate}
+          long {_eventId}
+          string {_recId}
+          string {Option}
+
+
+      ## INSERTING QUALIFICATION RECORD(S) FOR CONTROLS OF THE SAME LOT, TYPE, VENDOR, AND RECEIVED DATE ##
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -   c.controlId,
+          -   'Control QC',
+          -   ?,
+          -   ?,
+          -   ?
+          - FROM controls c
+          - WHERE c.lotNumber = ?
+          -   AND c.controlType = ?
+          -   AND c.vendor = ?
+          -   AND c.receivedDate = ?
+          -   AND ? = 'For Lot'
+          -   AND c.status = 'Pending QC'
+          string {steps}
+          string {expirationDate}
+          long {_eventId}
+          string {lot}
+          string {Control Type}
+          string {vendorId}
+          string {recDate}
+          string {Option}
+
+      sqlPreparedStatement
+        - DELETE FROM queues
+        - WHERE step = 'QC Control'
+        - AND ? = 'For Lot'
+        - AND (? = 'Pass' or ? = 'Fail')
+        -   AND containerId IN (select controlId from controls where lotNumber = ?
+        -   AND controlType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?)
+        string {Option}
+        string {Test Status}
+        string {Test Status}
+        string {lot}
+        string {Control Type}
+        string {vendorId}
+        string {recDate}
+
+      ## DELETE FROM QUALIFICATIONS WHERE eventId <> eventId and Test Satus = Pass or Test Status = Fail  ####
+      sqlPreparedStatement
+        - DELETE from qualifications
+        - WHERE containerId = ?
+        - AND eventId <> ?
+        - AND ? = 'For Individual'
+        - AND ? in ('Pass', 'Fail')
+        string {_recId}
+        long {_eventId}
+        string {Option}
+        string {Test Status}
+
+      sqlPreparedStatement
+        - DELETE FROM qualifications
+        - WHERE containerId IN (select controlId from controls where lotNumber = ?
+        -   AND controlType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?)
+        - AND eventId <> ?
+        - AND ? = 'For Lot'
+        - AND ? in ('Pass', 'Fail')
+        string {lot}
+        string {Control Type}
+        string {vendorId}
+        string {recDate}
+        long {_eventId}
+        string {Option}
+        string {Test Status}
+
+
+        ### A CASE STATEMENT CAN BE USED TO HAVE ONLY TWO UPDATE STATEMENTS ##
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET qcStatus = ?,
+        -     status = 'In Use'
+        - WHERE lotNumber = ?
+        -   AND controlType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?
+        -   AND ? = 'Pass'
+        -   AND ? = 'For Lot'
+        string {Test Status}
+        string {lot}
+        string {Control Type}
+        string {vendorId}
+        string {recDate}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET qcStatus = ?,
+        -     status = 'Pending QC'
+        - WHERE lotNumber = ?
+        -   AND controlType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?
+        -   AND ? = 'Retest'
+        -   AND ? = 'For Lot'
+        string {Test Status}
+        string {lot}
+        string {Control Type}
+        string {vendorId}
+        string {recDate}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET qcStatus = ?,
+        -     status = 'Failed'
+        - WHERE lotNumber = ?
+        -   AND controlType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?
+        -   AND ? = 'Fail'
+        -   AND ? = 'For Lot'
+        string {Test Status}
+        string {lot}
+        string {Control Type}
+        string {vendorId}
+        string {recDate}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET status = 'In Use',
+        -     qcStatus = ?
+        - WHERE controlId = ?
+        -   AND ? = 'Pass'
+        -   AND ? = 'For Individual'
+        string {Test Status}
+        string {_recId}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET status = 'Pending QC',
+        -     qcStatus = ?
+        - WHERE controlId = ?
+        -   AND ? = 'Retest'
+        -   AND ? = 'For Individual'
+        string {Test Status}
+        string {_recId}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET status = 'Failed',
+        -     qcStatus = ?
+        - WHERE controlId = ?
+        - AND ? = 'Fail'
+        - AND ? = 'For Individual'
+        string {Test Status}
+        string {_recId}
+        string {Test Status}
+        string {Option}
+
+    _step Dispose Control
+      jsScripts
+        src js/resources/disposeControls.js
+      form
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden dateLongFormat
+          id= dateLongFormat
+          value= {_dateLongFormat}
+
+        vertical
+          fieldset
+            class= createControlsInstructions1
+            legend Explanation
+              class= legend
+            vertical
+              li Scan the control or Select the controls that have been or are ready to be disposed.
+              li This will update the status of the control to <i>Disposed</i> and will no longer be counted as active inventory.
+        hr
+        vertical2
+          text Dispose
+            acceptQueue~ any
+            required~ false
+            screenLabel~ Scan Control to Dispose:
+            class= createControlControlId barcodeBackground
+            validate~ ! select 1 from controlHistory where controlId = '{_thisInput}' and status = 'Disposed'
+              errorMessage~ This control has already been disposed.
+            validate~ select 1 from containers where containerId = '{_thisInput}' and containerType = 'Control' OR '{_thisInput}' = ''
+              errorMessage~ This is not a known control.
+        hr
+        vertical
+          div
+            class= tabs
+            ul
+              li
+                a Select Control To Dispose
+                  href= #toDispose
+              li
+                a !!! View Recently Disposed by {_userId}
+                  href= #recentlyDisposed
+            div
+              id= recentlyDisposed
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~ SELECT DISTINCT
+                  - ch.containerId as 'Control ID',
+                  -  e.userId as 'Disposed By',
+                  -   e.eventDate as 'Time', e.comments as 'Comments'
+                  - from containerHistory ch
+                  - inner join events e
+                  -   on ch.eventId = e.eventId
+                  - where e.step = ?
+                  -   and e.userId = ?
+                  -   and e.eventDate > DATE_SUB(now(), INTERVAL 2 DAY)
+                  - group by ch.eventId
+                  string {_step}
+                  string {_userId}
+                columnSpecs~ disposedLately
+                  allowChangedRecordIds
+                  column 3
+                    formatDateTime~
+            div
+              id= toDispose
+              table
+                class= stdTableBasic
+                sqlQuery~ select '' as 'Dispose',
+                  -   controlId as 'ControlId',
+                  -   controlType as 'Type',
+                  -   expirationDate as 'Exp Date',
+                  -   quantity as 'Qty',
+                  -   unitofMeasure as 'Units',
+                  -   status as 'Status'
+                  - from controls
+                  - where status IN ('In Use', 'Pending QC', 'Failed')
+                  - order by controlType, expirationDate
+                columnSpecs~ dispose
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 2
+                    inputType text
+                      readonly=
+                  column 3
+                    inputType text
+                      readonly=
+                  column 4
+                    formatDate~
+                  column 5
+                    inputType text
+                      size= 4
+                      readonly=
+          comments Comments
+      forRows dispose
+        ifCondition {_columnInput_dispose:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update controls set status = 'Disposed' where controlId = ?
+            string {_columnInput_dispose:2}
+          ## after the status update, the trigger will insert into reagentHistory, then we can delete...
+          sqlPreparedStatement delete from controls where controlId = ?
+            string {_columnInput_dispose:2}
+          sqlPreparedStatement delete from qualifications where containerId = ?
+            string {_columnInput_dispose:2}
+          sqlPreparedStatement insert into containerHistory (containerId, eventId)
+            - SELECT ?, {_eventId} FROM dual
+            string {_columnInput_dispose:2}
+          sqlPreparedStatement update inventoryItems set quantity = (quantity - ?)
+            - where inventoryItem = ? and ? >= 0
+            float {_columnInput_dispose:5}
+            string {_columnInput_dispose:3}
+            float {_columnInput_dispose:5}
+          ### did this because the step will not allow user to submit a container that's expired...
+      sqlPreparedStatement update controls set status = 'Disposed' where controlId = ? and ? <> ''
+        string {Dispose}
+        string {Dispose}
+      sqlPreparedStatement delete from controls where controlId = ?
+        string {Dispose}
+      sqlPreparedStatement delete from qualifications where containerId = ? and ? <> ''
+        string {Dispose}
+        string {Dispose}
+
+    step Lookup Control
+      form
+        include stepInstructions
+        vertical
+          text _recId
+            screenLabel~ Control ID
+            class= barcodeBackground
+            value= {_recId}
+            validate~
+              - SELECT 1
+              - FROM controls
+              - WHERE ? = controlId
+              string {_recId}
+              errorMessage~ This Control ID does not exist as a control in the system.
+
+      form
+        include stepInstructions
+
+        script
+          src= js/controls.js
+
+
+        formPreparedQuery~
+          - (SELECT c.controlId,
+          - c.controlType,
+          - c.catalogNo,
+          - c.quantity,
+          - c.unitOfMeasure,
+          - c.lotNumber,
+          - c.parentLot,
+          - c.storageId,
+          - c.projectType,
+          - c.costPerUnit,
+          - c.poNumber,
+          - c.receivedDate,
+          - c.expirationDate,
+          - c.openDate,
+          - c.qcStatus,
+          - c.status,
+          - c.qcType,
+          - CASE WHEN c.vendor = 'In House' THEN c.vendor ELSE v.vendor END AS 'vendorName'
+          - FROM controls c
+          - LEFT JOIN vendors v
+          -   ON c.vendor = v.vendorId
+          - WHERE c.controlId = ?)
+          - UNION
+          - (SELECT ch.controlId,
+          - ch.controlType,
+          - ch.catalogNo,
+          - ch.quantity,
+          - ch.unitOfMeasure,
+          - ch.lotNumber,
+          - ch.parentLot,
+          - ch.storageId,
+          - ch.projectType,
+          - ch.costPerUnit,
+          - ch.poNumber,
+          - ch.receivedDate,
+          - ch.expirationDate,
+          - ch.openDate,
+          - ch.qcStatus,
+          - ch.status,
+          - ch.qcType,
+          - CASE WHEN ch.vendor = 'In House' THEN ch.vendor ELSE v.vendor END AS 'vendorName'
+          - FROM controlHistory ch
+          - LEFT JOIN vendors v
+          -   ON ch.vendor = v.vendorId
+          - WHERE ch.controlId = ?
+          - ORDER BY ch.eventId desc)
+          - LIMIT 1
+          string {_recId}
+          string {_recId}
+          allowEmptyResults~
+
+        formQuery~ formattedRecDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:receivedDate}
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        formQuery~ formattedOpenDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:openDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden dateLongFormat
+          id= dateLongFormat
+          value= {_dateLongFormat}
+
+        formPreparedQuery~ select e.* from events e, controls c where c.eventId = e.eventId and c.controlId = ?
+          string {_recId}
+          allowEmptyResults~
+        vertical
+          span Control {_:controlId} is <b>{_:status}</b>
+        vertical
+        div
+          id= infoTabs
+          ul
+            li
+              a Control Details
+                href= #ctrDetails
+            li
+              a Quality Control
+                href= #quality
+            li
+              a Part of...
+                href= #preparedIn
+            li
+              a Aliquots
+                href= #aliquots
+            li
+              a Parent Control
+                href= #parent
+            li
+              a History
+                href= #history
+          div
+            id= ctrDetails
+            #class= dashBlock
+            h3 Control Details
+            vertical2
+              div
+                vertical
+                  span <b>ID:</b> {_:controlId}
+                  span <b>Type:</b> {_:controlType}
+                  span <b>Vendor:</b> {_:vendorName}
+                  span <b>Lot:</b> {_:lotNumber}
+                  span <b>Received Date:</b> {_:formattedRecDate}
+              div
+                vertical
+                  span <b>Expiration Date:</b> {_:formattedExpDate}
+                  span <b>Open Date:</b> {_:formattedOpenDate}
+                  span <b>QC Status:</b> {_:qcStatus}
+                  span <b>Quantity:</b> {_:quantity} {_resultSet:unitOfMeasure}
+                  span <b>Received By:</b> {_:userId}
+          div
+            id= quality
+            #class= dashBlock
+            h3 Quality Control
+            vertical
+              span <b>Status:</b> {_:qcStatus}
+              span <b>Open Date:</b> {_:formattedOpenDate}
+              span <b>Attached Files:</b>
+              table
+                sqlQuery~ select CONCAT('<a href=/documents/QCFiles/', fileName,'>', fileName, '</a>') as 'fileName'
+                  + from containerFiles
+                  + where containerId = '{_recId}' and fileType = 'Control QC File'
+
+
+          div
+            id= preparedIn
+            #class= dashBlock
+            h3 Controls Composed of This Control
+            vertical
+              table
+                sqlPreparedQuery SELECT co.containerId AS "Control", co.contentType AS "Control Type", e.eventDate AS "Date"
+                  - FROM contents co
+                  - JOIN events e ON e.eventId = co.eventId
+                  - where content = ? and contentType = 'Component'
+                  string {_recId}
+                columnSpecs~ preparedIn
+                  allowChangedRecordIds
+                  column 3
+                    formatDateTime~
+
+          div
+           # class= dashBlock
+            id= aliquots
+            h3 Aliquots
+            vertical
+              table
+                sqlPreparedQuery SELECT co.containerId AS "Control", co.contentType AS "Control Type", e.eventDate AS "Date"
+                  - FROM contents co
+                  - INNER JOIN events e ON e.eventId = co.eventId
+                  - WHERE co.content = ? AND co.contentType = 'Parent Control'
+                  string {_recId}
+                columnSpecs~ aliquots
+                  allowChangedRecordIds
+                  column 3
+                    formatDateTime~
+          div
+           # class= dashBlock
+            id= parent
+            h3 Parent Control
+            vertical
+              table
+                sqlPreparedQuery SELECT co.containerId AS "Control", co.contentType AS "Control Type", e.eventDate AS "Date"
+                  - FROM contents co
+                  - INNER JOIN events e ON e.eventId = co.eventId
+                  - WHERE co.content = ? AND co.contentType = 'Parent Control'
+                  string {_recId}
+                columnSpecs~ parent
+                  allowChangedRecordIds
+                  column 3
+                    formatDateTime~
+          div
+            id= history
+           # class= dashBlock
+            h3 UNIFlow History Usage
+            vertical
+              table
+                sqlPreparedQuery~ SELECT rh.containerId AS "Resource", e.step AS "Step", e.eventDate AS "Date", e.userId AS "User", e.comments AS "Comments"
+                  - FROM resourceHistory rh, events e
+                  - WHERE rh.eventId = e.eventId AND rh.containerId = ?
+                  string {_recId}
+                columnSpecs~ usage
+                  allowChangedRecordIds
+                  column 3
+                    formatDateTime~
+            vertical
+              table
+                sqlPreparedQuery~ SELECT ch.containerId AS "Control", e.step AS "Step", e.eventDate AS "Date", e.userId AS "User", e.comments AS "Comments"
+                  - FROM containerHistory ch, events e
+                  - WHERE ch.eventId = e.eventId AND ch.containerId = ?
+                  string {_recId}
+                columnSpecs~ usage2
+                  allowChangedRecordIds
+                  column 3
+                    formatDateTime~
+
+    step Edit Control
+      jsScripts
+        src js/editControls.js
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+        include stepInstructions
+        vertical
+          text Control
+            screenLabel~ Control ID
+            class= createControlControlId barcodeBackground
+            required=
+            validate~
+              - SELECT 1
+              - FROM containers
+              - WHERE containerId = ?
+              -   AND containerType = 'Control'
+              string {_thisInput}
+              errorMessage~ This is not a valid Control.
+            validate~
+              - ! SELECT 1
+              - FROM containers
+              - WHERE containerId = ? AND containerType = 'Control'
+              -   AND NOT EXISTS (SELECT 1 FROM controls WHERE controlId = ? )
+              string {_thisInput}
+              string {_thisInput}
+              errorMessage~ This control no longer exists in the system.
+            validate~ SELECT 1
+              - FROM containers
+              - WHERE containerId = ?
+              -   AND containerType = 'Control'
+              -   AND expirationDate >= now()
+              string {_thisInput}
+              errorMessage~ This control is expired and cannot be edited.
+
+
+      form
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   c.controlId
+          -   , c.controlType
+          -   , v.vendor
+          -   , c.lotNumber
+          -   , c.receivedDate AS 'receivedDate'
+          -   , c.expirationDate AS 'expirationDate'
+          -   , storageId
+          -   , IFNULL(c.quantity,'0.00') AS 'quantity'
+          -   , c.unitOfMeasure
+          -   , c.qcStatus
+          -   , c.status
+          -   , c.qcType
+          - FROM controls c
+          - INNER JOIN vendors v
+          -   ON c.vendor = v.vendorId
+          - WHERE controlId = ?
+          string {Control}
+
+        configurePreparedQuery~
+          - SELECT IFNULL(q.containerId, 'NotQueued') as 'queuedQC'
+          - FROM queues q
+          - WHERE q.step = 'QC Control' and q.containerId = ?
+          string {Control}
+          allowEmptyResults~
+          emptyResultDefault~
+            queuedQC= NotQueued
+
+        formQuery~ formattedRecDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:receivedDate}
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        formPreparedQuery~
+          - SELECT
+          -  units AS 'invUnits'
+          - FROM inventoryItems
+          - WHERE inventoryItem = '{_resultSet:controlType}'
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden oQCType
+          value= {_:qcType}
+        hidden oQCStatus
+          value= {_:qcStatus}
+        hidden ostatus
+          value= {_:status}
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li Update control information
+              li Note: QC Status must be Pass or N/A in order for a control to be updated to an In Use status.
+
+        vertical
+          container Control
+            acceptQueue~ any
+            value= {Control}
+            readonly=
+            if~ {qualify}
+              advanced~
+              equals~ true
+              insertQueue~ QC Control
+          select Control Type
+            option {_resultSet:controlType}
+            sqlPreparedQuery~
+              - SELECT
+              -  value
+              - FROM validValues
+              - WHERE setName = 'Received Control' OR setName = 'Prepared Control'
+
+        vertical
+          select Vendor
+            value= {_:vendor}
+            sqlPreparedQuery~
+              - SELECT
+              -   vendor,
+              -   vendorId
+              - FROM vendors
+              - ORDER BY vendor ASC
+          text Lot Number
+            value= {_resultSet:lotNumber}
+            required~ true
+          date Date Received
+            convert~ false
+            value= {_:formattedRecDate}
+            class= datePicker required
+            required=
+          date Expiration Date
+            convert~ false
+            value= {_:formattedExpDate}
+            class= datePickerFuture required
+            required=
+          text Location
+            value= {_resultSet:storageId}
+          text Quantity
+            value= {_resultSet:quantity}
+          select Unit
+            option {_resultSet:unitOfMeasure}
+            option {_resultSet:invUnits}
+          select QC Type
+            option {_resultSet:qcType}
+            option Critical
+            option Non-Critical
+          text original
+            screenLabel~
+            value= {_resultSet:qcType}
+            style= display:none
+          select QC Status
+            option {_resultSet:qcStatus}
+            option Pending
+            option Pass
+            option Fail
+            option Retest
+            option N/A
+          select Status
+            option {_resultSet:status}
+            option In Use
+            option Pending QC
+            validate~
+              - SELECT 1
+              - FROM dual
+              - WHERE (? IN ('Pass', 'N/A') AND ? = 'In Use')
+              -   OR ? <> 'In Use'
+              string {QC Status}
+              string {Status}
+              string {Status}
+              errorMessage~ QC Status MUST be 'Pass' in order for the control to be 'In Use'.  Please pass the control through the QC Control step.
+
+        div
+          configureIf~
+            advanced~
+            sqlPreparedQuery~ select 1 from dual where ? = 'NotQueued'
+              string {_:queuedQC}
+          vertical
+            checkbox qualify
+              screenLabel~ Queue to QC Control
+
+
+
+     ## Check that the QC Type is critical before queuing to QC Control
+      ifCondition {qualify}
+        advanced~
+        equals~ true
+        validateSql SELECT 1 FROM dual WHERE ? = 'Critical'
+          string {QC Type}
+          errorMessage The control must be have a QC Type of Critical to be queued to QC Control.
+
+      ## Check that the original QC Type was Critical and then changed to Non-Critical and then delete from QC Control queue
+      ifCondition {oQCType}
+        advanced~
+        equals~ Critical
+        and~ {QC Type}
+          equals~ Non-Critical
+        sqlPreparedStatement
+          - DELETE FROM queues
+          -  WHERE step = 'QC Control'
+          - AND containerId = ?
+          string {Control}
+
+
+      ## qc status and status update fields must be before lotNumber and qcType in the update query in order to work properly.
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT
+          -  vendorId as 'vendorId'
+          - FROM vendors
+          - WHERE vendor = ?
+          string {Vendor}
+
+      sqlPreparedStatement
+        - UPDATE controls
+        - SET controlType = ?
+        -  , vendor = ?
+        -  , receivedDate = ?
+        -  , storageId = ?
+        -  , expirationDate = ?
+        -  , quantity = ?
+        -  , unitOfMeasure = ?
+        -  , qcStatus = CASE WHEN ? = 'Critical' AND qcType <> 'Critical' THEN 'Pending'
+        -                    WHEN ? = 'Critical' AND lotNumber <> ? THEN 'Pending'
+        -                    WHEN ? = 'Non-Critical' THEN 'N/A'
+        -                    ELSE ? END
+        -  , status = CASE WHEN ? = 'Critical' AND qcType <> 'Critical' THEN 'Pending QC'
+        -                  WHEN ? = 'Critical' AND lotNumber <> ? THEN 'Pending QC'
+        -                  WHEN ? = 'Non-Critical' THEN 'In Use'
+        -                  ELSE ? END
+        -  , lotNumber = ?
+        -  , qcType = ?
+        - WHERE controlId = ?
+        string {Control Type}
+        string {vendorId}
+        string {Date Received}
+        string {Location}
+        string {Expiration Date}
+        float {Quantity}
+        string {Unit}
+        string {QC Type}
+        string {QC Type}
+        string {Lot Number}
+        string {QC Type}
+        string {QC Status}
+        string {QC Type}
+        string {QC Type}
+        string {Lot Number}
+        string {QC Type}
+        string {QC Status}
+        string {Lot Number}
+        string {QC Type}
+        string {Control}
+
+      sqlPreparedStatement
+        - UPDATE containers SET expirationDate = ?
+        - WHERE containerId = ?
+        string {Expiration Date}
+        string {Control}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Critical
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 FROM qualifications WHERE containerId = ?
+            string {Control}
+          sqlPreparedStatement UPDATE qualifications
+            - SET qualification = 'NEEDS QC'
+            -   , step = '*ALL*'
+            -   , expirationDate = DATE_ADD(curDate(), INTERVAL 60 DAY)
+            -   , eventId = ?
+            - WHERE containerId = ?
+            long {_eventId}
+            string {Control}
+          ELSE
+            sqlPreparedStatement INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+              - SELECT ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 60 DAY), ?
+              - FROM DUAL
+              - WHERE ? = ''
+              string {Control}
+              long {_eventId}
+              string {Control}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Non-Critical
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 FROM qualifications WHERE containerId = ?
+            string {Control}
+          sqlPreparedStatement UPDATE qualifications
+            - SET qualification = 'Control QC'
+            -   , step = '*ALL*'
+            -   , expirationDate = ?
+            -   , eventId = ?
+            - WHERE containerId = ?
+            string {Expiration Date}
+            long {_eventId}
+            string {Control}
+          ELSE
+            sqlPreparedStatement INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+              - SELECT ?, 'Control QC', '*ALL*', ?, ?
+              - FROM DUAL
+              - WHERE ? = ''
+              string {Control}
+              string {Expiration Date}
+              long {_eventId}
+              string {Control}
+
+
+#################################################################################################
+    step Manage Control Limits
+      accessLevel 10
+
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+        include combobox
+        include stepInstructions
+
+        script
+          src= js/controlManagement.js
+
+        vertical
+          div
+            id= accordion
+            h3 Add Control Assay Limits
+            div
+              vertical
+                select panel
+                  sqlQuery~ select panelCode, id from testPanels order by panelCode
+                  class= combobox
+                  screenLabel~ Panel Code
+                select Control Type
+                  option
+                  sqlQuery~ select DISTINCT controlType, controlType from controls order by controlType
+                number Target
+                  size= 6
+                  value= 0.00
+                number Lower Limit
+                  size= 6
+                  value= 0.00
+                number Upper Limit
+                  size= 6
+                  value= 0.00
+
+            h3 Edit Control Assay Limits
+            div
+              table
+                sqlQuery~ select p.panelCode as 'Panel Code',
+                  - cl.controlType as 'Type',
+                  - cl.target as 'Target Mean',
+                  - cl.lowerLimit as 'Lower Limit',
+                  - cl.upperLimit as 'Upper Limit',
+                  - '' as 'Update',
+                  - '' as 'Remove',
+                  - cl.id as ''
+                  - from controlLimits cl
+                  - inner join testPanels p on p.id = cl.panelId
+                  - order by p.panelCode, cl.controlType
+                columnSpecs~ editPanels
+                  allowChangedRecordIds
+                  column 1
+                    inputType select
+                      sqlQuery~ select panelCode, id from testPanels order by panelCode
+                      required~ true
+                      data-parsley-required= true
+                  column 2
+                    inputType select
+                      sqlQuery~ select DISTINCT controlType, controlType from controls order by controlType
+                      required~ true
+                      data-parsley-required= true
+                  column 3
+                    inputType text
+                  column 4
+                    inputType text
+                      size= 6
+                  column 5
+                    inputType text
+                      size= 6
+                  column 6
+                    inputType checkbox
+                  column 7
+                    inputType checkbox
+                  column 8
+                    inputType text
+                      class= manageControlLimitsId
+                      readonly=
+            h3 List Control Limits
+            div
+              table
+                sqlQuery~ select tp.panelCode as 'Panel Code'
+                  - , cl.controlType as 'Type'
+                  - , cl.target as 'Target Mean'
+                  - , cl.lowerLimit as 'Lower Limit'
+                  - , cl.upperLimit as 'Upper Limit'
+                  - , cl.eventId as 'Event Id'
+                  - from controlLimits cl
+                  - inner join testPanels tp on tp.id = cl.panelId
+                  - order by cl.controlType
+
+      ifCondition {panel}
+        advanced~
+        not~
+          isBlank~
+        and~ {Control Type}
+          not~
+            isBlank~
+        sqlPreparedStatement insert into controlLimits (panelId, controlType, target, lowerLimit, upperLimit, eventId)
+          - values (?, ?, ?, ?, ?, ?)
+          string {panel}
+          string {Control Type}
+          float {Target}
+          float {Lower Limit}
+          float {Upper Limit}
+          long {_eventId}
+
+      forRows editPanels
+        ifCondition {_columnInput_editPanels:6}
+          advanced~
+          equals~ true
+          or~ {_columnInput_editPanels:7}
+            equals~ true
+
+          sqlPreparedStatement delete from controlLimits where id = ?
+            long {_columnInput_editPanels:8}
+          ifCondition {_columnInput_editPanels:6}
+            advanced~
+            equals~ true
+            sqlPreparedStatement insert into controlLimits (panelId, controlType, target, lowerLimit, upperLimit, eventId)
+              - values (?, ? , ?, ?, ?, ?)
+              long {_columnInput_editPanels:1}
+              string {_columnInput_editPanels:2}
+              float {_columnInput_editPanels:3}
+              float {_columnInput_editPanels:4}
+              float {_columnInput_editPanels:5}
+              long {_eventId}
+
+
+#################################################################################
+
+    step Manage Control Expected Values
+
+      cssLinks
+        link css/controlsAdmin.css
+
+      form
+        include combobox
+        include stepInstructions
+
+        script
+          src= js/controlManagement.js
+
+        vertical
+          div
+            id= accordion
+            h3 Add Control Expected Value
+            div
+              vertical
+                select Assay
+                  option
+                  sqlQuery~ select DISTINCT assay from controlsExpectedSNP order by assay
+                  class= combobox
+                text Control Catalog Number
+                text Gene
+                text SNP
+                text colNo
+                  screenLabel~ Column# (In Output File)
+                  size= 2
+                text Call 1
+                  size= 3
+                text Call 2
+                  size= 3
+
+            h3 Edit Expected Values
+            div
+              vertical
+                table
+                  sqlQuery~ select assay as 'Assay', controlId as 'Catalog#', gene as 'Gene', snp as 'SNP',
+                    - columnNo as 'Column#', call1 as 'Call 1', call2 as 'Call2', '' as 'Update', '' as 'Remove', id as 'Id'
+                    - from controlsExpectedSNP
+                    - order by assay, controlId, snp
+                  columnSpecs~ edit
+                    allowChangedRecordIds
+                    column 1
+                      inputType text
+                    column 2
+                      inputType text
+                    column 3
+                      inputType text
+                    column 4
+                      inputType text
+                    column 5
+                      inputType text
+                    column 6
+                      inputType text
+                    column 7
+                      inputType text
+                    column 8
+                      inputType checkbox
+                    column 9
+                      inputType checkbox
+                    column 10
+                      inputType text
+                        size= 3
+                        readonly=
+                        class= createControlDilutionsUnit
+
+            h3 List Control Expected Values
+            div
+              vertical
+                table
+                  sqlQuery~ select assay as 'Assay', controlId as 'Catalog#', gene as 'Gene', snp as 'SNP',
+                    - columnNo as 'Column#', CONCAT(call1, call2)
+                    - from controlsExpectedSNP
+                    - order by assay, controlId, snp
+      forRows edit
+        ifCondition {_columnInput_edit:8}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update controlsExpectedSNP set assay = ?, controlId = ?,
+            - gene = ?, snp = ?, columnNo = ?, call1 = ?,
+            - call2 = ?
+            - where id = ?
+            string {_columnInput_edit:1}
+            string {_columnInput_edit:2}
+            string {_columnInput_edit:3}
+            string {_columnInput_edit:4}
+            long {_columnInput_edit:5}
+            string {_columnInput_edit:6}
+            string {_columnInput_edit:7}
+            long {_columnInput_edit:10}
+        ifCondition {_columnInput_edit:9}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from controlsExpectedSNP where id = ?
+            long {_columnInput_edit:10}
+      sqlPreparedStatement insert into controlsExpectedSNP (assay, controlId, columnNo, gene, snp, call1, call2, eventId)
+        - select ?, ?, ?, ?, ?, ?,?, ?
+        - from dual
+        - where ? <> ''
+        string {Assay}
+        string {Control Catalog Number}
+        long {colNo}
+        string {Gene}
+        string {SNP}
+        string {Call 1}
+        string {Call 2}
+        long {_eventId}
+        string {Control Catalog Number}
+

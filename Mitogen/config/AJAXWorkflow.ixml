@@ -1,0 +1,380 @@
+config
+  steps
+    stepGroup workflowAJAX
+
+    step AjaxGetMergeId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select ? as 'mergeId' from dual limit 1
+          string {_getNextSequence:mergeId}
+
+    step AjaxGetCMAGenesById
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT CASE WHEN ? = 'true' THEN group_concat(distinct rr.omimGenes SEPARATOR ', ') ELSE group_concat(distinct rr.genes SEPARATOR ', ') END AS 'genes'
+          -    , group_concat(distinct rr.id SEPARATOR ', ') as'cmaResultId'
+          -    , rr.sampleId as'cmaResultSample'
+          -    , group_concat(distinct a.genes SEPARATOR ', ') as 'selectedGenes'
+          - FROM cmaRawResults  rr
+          - ,(SELECT distinct group_concat(distinct concat(gene,' (',mimNo,')[',syndromeName,']') SEPARATOR ', ') AS 'genes', rawResultId as'cmaResultId', sampleId as'cmaResultSample'
+          -            FROM cmaGeneResults
+          -            WHERE rawResultId = ?) a
+          - WHERE rr.id in ('{id}')
+          string {omim}
+          string {mergeId}
+
+    step AjaxGetSelectedOmimCMAGenes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT distinct group_concat(distinct concat(gr.gene,'<',gr.mimNo,'>','<',gr.rawResultId,'>','<',IFNULL(REPLACE(REPLACE(REPLACE(COALESCE(gr.selectedReferences, ''), '\t', '\\t'), '\r', '\\r'), '\n', '\\n'),''),'>') SEPARATOR ',') AS 'genes'
+          -             , sampleId as'cmaResultSample'
+          -       FROM cmaGeneResults gr
+          -       WHERE gr.sampleId = ?
+          string {sampleId}
+
+    step deleteReportingOmimGenesForId
+      form
+        text rawResultId
+          value= {rawResultId}
+        text sampleId
+          value= {sampleId}
+      sqlPreparedStatement delete from cmaGeneResults where rawResultId = ? and sampleId = ?
+        string {rawResultId}
+        string {sampleId}
+
+
+    step submitReportingOmimGenes
+      form
+        text rawResultId
+          value= {rawResultId}
+        text sampleId
+          value= {sampleId}
+        text gene
+          value= {gene}
+        text mimNo
+          value= {mimNo}
+        text syndromeName
+          value= {syndromeName}
+      sqlPreparedStatement INSERT INTO cmaGeneResults (rawResultId, sampleId, gene, mimNo, syndromeName, eventId)
+        - VALUES (?, ?, ?, ?, ?, ?)
+        string {rawResultId}
+        string {sampleId}
+        string {gene}
+        string {mimNo}
+        string {syndromeName}
+        long {_eventId}
+
+
+    step submitReportOmimReferences
+      form
+        text rawResultId
+          value= {rawResultId}
+        text sampleId
+          value= {sampleId}
+        textarea selectedReferences
+          value= {selectedReferences}
+        text gene
+          value= {gene}
+      sqlPreparedStatement update cmaGeneResults
+        - set selectedReferences = ?, refeventId = ?
+        - where rawResultId = ? and sampleId = ? and gene = ?
+        string {selectedReferences}
+        long {_eventId}
+        string {rawResultId}
+        string {sampleId}
+        string {gene}
+
+    step AjaxGetSampleSheetInfo
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select co3.content as 'SampleId'
+          -            , co2.containerId as 'Plate Id'
+          -            , co2.attribute as 'Well'
+          -            , co4.containerId as 'pool tube'
+          -            , co5.containerId as 'batchId'
+          -            , cp1.value as 'I7IndexID'
+          -            , as1.indexSequence as 'index1'
+          -            , cp2.value as 'I5IndexID'
+          -            , as2.indexSequence as 'index2'
+          -  from contents co2
+          -  inner join contents co3 on co3.containerId = co2.content and co3.contentType = 'sampleId'
+          -  inner join contents co4 on co2.content = co4.content and co4.contentType = 'poolTubeId' and co4.attribute is NULL
+          -  left join contents co5 on co5.content = co4.containerId and co5.attribute is NULL
+          -  left join containerProperties cp1 on cp1.containerId = co3.content and cp1.property = 'adaptor1'
+          -  left join adapterSequences as1 on as1.indexId = cp1.value and as1.adapterType = 'i7'
+          -  left join containerProperties cp2 on cp2.containerId = co3.content and cp2.property = 'adaptor2'
+          -  left join adapterSequences as2 on as2.indexId = cp2.value and as2.adapterType = 'i5'
+          -  where co2.containerId = (select c1.containerId
+          -               from contents c
+          -                           inner join contents c1 on c1.content = c.content and c1.attribute REGEXP '^[a-h][0-1]'
+          -                           inner join events e on c1.eventId = e.eventId
+          -                           where c.containerId = ?
+          -                             and c.contentType = 'poolTubeId'
+          -                             and c.attribute IS NULL
+          -                           order by c1.eventId desc
+          -                           limit 1)
+          -     and co4.containerId = ?
+          string {poolTube}
+          string {poolTube}
+
+    step Ajax Get Containers Types and Wells
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   x.well as 'well'
+          -   , x.order as 'order'
+          -   , x.plateWellOrder as 'wellOrder'
+          -   , x.containerType as 'containerType'
+          -   , y.containerId as 'containerId'
+          - FROM
+          - ( select CASE WHEN @lastOrderA = pmc.wellOrder THEN @a ELSE @a := @a + 1 END as 'plateWellOrder'
+          -       , @lastOrdera := pmc.wellOrder as 'prevWellOrder'
+          -       , pmc.well as 'well'
+          -       , pmc.wellOrder as 'order'
+          -       , pmc.containerType as 'containerType'
+          -     from (SELECT @a := 0, @lastOrderA := 0) r,  trayMaps pmc
+          -           inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -           where tmp.trayMapName = ?
+          -       and pmc.containerType = 'positiveControl'
+          -     order by pmc.wellOrder  ) as x
+          - left JOIN
+          - ( select distinct @b := @b + 1 as 'row'
+          -     , posCont.containerId as 'containerId'
+          -     , posCont.containerType as 'containerType'
+          -   from (SELECT @b := 0) s,
+          -   (SELECT distinct
+          -     con.controlId as 'containerId'
+          -    , con.controlType as 'containerType'
+          -     FROM containers c
+          -     inner join contents co on c.containerId = co.containerId
+          -     inner join controls con on co.content = con.controlId
+          -   where con.controlId in ({sampleString})
+          -   and c.containerType = 'positiveControl' group by 'row'
+          -   ORDER BY FIELD(con.controlId, {sampleString})) posCont
+          - ) as y on x.plateWellOrder = y.row
+          - UNION ALL
+          - SELECT
+          -   x.well as 'well'
+          -   , x.order as 'order'
+          -   , x.plateWellOrder as 'wellOrder'
+          -   , x.containerType as 'containerType'
+          -   , y.containerId as 'containerId'
+          - FROM
+          - ( select CASE WHEN @lastOrderC = pmc.wellOrder THEN @c ELSE @c := @c + 1 END as 'plateWellOrder'
+          -       , @lastOrderC := pmc.wellOrder as 'prevWellOrder'
+          -       , pmc.well as 'well'
+          -       , pmc.wellOrder as 'order'
+          -       , pmc.containerType as 'containerType'
+          -     from (SELECT @c := 0, @lastOrderC := 0) r,  trayMaps pmc
+          -           inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -           where tmp.trayMapName = ?
+          -       and pmc.containerType = 'negativeControl'
+          -     order by pmc.wellOrder  ) as x
+          - LEFT JOIN
+          - ( select distinct @d := @d + 1 as 'row'
+          -     , blnkCont.containerId as 'containerId'
+          -     , blnkCont.containerType as 'containerType'
+          -   from (SELECT @d := 0) s,
+          -   (SELECT distinct
+          -     con.controlId as 'containerId'
+          -    , con.controlType as 'containerType'
+          -     FROM containers c
+          -     inner join contents co on c.containerId = co.containerId
+          -     inner join controls con on co.content = con.controlId
+          -   where con.controlId in ({sampleString})
+          -   and c.containerType = 'blankControl' group by 'row'
+          -   ORDER BY FIELD(con.controlId, {sampleString})) blnkCont
+          - ) as y on x.plateWellOrder = y.row
+          - UNION ALL
+          - SELECT
+          -   x.well as 'well'
+          -   , x.order as 'order'
+          -   , x.plateWellOrder as 'wellOrder'
+          -   , x.containerType as 'containerType'
+          -   , y.containerId as 'containerId'
+          - FROM
+          - ( select CASE WHEN @lastOrderE = pmc.wellOrder THEN @e ELSE @e := @e + 1 END as 'plateWellOrder'
+          -       , @lastOrderE := pmc.wellOrder as 'prevWellOrder'
+          -       , pmc.well as 'well'
+          -       , pmc.wellOrder as 'order'
+          -       , pmc.containerType as 'containerType'
+          -     from (SELECT @e := 0, @lastOrderE := 0) r, trayMaps pmc
+          -           inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -           where tmp.trayMapName = ?
+          -       and pmc.containerType = 'sample'
+          -     order by pmc.wellOrder ) as x
+          - LEFT JOIN
+          - ( select distinct
+          -     @f := @f + 1 as 'row'
+          -     , sampleSub.containerId as 'containerId'
+          -     , sampleSub.containerType as 'containerType'
+          -   from (SELECT @f := 0) s,
+          -   (SELECT distinct
+          -     c.containerId as 'containerId'
+          -     , c.containerType as 'containerType'
+          -    FROM containers c
+          -     inner join contents co on c.containerId = co.containerId and co.attribute = 'self' and co.contentType <> 'Control Type'
+          -   where c.containerId in ({sampleString})
+          -     and co.content not in (select controlId from controls)
+          -   ORDER BY FIELD(c.containerId, {sampleString})) sampleSub
+          - ) as y on x.plateWellOrder = y.row
+          - union all
+          -   SELECT
+          -     x.well as 'well'
+          -     , x.order as 'order'
+          -     , x.plateWellOrder as 'wellOrder'
+          -     , x.containerType as 'containerType'
+          -     , y.containerId as 'containerId'
+          -   FROM
+          -   ( select CASE WHEN @lastOrderG = pmc.wellOrder THEN @g ELSE @g := @g + 1 END as 'plateWellOrder'
+          -       , @lastOrderG := pmc.wellOrder as 'prevWellOrder'
+          -       , pmc.well as 'well'
+          -       , pmc.wellOrder as 'order'
+          -       , pmc.containerType as 'containerType'
+          -     from (SELECT @g := 0, @lastOrderG := 0) r, trayMaps pmc
+          -           inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -           where tmp.trayMapName = ?
+          -       and pmc.containerType = 'control'
+          -     order by pmc.wellOrder  ) as x
+          -   LEFT JOIN
+          -   ( select
+          -       distinct @h := @h + 1 as 'row'
+          -       , cont.containerId as 'containerId'
+          -       , cont.controlType as 'controlType'
+          -     from (SELECT @h := 0) s,
+          -          (SELECT distinct
+          -            con.controlId as 'containerId'
+          -            , con.controlType as 'controlType'
+          -       FROM containers c
+          -       inner join contents co on c.containerId = co.containerId
+          -       inner join controls con on co.content = con.controlId
+          -     where con.controlId in ({sampleString})
+          -     and con.controlId NOT IN (
+          -       SELECT
+          -         y.containerId as 'containerId'
+          -     FROM
+          -       ( select CASE WHEN @lastOrderI = pmc.wellOrder THEN @i ELSE @i := @i + 1 END as 'plateWellOrder'
+          -             , @lastOrderI := pmc.wellOrder as 'prevWellOrder'
+          -             , pmc.well as 'well'
+          -             , pmc.wellOrder as 'order'
+          -             , pmc.containerType as 'containerType'
+          -           from (SELECT @i := 0, @lastOrderI := 0) r,  trayMaps pmc
+          -           inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -           where tmp.trayMapName = ?
+          -             and pmc.containerType = 'positiveControl'
+          -           order by pmc.wellOrder  ) as x
+          -     left JOIN
+          -       ( select distinct @j := @j + 1 as 'row'
+          -           , posCon.containerId as 'containerId'
+          -           , posCon.containerType as 'containerType'
+          -         from (SELECT @j := 0) s,
+          -            (SELECT distinct
+          -           con.controlId as 'containerId'
+          -           , con.controlType as 'containerType'
+          -         FROM  containers c
+          -         inner join contents co on c.containerId = co.containerId
+          -         inner join controls con on co.content = con.controlId
+          -         where con.controlId in ({sampleString})
+          -         and c.containerType = 'positiveControl') posCon group by 'row'
+          -     ) as y on x.plateWellOrder = y.row)
+          -     and con.controlId NOT IN (
+          -         SELECT
+          -         y.containerId as 'containerId'
+          -     FROM
+          -       ( select CASE WHEN @lastOrderK = pmc.wellOrder THEN @k ELSE @k := @k + 1 END as 'plateWellOrder'
+          -             , @lastOrderK := pmc.wellOrder as 'prevWellOrder'
+          -             , pmc.well as 'well'
+          -             , pmc.wellOrder as 'order'
+          -             , pmc.containerType as 'containerType'
+          -           from (SELECT @k := 0, @lastOrderK := 0) r, trayMaps pmc
+          -           inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -           where tmp.trayMapName = ?
+          -             and pmc.containerType = 'negativeControl'
+          -           order by pmc.wellOrder  ) as x
+          -     left JOIN
+          -       ( select distinct @l := @l + 1 as 'row'
+          -           , blnkCon.containerId as 'containerId'
+          -           , blnkCon.containerType as 'containerType'
+          -         from (SELECT @l := 0) s,
+          -            (SELECT distinct
+          -           con.controlId as 'containerId'
+          -           , con.controlType as 'containerType'
+          -         FROM  containers c
+          -         inner join contents co on c.containerId = co.containerId
+          -         inner join controls con on co.content = con.controlId
+          -         where con.controlId in ({sampleString})
+          -         and c.containerType = 'blankControl') blnkCon group by 'row'
+          -     ) as y on x.plateWellOrder = y.row)
+          -   ORDER BY FIELD(con.controlId, {sampleString})) cont
+          -  ) as y on x.plateWellOrder = y.row
+          string {plateMap}
+          string {plateMap}
+          string {plateMap}
+          string {plateMap}
+          string {plateMap}
+          string {plateMap}
+
+    step Ajax Get Containers Types and Wells 2
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -  x.well as 'well'
+          -  , x.order as 'order'
+          -  , x.plateWellOrder as 'wellOrder'
+          -  , x.containerType as 'containerType'
+          -  , y.containerId as 'containerId'
+          -  FROM
+          -  ( select CASE WHEN @lastOrderA = pmc.wellOrder THEN @a ELSE @a := @a + 1 END as 'plateWellOrder'
+          -      , @lastOrderA := pmc.wellOrder as 'prevWellOrder'
+          -      , pmc.well as 'well'
+          -      , pmc.wellOrder as 'order'
+          -      , pmc.containerType as 'containerType'
+          -      from (SELECT @a := 0, @lastOrderA := 0) r, trayMaps pmc
+          -      inner join trayMapProperties tmp on tmp.Id = pmc.trayMapId
+          -      where tmp.trayMapName = ? and pmc.containerType <> 'Blank'
+          -      order by pmc.wellOrder ) as x
+          -  LEFT JOIN
+          -  ( select distinct
+          -    @b := @b + 1 as 'row'
+          -    , sample.containerId as 'containerId'
+          -    , sample.containerType as 'containerType'
+          -  from (SELECT @b := 0) s,
+          -  (SELECT distinct
+          -    c.containerId as 'containerId'
+          -    , c.containerType as 'containerType'
+          -   FROM containers c
+          -  where c.containerId in ({sampleString})
+          -   ORDER BY FIELD(c.containerId, {sampleString})) sample
+          -  ) as y on x.plateWellOrder = y.row
+          string {plateMap}
+
+    step Ajax Get Plate Containers and Wells
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select attribute as 'well', content as 'container'
+          - from contents
+          - where containerId = ?
+          - and attribute <> 'self'
+          string {plateId}
+
+    step Ajax Get ControlType Details
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT cl.target AS threshold, tp.panelCode AS panel
+          - FROM controlLimits cl
+          - INNER JOIN inventoryUsage iu ON cl.controlType = iu.inventoryItem
+          - INNER JOIN testPanels tp ON cl.panelId = tp.id
+          -   AND iu.step = ?
+          - WHERE cl.controlType = ?
+          string {currentStep}
+          string {controlType}

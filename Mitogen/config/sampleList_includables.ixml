@@ -1,0 +1,495 @@
+config
+  includes
+    includeable sampleList_table
+      ### PARAMETERS IN
+      ###   col1 - Provide one of the static headers in sample list table or
+      ###     user defined field to enable the component to display that
+      ###     column in the sample list table.
+      ###   col2 - See col1 description
+      ###   col3 - See col1
+      ###   col4 - See col1
+      ###   col5 - See col1
+      ###   col6 - See col1
+      ###   prioritySetName - Provide setName for priority display value
+      ###   print - Enable printing barcode for individual samples
+      ###   action - Enable setting action for individual samples
+      ###   comments - Enable commenting for individual samples
+      ###   commentHistory - Show/Hide comment history for individual samples
+      ###   actionSetName - Provide setName for action
+      ###   counter - Show/Hide counter for sample list
+      ###   validateOrTransfer - Provide option to either perform validation
+      ###     or transfer or splitting/aliquot
+      ###     Validate | Transfer | Split
+      ###   printAll - Configure print list
+      ###   scanAll - Set value to true to make all scan fields required.
+      ###   parentId - Provide parentId of the samples (Used for batches)
+      ###   parentIdRequired - Set value to true if sampleList_table needs a
+      ###     parent (i.e. batchId) to display the samples
+      ###   containerIdGen - Set value to 'Auto Generated' to include a button
+      ###     that generates an ID for the scan field. This only works if
+      ###     validateOrTransfer is either set to Transfer or Split
+      ###   fileType - Specify a string to associate any information to all uploaded files
+      script
+        src= js/components/listConfig.js
+      script
+        src= js/tasks/batchingUtils.js
+      script
+        src= js/components/sampleListUtils.js
+      script
+        src= js/components/sampleList.js
+
+      configurePreparedQuery~ SELECT
+        - CASE WHEN ? = 'Yes' THEN 'Print' ELSE '' END AS 'sampleList_print',
+        - CASE WHEN ? = 'Yes' THEN 'Action' ELSE '' END AS 'sampleList_action',
+        - CASE WHEN ? = 'Yes' THEN 'Comments' ELSE '' END AS 'sampleList_comments',
+        - CASE WHEN ? = 'Yes' THEN 'Comment History' ELSE '' END AS 'sampleList_commentHistory'
+        string {_includeParm:print}
+        string {_includeParm:action}
+        string {_includeParm:comments}
+        string {_includeParm:commentHistory}
+
+
+
+      # userDef_ is used to determine whether the column is a user defined
+      # field or not. This is to prevent certain cases where user defined
+      # field column has the same name as one of the static fields
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+      hidden indicator
+        value= {_includeParm:printAll}
+        id= printIndicator
+      hidden counterConfig
+        value= {_includeParm:counter}
+        id= counterConfig
+      hidden scanAllConfig
+        value= {_includeParm:scanAll}
+        id= scanAllConfig
+      hidden containerIdgen
+        value= {_includeParm:containerIdGen}
+        id= sampleIdGen
+      hidden currentStepName
+        value= {_step}
+        id= currentStepName
+
+      div
+        class= additionalColumns
+        hidden col1
+          value= {_includeParm:col1}
+        hidden col2
+          value= {_includeParm:col2}
+        hidden col3
+          value= {_includeParm:col3}
+        hidden col4
+          value= {_includeParm:col4}
+        hidden col5
+          value= {_includeParm:col5}
+        hidden col6
+          value= {_includeParm:col6}
+
+        hidden print
+          value= {_:sampleList_print}
+        hidden action
+          value= {_:sampleList_action}
+        hidden comments
+          value= {_:sampleList_comments}
+        hidden commentHistory
+          value= {_:sampleList_commentHistory}
+        hidden validateOrTransfer
+          id= sampleList_validateOrTransfer
+          value= {_includeParm:validateOrTransfer}
+
+      div
+        id= selectAllDiv
+        vertical
+          checkbox selectAll
+            id= selectAll
+            class= selectAll
+            screenLabel~ Select all Samples
+
+
+      div
+        id= sampleListGroup
+        class= printMe
+        div
+          vertical2
+            text counter
+              id= sampleListCounter
+              screenLabel~ Samples Selected
+              value= 0
+              readonly=
+            div
+              id= sampleListMessages
+        br
+        br
+        table
+          id= sampleListTable
+          sqlPreparedQuery
+            - SELECT
+            -   '' AS "Select",
+            -   IFNULL(sr.currentParentPosition, '') AS "Order",
+            -   sr.currentContainerId AS "Sample Id",
+            -   '' AS "Barcode Scan",
+            -   CONCAT('<a href="/uniflow?lastForm=Y&stepName=Order+Form&nextStepInstance=View&recId=',rs.requestId,'">',rs.requestId,'</a>') AS "Request Id",
+            -   '' AS "Action",
+            -   'Print' AS "Print",
+            -   '' AS "Comments",
+            -   sr.runId,
+            -   '' AS 'File Upload',
+            -   vV.displayValue AS "Order Priority",
+            -   IFNULL(DATE(rs.receivedDate), '') AS "Specimen Received Date",
+            -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+            -   CONCAT(IFNULL(os.siteId, ''), '-', IFNULL(rf.mrn, '')) AS "FacilityID-MRN",
+            -   IFNULL(pa.familyId, '') AS "Family ID",
+            -   IFNULL(pa.geneticGender, '') AS "Genetic Gender",            
+            -   rs.specimenType AS "Specimen Type",
+            -   IFNULL(DATE(pa.dob), '') AS "DOB",
+            -   GROUP_CONCAT(DISTINCT(t.name) SEPARATOR '<br>') AS "Tests",
+            -   e.userId AS "Queued By",
+            -   CONCAT(s.storageContainerId, IF(s.location = 'storage', '', CONCAT(':', s.location))) AS "Storage Location",
+            -   os.name AS "Customer Name",
+            -   cp1.value AS "userDef_col1",
+            -   cp2.value AS "userDef_col2",
+            -   cp3.value AS "userDef_col3",
+            -   cp4.value AS "userDef_col4",
+            -   cp5.value AS "userDef_col5",
+            -   cp6.value AS "userDef_col6",
+            -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "Comment History",
+            -   DATE(e.eventDate) AS "Queued By Date",
+            -   IFNULL(pa.firstName, '') AS "Patient First Name",
+            -   IFNULL(pa.lastName, '') AS "Patient Last Name"
+            - FROM queues q
+            - INNER JOIN specimenRuns sr
+            -   ON q.containerId = sr.runId OR q.containerId = sr.currentParentId
+            -   AND sr.completedEventId IS NULL
+            - LEFT JOIN contents c
+            -   ON sr.currentContainerId = c.content AND c.attribute <> 'self'
+            - INNER JOIN specimenMethods sm
+            -   ON sr.specimenMethodsId = sm.id
+            - INNER JOIN requestSpecimens rs
+            -   ON sm.requestSpecimensId = rs.id
+            - INNER JOIN requestForms rf
+            -   ON rs.requestId = rf.requestId
+            - LEFT JOIN validValues vV
+            -   ON vV.setName = ? AND vV.value = rf.priority
+            - LEFT JOIN patients pa
+            -   ON pa.patientId = rf.patientId
+            -   AND rs.patientId = pa.patientId
+            - INNER JOIN organizationSites os
+            -   ON os.siteId = rf.physicianSiteId
+            - LEFT JOIN tests t
+            -   ON sm.testCode = t.testCode
+            - INNER JOIN events e
+            -   ON e.eventId = q.eventId
+            - LEFT JOIN storage s
+            -   ON s.content = sr.currentContainerId
+            - LEFT JOIN containerNotes cn
+            -   ON cn.containerId = sr.runId
+            - LEFT JOIN physicians ph
+            -   ON ph.physicianId = rf.physicianId
+            - LEFT JOIN containerProperties cp1
+            -   ON cp1.containerId = rf.requestId AND cp1.property = ? AND ? LIKE 'userDef_%'
+            - LEFT JOIN containerProperties cp2
+            -   ON cp2.containerId = rf.requestId AND cp2.property = ? AND ? LIKE 'userDef_%'
+            - LEFT JOIN containerProperties cp3
+            -   ON cp3.containerId = rf.requestId AND cp3.property = ? AND ? LIKE 'userDef_%'
+            - LEFT JOIN containerProperties cp4
+            -   ON cp4.containerId = rf.requestId AND cp4.property = ? AND ? LIKE 'userDef_%'
+            - LEFT JOIN containerProperties cp5
+            -   ON cp5.containerId = rf.requestId AND cp5.property = ? AND ? LIKE 'userDef_%'
+            - LEFT JOIN containerProperties cp6
+            -   ON cp6.containerId = rf.requestId AND cp6.property = ? AND ? LIKE 'userDef_%'
+            - WHERE (q.step = ? AND ? = '' AND ? = 'false') OR (q.step = ? AND q.containerId = ? AND ? <> '' AND ? = 'true')
+            - GROUP BY sr.runId
+            - ORDER BY IF(ISNULL(c.attribute), '', c.attribute) ASC
+            string {_includeParm:prioritySetName}
+            string {_includeParm:col1}
+            string {_includeParm:col1}
+            string {_includeParm:col2}
+            string {_includeParm:col2}
+            string {_includeParm:col3}
+            string {_includeParm:col3}
+            string {_includeParm:col4}
+            string {_includeParm:col4}
+            string {_includeParm:col5}
+            string {_includeParm:col5}
+            string {_includeParm:col6}
+            string {_includeParm:col6}
+            string {_step}
+            string {_includeParm:parentId}
+            string {_includeParm:parentIdRequired}
+            string {_step}
+            string {_includeParm:parentId}
+            string {_includeParm:parentId}
+            string {_includeParm:parentIdRequired}
+          columnSpecs~ samples
+            allowChangedRecordIds true
+            column 1
+              inputType checkbox
+                class= sampleListTable_checkbox
+                required~ false
+            column 2
+              inputType text
+                class= sampleListTable_order
+                sample_list_order= {_thisInput}
+                readonly=
+                size= 3
+            column 3
+              inputType container
+                recordContainerHistory~ false
+                class= sampleListTable_specimenId
+                acceptQueue~ any
+                readonly=
+            column 4
+              inputType container
+                acceptQueue~ any
+                class= barcodeBackground sampleListTable_scan listTable_scan
+                required~ {_includeParm:scanAll}
+                validate~ SELECT 1 FROM DUAL WHERE (? = ? AND ? = 'true') OR (? = 'false')
+                  string {_thisInput}
+                  string {_columnInput:3}
+                  string {_columnInput:1}
+                  string {_columnInput:1}
+                  errorMessage~ Barcode scanned must be matched with Specimen Id
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Validate
+                containerType~ tubeId
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+                    and~ {_includeParm:containerIdGen}
+                      not~
+                        equals~ Use Existing Identifier
+                    or~
+                      equals~ Split
+                      and~ {_includeParm:containerIdGen}
+                        not~
+                          equals~ Use Existing Identifier
+                containerType~ Consumable
+                  configureIf~ {_includeParm:containerIdGen}
+                    advanced~
+                    equals~ Use Existing Identifier
+                new~ true
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+                    and~ {_includeParm:containerIdGen}
+                      not~
+                        equals~ Use Existing Identifier
+                    or~
+                      equals~ Split
+                      and~ {_includeParm:containerIdGen}
+                        not~
+                          equals~ Use Existing Identifier
+                addContent~
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+                    or~
+                      equals~ Split
+            column 6
+              inputType select
+                class= sampleListTable_action
+                setName~ {_includeParm:actionSetName}
+                required~ false
+            column 7
+              inputType hidden
+                class= sampleListTable_printButton printButton
+            column 8
+              inputType textArea
+                class= sampleListTable_comment disabled
+                readonly=
+            column 9
+              inputType container
+                class= hideColumn
+                acceptQueue~ any
+                recordContainerHistory~ false
+            column 10
+              inputType files
+                destinationFolderName~ ../private/sampleList/{_columnInput:4}/{_eventId}
+                containerId~ {_columnInput:4}
+                fileType~ {_includeParm:fileType}
+                  configureIf~ {_includeParm:fileType}
+                    advanced~
+                    not~
+                      isBlank~
+                fileType~ Sample List
+                  configureIf~ {_includeParm:fileType}
+                    advanced~
+                    isBlank~
+                required~ false
+            column 12
+              formatDate~
+              convertDateTime~ false
+            column 18
+              formatDate~
+              convertDateTime~ false
+            column 30
+              formatDate~
+
+
+    includeable sampleList_SQL
+
+      allowDuplicateContainerIds
+
+      forRows samples
+
+        # Insert comment to containerNotes
+        ifCondition {_columnInput_samples:1}
+          advanced~
+          equals~ true
+          and~ {_columnInput_samples:8}
+            not~
+              isBlank~
+          and~ {_columnInput_samples:4}
+            not~
+              isBlank~
+          and~ {_columnInput_samples:9}
+            not~
+              isBlank~
+
+          sqlPreparedStatement INSERT INTO containerNotes
+            - (containerId, noteType, note, eventId)
+            - VALUES (?, 'comment', ?, ?)
+            string {_columnInput_samples:9}
+            string {_columnInput_samples:8}
+            long {_eventId}
+
+        # Track run container history
+        ifCondition {_columnInput_samples:4}
+          advanced~
+          not~
+            isBlank~
+
+          ifCondition
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM containerHistory WHERE containerId = ? AND eventId = ?
+                string {_columnInput_samples:9}
+                long {_eventId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_samples:9}
+              long {_eventId}
+
+          sqlPreparedStatement~
+            - UPDATE specimenRuns
+            -   SET lastUpdatedEventId = ?
+            - WHERE runId = ?
+            long {_eventId}
+            string {_columnInput_samples:9}
+
+
+
+          # Handling transfers
+          ifCondition {_includeParm:validateOrTransfer}
+            advanced~
+            equals~ Transfer
+            or~
+              equals~ Split
+
+            sqlPreparedStatement~ INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_samples:3}
+              long {_eventId}
+
+            sqlPreparedStatement~ INSERT INTO resourceHistory (containerId, eventId)
+              - SELECT c.containerId, ?
+              - FROM containers c
+              - WHERE c.containerId = ?
+              -   AND c.containerType = 'Consumable'
+              long {_eventId}
+              string {_columnInput_samples:4}
+
+            sqlPreparedStatement~
+              - UPDATE containers SET
+              -   containerType = 'tubeId'
+              - WHERE containerId = ?
+              -   AND containerType = 'Consumable'
+              string {_columnInput_samples:4}
+
+            # Copy contents from column 2 to column 3
+
+            sqlPreparedStatement
+              - INSERT INTO
+              - contents (containerId, attribute, contentType, content, eventId)
+              - VALUE(?,'run','runId',?,?)
+              string {_columnInput_samples:4}
+              string {_columnInput_samples:9}
+              long {_eventId}
+
+
+            sqlPreparedStatement
+              - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+              - SELECT ?,?, contentType, content,? FROM contents
+              - WHERE containerId = ?
+              string {_columnInput_samples:4}
+              string {_columnInput_samples:2}
+              long {_eventId}
+              string {_columnInput_samples:3}
+
+            ifCondition {_includeParm:validateOrTransfer}
+              advanced~
+              equals~ Transfer
+              sqlPreparedStatement~
+                - UPDATE specimenRuns
+                - SET currentContainerId = ?,
+                -     lastUpdatedEventId = ?
+                - WHERE runId = ?
+                string {_columnInput_samples:4}
+                long {_eventId}
+                string {_columnInput_samples:9}
+
+
+            ifCondition {_includeParm:validateOrTransfer}
+              advanced~
+              equals~ Split
+
+              setFormQueryResult
+                sqlPreparedQuery~ SELECT specimenMethodsId
+                  - FROM specimenRuns
+                  - WHERE runId = ?
+                  string {_columnInput_samples:9}
+
+              include createNewRun
+                parameter~ specimenMethodsId
+                  value= {_:specimenMethodsId}
+                parameter~ processContainerId
+                  value= {_columnInput_samples:4}
+                parameter~ runType
+                  value= process
+                parameter~ processRunWorkflowParentRunId
+                  value= {_columnInput_samples:9}
+                parameter~ currentParentId
+                  value=
+                parameter~ currentParentPosition
+                  value=
+
+              # Insert comment to containerNotes
+              ifCondition {_columnInput_samples:1}
+                advanced~
+                equals~ true
+                and~ {_columnInput_samples:8}
+                  not~
+                    isBlank~
+                and~ {_columnInput_samples:4}
+                  not~
+                    isBlank~
+
+                sqlPreparedStatement INSERT INTO containerNotes
+                  - (containerId, noteType, note, eventId)
+                  - VALUES (?, 'comment', ?, ?)
+                  string {_:runId}
+                  string {_columnInput_samples:8}
+                  long {_eventId}
+
+
+
+
+
+
+
+

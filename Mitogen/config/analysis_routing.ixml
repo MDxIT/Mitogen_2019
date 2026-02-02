@@ -1,0 +1,229 @@
+
+config
+  includes
+
+    ####
+    #### Analysis routing that handles fail/rework sample logic
+    ####
+    includeable analysis_routing
+      ### PARAMETERS: 
+      ###   parentContainerId
+      ###   currentStep
+      ###   parentResult
+      ###   nextStepRouting
+      ###   endOfWorkflow
+
+      setFormQueryResult
+        sqlPreparedQuery~
+          - SELECT containerType AS 'parentContainerType' 
+          - FROM containers 
+          - WHERE containerId = ?
+          string {_includeParm:parentContainerId}
+
+      setFormQueryResult parentContainerId
+        value= {_includeParm:parentContainerId}
+
+      ## Check if there is sample routing configured for the current step
+      ##    ***CANNOT BREAK UP POOL TUBES***
+      ifCondition~
+        advanced~
+        sqlPreparedQuery~
+          - SELECT 1 
+          - FROM routingMatrix 
+          - WHERE sourceStep = ? 
+          -   AND routingType = 'run'
+          -   AND result NOT IN ('pass', '')
+          - LIMIT 1
+          string {_includeParm:currentStep}
+        and~ {_:parentContainerType}
+          not~
+            startsWith~ pool
+
+        ## Retreive the result and other run info for this transaction
+        forEach 
+          - SELECT 
+          -   sr.runId AS 'curRun',
+          -   adr.result AS 'curRes',
+          -   sr.specimenMethodsId,
+          -   sr.currentContainerId,
+          -   rs.specimenId AS 'currentSpecimen',
+          -   rs.requestId AS 'currentRequest'
+          - FROM specimenRuns sr
+          - INNER JOIN analysisDataRuns adr
+          -   ON adr.specimenRunsId = sr.id
+          - INNER JOIN specimenMethods sm 
+          -   ON sm.id = sr.specimenMethodsId
+          - INNER JOIN requestSpecimens rs 
+          -   ON rs.id = sm.requestSpecimensId  
+          - WHERE sr.currentParentId = ?
+          -   AND adr.eventId = ?
+          string {_includeParm:parentContainerId}
+          long {_eventId}
+
+          ## If the run failed and fail is configured in PDR: 
+          ##    Disassociate the current parent container
+          ##    End Run
+          ##    If tray:
+          ##      Place sample in tube
+          ##    Create new run
+          ##    Route new run
+          ifCondition~ {_:curRes}
+            advanced~
+            equals~ fail
+            and~
+              sqlPreparedQuery~
+                - SELECT 1 
+                - FROM routingMatrix 
+                - WHERE sourceStep = ? 
+                -   AND routingType = 'run'
+                -   AND result = 'fail'
+                string {_includeParm:currentStep}
+
+            jython
+              switchboard.log('<<<<< {_:curRun} FAILED: REMOVE FROM {_includeParm:parentContainerId} >>>>>')
+            
+            include failed_task
+              parameter~ parentContainerType
+                value= {_:parentContainerType}
+              parameter~ currentStep
+                value= {_includeParm:currentStep}
+              parameter~ curRun
+                value= {_:curRun}
+              parameter~ curRes
+                value= {_:curRes}
+              parameter~ specimenMethodsId
+                value= {_:specimenMethodsId}
+              parameter~ currentSpecimen
+                value= {_:currentSpecimen}
+              parameter~ currentRequest
+                value= {_:currentRequest}
+              parameter~ currentContainerId
+                value= {_:currentContainerId}
+
+      ## Routes parent container with remaining samples
+      include routeContainer
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ processContainerId
+          value= {_:parentContainerId}
+        parameter~ result
+          value= {_includeParm:parentResult}
+        parameter~ deleteFromStep
+          value= {_includeParm:currentStep}
+        parameter~ defaultNextStep
+          value= {_includeParm:nextStepRouting}
+        parameter~ endOfWorkflow
+          value= {_includeParm:endOfWorkflow}
+        parameter~ sourceStep
+          value= {_includeParm:currentStep}
+
+    ####
+    #### If task fails:
+    ####    Dissaciate from parent
+    ####    End current run
+    ####    If parent is tray:
+    ####      Transfer specimen to tube
+    ####    Create new run
+    ####    Route new run
+    ####
+    includeable failed_task
+      ### Parameteres
+      ###   parentContainerType
+      ###   currentStep
+      ###   curRun
+      ###   curRes
+      ###   specimenMethodsId
+      ###   currentSpecimen
+      ###   currentRequest
+      ###   currentContainerId
+
+      sqlPreparedStatement~
+        - UPDATE specimenRuns
+        -   SET 
+        -     currentParentId = NULL,
+        -     currentParentPosition = NULL,
+        -     completedResult = ?,
+        -     completedEventId = ?,
+        -     lastUpdatedEventId = ?
+        - WHERE runId = ?
+        string {_includeParm:curRes}
+        string {_eventId}
+        string {_eventId}
+        string {_includeParm:curRun}
+
+      setFormQueryResult currentProcessContainer
+        value= {_includeParm:currentContainerId}
+
+      ifCondition~ {_includeParm:parentContainerType}
+        advanced~
+        startsWith~ tray
+
+        sqlPreparedCall~ CALL sp_getNextSequence(?, ?)
+          string tubeId
+            name~ pSequence
+          string tubeId
+            name~ pName
+
+        sqlPreparedStatement~
+          - INSERT INTO containers (containerId, containerType, eventId)
+          - VALUES (?,?,?)
+          string {_:tubeId}
+          string tubeId
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents
+          - (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, 1, 'specimenId', ?, ?)
+          string {_:tubeId}
+          string {_includeParm:currentSpecimen}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO contents
+          - (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, 1, 'requestId', ?, ?)
+          string {_:tubeId}
+          string {_includeParm:currentRequest}
+          long {_eventId}
+
+        setFormQueryResult currentProcessContainer
+          value= {_:tubeId}
+
+      include createNewRun
+        parameter~ specimenMethodsId
+          value= {_includeParm:specimenMethodsId}
+        parameter~ processContainerId
+          value= {_:currentProcessContainer}
+        parameter~ runType
+          value= process
+        parameter~ processRunWorkflowParentRunId
+          value= {_includeParm:curRun}
+        parameter~ currentParentId
+          value= 
+        parameter~ currentParentPosition
+          value=
+
+
+      include routeContainer
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= run
+        parameter~ processContainerId
+          value= {_:runId}
+        parameter~ result
+          value= {_includeParm:curRes}
+        parameter~ deleteFromStep
+          value= 
+        parameter~ defaultNextStep
+          value= 
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_includeParm:currentStep}
+
+
+

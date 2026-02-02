@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="../css/reportPrint.css">
+  <title></title>
+</head>
+<body>
+​  <div id="reportBody" class="letterSize">
+    <!-- PAGE HEADER, These pieces will be populated depending on report configuration-->​
+    <div id="reportPageHeader">
+       <!-- display configured divs of reportPageHeader.html HERE -->
+    </div>
+    <!-- TITLE HEADER, Population of pieces here also depend on report configuration -->
+    <div id="reportHead">
+      <div id="primarySite">
+        <!-- populated from reportHeadPrimary.html -->
+      </div>
+      <div id="titleBlock">
+        <!-- populated from reportHeadTitle.html -->
+      </div>
+      <div id="secondarySite">
+        <!-- populated from reportHeadSecondary.html -->
+      </div>
+    </div>
+    <div id="reportDescriptionDiv">
+      <!-- reportDescription.html inserted here, if configured for report -->
+    </div>
+
+    <div id="reportMetaData">
+      <!-- ORDER INFO, PATIENT INFO, CONTACT INFO, PATIENT CLINICAL, PATIENT PSA, PATIENT DRE, PATIENT BIOPSY, PATIENT WH, PATIENT NEWBORN SCREENING, PATIENT TISSUE DONOR, PATIENT HIV, SPECIMEN INFORMATION, PANELS TESTS -->
+      <!-- populate from  reportMetadata.html -->
+    </div>
+    <!-- REPORT INTERPRETATIONS -->
+    <div id="reportInterpretations">
+      <div id="reportOverallInterpretations">
+        <!-- populated FROM reportOverallInterpretation.html -->
+      </div>
+      <div id="reportInterpretationPanel">
+        <!-- populated from reportAssayInterpretations.html -->
+        <div id="panelTestMethodWording">
+          <!-- insert reportWordingPanel.html AND/OR reportWordingTest.html AND/OR reportWordingMethod.html -->
+        </div>
+      </div>
+    </div>
+    <!-- SIGNATURE -->
+    <div id="electronicSignatureDiv">
+      <!-- populate from reportSignature.html -->
+    </div>
+
+    <!--REFERENCES-->
+    <div id="references">
+      <span class="referencesHeader">References</span>
+      <!-- Populate repeated spans from reportReferences.html -->
+    </div>
+    <!-- PAGE FOOTER -->
+    <div class="reportFooter">
+      <!-- Populate from reportFooter.html -->
+    </div>
+  </div>
+
+</body>
+</html>

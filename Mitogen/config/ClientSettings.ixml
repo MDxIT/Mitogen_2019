@@ -1,0 +1,797 @@
+config
+  steps
+    stepGroup Client Settings
+
+    step Client Site Settings
+      accessLevel 10
+      form
+        include stepInstructions
+        formQuery~ SELECT c.clientId, c.name, c.nameId, c.siteId, c.deploymentType, c.license, c.serviceId, c.alertEmail,
+          - c.systemUrl, c.fastUrl, c.labUrl, c.giUsername, c.giPassword, billingUsername, billingPassword, billingOrg,
+          - ca.address1, ca.address2, ca.city, ca.state, ca.postalCode
+          - FROM client c
+          - LEFT JOIN clientAddress ca on ca.clientId = c.clientId
+          - LIMIT 1
+
+        script $(function() { document.getElementById('giPassword').type = 'password'; });
+
+        div Client
+          class= item-left
+        div {_resultSet:clientId}
+          class= item-right
+          hidden clientId
+            value= {_resultSet:clientId}
+        br
+        div Name
+          class= item-left
+        div {_resultSet:name}
+          class= item-right
+        br
+        div Deployment
+          class= item-left
+        div {_resultSet:deploymentType}
+          class= item-right
+        br
+        div ID
+          class= item-left
+        div {_resultSet:nameId}
+          class= item-right
+        br
+        div Site ID
+          class= item-left
+        div {_resultSet:siteId}
+          class= item-right
+        br
+        div Service ID
+          class= item-left
+        div {_resultSet:serviceId}
+          class= item-right
+        br
+        div License
+          class= item-left
+        div {_resultSet:license}
+          class= item-right
+        br
+        hr
+        br
+        vertical
+          text name
+            style= width: 250px;
+            screenLabel~ Client Name
+            value= {_resultSet:name}
+          text clientAddress1
+            style= width: 250px;
+            screenLabel~ Address 1
+            value= {_resultSet:address1}
+          text clientAddress2
+            style= width: 250px;
+            screenLabel~ Address 2
+            value= {_resultSet:address2}
+          text clientCity
+            style= width: 250px;
+            screenLabel~ City
+            value= {_resultSet:city}
+          text clientState
+            screenLabel~ State
+            value= {_resultSet:state}
+          text postalCode
+            screenLabel~ Postal Code
+            value= {_resultSet:postalCode}
+          p
+          text alertEmail
+            id= alertEmail
+            style= width: 250px;
+            screenLabel~ Alert Email
+            value= {_resultSet:alertEmail}
+          text systemUrl
+            id= systemUrl
+            style= width: 250px;
+            screenLabel~ System URL
+            value= {_resultSet:systemUrl}
+          text fastUrl
+            id= fastUrl
+            style= width: 250px;
+            screenLabel~ GI FAST URL
+            value= {_resultSet:fastUrl}
+          text labUrl
+            id= labUrl
+            style= width: 250px;
+            screenLabel~ GI Lab URL
+            value= {_resultSet:labUrl}
+          text giUsername
+            id= giUsername
+            style= width: 250px;
+            screenLabel~ GI Username
+            value= {_resultSet:giUsername}
+          text giPassword
+            id= giPassword
+            style= width: 250px;
+            screenLabel~ GI Password
+            value= {_resultSet:giPassword}
+          text billingUsername
+            id= billingUsername
+            style= width: 250px;
+            screenLabel~ Xifin Username
+            value= {_resultSet:billingUsername}
+          text billingPassword
+            id= billingPassword
+            style= width: 250px;
+            screenLabel~ Xifin Password
+            value= {_resultSet:billingPassword}
+          text billingOrg
+            id= billingOrg
+            style= width: 250px;
+            screenLabel~ Xifin Organization Alias
+            value= {_resultSet:billingOrg}
+        br
+        br
+      sqlPreparedStatement
+        - UPDATE client SET
+        - name = ?
+        - , alertEmail = ?
+        - , systemUrl = ?
+        - , fastUrl = ?
+        - , labUrl = ?
+        - , eventId = ?
+        - , giUsername = ?
+        - , giPassword = ?
+        - , billingUsername = ?
+        - , billingPassword = ?
+        - , billingOrg = ?
+        - WHERE clientId = ?
+        string {name}
+        string {alertEmail}
+        string {systemUrl}
+        string {fastUrl}
+        string {labUrl}
+        int {_eventId}
+        string {giUsername}
+        string {giPassword}
+        string {billingUsername}
+        string {billingPassword}
+        string {billingOrg}
+        string {clientId}
+
+      sqlPreparedStatement
+        - INSERT INTO clientAddress (clientId, address1, address2, city, state, postalCode, eventId)
+        - VALUES (?, ?, ?, ?, ?, ?, ?)
+        - ON DUPLICATE KEY UPDATE address1 = ?, address2 = ?, city = ?, state = ?, postalCode = ?, eventId = ?
+        string {clientId}
+        string {clientAddress1}
+        string {clientAddress2}
+        string {clientCity}
+        string {clientState}
+        string {postalCode}
+        int {_eventId}
+        string {clientAddress1}
+        string {clientAddress2}
+        string {clientCity}
+        string {clientState}
+        string {postalCode}
+        int {_eventId}
+
+
+    stepGroup Client Report Settings
+
+    step Client Report Logo
+      accessLevel 10
+      form
+        include stepInstructions
+        vertical
+          file reportLogo
+            destinationFolderName~ images/logoUploads
+            destinationFilePrefix~ ReportLogo_0000000
+            screenLabel~ Report Logo (png)
+          label Current Logo
+            for= currentReportLogo
+          img
+            id= currentReportLogo
+            src= images/logoUploads/reportLogo.png
+            style= width: 25%;
+        br
+      exec mv {_configPath}public/images/logoUploads/reportLogo.png {_configPath}public/images/logoUploads/reportLogo_old_{_eventId}.png
+      exec cp {_configPath}public/images/logoUploads/{reportLogo} {_configPath}public/images/logoUploads/reportLogo.png
+      sql delete from containerFiles where containerId = 'reportLogo' AND fileType = 'reportLogo'
+      sqlPreparedStatement insert into containerFiles (containerId, fileType, fileName, location, eventId)
+        - values('reportLogo', 'reportLogo', 'reportLogo.png', ?, ?)
+        string {_configPath}public/images/logoUploads/
+        long {_eventId}
+
+    step Report Settings Summary
+      accessLevel 10
+      form
+        include stepInstructions
+        table
+          sqlQuery
+            - SELECT panelCode AS 'Type',
+            - reportName AS 'Step Name',
+            - medicalDirectorId AS 'Medical Director'
+            - FROM reportSettings
+            - WHERE panelCode <> 'Default'
+            - UNION all
+            - SELECT '', '' , ''  from dual
+          columnSpecs~ t1
+            column 1
+              inputType select
+                option
+                sqlQuery~ select distinct panelCode from testPanels order by panelCode
+            column 2
+              inputType select
+                option
+                  value=
+                sqlQuery~ select t.name from fsTasks t
+                  - inner join fsProtocols p on p.id = t.protocolId
+                  - AND p.type = 'Reporting'
+                  - AND p.active = 'Y'
+                  - where t.tag = 'Report'
+            column 3
+              inputType select
+                option
+                  value=
+                sqlQuery~ SELECT medicalDirector, medicalDirectorId
+                  - FROM reportSignatures
+                  - GROUP BY medicalDirectorId, medicalDirector
+      forRows t1
+        ifCondition {_columnInput_t1:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement INSERT INTO reportSettings (panelCode, reportName, medicalDirectorId, eventId)
+            - VALUES (?, ?, ?, ?)
+            - ON DUPLICATE KEY UPDATE
+            - reportName = ?,
+            - medicalDirectorId = ?,
+            - eventId = ?
+            string {_columnInput_t1:1}
+            string {_columnInput_t1:2}
+            string {_columnInput_t1:3}
+            long {_eventId}
+            string {_columnInput_t1:2}
+            string {_columnInput_t1:3}
+            long {_eventId}
+
+    step Manage Report Panel Settings
+      accessLevel 10
+      jsScripts
+        src js/niceedit/nicEdit.js
+      form
+        include stepInstructions
+        vertical
+          select panelCode
+            screenLabel~ Select report panel type
+            option
+            option Default
+            sqlQuery~ select distinct panelCode from testPanels where disabled <> 1 order by panelCode
+
+      form
+        include stepInstructions
+        script
+          - $(document).ready(function(){
+          -     if($('#fancyTextPanel3mg').length){
+          -       var microDescEditor3 = new nicEditor();
+          -       microDescEditor3.setPanel('fancyTextPanel3mg');
+          -       microDescEditor3.addInstance('p1');
+          -     }
+          -     if($('#fancyTextPanel4mg').length){
+          -       var microDescEditor4 = new nicEditor();
+          -       microDescEditor4.setPanel('fancyTextPanel4mg');
+          -       microDescEditor4.addInstance('p2');
+          -     }
+          -     if($('#fancyTextPanel5mg').length){
+          -       var microDescEditor5 = new nicEditor();
+          -       microDescEditor5.setPanel('fancyTextPanel5mg');
+          -       microDescEditor5.addInstance('p3');
+          -     }
+
+          -   $(document).keypress(function(event){
+          -     if (event.which == '13' && $(':focus').attr('id') != 'p1' && $(':focus').attr('id') != 'p2' && $(':focus').attr('id') != 'p3') {
+          -       event.preventDefault();
+          -     }
+          -   });
+
+          -   $('#tabs').tabs();
+          -   $('.ui-tabs-panel').css("background-color", "white");
+          -   $('#p1').css('border', '1px solid black');
+          -   $('#p2').css('border', '1px solid black');
+          -   $('#p3').css('border', '1px solid black');
+          -   $('#p1').css('min-height', '20px');
+          -   $('#p2').css('min-height', '20px');
+          -   $('#p3').css('min-height', '20px');
+          -
+          -   $('#referenceList tbody tr td').css('white-space','pre-wrap');
+          -   $('#selectedReferences tbody tr td').css('white-space','pre-wrap');
+
+          -   if($('#panelCode').val() == 'Default'){
+          -     $('.hidden').hide();
+          -   }
+
+          -   $('#stepFormSubmitButton').click(function(ev){
+          -     ev.preventDefault();
+          -     $('#p1Save').val($('#p1').html());
+          -     $('#p2Save').val($('#p2').html());
+          -     $('#p3Save').val($('#p3').html());
+          -     $('[name="stepForm"]').submit();
+          -   });
+
+          - });
+
+        script
+          - function setDefaultText(){
+          -   $('#methodSectionLabel').val($('#boilerPlateLabelDefault').val());
+          -   $('#p1').html($('#p1Default').val());
+          -   $('#p2').html($('#p2Default').val());
+          -   $('#p3').html($('#p3Default').val());
+          -
+          - }
+
+
+        ###Note: If "Default" panel code is selected if is referencing boilerplate.
+        formQuery~ select '{panelCode}' as 'panelCode' from dual
+        formQuery~ SELECT value AS 'p1' FROM reportStaticWording WHERE textType = '{_:panelCode}' and staticArea = 'p1'
+          -  UNION ALL
+          -  SELECT value AS 'p1' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'p1' and '{_:panelCode}' = 'Default'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT value AS 'p2' FROM reportStaticWording WHERE textType = '{_:panelCode}' and staticArea = 'p2'
+          -  UNION ALL
+          -  SELECT value AS 'p2' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'p2' and '{_:panelCode}' = 'Default'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT value AS 'p3' FROM reportStaticWording WHERE textType = '{_:panelCode}' and staticArea = 'p3'
+          -  UNION ALL
+          -  SELECT value AS 'p3' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'p3' and '{_:panelCode}' = 'Default'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT value AS 'boilerPlateLabel' FROM reportStaticWording WHERE textType = '{_:panelCode}' and staticArea = 'boilerPlateLabel'
+          -  UNION ALL
+          -  SELECT value AS 'boilerPlateLabel' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'boilerPlateLabel' and '{_:panelCode}' = 'Default'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT reportTitle,reportName,medicalDirectorId,hasImages,hasResultReferences FROM reportSettings where panelCode = '{_:panelCode}'
+          - UNION all
+          - SELECT '', '' , '' , '', '' from dual
+        formQuery~ SELECT value AS 'p1Default' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'p1'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT value AS 'p2Default' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'p2'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT value AS 'p3Default' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'p3'
+          -  UNION ALL
+          -  SELECT '' from dual
+        formQuery~ SELECT value AS 'boilerPlateLabelDefault' FROM reportStaticWording WHERE textType = 'Default' and staticArea = 'boilerPlateLabel'
+          -  UNION ALL
+          -  SELECT '' from dual
+
+        vertical
+          style= display: none;
+          text boilerPlateLabelDefault
+            id= boilerPlateLabelDefault
+            value= {_:boilerPlateLabelDefault}
+            readonly=
+          textArea p1Default
+            value= {_:p1Default}
+            id= p1Default
+            readonly=
+          textArea p2Default
+            value= {_:p2Default}
+            id= p2Default
+            readonly=
+          textArea p3Default
+            value= {_:p3Default}
+            id= p3Default
+            readonly=
+
+        vertical
+          style= display: none;
+          text panelCode
+            id= panelCode
+            value= {_:panelCode}
+            readonly=
+          textArea p1
+            value= {_:p1}
+            id= p1Save
+          textArea p2
+            value= {_:p2}
+            id= p2Save
+          textArea p3
+            value= {_:p3}
+            id= p3Save
+
+        h4 !!!{_:panelCode}
+          class= desc
+
+        div
+          id= tabs
+          ul
+            li
+              a Report Settings
+                href= #mainSettings
+            li
+              a Report Static Text Defaults
+                href= #methodDefaults
+            li
+              a Report References
+                href= #referenceDefaults
+          div
+            id= mainSettings
+            vertical
+              class= hidden
+              select reportName
+                screenLabel~ Report Template
+                option
+                  value=
+                sqlQuery~ select t.name from fsTasks t
+                  - inner join fsProtocols p on p.id = t.protocolId
+                  - AND p.type = 'Reporting'
+                  - AND p.active = 'Y'
+                  - where t.tag = 'Report'
+                  - union
+                  - select r.name
+                  - from fsRoutines r
+                  - where r.protocolId = '64'
+                value= {_:reportName}
+            vertical
+              select medicalDirectorId
+                screenLabel~ Report Template Medical Director Signature
+                option
+                  value=
+                sqlQuery~ SELECT medicalDirector, medicalDirectorId
+                  - FROM reportSignatures
+                  - WHERE signatureEnabled = 'Enabled'
+                  - GROUP BY medicalDirectorId, medicalDirector
+                value= {_:medicalDirectorId}
+
+          div
+            id= methodDefaults
+            button resetAS
+              id= resetAS
+              screenLabel~
+              value= Use Defaults
+              onClick= setDefaultText();
+            vertical
+              text methodSectionLabel
+                id= methodSectionLabel
+                screenLabel~ Static Section Main Label
+                value= {_:boilerPlateLabel}
+
+            div
+              id= MethodSection
+              style= clear:both;
+
+              h4 Static Section 1:
+                class= desc
+              div
+                id= fancyTextPanel3mg
+              div !!!{_:p1}
+                id= p1
+
+              h4 Static Section 2:
+              div
+                id= fancyTextPanel4mg
+              div !!!{_:p2}
+                id= p2
+
+              h4 Static Section 3:
+              div
+                id= fancyTextPanel5mg
+              div !!!{_:p3}
+                id= p3
+          div
+            id= referenceDefaults
+            table
+              id= referenceList
+              sqlQuery~ select CASE WHEN rpf.referenceId IS NOT NULL THEN 'true' ELSE 'false' END as 'Select', rf.referenceId as 'Reference Id ', rf.reference as 'Reference', rpf.orderNumber as 'Order Number'
+                -       from reportReferences rf
+                -       left join reportPanelReferences rpf on rpf.referenceId = rf.referenceId
+                -             and rpf.panelCode = '{_:panelCode}'
+              columnSpecs~ referenceList
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    class= referenceCheckbox
+                    required~ false
+                    data-parsley-required= false
+                column 2
+                  inputType text
+                    class= listReferenceId
+                    required~ false
+                    readonly=
+                column 4
+                  inputType number
+
+      sqlPreparedStatement delete from reportPanelReferences where panelCode = ?
+        string {panelCode}
+
+      forRows referenceList
+        ifCondition {_columnInput_referenceList:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement INSERT INTO reportPanelReferences (panelCode, referenceId, orderNumber, eventId) VALUES(?,?,?,?)
+            string {panelCode}
+            string {_columnInput_referenceList:2}
+            string {_columnInput_referenceList:4}
+            long {_eventId}
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ select 1 from reportSettings where panelCode = ?
+          string {panelCode}
+        sqlPreparedStatement update reportSettings
+          - set
+          -   reportName = ?
+          -   , medicalDirectorId = ?
+          -   , eventId = ?
+          - where panelCode = ?
+          string {reportName}
+          string {medicalDirectorId}
+          long {_eventId}
+          string {panelCode}
+
+        else
+          sqlPreparedStatement INSERT INTO reportSettings (panelCode, reportName, medicalDirectorId, eventId)
+            - VALUES (?, ?, ?, ?)
+            - ON DUPLICATE KEY UPDATE
+            - reportName = ?,
+            - medicalDirectorId = ?,
+            - eventId = ?
+            string {panelCode}
+            string {reportName}
+            string {medicalDirectorId}
+            long {_eventId}
+            string {reportName}
+            string {medicalDirectorId}
+            long {_eventId}
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ select 1 from reportStaticWording where textType = ? and staticArea = 'boilerPlateLabel'
+          string {panelCode}
+        sqlPreparedStatement update reportStaticWording
+          - set value = ?
+          -    ,eventId = ?
+          - where textType = ? and staticArea = 'boilerPlateLabel'
+          string {methodSectionLabel}
+          long {_eventId}
+          string {panelCode}
+        else
+          sqlPreparedStatement INSERT INTO reportStaticWording (textType, staticArea, value, eventId)
+            - VALUES(?, 'boilerPlateLabel', ?, ?)
+            string {panelCode}
+            string {methodSectionLabel}
+            long {_eventId}
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ select 1 from reportStaticWording where textType = ? and staticArea = 'p1'
+          string {panelCode}
+        sqlPreparedStatement update reportStaticWording
+          - set value = ?
+          -    ,eventId = ?
+          - where textType = ? and staticArea = 'p1'
+          string {p1}
+          long {_eventId}
+          string {panelCode}
+        else
+          sqlPreparedStatement INSERT INTO reportStaticWording (textType, staticArea, value, eventId)
+            - VALUES(?, 'p1', ?, ?)
+            string {panelCode}
+            string {p1}
+            long {_eventId}
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ select 1 from reportStaticWording where textType = ? and staticArea = 'p2'
+          string {panelCode}
+        sqlPreparedStatement update reportStaticWording
+          - set value = ?
+          -    ,eventId = ?
+          - where textType = ? and staticArea = 'p2'
+          string {p2}
+          long {_eventId}
+          string {panelCode}
+        else
+          sqlPreparedStatement INSERT INTO reportStaticWording (textType, staticArea, value, eventId)
+            - VALUES(?, 'p2', ?, ?)
+            string {panelCode}
+            string {p2}
+            long {_eventId}
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ select 1 from reportStaticWording where textType = ? and staticArea = 'p3'
+          string {panelCode}
+        sqlPreparedStatement update reportStaticWording
+          - set value = ?
+          -    ,eventId = ?
+          - where textType = ? and staticArea = 'p3'
+          string {p3}
+          long {_eventId}
+          string {panelCode}
+        else
+          sqlPreparedStatement INSERT INTO reportStaticWording (textType, staticArea, value, eventId)
+            - VALUES(?, 'p3', ?, ?)
+            string {panelCode}
+            string {p3}
+            long {_eventId}
+
+    step Manage References
+      accessLevel 10
+      jsScripts
+        src js/niceedit/nicEdit.js
+      form
+        include stepInstructions
+        vertical
+          select referenceId
+            screenLabel~ Report Reference
+            option Add Reference
+              value=
+            sqlQuery~ SELECT referenceName, referenceId FROM reportReferences
+      form
+        include stepInstructions
+        script
+          - $(document).ready(function(){
+          -     if($('#fancyTextPanel1').length){
+          -       var microDescEditor = new nicEditor();
+          -       microDescEditor.setPanel('fancyTextPanel1');
+          -       microDescEditor.addInstance('reference');
+          -     }
+
+          -   $(document).keypress(function(event){
+          -    if (event.which == '13' && $(':focus').attr('id') != 'referenceSave' ) {
+          -      event.preventDefault();
+          -    }
+          -   });
+
+          -   $('#reference').css('border', '1px solid black');
+          -   $('#reference').css('min-height', '20px');
+
+          -   if($('#isInUse').val() == 'inuse'){
+          -     $('#deleteMeSection').hide();
+          -   }
+
+          -   $('#stepFormSubmitButton').click(function(ev){
+          -     ev.preventDefault();
+          -     $('#referenceSave').val($('#reference').html());
+          -     $('[name="stepForm"]').submit();
+          -   });
+          - });
+
+        ###Note: If "Default" panel code is selected if is referencing boilerplate.
+        formQuery~ select referenceId as 'referenceId', referenceName as 'referenceName', reference as 'reference'
+          -        from reportReferences
+          -        where referenceId = '{referenceId}'
+          -        union all
+          -        select '', '', '' from dual
+
+        formQuery~ select 'inuse' as 'isInUse' from reportPanelReferences where referenceId = '{referenceId}'
+          -        union all
+          -        select 'inuse' from dual where '{referenceId}' = ''
+          -        union all
+          -        select '' from dual
+
+        vertical
+          style= display: none;
+          text isInUse
+            id= isInUse
+            value= {_:isInUse}
+            readonly=
+          text referenceId
+            value= {_:referenceId}
+            readonly=
+          textArea referenceSave
+            value= {_:reference}
+            id= referenceSave
+
+        vertical
+          id= deleteMeSection
+          checkbox deleteThisReference
+            screenLabel~ Delete This Reference
+
+        vertical
+          text referenceName
+            value= {_:referenceName}
+            required~ true
+            data-parsley-required= true
+
+        div
+          id= referenceSection
+          style= clear:both;
+
+          h4 Reference:
+            class= desc
+          div
+            id= fancyTextPanel1
+          div !!!{_:reference}
+            id= reference
+
+      ifCondition {deleteThisReference}
+        advanced~
+        equals~ false
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ select referenceId from reportReferences where referenceId = ?
+            string {referenceId}
+          sqlPreparedStatement update reportReferences
+            - set referenceName = ?,
+            - reference = ?,
+            - eventId = ?
+            - where referenceId = ?
+            string {referenceName}
+            string {referenceSave}
+            long {_eventId}
+            string {referenceId}
+          else
+            sqlPreparedStatement INSERT INTO reportReferences (referenceName, reference, eventId)
+              - VALUES (?, ?,?)
+              - ON DUPLICATE KEY UPDATE
+              - referenceName = ?,
+              - reference = ?,
+              - eventId = ?
+              string {referenceName}
+              string {referenceSave}
+              long {_eventId}
+              string {referenceName}
+              string {referenceSave}
+              long {_eventId}
+
+      ifCondition {deleteThisReference}
+        advanced~
+        equals~ true
+        sqlPreparedStatement delete from reportReferences where referenceId = ?
+          string {referenceId}
+
+
+# Not in use
+#     stepGroup Client Assay Settings
+#
+#     step Karyotyping Test Settings
+#       accessLevel 10
+#       form
+#         table
+#           class= stdTableBasic
+#           sqlQuery select Id, name, '' as 'Age', '' as 'Culture Type', '' as 'Culture Time'
+#             - from tests
+#             - where type = 'Cytogenomics'
+#           columnSpecs~ t1
+#             column 1
+#               data-orderable= false
+#               inputType text
+#                 class= readonly-input
+#                 readonly=
+#             column 3
+#               data-orderable= false
+#               inputType select
+#                 option
+#                 sqlQuery~ select no from numbers order by no asc limit 50
+#             column 4
+#               data-orderable= false
+#               inputType select
+#                 option
+#                 option Media 1
+#                 option Media 2
+#                 option Media 3
+#             column 5
+#               data-orderable= false
+#               inputType select
+#                 option
+#                 option 24 Hours
+#                 option 48 Hours
+#                 option 96 Hours
+#       forRows t1
+#          ifCondition {_columnInput_t1:3}
+#            advanced~
+#            not~
+#              isBlank~
+#           validateSql~ '{_columnInput_t1:4}' ~= '' && '{_columnInput_t1:5}' ~= ''
+#             errorMessage~ Please fill out all values for the row if entering any information.
+#        #   sql insert into testSettings (testId, ageCutoff, mediaType, cultureTime, eventId)
+#        #     - values ('{_columnInput_t1:1}', '{_columnInput_t1:3}', '{_columnInput_t1:4}', '{_columnInput_t1:5}', {_eventId})
+#
+#           sqlPreparedStatement insert into testSettings (testId, ageCutoff, mediaType, cultureTime, eventId)
+#             - values (?, ?, ?, ?, ?)
+#             string {_columnInput_t1:1}
+#             string {_columnInput_t1:3}
+#             string {_columnInput_t1:4}
+#             string {_columnInput_t1:5}
+#             long {_eventId}

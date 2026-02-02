@@ -1,0 +1,1328 @@
+config
+  includes
+
+    includeable createNewRun
+      ### PARAMETERS IN
+      ###   specimenMethodsId -- specimen method for this run
+      ###   processContainerId -- current/active container for this run
+      ###   runType -- workflow vs process
+      ###   processRunWorkflowParentRunId -- runId of parent workflow run
+      ###   currentParentId
+      ###   currentParentPosition
+      ### PARAMETERS OUT
+      ###   runId -- new container for the run
+
+
+      jython
+        switchboard.log('>>>> CREATE NEW RUN FOR ' + '{_includeParm:processContainerId}')
+
+      setFormQueryResult
+        sqlQuery CALL sp_getNextSequence('runId','runId')
+
+
+      setFormQueryResult parentId
+        value= 0
+
+      ifCondition {_includeParm:runType}
+        advanced~
+        equals~ process
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS "parentId"
+            - FROM specimenRuns
+            - WHERE runId = ?
+            string {_includeParm:processRunWorkflowParentRunId}
+
+      sqlPreparedStatement
+        - INSERT INTO specimenRuns (runId, specimenMethodsId, runType, currentContainerId, currentParentId, currentParentPosition, parentWorkflowSpecimenRunId, eventId, lastUpdatedEventId)
+        - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        string {_:runId}
+        int {_includeParm:specimenMethodsId}
+        string {_includeParm:runType}
+        string {_includeParm:processContainerId}
+        string {_includeParm:currentParentId}
+          blankIsNull~
+        string {_includeParm:currentParentPosition}
+          blankIsNull~
+        int {_:parentId}
+        long {_eventId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO containers (containerId, containerType, eventId)
+        - VALUES (?, 'runId', ?)
+        string {_:runId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory (containerId, eventId)
+        - VALUES (?, ?)
+        string {_:runId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+        - VALUES (?, 'run', 'runId', ?, ?)
+        string {_includeParm:processContainerId}
+        string {_:runId}
+        long {_eventId}
+
+      ifCondition {_includeParm:runType}
+        advanced~
+        equals~ workflow
+
+        sqlPreparedStatement
+          - UPDATE specimenMethods
+          -   SET runCount = runCount + 1,
+          -       status = 'In Process',
+          -       statusEventId = ?
+          - WHERE id = ?
+          long {_eventId}
+          int {_includeParm:specimenMethodsId}
+
+        ### UPDATE SPCIEMEN STATUS
+        setFormQueryResult
+          sqlPreparedQuery SELECT content AS "specimenId"
+            - FROM contents
+            - WHERE containerId = ?
+            - AND contentType = 'specimenId'
+            string {_includeParm:processContainerId}
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1 FROM requestSpecimens
+              - WHERE specimenId = ?
+              - AND status = 'In Lab'
+              string {_:specimenId}
+
+          sqlPreparedStatement
+            - UPDATE requestSpecimens
+            -   SET status = 'In Lab',
+            -       statusEventId = ?
+            - WHERE specimenId = ?
+            long {_eventId}
+            string {_:specimenId}
+
+
+      jython
+        switchboard.log('<<<< NEW RUN FOR {_includeParm:processContainerId} CREATED: {_:runId}' )
+
+
+    includeable routeContainer
+      ### PARAMETERS
+      ###   processContainerId -- current container to be routed, must be either runId or batch/tray of runs
+      ###   result -- result for that container (pass/fail/rework/Dicarded/Done/Storage/canceled/[BLANK])
+      ###   deleteFromStep -- {_step}, stepName, | separated list of step names
+      ###   defaultNextStep -- default next step from build sheet.
+      ###   endOfWorkflow -- Yes/No, if yes the run/runs in group are ended
+      ###   sourceStep -- {_step}, stepName **VALUE REQUIRED**
+
+      # Ending of workflow at analysis step
+      ifCondition {_includeParm:endOfWorkflow}
+        advanced~
+        equals~ No
+
+        jython
+          switchboard.log('>>>> BEGIN ROUTING FOR ' + '{_includeParm:processContainerId}')
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT containerType
+            - FROM containers
+            - WHERE containerId = ?
+            string {_includeParm:processContainerId}
+
+
+        setFormQueryResult sourceStep
+          value= {_includeParm:sourceStep}
+        setFormQueryResult specimenType
+          value=
+        setFormQueryResult departmentId
+          value=
+        setFormQueryResult locationId
+          value=
+        setFormQueryResult panelCode
+          value=
+        setFormQueryResult testCode
+          value=
+        setFormQueryResult methodCode
+          value=
+        setFormQueryResult specimenAge
+          value=
+        setFormQueryResult currentSpecimenQuantity
+          value=
+        setFormQueryResult diagnosticCodes
+          value= 0
+        setFormQueryResult exceptionStep
+          value=
+        jython
+          switchboard.log('>>>> ROUTING RESULT ' + '{_includeParm:result}')
+
+        ifCondition {_includeParm:result}
+          advanced~
+          equals~ exceptionHandling
+
+          ### Get correct exception step
+          ### Must use setFormQueryResult
+          setFormQueryResult
+            sqlPreparedQuery~
+              - SELECT ps2.displayName AS 'exceptionStep'
+              - FROM protocolSteps ps1
+              - INNER JOIN protocolSteps ps2 ON ps1.protocolLibraryId = ps2.protocolLibraryId AND ps2.stepName = ?
+              - WHERE ps1.displayName = ?
+              - UNION
+              - SELECT ''
+              string Exception Handling
+              string {_:sourceStep}
+
+          jython
+            switchboard.log('>>>> EXCEPTION HANDLING STEP ' + '{_includeParm:result}')
+
+
+        ifCondition {_:containerType}
+          advanced~ 
+          equals~ runId
+            ignoreCase~
+
+          ifCondition {_includeParm:result}
+            advanced~
+            not~
+              equals~ discardContainer
+            not~
+              equals~ sendToStorage
+
+            setFormQueryResult routingType
+              value= run
+
+            # Get runId parameters
+            setFormQueryResult
+              sqlPreparedQuery~
+                - SELECT
+                -   rf.type AS "orderType",
+                -   rf.departmentId,
+                -   rf.locationId,
+                -   rs.specimenType,
+                -   sm.panelCode,
+                -   sm.testCode,
+                -   sm.methodCode,
+                -   DATEDIFF(DATE(NOW()), rs.collectionDate) AS "specimenAge",
+                -   rs.specimenQuantity AS "currentSpecimenQuantity",
+                -   sm.runCount,
+                - CONCAT( "'", IFNULL(GROUP_CONCAT(DISTINCT rc.codeId SEPARATOR "', '" ),''), "', '0'") AS "diagnosticCodes"
+                - FROM specimenRuns sr
+                - INNER JOIN specimenMethods sm
+                - ON sr.specimenMethodsId = sm.id
+                - INNER JOIN requestSpecimens rs
+                - ON sm.requestSpecimensId = rs.id
+                - INNER JOIN requestForms rf
+                - ON rs.requestId = rf.requestId
+                - LEFT JOIN requestCodes rc
+                - ON rf.requestId = rc.requestId
+                - WHERE sr.runId = ?
+                - GROUP BY sr.id
+                string {_includeParm:processContainerId}
+
+            else
+
+              setFormQueryResult routingType
+                value= sample
+
+              setFormQueryResult
+                sqlPreparedQuery~
+                  - SELECT currentContainerId
+                  - FROM specimenRuns
+                  - WHERE runId = ?
+                  string {_includeParm:processContainerId}
+
+              ifCondition {_includeParm:result}
+                advanced~
+                equals~ sendToStorage
+
+                sqlPreparedStatement
+                  - INSERT INTO queues (containerId, step, eventId)
+                  - VALUES (?, 'Store' ,?)
+                  string {_:currentContainerId}
+                  long {_eventId}
+
+                ## End run  
+                jython
+                  from endRun import EndRun
+
+                  runId = '{_includeParm:processContainerId}'
+                  result = 'Storage'
+
+                  er = EndRun(switchboard, runId)
+                  er.endRun(result, {_eventId})
+
+              ifCondition {_includeParm:result}
+                advanced~
+                equals~ discardContainer
+
+                jython
+                  from endRun import EndRun
+                  
+                  runId = '{_includeParm:processContainerId}'
+                  result = 'Discarded'
+
+                  er = EndRun(switchboard, runId)
+                  er.endRun(result, {_eventId})
+
+          else
+            # Get batch/tray parameters
+            setFormQueryResult routingType
+              value= group
+
+            setFormQueryResult
+              sqlPreparedQuery~
+                - SELECT value AS "orderType"
+                - FROM containerProperties
+                - WHERE containerId = ?
+                - AND property = 'Container Category'
+                - UNION SELECT ''
+                string {_includeParm:processContainerId}
+
+            setFormQueryResult
+              sqlPreparedQuery~
+                - SELECT value AS "runCount"
+                - FROM containerProperties
+                - WHERE containerId = ?
+                - AND property = '{_step} Run Count'
+                - UNION SELECT '1'
+                string {_includeParm:processContainerId}
+
+        # ROUTING MAGIC
+        # Initialize value
+        ifCondition {_:routingType}
+          advanced~
+          not~
+            equals~ sample
+
+          setFormQueryResult routeScore
+            value= 0
+          setFormQueryResult nextQueueStep
+            value=
+
+          # select nextStep Based on score.
+          forEach
+            -   SELECT
+            -     m.nextStep
+            - FROM routingMatrix m
+            - WHERE routingType = ?
+            - AND (orderType = ? or ? = '')
+            - AND (IFNULL(departmentId, '') = ? OR IFNULL(departmentId, '') = '')
+            - AND (IFNULL(locationId, '') = ? OR IFNULL(locationId, '') = '')
+            - AND (IFNULL(specimenType,'') = ? OR IFNULL(specimenType,'') = '')
+            - AND (IFNULL(panelCode,'') = ? OR IFNULL(panelCode,'') = '')
+            - AND (IFNULL(testCode,'') = ? OR IFNULL(testCode,'') = '')
+            - AND (IFNULL(methodCode,'') = ? OR IFNULL(methodCode,'') = '')
+            - AND (IFNULL(specimenAge,0) <=  ?  OR IFNULL(specimenAge,0) = 0)
+            - AND CASE IFNULL(specimenQuantityQualifier,'')
+            -       WHEN '=' THEN ? = specimenQuantity
+            -       WHEN '>' THEN ? > specimenQuantity
+            -       WHEN '<' THEN ? < specimenQuantity
+            -       WHEN '>=' THEN ? >= specimenQuantity
+            -       WHEN '<=' THEN ? <= specimenQuantity
+            -       WHEN '' THEN 1=1
+            -     END
+            - AND (result = ? OR result = '')
+            - AND (runCount > ? OR runCount = 0)
+            - AND sourceStep = ?
+            - AND IFNULL(diagnosticCode,'') IN  ({_:diagnosticCodes})
+            - AND routingDirection = ?
+            - ORDER BY m.priority
+            - LIMIT 1
+            string {_:routingType}
+            string {_:orderType}
+            string {_:orderType}
+            string {_:departmentId}
+            string {_:locationId}
+            string {_:specimenType}
+            string {_:panelCode}
+            string {_:testCode}
+            string {_:methodCode}
+            int {_:specimenAge}
+            decimal {_:currentSpecimenQuantity}
+            decimal {_:currentSpecimenQuantity}
+            decimal {_:currentSpecimenQuantity}
+            decimal {_:currentSpecimenQuantity}
+            decimal {_:currentSpecimenQuantity}
+            string {_includeParm:result}
+            int {_:runCount}
+            string {_:sourceStep}
+            string {_includeParm:routingDirection}
+
+            setFormQueryResult nextQueueStep
+              value= {_:nextStep}
+
+          jython
+            switchboard.log('>>>> nextQueueStepExceptionHandling ' + '{_includeParm:result}')
+
+          ifCondition {_includeParm:result}
+            advanced~
+            equals~ exceptionHandling
+
+            setFormQueryResult nextQueueStep
+              value= {_:exceptionStep}
+
+
+          jython
+            switchboard.log('>>>> nextQueueStep1 ' + '{_:nextQueueStep}')
+
+
+
+          ifCondition {_:nextQueueStep}
+            advanced~ 
+            isBlank~
+
+            setFormQueryResult nextQueueStep
+              value= {_includeParm:defaultNextStep}
+
+          jython
+            switchboard.log('>>>> nextQueueStep2 ' + '{_:nextQueueStep}')
+
+          ifCondition {_:nextQueueStep}
+            advanced~ 
+            not~
+              isBlank~
+            not~
+              sqlPreparedQuery SELECT 1 FROM queues WHERE containerId = ? AND step = ?
+                string {_includeParm:processContainerId}
+                string {_:nextQueueStep}
+
+            jython
+              switchboard.log('>>>> queueing group ' + '{_includeParm:processContainerId}' + ' to ' + '{_:nextQueueStep}')
+
+            sqlPreparedStatement
+              - INSERT INTO queues (containerId, step, eventId)
+              - VALUES (?,?,?)
+              string {_includeParm:processContainerId}
+              string {_:nextQueueStep}
+              long {_eventId}
+
+          ## Storage logic
+          ifCondition {_:nextQueueStep}
+            advanced~
+            equals~ Store
+
+            jython
+              from containers import GroupingContainer
+              from endRun import EndRun
+              from endPoolRun import EndPoolRun
+
+              routingType = '{_includeParm:routingType}'
+              result = 'Storage'
+
+              if routingType == 'group':
+                
+                gContId = '{_includeParm:processContainerId}'
+
+                gc = GroupingContainer(switchboard, gContId)
+                gc.endRuns(result, {_eventId})
+
+              elif routingType == 'run':
+                
+                runId = '{_includeParm:processContainerId}'
+
+                er = EndRun(switchboard, runId)
+                er.endRun(result, {_eventId})
+
+              elif routingType == 'poolRun':
+
+                poolRunId = '{_includeParm:processContainerId}'
+
+                pr = EndPoolRun(switchboard, poolRunId)
+                pr.endPoolRun(result, {_eventId})
+
+
+
+        ifCondition {_includeParm:routingType}
+          advanced~
+          equals~ sample
+
+          ifCondition {_includeParm:result}
+            advanced~
+            equals~ sendToStorage
+
+            sqlPreparedStatement
+              - INSERT INTO queues (containerId, step, eventId)
+              - VALUES (?, 'Store' ,?)
+              string {_includeParm:processContainerId}
+              long {_eventId}
+
+          ifCondition {_includeParm:result}
+            advanced~
+            equals~ discardContainer
+
+            ### DISCARD LOGIC
+            sqlPreparedStatement
+              - INSERT INTO containerProperties(containerId, property, value, eventId)
+              - VALUES(?, ?, 'Discarded', ?)
+              string {_includeParm:processContainerId}
+              string {_step}_Action
+              long {_eventId}
+
+          ifCondition {_includeParm:result}
+            advanced~
+            equals~ exceptionHandling
+
+            sqlPreparedStatement
+              - INSERT INTO queues (containerId, step, eventId)
+              - VALUES (?, ? ,?)
+              string {_includeParm:processContainerId}
+              string {_:exceptionStep}
+              long {_eventId}
+
+      # Ending of workflow at analysis step
+      ifCondition {_includeParm:endOfWorkflow}
+        advanced~
+        equals~ Yes
+
+        sqlPreparedStatement
+          - DELETE FROM queues
+          - WHERE containerId = ?
+          - AND step = ?
+          string {_includeParm:processContainerId}
+          string {_includeParm:deleteFromStep} 
+
+        ifCondition {_includeParm:routingType}
+          advanced~
+          equals~ group
+
+          jython
+            from containers import GroupingContainer
+            from endPoolRun import *
+
+            ## VARS PASSED TO FUNCTIONS
+            result = '{_includeParm:result}'
+            groupingContainerId = '{_includeParm:processContainerId}'
+            poolRunId = '{_includeParm:processContainerId}'
+            endPool = 'NO'
+
+
+            query = '''SELECT currentContainerId AS "currentPool" FROM poolRuns pr WHERE poolRunId = ?'''
+
+            stmt = switchboard.connection.prepareStatement(query)
+            stmt.setString(1, groupingContainerId)
+            rs = stmt.executeQuery()
+
+            while rs.next():
+
+              groupingContainerId = rs.getString('currentPool')
+              endPool = 'YES'
+
+            rs.close()
+
+            ## LOG RESULT
+            switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + groupingContainerId + ' WITH RESULT: ' + result + ' >>>>>')
+            ## MAKE OBJECT
+            gc = GroupingContainer(switchboard, groupingContainerId)
+            ## END RUNS
+            gc.endAnalysisRuns({_eventId})
+
+            if endPool == 'YES':
+              ###  End run using endRun Class
+              errorLocation = 'BEGIN Run End Processing Discard End run'
+              ## MAKE OBJECT
+              endPoolRun = EndPoolRun(switchboard, poolRunId)
+              errorLocation = 'BEGIN grouping End Processing Discard endPoolRun endPoolRun'
+              ## END RUN
+              endPoolRun.endPoolRun(result, {_eventId})
+
+
+        ifCondition {_includeParm:routingType}
+          advanced~
+          equals~ run
+
+          jython
+            from endRun import EndRun
+
+            ## VARS PASSED TO FUNCTIONS
+            result = '{_includeParm:result}'
+            runIdToEnd = '{_includeParm:processContainerId}'
+            ## LOG RESULT
+            switchboard.log('<<<<< CALL END RUN FOR RUN:' + runIdToEnd + ' WITH RESULT: ' + result + ' >>>>>')
+            ## MAKE OBJECT
+            endRun = EndRun(switchboard, runIdToEnd)
+            ## END RUN
+            endRun.endRun(result, {_eventId})
+
+        ifCondition {_includeParm:routingType}
+          advanced~
+          equals~ poolRun
+
+          jython
+            from general_functions import *
+            from containers import GroupingContainer
+            from endRun import *
+            from run import Run
+            from endPoolRun import *
+            from poolRun import PoolRun
+            from poolGroupingContainer import PoolGroupingContainer
+
+
+            ## VARS PASSED TO FUNCTIONS
+            result = '{_includeParm:result}'
+            poolContainerId = ''
+            runIdToEnd = '{_includeParm:processContainerId}'
+            poolRunParent = ''
+            
+            query = """ SELECT pr.currentContainerId AS "currentPool", ifNull(pr2.currentParentId,'') AS "poolRunParent" FROM poolRuns pr LEFT JOIN poolRuns pr2 ON pr.currentContainerId = pr2.currentParentId WHERE pr.poolRunId = ? """ 
+
+            stmt = switchboard.connection.prepareStatement(query)
+            stmt.setString(1, runIdToEnd)
+            rs = stmt.executeQuery()
+
+            while rs.next():
+
+              poolContainerId = rs.getString('currentPool')
+              poolRunParent = rs.getString('poolRunParent')
+
+            rs.close()
+
+            ###  End run using endRun Class
+            errorLocation = 'BEGIN Run End Processing Discard End run'
+            ## MAKE OBJECT
+            endPoolRun = EndPoolRun(switchboard, runIdToEnd)
+            errorLocation = 'BEGIN grouping End Processing Discard endPoolRun endPoolRun'
+            ## END RUN
+            endPoolRun.endPoolRun(result, {_eventId})
+
+            if poolRunParent == '':
+              ## LOG RESULT
+              switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + poolContainerId + ' WITH RESULT: ' + result + ' >>>>>')
+              ## MAKE OBJECT
+              gc = GroupingContainer(switchboard, poolContainerId)
+              ## END RUNS
+              gc.endRuns(result, {_eventId})
+
+            elif poolRunParent != '':
+              ### End the run of all the pool tubes in pool tube
+
+              ## END pool runs in poolRun library
+              # ## LOG RESULT
+              switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER pool of pools:' + poolContainerId + ' WITH RESULT: ' + result + ' >>>>>')
+              ## MAKE OBJECT
+              gc = PoolGroupingContainer(switchboard, runIdToEnd, poolContainerId)
+              ## END RUNS
+              gc.endPoolRuns(result, {_eventId})
+
+              PoolList = gc.getPoolRunIds()
+
+              for pool in PoolList:
+
+                ## LOG RESULT
+                switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + poolContainerId + ' WITH RESULT: ' + result + ' >>>>>')
+                ## MAKE OBJECT
+                rgc = GroupingContainer(switchboard, pool)
+                ## END RUNS
+                rgc.endRuns(result, {_eventId})
+
+
+      # Delete container being process from step(s) if step(s) provided
+      # Complex/dependant dequeueing will happen outside of route function
+      ifCondition {_includeParm:deleteFromStep}
+        advanced~ 
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - DELETE FROM queues
+          - WHERE containerId = ?
+          - AND step = ?
+          string {_includeParm:processContainerId}
+          string {_includeParm:deleteFromStep}
+
+      jython
+        switchboard.log('<<<< END ROUTING FOR ' + '{_includeParm:processContainerId}')
+
+
+    includeable orderEntry_routing_SQL
+      ## USER DOES NOT SELECT SAVE
+      ifCondition {_includeParm:orderFormRoutingOptions}
+        advanced~
+        not~
+          equals~ save
+        sqlPreparedStatement~
+          - DELETE FROM queues
+          - WHERE step = 'Order Review'
+          - AND containerId = ?
+          string {_includeParm:request}
+
+      ifCondition {_includeParm:orderFormRoutingOptions}
+        advanced~
+        not~
+          contains~ approve
+        sqlPreparedStatement
+          - DELETE FROM queues
+          - WHERE eventId = ?
+          long {_eventId} 
+
+
+      ifCondition {_includeParm:instance}
+        advanced~
+        equals~ New
+        sqlPreparedStatement
+          - INSERT INTO queues (containerId, step, eventId)
+          - VALUES (?, 'Order Review', ?)
+          string {_includeParm:request}
+          long {_eventId}
+
+
+      ## USER SELECTS CONTACT CUSTOMER OR APPROVE AND CONTACT CUSTOMER
+      ifCondition {_includeParm:orderFormRoutingOptions}
+        advanced~
+        contains~ contactCustomer
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1
+              - FROM queues
+              - WHERE containerId = ?
+              - AND step = "Contact Customer"
+              string {_includeParm:request}
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'Contact Customer', ?)
+            string {_includeParm:request}
+            long {_eventId}
+
+
+      ## USER SELECTS APPROVED or APPROVE AND SEND TO CONTACT CUSTOMER
+      ifCondition {_includeParm:instance}
+        advanced~
+        equals~ QC
+        and~ {_includeParm:orderFormRoutingOptions}
+          contains~ approve
+
+        ## if user PREVIOUSLY selected "Save" AND specimens are received in order review:
+        ## Now user wants to push them through the step, re-queue samples to PDR step
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1
+            - FROM requestSpecimens rs
+            - INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+            - WHERE rs.requestId = ?
+            - AND rs.specimenId IS NOT NULL
+            - AND rf.status = 'Hold'
+            string {_includeParm:request}
+          forEach
+            - SELECT
+            -   runId
+            - FROM requestSpecimens rs
+            -  INNER JOIN specimenRuns sr ON rs.specimenId = sr.currentContainerId
+            - WHERE rs.specimenId IS NOT NULL
+            - AND rs.requestId = ?
+            string {_includeParm:request}
+
+            include routeContainer
+              parameter~ processContainerId
+                value= {_:runId}
+              parameter~ result
+                value=
+              parameter~ deleteFromStep
+                value= {_step}
+              parameter~ defaultNextStep
+                value= Next_Task
+              parameter~ routingDirection
+                value= OUT
+              parameter~ routingType
+                value= run
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}
+        sqlPreparedStatement
+          - UPDATE requestForms
+          -   SET status = ?,
+          -   statusEventId = ?
+          - WHERE requestId = ?
+          string In Lab
+          long {_eventId}
+          string {_includeParm:request}
+        ifCondition {_includeParm:receiveAtQC}
+          advanced~
+          equals~ false
+          ## USER SELECTS APPROVED OR APPROVE AND SEND TO CONTACT CUSTOMER
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'Specimen Receiving', ?)
+            string {_includeParm:request}
+            long {_eventId}
+          else
+            ### if not all ordered samples have been received at order review, queue to specimen receiving
+            ifCondition
+              advanced~
+              sqlPreparedQuery~ SELECT 1
+                - FROM requestSpecimens rs
+                - INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+                - WHERE rs.requestId = ?
+                - AND rs.specimenId IS NULL
+                - AND rf.status = 'In Lab'
+                string {_includeParm:request}
+
+              sqlPreparedStatement
+                - INSERT INTO queues (containerId, step, eventId)
+                - VALUES (?, 'Specimen Receiving', ?)
+                string {_includeParm:request}
+                long {_eventId}
+
+
+
+      ## USER SELECTS CANCEL
+      ifCondition {_includeParm:orderFormRoutingOptions}
+        advanced~
+        equals~ cancel
+        sqlPreparedStatement
+          - UPDATE requestForms
+          -   SET status = ?,
+          -   statusEventId = ?
+          - WHERE requestId = ?
+          string Canceled
+          long {_eventId}
+          string {_includeParm:request}
+
+        include orderEntry_createReports
+
+        ## queue report associated with requestId to cancel report##
+        sqlPreparedStatement
+          - UPDATE queues q  
+          - INNER JOIN reportDetails rd
+          -   ON q.containerId = rd.reportId
+          - INNER JOIN requestForms rf
+          -   ON rf.Id = rd.requestFormsId
+          - SET q.step = 'Cancel Report'
+          - WHERE rf.requestId = ?
+          string {_includeParm:request}
+
+        ## Update report Details Status to canceled ##
+        sqlPreparedStatement
+          - UPDATE reportDetails rd
+          - INNER JOIN requestForms rf
+          -   ON rf.Id = rd.requestFormsId
+          - SET rd.status = 'canceled',
+          -     rd.reportType = 'canceled'
+          - WHERE rf.requestId = ?
+          string {_includeParm:request}
+
+
+        ifCondition {_includeParm:instance}
+          advanced~
+          equals~ Edit
+
+          ## De-queue requestId ##
+          sqlPreparedStatement
+            - DELETE FROM queues
+            - WHERE containerId = ?
+            string {_includeParm:request}
+
+          ## All requestIds marked as canceled ##
+          sqlPreparedStatement
+            - UPDATE specimenMethods sm
+            - SET sm.status = 'canceled',
+            -   sm.statusEventId = ?,
+            -   sm.eventId = ?
+            - WHERE sm.requestId = ?
+            long {_eventId}
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## De-queue all runs associated with requestId ##
+          sqlPreparedStatement
+            - DELETE FROM queues
+            - WHERE containerId IN
+            - (
+            -   SELECT sr.runId
+            -   FROM specimenMethods sm
+            -   INNER JOIN specimenRuns sr
+            -     ON sm.id = sr.specimenMethodsId
+            -   WHERE sm.requestId = ?
+            - )
+            string {_includeParm:request}
+
+          ## All runs marked as complete ##
+          sqlPreparedStatement
+            - UPDATE specimenRuns sr
+            - INNER JOIN specimenMethods sm
+            -   ON sm.id = sr.specimenMethodsId
+            - SET sr.completedResult = 'Canceled',
+            -   sr.completedEventId = ?,
+            -   sr.eventId = ?
+            - WHERE sm.requestId = ?
+            long {_eventId}
+            long {_eventId}
+            string {_includeParm:request}
+
+          ### Queue sample runs
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - SELECT DISTINCT sr.currentContainerId,
+            -   'Store',
+            -   ?
+            - FROM specimenMethods sm
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - WHERE sm.requestId = ?
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## Queue all batched specimens to storage ##
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - SELECT DISTINCT sr2.currentContainerId, 
+            -   'Store',
+            -   ?
+            - FROM requestSpecimens rs
+            - INNER JOIN specimenMethods sm
+            -   ON rs.id = sm.requestSpecimensId
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - INNER JOIN specimenRuns sr2
+            -   ON sr2.parentWorkflowSpecimenRunId = sr.Id
+            -   AND sr2.currentParentId IS NULL
+            - LEFT JOIN queues q
+            -   ON q.containerId = sr.currentContainerId
+            -   AND q.step = 'Store'
+            - WHERE rs.requestId = ?
+            -   AND q.containerId IS NULL
+            -   AND sr2.currentContainerId <> rs.specimenId
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## Queue all unbatched specimens to storage ##
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - SELECT DISTINCT sr2.currentContainerId, 
+            -   'Store',
+            -   ?
+            - FROM requestSpecimens rs
+            - INNER JOIN specimenMethods sm
+            -   ON rs.id = sm.requestSpecimensId
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - INNER JOIN specimenRuns sr2
+            -   ON sr2.parentWorkflowSpecimenRunId = sr.Id
+            - INNER JOIN containers c
+            -   ON sr2.currentParentId = c.containerId
+            - LEFT JOIN queues q
+            -   ON q.containerId = sr.currentContainerId
+            -   AND q.step = 'Store'
+            - WHERE rs.requestId = ?
+            -   AND q.containerId IS NULL
+            -   AND sr2.currentContainerId <> rs.specimenId
+            -   AND c.containerType <> 'trayId'
+            -   AND c.containerType <> 'poolTubeId'
+            long {_eventId}
+            string {_includeParm:request}
+
+
+      ## USER SELECTS REJECT
+      ifCondition {_includeParm:orderFormRoutingOptions}
+        advanced~
+        equals~ reject
+        
+        sqlPreparedStatement
+          - UPDATE requestForms
+          -   SET status = ?,
+          -   statusEventId = ?
+          - WHERE requestId = ?
+          string Report
+          long {_eventId}
+          string {_includeParm:request}
+
+        ## Queue report associated with requestId to Reject Report ##
+        sqlPreparedStatement
+          - UPDATE queues q  
+          - INNER JOIN reportDetails rd
+          -   ON q.containerId = rd.reportId
+          - INNER JOIN requestForms rf
+          -   ON rf.Id = rd.requestFormsId
+          - SET q.step = 'Reject Report'
+          - WHERE rf.requestId = ?
+          string {_includeParm:request}
+
+        ## Update report Details Status to rejected ##
+        sqlPreparedStatement
+          - UPDATE reportDetails rd
+          - INNER JOIN requestForms rf
+          -   ON rf.Id = rd.requestFormsId
+          - SET rd.status = 'rejected',
+          -     rd.reportType = 'rejected'
+          - WHERE rf.requestId = ?
+          string {_includeParm:request}
+
+        ifCondition {_includeParm:instance}
+          advanced~
+          equals~ Edit
+
+          ## All runs marked as rejected ##
+          sqlPreparedStatement
+            - UPDATE specimenRuns sr
+            - INNER JOIN specimenMethods sm
+            -   ON sm.id = sr.specimenMethodsId
+            - SET sr.completedResult = 'Rejected',
+            -   sr.completedEventId = ?,
+            -   sr.eventId = ?
+            - WHERE sm.requestId = ?
+            long {_eventId}
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## Specimen Methods marked as rejected ##
+          sqlPreparedStatement
+            - UPDATE specimenMethods
+            - SET status = 'Rejected',
+            -   statusEventId = ?,
+            -   eventId = ?
+            - WHERE requestId = ?
+            long {_eventId}
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## requestSpecimen marked as rejected ##
+          sqlPreparedStatement
+            - UPDATE requestSpecimens
+            - SET status = 'Rejected',
+            -   statusEventId = ?,
+            -   eventId = ?
+            - WHERE requestId = ?
+            long {_eventId}
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## De-queue all runs associated with requestId ##
+          sqlPreparedStatement
+            - DELETE FROM queues
+            - WHERE containerId IN
+            - (
+            -   SELECT sr.runId
+            -   FROM specimenMethods sm
+            -   INNER JOIN specimenRuns sr
+            -     ON sm.id = sr.specimenMethodsId
+            -   WHERE sm.requestId = ?
+            - )
+            string {_includeParm:request}
+
+          ## Queue all specimens to storage ##
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - SELECT DISTINCT sr.currentContainerId,
+            -   'Store',
+            -   ?
+            - FROM specimenMethods sm
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - WHERE requestId = ?
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## Queue all batched specimens to storage ##
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - SELECT DISTINCT sr2.currentContainerId, 
+            -   'Store',
+            -   ?
+            - FROM requestSpecimens rs
+            - INNER JOIN specimenMethods sm
+            -   ON rs.id = sm.requestSpecimensId
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - INNER JOIN specimenRuns sr2
+            -   ON sr2.parentWorkflowSpecimenRunId = sr.Id
+            -   AND sr2.currentParentId IS NULL
+            - LEFT JOIN queues q
+            -   ON q.containerId = sr.currentContainerId
+            -   AND q.step = 'Store'
+            - WHERE rs.requestId = ?
+            -   AND q.containerId IS NULL
+            -   AND sr2.currentContainerId <> rs.specimenId
+            long {_eventId}
+            string {_includeParm:request}
+
+          ## Queue all unbatched specimens to storage ##
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - SELECT DISTINCT sr2.currentContainerId, 
+            -   'Store',
+            -   ?
+            - FROM requestSpecimens rs
+            - INNER JOIN specimenMethods sm
+            -   ON rs.id = sm.requestSpecimensId
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - INNER JOIN specimenRuns sr2
+            -   ON sr2.parentWorkflowSpecimenRunId = sr.Id
+            - INNER JOIN containers c
+            -   ON sr2.currentParentId = c.containerId
+            - LEFT JOIN queues q
+            -   ON q.containerId = sr.currentContainerId
+            -   AND q.step = 'Store'
+            - WHERE rs.requestId = ?
+            -   AND q.containerId IS NULL
+            -   AND sr2.currentContainerId <> rs.specimenId
+            -   AND c.containerType <> 'trayId'
+            -   AND c.containerType <> 'poolTubeId'
+            long {_eventId}
+            string {_includeParm:request}
+            
+
+    includeable orderEntry_dequeueOrders
+
+      # Check that all entered specimens have been receivied.
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1
+            - FROM requestSpecimens
+            - WHERE requestId = ?
+            - AND status = 'ORDER ENTERED'
+            string {_:requestId}
+
+        # Check that all received specimens have test/methods assigned
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1
+            - FROM requestSpecimens rs
+            - LEFT JOIN specimenMethods sm
+            - ON rs.id = sm.requestSpecimensId
+            - WHERE rs.requestId = ?
+            - AND rs.status = 'RECEIVED'
+            - HAVING COUNT(rs.specimenId) = COUNT(sm.id)
+            string {_:requestId}
+
+
+          sqlPreparedStatement
+            - DELETE FROM queues
+            - WHERE containerId = ?
+            - AND step = ?
+            string {_:requestId}
+            string {_step}
+
+
+    includeable createNewPoolRun
+      ### PARAMETERS IN
+      ###   processContainerId -- current/active container for this run
+      ###   processRunWorkflowParentRunId -- runId of parent workflow run
+      ###   currentParentId
+      ###   currentParentPosition
+      ### PARAMETERS OUT
+      ###   poolRunId -- new container for the run
+
+
+      jython
+        switchboard.log('>>>> CREATE NEW RUN FOR ' + '{_includeParm:processContainerId}')
+
+      setFormQueryResult
+        sqlQuery CALL sp_getNextSequence('poolRunId','poolRunId')
+
+      sqlPreparedStatement
+        - INSERT INTO poolRuns (poolRunId, runType, currentContainerId, eventId, lastUpdatedEventId)
+        - VALUES (?, ?, ?, ?, ?)
+        string {_:poolRunId}
+        string process
+        string {_includeParm:processContainerId}
+        long {_eventId}
+        long {_eventId}
+
+      ifCondition {_includeParm:currentParentId}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - UPDATE poolRuns
+          - SET currentParentId = ?,
+          -     lastUpdatedEventId = ?
+          - WHERE poolRunId = ?
+          string {_includeParm:currentParentId}
+          long {_eventId}
+          string {_:poolRunId}
+
+      ifCondition {_includeParm:currentParentPosition}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - UPDATE poolRuns
+          - SET currentParentPosition = ?,
+          -     lastUpdatedEventId = ?
+          - WHERE poolRunId = ?
+          string {_includeParm:currentParentPosition}
+          long {_eventId}
+          string {_:poolRunId}
+
+      ifCondition {_includeParm:currentParentId}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - UPDATE poolRuns
+          - SET currentParentId = ?
+          - WHERE poolRunId = ?
+          string {_includeParm:currentParentId}
+          string {_:poolRunId}
+
+      ifCondition {_includeParm:currentParentPosition}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - UPDATE poolRuns
+          - SET currentParentPosition = ?
+          - WHERE poolRunId = ?
+          string {_includeParm:currentParentPosition}
+          string {_:poolRunId}
+
+      sqlPreparedStatement
+        - INSERT INTO containers (containerId, containerType, eventId)
+        - VALUES (?, 'poolRunId', ?)
+        string {_:poolRunId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory (containerId, eventId)
+        - VALUES (?, ?)
+        string {_:poolRunId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+        - VALUES (?, 'poolRun', 'poolRunId', ?, ?)
+        string {_includeParm:processContainerId}
+        string {_:poolRunId}
+        long {_eventId}
+
+      ifCondition {_includeParm:processRunWorkflowParentRunId}
+        advanced~
+        not~
+          isBlank~
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id
+            - FROM poolRuns
+            - WHERE poolRunId = ?
+            string {_includeParm:processRunWorkflowParentRunId}
+
+        sqlPreparedStatement
+          - UPDATE poolRuns
+          -   SET parentWorkflowPoolRunId = ?,
+          -       lastUpdatedEventId = ?
+          - WHERE poolRunId = ?
+          int {_:id}
+          long {_eventId}
+          string {_:poolRunId}
+
+      ifCondition {_includeParm:processRunWorkflowParentRunId}
+        advanced~
+        not~
+          isBlank~
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id
+            - FROM poolRuns
+            - WHERE poolRunId = ?
+            string {_:poolRunId}
+
+        sqlPreparedStatement
+          - UPDATE poolRuns
+          -   SET parentWorkflowPoolRunId = ?,
+          -       lastUpdatedEventId = ?
+          - WHERE poolRunId = ?
+          int {_:id}
+          long {_eventId}
+          string {_:poolRunId}
+
+      jython
+        switchboard.log('<<<< NEW RUN FOR {_includeParm:processContainerId} CREATED: {_:poolRunId}' )
+
+
+    includeable createNewControlRun
+      ### PARAMETERS IN
+      ###   processContainerId -- current/active container for this run
+      ###   runType -- workflow vs process
+      ###   controlId -- controlId used in QC resources
+      ###   processRunWorkflowParentRunId -- runId of parent workflow run
+      ###   currentParentId
+      ###   currentParentPosition
+      ### PARAMETERS OUT
+      ###   controlRunId -- new container for the run
+
+
+      jython
+        switchboard.log('>>>> CREATE NEW RUN FOR ' + '{_includeParm:processContainerId}')
+
+      setFormQueryResult
+        sqlQuery CALL sp_getNextSequence('controlRunId','controlRunId')
+
+      sqlPreparedStatement
+        - INSERT INTO containers (containerId, containerType, eventId)
+        - VALUES (?, 'controlRunId', ?)
+        string {_:controlRunId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory (containerId, eventId)
+        - VALUES (?, ?)
+        string {_:controlRunId}
+        long {_eventId}
+
+
+      sqlPreparedStatement
+        - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+        - VALUES (?, 'self', 'controlTubeId', ?, ?)
+        string {_includeParm:processContainerId}
+        string {_includeParm:processContainerId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+        - VALUES (?, 'controlRun', 'controlRunId', ?, ?)
+        string {_includeParm:processContainerId}
+        string {_:controlRunId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+        - VALUES (?, 'controlId', 'controlId', ?, ?)
+        string {_includeParm:processContainerId}
+        string {_includeParm:controlId}
+        long {_eventId}
+
+      setFormQueryResult parentId
+        value= 0
+
+      ifCondition {_includeParm:runType}
+        advanced~
+        equals~ process
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS "parentId"
+            - FROM controlRuns
+            - WHERE controlRunId = ?
+            string {_includeParm:processRunWorkflowParentRunId}
+
+      sqlPreparedStatement
+        - INSERT INTO controlRuns (controlRunId, runType, controlId, currentContainerId, currentParentId, currentParentPosition, parentWorkflowSpecimenRunId, eventId, modifier, lastUpdatedEventId)
+        - VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'self', ?)
+        string {_:controlRunId}
+        string {_includeParm:runType}
+        string {_includeParm:controlId}
+        string {_includeParm:processContainerId}
+        string {_includeParm:currentParentId}
+          blankIsNull~
+        string {_includeParm:currentParentPosition}
+          blankIsNull~
+        int {_:parentId}
+        long {_eventId}
+        long {_eventId}
+
+      jython
+        switchboard.log('<<<< NEW RUN FOR {_includeParm:processContainerId} CREATED: {_:controlRunId}' )
+
+
+
+
+

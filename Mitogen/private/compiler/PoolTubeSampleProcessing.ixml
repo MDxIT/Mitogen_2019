@@ -1,0 +1,89 @@
+    step [$$STEP_NAME$$]
+      allowDuplicateContainerIds true
+
+      form
+
+        enctype= multipart/form-data
+        data-parsley-validate=
+
+        include stepInstructions
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+
+        printerControls
+          configureIf~ [$$Print_Pool_Tube_Details$$]
+            advanced~
+            equals~ Yes
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+
+        include poolTubeList_table
+          parameter~ col1
+            value= [$$Pool_Display_Column_1$$]
+          parameter~ col2
+            value= [$$Pool_Display_Column_2$$]
+          parameter~ col3
+            value= [$$Pool_Display_Column_3$$]
+          parameter~ col4
+            value= [$$Pool_Display_Column_4$$]
+          parameter~ col5
+            value= [$$Pool_Display_Column_5$$]
+          parameter~ col6
+            value= [$$Pool_Display_Column_6$$]
+          parameter~ prioritySetName
+            value= priority
+          parameter~ print
+            value= No
+          parameter~ action
+            value= [$$Action_Option$$]
+          parameter~ actionSetName
+            value= passfail
+          parameter~ comments
+            value= [$$Pool_Tube_Comments$$]
+          parameter~ commentHistory
+            value= [$$Pool_Tube_Comment_History$$]
+          parameter~ counter
+            value= [$$Pool_Tube_Counter$$]
+          parameter~ validateOrTransfer
+            value= Validate
+          parameter~ printAll
+            value= [$$Print_Pool_Tube_Details$$]
+          parameter~ scanAll
+            value= false
+          parameter~ containerIdGen
+            value=
+          parameter~ fileType
+            value= [$$File_Category$$]
+
+        include poolTubeList_SQL
+          parameter~ validateOrTransfer
+            value= Validate
+
+        forRows poolTubes
+          ifCondition {_columnInput_poolTubes:3}
+            advanced~
+            not~
+              isBlank~
+            include routeContainer
+              parameter~ processContainerId
+                value= {_columnInput_poolTubes:7}
+              parameter~ result
+                value= {_columnInput_poolTubes:4}
+              parameter~ deleteFromStep
+                value= {_step}
+              parameter~ defaultNextStep
+                value= [$$NEXT_STEP$$]
+              parameter~ routingDirection
+                value= OUT
+              parameter~ routingType
+                value= group
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}

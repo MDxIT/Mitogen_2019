@@ -1,0 +1,480 @@
+
+    step [$$STEP_NAME$$]
+
+      jsScripts
+        src js/transferMaps.js
+        src js/trayTrayTransfer.js
+
+      allowDuplicateContainerIds true
+      form
+        script
+          src= js/components/container.js
+
+        include stepInstructions
+        include trayMapRequired
+
+          include groupingContainer_Form0
+            parameter~ groupingContainerScreenLabel
+              value= Source Tray
+            parameter~ currentStep
+              value= [$$STEP_NAME$$]
+            parameter~ acceptQueue
+              value= {_step}
+            parameter~ containerType
+              value= trayId
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+
+        include stepInstructions
+        include hideScript
+        include jsResourceValidations
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN '' THEN
+          -       CASE ?
+          -         WHEN '' THEN ?
+          -         WHEN 'null' THEN ?
+          -         ELSE ?
+          -       END
+          -     WHEN 'null' THEN
+          -       CASE ?
+          -         WHEN '' THEN ?
+          -         WHEN 'null' THEN ?
+          -         ELSE ?
+          -       END
+          -     ELSE ?
+          -   END AS "sourceTray"
+          string {groupingContainerId}
+          string {_recId}
+          string {sourcePlate}
+          string {sourcePlate}
+          string {_recId}
+          string {_recId}
+          string {sourcePlate}
+          string {sourcePlate}
+          string {_recId}
+          string {groupingContainerId}
+
+        # counts total number of loops from the transferMapStepAssignments #
+        configurePreparedQuery~
+          - SELECT COUNT(step) AS "totalLoops"
+          - FROM transferMapStepAssignments
+          - WHERE step = ?
+          string {_step}
+          allowEmptyResults~
+
+        # counts currentLoop by counting the number of in progress transfers #
+        configurePreparedQuery~
+          - SELECT (COUNT(source) + 1) AS "currentLoop"
+          - FROM transferMapTransferHistory
+          - WHERE source = ?
+          -   AND status = ?
+          string {_:sourceTray}
+          string In Progress
+          allowEmptyResults~
+
+        # get all source and destination parameters #
+        configurePreparedQuery~
+          - SELECT DISTINCT tmp.name AS "mapName",
+          -   tmp.id AS "transferMap",
+          -   LOWER(tmp.sourceType) AS "sourceType",
+          -   tmp.sourceRows AS "sourceRows",
+          -   tmp.sourceColumns AS "sourceColumns",
+          -   LOWER(tmp.destinationType) AS "destinationType",
+          -   tmp.destinationRows AS "destinationRows",
+          -   tmp.destinationColumns AS "destinationColumns"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMapProperties tmp
+          -   ON tmsa.transferMapID = tmp.id
+          - WHERE step = ?
+          -   AND displayOrder = ?
+          string {_step}
+          int {_:currentLoop}
+          allowEmptyResults~
+
+        configurePreparedQuery~ SELECT NOW() AS 'currentDate'
+
+        configurePreparedQuery~ SELECT value AS "sourceTrayType"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          -   AND property = 'trayType'
+          string {_:sourceTray}
+
+        configurePreparedQuery~ SELECT value AS "sourceTrayRows"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          -   AND property = 'trayRowNumber'
+          string {_:sourceTray}
+
+        configurePreparedQuery~ SELECT value AS "sourceTrayColumns"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          -   AND property = 'trayColumnNumber'
+          string {_:sourceTray}
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= {_:currentLoop}
+
+        script
+          src= js/components/printBarcode.js
+
+        hidden numberOfLoops
+          id= numberOfLoops
+          value= {_:totalLoops}
+
+        hidden currentLoop
+          id= currentLoop
+          value= {_:currentLoop}
+
+        hidden currentStep
+          id= currentStep
+          value= {_step}
+
+        hidden transferMap
+          id= transferMap
+          value= {_:transferMap}
+
+        hidden destinationType
+          id= destinationType
+          value= {_:destinationType}
+
+        hidden sourcePlate
+          id= sourcePlate
+          value= {_:sourceTray}
+
+        hidden sourcePlateType
+          id= sourcePlateType
+          value= {_:sourceTrayType}
+
+        hidden sourcePlateRows
+          id= sourcePlateRows
+          value= {_:sourceTrayRows}
+
+        hidden sourcePlateColumns
+          id= sourcePlateColumns
+          value= {_:sourceTrayColumns}
+
+        ## Turn off workList Generation until needed by a userStory ##
+        # hidden generateWorklist
+        #   id= generateWorklist
+        #   value= {_includeParam:generateWorkList}
+
+        # hidden worklistLocation
+        #   id= worklistLocation
+        #   value= {_includeParam:worklistLocation}
+
+
+        hidden mapName
+          id= mapName
+          value= {_:mapName}
+
+        fieldset
+          legend Source Tray Information
+          include containerComponent
+            #### DEVELOPER CONFIGURATIONS
+            parameter~ containerName
+              value= sourcePlate
+            parameter~ containerScreenLabel
+              value= Source Tray Id
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= trayId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:sourceTray}
+            parameter~ useThisSequence
+              value=
+
+            #### BUILD SHEET CONFIGURATIONS
+            parameter~ containerCommentsInclude
+              value= [$$Plate_Comments$$]
+            parameter~ containerActionInclude
+              value= No
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= [$$Source_Container_Category$$]
+            parameter~ includePriority
+              value= [$$Source_Priority$$]
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+          button viewSource
+            id= viewSource
+            screenLabel~
+            value= View/Hide Source Layout
+
+          include viewSourceTrayLayout
+            parameter~ sourceType
+              value= {_:sourceTrayType}
+            parameter~ sourceRows
+              value= {_:sourceTrayRows}
+            parameter~ sourceColumns
+              value= {_:sourceTrayColumns}
+            parameter~ sourcePlate
+              value= {_:sourceTray}
+
+        div
+          id= printMe
+            configureIf~ [$$Print_Plate_Layout$$]
+              advanced~
+              equals~ Yes
+
+
+          printerControls
+            configureIf~ [$$Print_Plate_Barcode$$]
+              advanced~
+              equals~ Yes
+            defaultPrinter~
+            defaultDocument~
+            variables~
+
+          fieldset
+            legend Destination Tray Information
+            include containerComponent
+              #### DEVELOPER CONFIGURATIONS
+              parameter~ containerName
+                value= newPlate
+              parameter~ containerScreenLabel
+                value= New Plate
+              parameter~ containerReadonly
+                value= false
+              parameter~ containerNew
+                value= true
+              parameter~ containerAsSelect
+                value= false
+              parameter~ acceptQueue
+                value= any
+              parameter~ containerType
+                value= trayId
+              parameter~ containerRequired
+                value= true
+              parameter~ containerAdditionalClasses
+                value=
+              parameter~ containerValue
+                value=
+              parameter~ useThisSequence
+                value= trayId
+
+
+              #### BUILD SHEET CONFIGURATIONS
+              parameter~ containerCommentsInclude
+                value= [$$Destination_Plate_Comments$$]
+              parameter~ containerActionInclude
+                value= [$$Action_Options$$]
+              parameter~ containerGenerateFromSequence
+                value= [$$Generate_Plate_ID$$]
+              parameter~ containerShowStorageLocation
+                value= No
+              parameter~ containerPrintBarcode
+                value= [$$Print_Plate_Barcode$$]
+              parameter~ containerCategoryInclude
+                value= [$$Container_Category$$]
+              parameter~ includePriority
+                value= [$$Priority$$]
+              parameter~ containerFileUpload
+                value= [$$Document_Upload$$]
+
+
+              #### PARAMETER DRIVEN ROUTING
+              parameter~ containerActionOptions
+                value= passfail
+          div
+            configureIf~ {_:destinationType}
+              advanced~
+              equals~ plate
+                ignoreCase~
+            include transferMapLayoutXfer
+              parameter~ destinationTrayType
+                value= plate
+              parameter~ destinationRows
+                value= {_:destinationRows}
+              parameter~ destinationColumns
+                value= {_:destinationColumns}
+              parameter~ currentLoop
+                value= {_:currentLoop}
+              parameter~ newPlate
+                value= {newPlate}
+              parameter~ sourcePlate
+                value= {_:sourceTray}
+              parameter~ transferMapID
+                value= {_:transferMap}
+              parameter~ destinationPlate
+                value= {newPlate}
+              parameter~ sourcePlateOnSubmit
+                value= {sourcePlate}
+
+          div
+            configureIf~ {_:destinationType}
+              advanced~
+              equals~ grid
+                ignoreCase~
+            include transferMapLayoutXfer
+              parameter~ destinationTrayType
+                value= grid
+              parameter~ destinationRows
+                value= {_:destinationRows}
+              parameter~ destinationColumns
+                value= {_:destinationColumns}
+              parameter~ currentLoop
+                value= {_:currentLoop}
+              parameter~ newPlate
+                value= {newPlate}
+              parameter~ sourcePlate
+                value= {_:sourceTray}
+              parameter~ transferMapID
+                value= {_:transferMap}
+              parameter~ destinationPlate
+                value= {newPlate}
+              parameter~ sourcePlateOnSubmit
+                value= {sourcePlate}
+
+
+
+
+      include addBatchControlToTray
+        parameter~ contentType
+          value= newControlId
+        parameter~ newPlate
+          value= {newPlate}
+        parameter~ sourcePlate
+          value= {sourcePlate}
+
+      ## Turn off workList Generation until needed by a userStory ##
+      div
+        configureIf~ No
+          advanced~
+          equals~ Yes
+        # configureIf~ [$$$generateWorklist$$$]
+        #   advanced~
+        #   equals~ true
+        include createPlateWorkList
+          parameter~ sourcePlate
+            value= {sourcePlate}
+
+      include plateProperties
+        parameter~ plateId
+          value= {newPlate}
+        parameter~ trayRowNumber
+          value= {destinationRows}
+        parameter~ trayColumnNumber
+          value= {destinationColumns}
+        parameter~ trayType
+          value= {destinationType}
+
+      include traytransferSQL
+        parameter~ destinationPlate
+          value= {newPlate}
+        parameter~ totalLoops
+          value= {numberOfLoops}
+        parameter~ currentLoop
+          value= {currentLoop}
+        parameter~ sourcePlate
+          value= {sourcePlate}
+
+      include trayTransferTrayLoopingSQL
+        parameter~ sourcePlate
+          value= {sourcePlate}
+        parameter~ destinationPlate
+          value= {newPlate}
+        parameter~ currentLoop
+          value= {currentLoop}
+        parameter~ totalLoops
+          value= {numberOfLoops}
+
+      # Route destination plate
+      include routeContainer
+        parameter~ processContainerId
+          value= {newPlate}
+        parameter~ result
+          value= {newPlate_Action}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+
+      ifCondition~ {currentLoop}
+        advanced~
+        equals~ {numberOfLoops}
+
+        # Route source plate
+        include routeContainer
+          parameter~ processContainerId
+            value= {sourcePlate}
+          parameter~ result
+            value= {sourcePlate_Action}
+          parameter~ deleteFromStep
+            value= [$$STEP_NAME$$]
+          parameter~ defaultNextStep
+            value= Store
+          parameter~ routingDirection
+            value= IN
+          parameter~ routingType
+            value= group
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+
+      ### ensure no additional items are scanned into wells. only NEW batch controls
+      validateSql
+        - ! SELECT 1 FROM containerHistory ch
+        - INNER JOIN containers c ON ch.containerId = c.containerId AND c.containerType <> 'trayId'
+        - WHERE ch.eventId = ?
+        -   AND ch.containerId NOT IN ( SELECT content FROM contents WHERE containerId IN (?,?))
+        long {_eventId}
+        string {newPlate}
+        string {sourcePlate}
+        errorMessage The newly scanned item is not a valid control. Please re-scan.
+
+      forEach SELECT controlType
+        - FROM contents c
+        - INNER JOIN controls co ON c.content = co.controlId
+        - WHERE c.containerId = ?
+        - AND c.contentType = 'controlTubeId'
+        -   AND c.content NOT IN (SELECT content FROM contents WHERE containerId = ?)
+        string {newPlate}
+        string {sourcePlate}
+
+        validateSql
+          - SELECT 1 FROM inventoryUsage
+          - WHERE step = ?
+          -   AND inventoryItem = ?
+          string {_step}
+          string {_:controlType}
+          errorMessage The newly scanned item is not a valid control. Please re-scan.

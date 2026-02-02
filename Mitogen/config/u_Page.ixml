@@ -1,0 +1,124 @@
+config
+  # HTTP Headers
+  # leave empty to not set header
+  #XXSSProtection 1; mode=block
+  #StrictTransportSecurity max-age=63072000; includeSubDomains
+  #XContentTypeOptions nosniff
+  #XFrameOptions SAMEORIGIN
+  #ContentSecurityPolicy default-src https: 'unsafe-eval' 'unsafe-inline'; object-src 'none'; frame-ancestors 'self'
+  #AccessControlAllowOrigin
+
+  # Page Setup
+  pageClass uniflow.Page3
+
+  cssLinks
+    link css/jquery/jquery-ui/jquery-ui.min.css
+    link css/jquery/jquery-ui/jquery-ui.theme.min.css
+    link css/jquery/jquery-ui/frameshift.jquery-ui.css
+    link css/jquery/jquery-ui/frameshift.jquery-ui.theme.css
+    link css/jquery/superfish/superfish.css
+    link css/jquery/superfish/frameshift.superfish.css
+    link css/jquery/datatables/datatables.min.css
+    link css/jquery/datatables/frameshift.datatables.css
+    link css/jquery/jquery.timepicker.css
+    link css/parsley.css
+    link css/frameshift.css
+    link css/moment-datepicker/datepicker.css
+    link css/moment-datepicker/datepicker2.css
+    link css/jquery/datatables/FixedColumns-3.3.0/css/fixedColumns.dataTables.min.css
+    link css/jquery/datatables/Buttons-1.6.1/css/buttons.dataTables.min.css
+
+  jsScripts
+    src js/moment/moment.min.js
+    src js/moment/moment-with-locales.min.js
+    src js/moment/moment-timezone-with-data.min.js
+    src js/moment/moment-jdateformatparser.min.js
+    src js/jquery/jquery-3.3.1.min.js
+    src js/jquery/jquery-migrate-3.0.0.min.js
+    src js/jquery/jquery-ui/jquery-ui.min.js
+    src js/jquery/jquery.hoverIntent.min.js
+    src js/jquery/jquery.MultiFile.min.js
+    src js/jquery/jquery.timepicker.min.js
+    src js/jquery/superfish/superfish.min.js
+    src js/jquery/datatables/datatables.min.js
+    src js/jquery/datatables/datetime-moment.js
+    src js/jquery/datatables/page.jumpToData().js
+    src js/jquery/datatables/FixedColumns-3.3.0/js/dataTables.fixedColumns.min.js
+    src js/jquery/datatables/Buttons-1.6.1/js/dataTables.buttons.min.js
+    src js/jquery/datatables/Buttons-1.6.1/js/buttons.colVis.min.js
+
+    src js/jquery/combobox.js
+    src js/parsley/parsley.min.js
+    src js/moment-datepicker/moment-datepicker.min.js
+
+    src js/uniflow.js
+    src js/utilities.js
+    src js/frameshift.js
+    src js/frameshift.tables.js
+    src js/utilitiesPrint.js
+    src js/workflow.js
+
+  allRequestsInstructions
+    jython
+      if switchboard.page.getClass().getName() == "com.uniconnect.uniflow.node.Page3":
+        switchboard.page.HTMLbody.addHead(switchboard.page.navigationBar.get("div").makeClone())
+
+        curAccountId = switchboard.accountId
+        nav = switchboard.getConfig().getByTagAndValue("nav", "TopMenu").makeClone()
+        dashboardNav = switchboard.getConfig().getByTagAndValue("nav", "DashboardMenu").makeClone()
+        orderEnrtyNav = switchboard.getConfig().getByTagAndValue("nav", "OrderEntryMenu").makeClone()
+        workflowNav = switchboard.getConfig().getByTagAndValue("nav", "WorkflowsMenu").makeClone()
+        reportingNav = switchboard.getConfig().getByTagAndValue("nav", "ReportingMenu").makeClone()
+        settingsNav = switchboard.getConfig().getByTagAndValue("nav", "SettingsMenu").makeClone()
+        # routingNav = switchboard.getConfig().getByTagAndValue("nav", "RoutingMenu").makeClone()
+        labManageNav = switchboard.getConfig().getByTagAndValue("nav", "LabMangementMenu").makeClone()
+        reportPortalNav = switchboard.getConfig().getByTagAndValue("nav", "ReportingMenu").makeClone()
+        adminNav = switchboard.getConfig().getByTagAndValue("nav", "AdminMenu").makeClone()
+        userNav = switchboard.getConfig().getByTagAndValue("nav", "UserMenu").makeClone()
+        usernameNode = userNav.get('li.a.span')
+        usernameParts = switchboard.userId.split('@')
+        usernameNode.value = usernameParts[0]
+
+        userLogout = switchboard.getConfig().getByTagAndValue("nav", "UserLogout").makeClone()
+        isSSO = switchboard.getConfig().getOrNull('SSOUserIdHeader')
+        logoutSSONode = switchboard.getConfig().getOrNull('SSOLogoutURL')
+        logoutNode = userLogout.get("li.a.href=")
+        if isSSO is not None:
+          if logoutSSONode is None:
+            logoutSSO = switchboard.DEFAULT_SSO_LOGOUT_URL
+          else:
+            logoutSSO = logoutSSONode.value
+          logoutNode.value = logoutSSO
+        userNav.tail.tail.add(userLogout.tail)
+
+        if "chpwd" in curAccountId:
+          pass
+        elif curAccountId == 'OrderingUser':
+          nav.tail.tail.tail.add(labManageNav.tail)
+        elif curAccountId == 'ReportingUser':
+          nav.tail.tail.tail.add(reportPortalNav.tail)
+        else:
+          nav.tail.tail.tail.add(dashboardNav.tail)
+          nav.tail.tail.tail.add(orderEnrtyNav.tail)
+          nav.tail.tail.tail.add(workflowNav.tail)
+          nav.tail.tail.tail.add(reportingNav.tail)
+          # nav.tail.tail.tail.add(routingNav.tail)
+          nav.tail.tail.tail.add(labManageNav.tail)
+          # nav.tail.tail.tail.add(settingsNav.tail)
+
+          if switchboard.accessLevel in [8]:
+            nav.tail.tail.tail.add(settingsNav.tail)
+
+          if switchboard.accessLevel in [10, 12]:
+            nav.tail.tail.tail.add(settingsNav.tail)
+            nav.tail.tail.tail.add(adminNav.tail)
+
+        nav.tail.tail.tail.add(userNav.tail)
+
+        topMenu = switchboard.page.HTMLbody.addHead(nav)
+        topMenu.value = ''
+
+        switchboard.page.navigationBar.tag = "REM~"
+
+  doctype <!DOCTYPE html>
+  usePackedHTML false

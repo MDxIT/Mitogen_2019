@@ -1,0 +1,253 @@
+config
+  steps
+    step Label Configuration
+      jsScripts
+        src js/printing/printConfiguration.js
+        src js/generalFunctions.js
+      form
+        include stepInstructions
+        data-parsley-validate=
+        div
+          id= modal
+
+        hidden showSubmit
+        fieldset
+          vertical
+            table
+              class= stdTableBasic
+              sqlPreparedQuery~ SELECT CONCAT('<a href="/uniflow?lastForm=Y&stepName=', '{_step}', '&recId=', pd.id, '">', pd.documentName, '</a>') AS "Label Type"
+                - , CASE WHEN pd.isEnabled = 1 THEN 'Yes' ELSE 'No' END AS "Enabled"
+                - FROM printDocuments pd
+                - UNION ALL
+                - SELECT 'No documents created' AS "documentName", ''
+                - FROM DUAL
+                - WHERE NOT EXISTS(SELECT documentName FROM printDocuments)
+              columnSpecs~ printTable
+
+      form
+        include stepInstructions
+        data-parsley-validate=
+        div
+          id= modal
+
+        configurePreparedQuery~
+          - SELECT * FROM (SELECT pd.documentName AS "documentName"
+          - , CASE WHEN pd.isEnabled = 1 THEN 'true' ELSE 'false' END AS "documentIsEnabled"
+          - , pdd.printLanguage AS "printLanguage"
+          - FROM printDocuments pd
+          - INNER JOIN printDocumentDefinitions pdd ON pdd.printerDocumentId = pd.id
+          - WHERE pd.id = ?
+          - UNION ALL
+          - SELECT "" AS "documentName"
+          -      , "true" AS "documentIsEnabled"
+          -      , "ZPL" AS "printLanguage") a
+          - Limit 1
+          string {_recId}
+          allowEmptyResults~
+
+        hidden documentNameId
+          id= documentNameId
+          value= {_recId}
+
+        fieldSet
+          vertical2
+            text documentName
+              screenLabel~ Label Type:
+              id= documentName
+              value= {_:documentName}
+            checkbox documentIsEnabled
+              screenLabel~ Enabled:
+              id= documentIsEnabled
+              value= {_:documentIsEnabled}
+            select printLanguage
+              screenLabel~ Printing Language:
+              id= printLanguage
+              option ZPL
+                value= ZPL
+              option EPL
+                value= EPL
+              option PCL
+                value= PCL
+              value= {_:printLanguage}
+          br
+          button addNewPrintTableRow
+            id= addNewPrintTableRow
+            value= Add Field Row
+
+          div
+            id= printVariablesSection
+            class= parentPrintSection
+
+
+    stepGroup hiddenPrintSteps
+    step ajaxGetDefinedPrintVariablesList
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSON
+      table
+        sqlPreparedQuery~ SELECT * FROM (
+          - SELECT pdd.fieldSequence AS "fieldSequence"
+          - , pdd.fieldType AS "fieldType"
+          - , pdd.fieldData AS "fieldData"
+          - FROM printDocumentDefinitions pdd
+          - WHERE pdd.printerDocumentId = ?
+          - UNION ALL
+          - SELECT 1 AS "fieldSequence"
+          - , "Variable" AS "fieldType"
+          - , "" AS "fieldData"
+          - FROM dual
+          - WHERE NOT EXISTS( select 1 from printDocumentDefinitions pdd
+          - WHERE pdd.printerDocumentId = ?)) a
+          - ORDER BY a.fieldSequence
+          string {documentId}
+          string {documentId}
+
+
+
+    step ajaxGetLabelTypeVariables
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT fieldData FROM printDocumentDefinitions pdd
+          - INNER JOIN printDocuments pd
+          -   ON pd.id = pdd.printerDocumentId
+          - WHERE documentName = ? AND fieldType = 'Variable'
+          string {documentName}
+
+
+    step ajaxPostSavePrintVariablesDefined
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        vertical
+          text documentNameId
+            value= {documentNameId}
+            required~ true
+          text documentName
+            value= {documentName}
+            required~ true
+          text printerLanguage
+            required~ true
+            value= {printerLanguage}
+          text documentIsEnabled
+            required~ true
+            value= {documentIsEnabled}
+          textArea documentFieldsJson
+            value= documentFieldsJson
+
+      setFormQueryResult processingSuccessful
+        value= false
+
+      ifCondition~ {documentNameId}
+        advanced~
+        equals~ newDocument
+        sqlPreparedStatement INSERT INTO printDocuments (documentName, isEnabled, eventId) SELECT ?, CASE WHEN ? = 'true' THEN 1 else 0 END , ?
+          string {documentName}
+          string {documentIsEnabled}
+          long  {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery SELECT id AS 'documentNameId' FROM printDocuments WHERE eventId = {_eventId}
+
+        else
+          setFormQueryResult
+            sqlPreparedQuery SELECT '{documentNameId}' AS 'documentNameId' FROM dual
+
+          sqlPreparedStatement UPDATE printDocuments SET documentName = ?, isEnabled = CASE WHEN ? = 'true' THEN 1 else 0 END WHERE id = ?
+            string {documentName}
+            string {documentIsEnabled}
+            string {_:documentNameId}
+
+      ifCondition~
+        advanced~
+        sqlPreparedQuery~ SELECT 1 FROM printDocuments WHERE id = ?
+          int {_:documentNameId}
+
+        sqlPreparedStatement DELETE FROM printDocumentDefinitions WHERE printerDocumentId = ?
+          string {_:documentNameId}
+
+        jython
+          import json
+          from com.uniconnect.uniflow.exception import SystemException
+          from java.sql import SQLException
+
+          templateFieldsSource = r'''{documentFieldsJson}'''.encode("utf-8")
+          templateName = '{documentName}'
+
+          if templateFieldsSource:
+            try:
+              templateFieldsDefs = json.loads(templateFieldsSource, strict=False)
+
+              sqlInsertPrintDocumentDefinitions = "INSERT INTO printDocumentDefinitions \
+                - (printerDocumentId, printLanguage, fieldSequence, fieldType, fieldData, eventId) \
+                - VALUES (?, ?, ?, ?, ?, ?) "
+              psInsertPrintDocumentDefinitions = switchboard.connection.prepareStatement(sqlInsertPrintDocumentDefinitions)
+
+              print "------------- FINISHED SQL  SETUP -----------------"
+
+              for item in templateFieldsDefs:
+
+                fieldSequence = item['fieldSequence']
+                if fieldSequence == '':
+                  fieldSequence = None
+
+                fieldType = item['fieldType']
+                if fieldType == '':
+                  fieldType = None
+
+                fieldData = item['fieldData']
+                if fieldData == '':
+                  fieldData = None
+
+                print "------------- FINISHED SETTING VALUES -----------------"
+
+                psInsertPrintDocumentDefinitions.setString(1, '{_:documentNameId}')
+                psInsertPrintDocumentDefinitions.setString(2, '{printerLanguage}')
+                psInsertPrintDocumentDefinitions.setString(3, fieldSequence)
+                psInsertPrintDocumentDefinitions.setString(4, fieldType)
+                psInsertPrintDocumentDefinitions.setString(5, fieldData)
+                psInsertPrintDocumentDefinitions.setLong(6, {_eventId})
+                psInsertPrintDocumentDefinitions.execute()
+                print psInsertPrintDocumentDefinitions
+
+                print "------------- FINISHED INSERT -----------------"
+
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+            except Exception as e:
+              switchboard.log("---*** Exception *** --- FAILURE TO INSERT/UPDATE ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except StandardError as e:
+              switchboard.log("---*** Standard Py Error *** ----FAILURE TO INSERT/UPDATE ----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except SystemException as e:
+              switchboard.log("---*** UNIFlow SystemException ***----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except SQLException as e:
+              switchboard.log("---*** SQLException ***----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except BaseException as e:
+              switchboard.log("---*** PyException ***----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except TypeError as e:
+              switchboard.log("---*** TypeError ***----")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+            except:
+              switchboard.log("*** Unspecified Error *****")
+              switchboard.log(str(e.message))
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Template not created

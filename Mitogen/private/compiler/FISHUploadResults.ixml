@@ -1,0 +1,116 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        include fishForm0
+          parameter~ nameOfStep
+            value= {_step}
+      form
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   currentContainerId as 'specimen'
+          - FROM specimenRuns s
+          -   INNER JOIN queues q on s.runId = q.containerId
+          - WHERE runId = ?
+          string {_recId}
+
+        hidden _recId
+          value= {_recId}
+        hidden runId
+          value= {_recId}
+        hidden specimenId
+          value= {_:specimen}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Upload File for: {_:specimen}
+          div
+            class= sectionContent
+            file fishAnalysis
+              screenLabel~ FISH Analysis File(.csv)
+              destinationFolderName~ fishAnalysis
+              destinationFilePrefix~ Fishdata_0000000
+              required~ true
+              validate~ ! SELECT 1 FROM DUAL WHERE SUBSTRING_INDEX('{fishAnalysis}', ".", -1) <> 'csv'
+                errorMessage~ This is the incorrect file type. Please attach a csv file.
+            br
+
+
+      jython
+        f = open('{_configPath}public/fishAnalysis/{fishAnalysis}').read()
+        switchboard.log(f)
+        lines = f.split('\r\n')
+        i = 0
+        for line in lines:
+          switchboard.log('***line'+ line)
+          if i > 0:
+            fields = line.split(',')
+            insertDataSQL = switchboard.connection.prepareStatement("INSERT INTO fishCaseResults (runId,slideLabel,slideName,cellLabel,region,probeName,className,coordX,coordY,slideResults,region1Results,region2Results,iscn,comments,eventId) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+            print "After"
+            insertDataSQL.setString(1,'{runId}')
+            print "1"
+            insertDataSQL.setString(2, fields[0])
+            print "2"
+            insertDataSQL.setString(3, fields[1])
+            print "3"
+            insertDataSQL.setString(4, fields[2])
+            print "4"
+            insertDataSQL.setString(5, fields[3])
+            print "5"
+            insertDataSQL.setString(6, fields[4])
+            print "6"
+            insertDataSQL.setString(7, fields[5])
+            print "7"
+            insertDataSQL.setString(8, fields[6])
+            print "8"
+            insertDataSQL.setString(9, fields[7])
+            print "9"
+            insertDataSQL.setString(10, fields[8])
+            print "10"
+            insertDataSQL.setString(11, fields[9])
+            print "11"
+            insertDataSQL.setString(12, fields[10])
+            print "12"
+            insertDataSQL.setString(13, fields[11])
+            print "13"
+            insertDataSQL.setString(14, fields[12])
+            print "14"
+            insertDataSQL.setLong(15, switchboard.eventId)
+            print "15"
+            insertDataSQL.executeUpdate()
+          i+=1
+
+
+
+      sqlPreparedStatement
+        - UPDATE specimenRuns
+        - SET lastUpdatedEventId = ?
+        - WHERE runId = ?
+        long {_eventId}
+        string {runId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory(containerId,eventId)
+        - VALUES(?,?)
+        string {runId}
+        long {_eventId}
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {runId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= run
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+

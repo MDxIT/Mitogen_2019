@@ -1,0 +1,15 @@
+config
+  applicationServers
+    additionalServers
+      server FHIRSERVER
+        servlet com.sunquest.mitogen.lims.fhir.FHIRServlet
+        bindPath /FHIR/*
+        className com.sunquest.mitogen.lims.fhir.FHIRServlet
+        classType ca.uhn.fhir.rest.server.RestfulServer
+    ##defines configuration loaded by the com.uniconnect.uniflow.api.RestApplication class
+    ##singletons are the only current supported configuration option
+    defaultRESTServerConfig
+      singletons
+        singleton com.uniconnect.uniflow.api.QueuesService
+        singleton com.uniconnect.uniflow.api.ContainersService
+        singleton com.uniconnect.uniflow.api.GenericRESTService

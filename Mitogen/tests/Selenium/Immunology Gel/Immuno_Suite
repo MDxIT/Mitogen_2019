@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+  <title>Test Suite</title>
+</head>
+<body>
+<table id="suiteTable" cellpadding="1" cellspacing="1" border="1" class="selenium"><tbody>
+<tr><td><b>Test Suite</b></td></tr>
+<tr><td><a href="Immuno_NewReq.html">Immuno_NewReq</a></td></tr>
+<tr><td><a href="Immuno_QC_Req.html">Immuno_QC_Req</a></td></tr>
+<tr><td><a href="Immuno_ReceiveSpecimens.html">Immuno_ReceiveSpecimens</a></td></tr>
+<tr><td><a href="Immuno_AssignSpecimens.html">Immuno_AssignSpecimens</a></td></tr>
+<tr><td><a href="Immuno_ProcessSpecimens.html">Immuno_ProcessSpecimens</a></td></tr>
+<tr><td><a href="Immuno_Extraction.html">Immuno_Extraction</a></td></tr>
+<tr><td><a href="Immuno_RunGel.html">Immuno_RunGel</a></td></tr>
+<tr><td><a href="Immuno_Immunofixation.html">Immuno_Immunofixation</a></td></tr>
+<tr><td><a href="Immuno_WashAndStain.html">Immuno_WashAndStain</a></td></tr>
+<tr><td><a href="Immuno_Destain.html">Immuno_Destain</a></td></tr>
+<tr><td><a href="Immuno_Dry.html">Immuno_Dry</a></td></tr>
+<tr><td><a href="Immuno_Results_Missing.html">Immuno_Results_Missing</a></td></tr>
+<tr><td><a href="../Reporting/Create Report.html">CreateReport</a></td></tr>
+<tr><td><a href="../Reporting/SignOutReport.html">SignOutReport_Personalize</a></td></tr>
+</tbody></table>
+</body>
+</html>

@@ -1,0 +1,351 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+
+    stepGroup Task Instructions
+
+    step View Task Instructions
+      accessLevel 8
+      jsScripts
+        src js/taskInstructions.js
+      form
+        include userAccountInfo
+        include stepInstructions
+        table
+          id= instructionsTable
+          class= stdTableBasic
+          sqlPreparedQuery~ SELECT DISTINCT
+            - CONCAT('<a href="uniflow?lastForm=Y&stepName=View+Task+Instructions&recId=', s.step,'">', s.step, '</a>') AS 'Task'
+            - FROM stepInstructions s
+            - LEFT JOIN protocolSteps sl ON sl.displayName = s.step
+            - ORDER BY s.step
+
+      form
+        configurePreparedQuery~ SELECT ? AS 'instId'
+          string {_recId}
+        include userAccountInfo
+        include stepInstructions
+        table
+          id= instructionsTable
+          class= stdTableSort
+          sqlPreparedQuery~ SELECT
+            - s.step AS 'Task' ,
+            - s.instructions AS 'Instruction' ,
+            - s.displayOrder AS 'Order' ,
+            - COALESCE(s.attribute , '') AS 'Form' ,
+            - CONCAT(e.eventDate,'<br>', e.userId) AS 'Last Update'
+            - FROM stepInstructions s
+            - LEFT JOIN protocolSteps sl ON sl.displayName = s.step
+            - LEFT JOIN events e ON s.eventId = e.eventId
+            - WHERE s.step = ?
+            - ORDER BY s.step, COALESCE(s.attribute, ''), IF(LENGTH(s.displayOrder) = 1, CONCAT("0", s.displayOrder), s.displayOrder)
+            string {_:instId}
+
+    step Manage Task Instructions
+      accessLevel 8
+      jsScripts
+        src js/taskInstructions.js
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        table
+          id= instructionsTable
+          class= stdTableBasic
+          sqlPreparedQuery~ SELECT DISTINCT
+            - CONCAT('<a href="uniflow?lastForm=Y&stepName=Manage+Task+Instructions&recId=', s.step,'">', s.step, '</a>') AS 'Task'
+            - FROM stepInstructions s
+            - LEFT JOIN protocolSteps sl ON sl.displayName = s.step
+            - ORDER BY s.step
+
+      form
+        configurePreparedQuery~ SELECT ? AS 'instId'
+          string {_recId}
+        include userAccountInfo
+        include stepInstructions
+
+        table
+          id= instructionsTable
+          sqlPreparedQuery~ SELECT '' AS 'Update',
+            - s.step AS 'Task',
+            -  s.instructions AS 'Instruction',
+            - s.displayOrder AS 'Order',
+            - COALESCE(s.attribute, '') AS 'Form',
+            - CONCAT(e.eventDate,'<br>', e.userId) AS 'Last Update',
+            - '' AS 'Remove',
+            - s.id AS ''
+            - FROM stepInstructions s
+            - LEFT JOIN protocolSteps sl ON sl.displayName = s.step
+            - LEFT JOIN events e ON s.eventId = e.eventId
+            - WHERE s.step = ?
+            - ORDER BY s.step, COALESCE(s.attribute, ''), IF(LENGTH(s.displayOrder) = 1, CONCAT("0", s.displayOrder), s.displayOrder)
+            string {_:instId}
+          columnSpecs~ editInstructions
+            allowChangedRecordIds
+            column 1
+              data-orderable= false
+              inputType checkbox
+                class= updateInstruction
+            column 3
+              data-orderable= false
+              inputType textArea
+                readonly=
+            column 4
+              inputType select
+                sqlQuery~ SELECT no, no FROM numbers LIMIT 24
+            column 5
+              inputType select
+                option
+                  value=
+                option 0
+                  value= 0
+                option 1
+                  value= 1
+                option 2
+                  value= 2
+                option All
+                  value= all
+            column 7
+              data-orderable= false
+              inputType checkbox
+                class= removeInstruction
+            column 8
+              data-orderable= false
+              inputType text
+                readonly=
+                style= display: none;
+
+      forRows editInstructions
+        ifCondition {_columnInput_editInstructions:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement UPDATE stepInstructions SET instructions = ?, displayOrder = ?, attribute = ?, eventId = ? WHERE id = ?
+            string {_columnInput_editInstructions:3}
+            string {_columnInput_editInstructions:4}
+            string {_columnInput_editInstructions:5}
+            int {_eventId}
+            string {_columnInput_editInstructions:8}
+
+        ifCondition {_columnInput_editInstructions:7}
+          advanced~
+          equals~ true
+          sqlPreparedStatement DELETE FROM stepInstructions WHERE id = ?
+            string {_columnInput_editInstructions:8}
+
+    step Add Task Instructions
+      accessLevel 8
+      form
+        include combobox
+        include userAccountInfo
+        include stepInstructions
+
+        table
+          id= instructionsTable
+          sqlPreparedQuery~
+            - SELECT '' AS 'Task',
+            - '' AS 'Instruction',
+            - '' AS 'Order',
+            - '' AS 'Form'
+            - FROM numbers
+            - LIMIT 5
+          columnSpecs~ addInstructions
+            allowChangedRecordIds
+            column 1
+              inputType select
+                class= combobox
+                style= width:300px;
+                option Insurance Providers
+                option Annotate Container
+                option Manage FISH Cutoff Values
+                option Manage ISCN Values
+                option Patients
+                option Physicians
+                option Clients
+                option Site Configurations
+                option Tests
+                option Panels
+                option Methods
+                option Drugs
+                option Analysis Method Configuration
+                option Analysis Details
+                option Print Barcode
+                option Barcode Printer
+                option Barcode Labels
+                option CAP Checklist Association
+                option CAP Report
+                option Client Site Settings
+                option Client Report Logo
+                option Create Consumables Type
+                option Receive Consumables
+                option Prepare Container
+                option Dispose Consumables
+                option Lookup Consumable
+                option Edit Consumable
+                option View Consumable Associations
+                option Contact Customer
+                option Create Control Type
+                option Receive Multiple Controls
+                option Receive Control
+                option Create Controls
+                option Create Control Dilutions
+                option Create Control Aliquots
+                option QC Control
+                option Lookup Control
+                option Edit Control
+                option Manage Control Limits
+                option Manage Control Expected Values
+                option Lookup Sample Report
+                option Manage SELECT Lists
+                option Add Instrument
+                option Assign Tasks to Instrument
+                option Record Task
+                option Lookup Tasks Due
+                option Lookup Instrument History
+                option Lookup Instrument Details
+                option Edit Instrument
+                option Change Instrument Status
+                option Manage Tasks
+                option Manage Instrument Service
+                option Manage Instrument Lists
+                option View Instrument Associations
+                option Order Entry
+                option Order Review
+                option Edit Order
+                option View Order
+                option Specimen Receiving
+                option Add Test
+                option Order Form
+                option Link Valid Values
+                option Accessioning Configuration
+                option Label Configuration
+                option Print Server Configuration
+                option Auto Import Print Servers
+                option Create Reagent Type
+                option Sort Reagents for QC
+                option Receive Multiple Reagents
+                option Receive Single Reagent
+                option Prepare Reagent
+                option Prepare Reagent by Recipe
+                option Prepare Aliquots
+                option Prepare Dilutions
+                option QC Reagent
+                option Dispose Reagent
+                option Resurrect Reagent
+                option Master Mix Definition
+                option Lookup Reagent
+                option Lookup Lot Information
+                option Lookup Parent Lot Information
+                option Edit Reagent Details
+                option View Reagent Associations
+                option Configure Reports
+                option View Report Configurations
+                option Upload Report Templates to server
+                option Configure Report
+                option Report Data Pending
+                option Result Data Review
+                option Sign Out Report
+                option Final Report
+                option Correct Report
+                option Addend Report
+                option Amend Report
+                option Cancel Report
+                option Reject Report
+                option Manage Signatures
+                option Exception Handling
+                option Routing Configuration
+                option Store in Box
+                option Store
+                option Remove from Storage
+                option Search Storage
+                option Visual Storage
+                option Search Comments
+                option Partial Sample Id Search
+                option View All Storage Locations
+                option Create Storage
+                option Transfer Storage
+                option Remove Storage Location
+                option Add Fridge/Freezer Shelves
+                option Add Fridge/Freezer Racks to Shelves
+                option Add Storage Box to Rack
+                option Add to Storage Unit
+                option Create 4x4 Storage Box
+                option Create 4x8 Storage Box
+                option Create 7x7 Storage Box
+                option Create 8x8 Storage Box
+                option Create 9x9 Storage Box
+                option Create 10x10 Storage Box
+                option Create Tray/Transfer Map
+                option Edit Tray/Transfer Map
+                option Edit Tray/Transfer Map Step and Master Mix Assignments
+                option View/Edit Transfer Map Order
+                option Add Master Mixes to Maps and Assign to Steps
+                option Setup Inventory Usage By Task
+                option Edit Inventory Usage By Task
+                option Edit Inventory Usage By Resource
+                option List All Usage Requirements
+                option Review and Verify Inventory for Tasks
+                option Add User
+                option Set Password Strength Requirements
+                option Set PIN
+                option Change User Status
+                option Reset User Password
+                option List Users
+                option View Login History
+                option Super Add User
+                option Super Change User Status
+                option Super Reset User Password
+                option Super List Users
+                option Super View Login History
+                option Change Your Contact Info
+                option Change Your Password
+                option Add Account User
+                option Change Account User Status
+                option Reset Account User Password
+                option List Account Users
+                option View Account Login History
+                option Vendor
+                option List Vendors
+                option Contacts
+                option List Contacts
+                sqlQuery~ SELECT DISTINCT displayName, displayName
+                  - FROM protocolSteps
+                  - ORDER BY displayName
+            column 2
+              inputType textArea
+            column 3
+              inputType select
+                sqlQuery~ SELECT no, no FROM numbers LIMIT 24
+            column 4
+              inputType select
+                option
+                  value=
+                option 0
+                  value= 0
+                option 1
+                  value= 1
+                option 2
+                  value= 2
+                option All
+                  value= all
+
+      forRows addInstructions
+        ifCondition {_columnInput_addInstructions:1}
+          advanced~
+          not~
+            isBlank~
+          and~ {_columnInput_addInstructions:2}
+            not~
+              isBlank~
+          sqlPreparedStatement INSERT INTO stepInstructions (step, attribute, instructions, displayOrder, eventId)
+            - VALUES (?, ?, ?, ?, ?)
+            string {_columnInput_addInstructions:1}
+            string {_columnInput_addInstructions:4}
+            string {_columnInput_addInstructions:2}
+            string {_columnInput_addInstructions:3}
+            int {_eventId}
+

@@ -1,0 +1,33 @@
+#sampleIDDiv{
+    margin-left: 40px;
+}
+#sampleIDValue {
+    display: inline-block;
+    font-weight: bold;
+    background-color: #F2F2F2;
+}
+#exampleIDValue {
+    display: inline-block;
+    font-weight: bold;
+    background-color: #F2F2F2;
+}
+#sampleIDBaseDiv * {
+    padding-right: 20px;
+}
+#sampleIDIncrementDiv * {
+    padding-right: 20px;
+}
+#idTypeHeader {
+    border: 1px solid #eaeaea;
+    margin-bottom: 55px;
+    clear: both;
+    background: #ffffff;
+    box-shadow: 0px 3px 6px 0px rgba(0,0,0,0.12);
+    position: sticky;
+}
+#selectedGeneratedIDConfigurationDiv {
+    visibility: collapse;
+}
+#stepFormSubmitButton {
+    display: none;
+}

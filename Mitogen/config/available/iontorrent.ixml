@@ -1,0 +1,620 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps 
+    ####-  Ion Torrent Demo #######################################
+    stepGroup Ion Torrent
+     
+    step Amplify Targets
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol 
+              li Scan in resources for sample amplification.
+              li Scan samples for amplification.
+              li Enter AmpliSeq RDY plate ID.
+              li Perform amplification.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Ampliseq Library Kit+
+#               #qualifyResource~ qualified
+#               #containerType~ Ampliseq Library Kit+
+          fieldset
+            legend Lab Processing
+            vertical
+              fieldset
+                legend Samples
+                vertical
+                  container Sample A
+                    new~ true
+                    addContent~ 
+                  container Sample B
+                    required~ false
+                    new~ true
+                    addContent~ 
+                  container Sample C
+                    required~ false
+                    new~ true
+                    addContent~ 
+                  container Sample D
+                    required~ false
+                    new~ true
+                    addContent~ 
+                  container Sample E
+                    required~ false
+                    new~ true
+                    addContent~ 
+                  container Sample F
+                    required~ false
+                    new~ true
+                    addContent~ 
+                  container Sample G
+                    required~ false
+                    new~ true
+                    addContent~ 
+                  container Sample H
+                    required~ false
+                    new~ true
+                    addContent~ 
+              fieldset
+                legend Amplification
+                vertical
+                  container AmpliSeq RDY Plate
+                    new~ true
+                    addContent~ 
+                    insertQueue~ Digest Primer Sequences
+                  comments Comments
+      xfer duplicate
+        from Sample A
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample B
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample C
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample D
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample E
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample F
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample G
+        to AmpliSeq RDY Plate
+      xfer duplicate
+        from Sample H
+        to AmpliSeq RDY Plate
+
+     
+    step Digest Primer Sequences
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol 
+              li Scan in resources.
+              li Enter AmpliSeq RDY plate ID.
+              li Check box if plate is consolidated.
+              li Digest primer sequences. 
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Ampliseq Library Kit+
+#               #qualifyResource~ qualified
+#               #containerType~ Ampliseq Library Kit+
+          fieldset
+            legend Lab Processing
+            vertical
+              container AmpliSeq RDY Plate
+                deleteQueue~ Digest Primer Sequences
+                insertQueue~ Ligate Adapters
+              checkbox Consolidated
+              comments Comments
+     
+    step Ligate Adapters
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for ligating adapters.
+              li Enter AmpliSeq RDY Plate ID.
+              li Perform ligation.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Ampliseq Library Kit+
+#                 #qualifyResource~ qualified
+#                 #containerType~ Ampliseq Library Kit+
+#               passiveContainer DNA Barcode Adapters A
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter A
+#               passiveContainer DNA Barcode Adapters B
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter B
+#               passiveContainer DNA Barcode Adapters C
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter C
+#               passiveContainer DNA Barcode Adapters D
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter D
+#               passiveContainer DNA Barcode Adapters E
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter E
+#               passiveContainer DNA Barcode Adapters F
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter F
+#               passiveContainer DNA Barcode Adapters G
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter G
+#               passiveContainer DNA Barcode Adapters H
+#                 #qualifyResource~ qualified
+#                 #containerType~ DNA Barcode Adapter H
+#               passiveContainer Barcode Kit
+#                 #qualifyResource~ qualified
+#                 #containerType~ Barcode Kit
+          fieldset
+            legend Lab Processing
+            vertical
+              container AmpliSeq RDY Plate
+                deleteQueue~ Ligate Adapters
+                insertQueue~ Purify Library
+              comments Comments
+     
+    step Purify Library
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Enter AmpliSeq RDY plate ID.
+              li Enter library tube plate ID.
+              li Perform purification of RDY plate.
+              li Enter comments as necessary.
+              li Submit step.
+          fieldset
+            legend Lab Processing
+            vertical
+              container AmpliSeq RDY Plate
+                deleteQueue~ Purify Library
+              container Library Tube
+                new~ true
+                addContent~ 
+                insertQueue~ Quantify Library
+              comments Comments
+      xfer duplicate
+        from AmpliSeq RDY Plate
+        to Library Tube
+     
+    step Quantify Library
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for library quantification.
+              li Enter library tube ID.
+              li Perform quantificaion of library.
+              li Enter SDS results.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Ion Library Quantitation Kit
+#                 #qualifyResource~ qualified
+#                 #containerType~ Ion Library Quantitation Kit
+#               passiveContainer 7900 HT RTPCR
+#                 #qualifyResource~ qualified
+#                 #containerType~ 7900 HT RTPCR
+          fieldset
+            legend Lab Processsing
+            vertical
+              container Library Tube
+                deleteQueue~ Quantify Library
+                insertQueue~ Run Chef
+              container SDS Results
+                new~ true
+                addContent~ 
+              comments Comments
+      xfer duplicate
+        from Library Tube
+        to SDS Results
+     
+    step Prepare Chip
+      
+      note Different for one touch
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for chip preparation.
+              li Enter sequencing chip ID.
+              li Prepare chip.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Chip Preparation Solution
+#                 #qualifyResource~ qualified
+#                 #containerType~ Chip Preparation Solution
+#               passiveContainer Chip Priming Solution
+#                 #qualifyResource~ qualified
+#                 #containerType~ Chip Priming Solution
+          fieldset
+            legend Lab Processing
+            vertical
+              container Sequencing Chip
+                new~ true
+                addContent~ 
+                insertQueue~ Run Chef
+              comments Comments
+     
+    step Plan Chef/Proton Run
+      
+      note Show DNA barcodes, sampleId
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources.
+              li Prepare chef/proton.
+              li Enter comments as necessary.
+              li Submit step.
+          fieldset
+            vertical
+#             legend Resources
+#             vertical
+#               passiveContainer Chef
+#                 #qualifyResource~ qualified
+#                 #containerType~ Chef
+#               passiveContainer Proton
+#                 #qualifyResource~ qualified
+#                 #containerType~ Proton
+              comments Comments
+     
+    step Run Chef
+      
+      note Two samples go into chip, 2 chips (4 samples)
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for running chef.
+              li Enter library tube IDs.
+              li Enter sequencing chip IDs.
+              li Run ion chef system.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Chef
+#                 #qualifyResource~ qualified
+#                 #containerType~ Chef
+#               passiveContainer IC 200 Reagents
+#                 #qualifyResource~ qualified
+#                 #containerType~ IC 200 Reagents
+#               passiveContainer IC 200 Solutions
+#                 #qualifyResource~ qualified
+#                 #containerType~ IC 200 Solutions
+#               passiveContainer IC 200 supplies
+#                 #qualifyResource~ qualified
+#                 #containerType~ IC 200 supplies
+          fieldset
+            legend Lab Processing
+            vertical
+              fieldset
+                legend Library Tubes
+                vertical
+                  container Library Tube A1
+                    deleteQueue~ Run Chef
+                    insertQueue~ Run OT2
+                  container Library Tube A2
+                    required~ false
+                    deleteQueue~ Run Chef
+                    insertQueue~ Run OT2
+                  container Library Tube B1
+                    required~ false
+                    deleteQueue~ Run Chef
+                    insertQueue~ Run OT2
+                  container Library Tube B2
+                    required~ false
+                    deleteQueue~ Run Chef
+                    insertQueue~ Run OT2
+              fieldset 
+                legend Sequencing Chips
+                vertical
+                  container Sequencing Chip A
+                    deleteQueue~ Run Chef
+                    insertQueue~ Run IC Proton
+                  container Sequencing Chip B
+                    required~ false
+                    deleteQueue~ Run Chef
+                    insertQueue~ Run IC Proton
+              comments Comments
+     
+    step Run IC Proton
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for IC proton run.
+              li Enter sequencing chip ID.
+              li Run IC proton system.
+              li Enter sequence results.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer IC 200 Seq Reagents
+#                 #qualifyResource~ qualified
+#                 #containerType~ IC 200 Seq Reagents
+#               passiveContainer IC 200 Seq Solutions
+#                 #qualifyResource~ qualified
+#                 #containerType~ IC 200 Seq Solutions
+#               passiveContainer IC 200 Seq supplies
+#                 #qualifyResource~ qualified
+#                 #containerType~ IC 200 Seq supplies
+#               passiveContainer Proton
+#                 #qualifyResource~ qualified
+#                 #containerType~ Proton
+          fieldset 
+            legend Lab Processing
+            vertical
+              container Sequencing Chip
+                deleteQueue~ Run IC Proton
+                insertQueue~ Prepare OT2 Chip
+              container Sequence Results
+                new~ true
+                addContent~ 
+                insertQueue~ Run Proton
+              comments Comments
+      xfer duplicate
+        from Sequencing Chip
+        to Sequence Results
+     
+    step Run OT2
+      
+      note Two samples combined
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for OT2.
+              li Enter library tube ID.
+              li Run OT2 kit.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer OT2
+#                 #qualifyResource~ qualified
+#                 #containerType~ OT2
+#               passiveContainer OT2 200 Reagents
+#                 #qualifyResource~ qualified
+#                 #containerType~ OT2 200 Reagents
+#               passiveContainer OT2 200 Solutions
+#                 #qualifyResource~ qualified
+#                 #containerType~ OT2 200 Solutions
+#               passiveContainer OT2 200 supplies
+#                 #qualifyResource~ qualified
+#                 #containerType~ OT2 200 supplies
+          fieldset
+            legend Lab Processing
+            vertical
+              container Library Tube
+                deleteQueue~ Run OT2
+                insertQueue~ Prep Sample for Sequencing
+              comments Comments
+     
+    step Run ES
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset 
+            legend Instructions
+            ol
+              li Scan in resources for ES.
+              li Perform ES run.
+              li Enter comments as necessary.
+              li Submit step.
+          fieldset
+            vertical
+#             legend Resources
+#             vertical
+#               passiveContainer ES
+#                 #qualifyResource~ qualified
+#                 #containerType~ ES
+#               passiveContainer OT2 200 Solutions
+#                 #qualifyResource~ qualified
+#                 #containerType~ OT2 200 Solutions
+#               passiveContainer OT2 200 supplies
+#                 #qualifyResource~ qualified
+#                 #containerType~ OT2 200 supplies
+#               passiveContainer MyOne Streptavidin C1 Mag Beads
+#                 #qualifyResource~ qualified
+#                 #containerType~ MyOne Streptavidin C1 Mag Beads
+              comments Comments
+     
+    step Prepare OT2 Chip
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for OT2 chip preparation.
+              li Enter sequencing chip ID.
+              li Prepare chip for sequencing.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Chip Preparation Solution
+#                 #qualifyResource~ qualified
+#                 #containerType~ Chip Preparation Solution
+          fieldset
+            legend Lab Processing
+            vertical
+              container Sequencing Chip
+                deleteQueue~ Prepare OT2 Chip
+                insertQueue~ Prep Sample for Sequencing
+              comments Comments
+     
+    step Plan Proton Run
+      
+      note Show sampleIds (2), DNA barcodes
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for proton run.
+              li Enter comments as necessary.
+              li Submit step.
+          fieldset
+            vertical
+#             legend Resources
+#             vertical
+#               passiveContainer Proton
+#                 #qualifyResource~ qualified
+#                 #containerType~ Proton
+              comments Comments
+     
+    step Prep Sample for Sequencing
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for sequencing.
+              li Enter library tube ID.
+              li Enter sequencing chip ID.
+              li Perform sample sequencing.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer Sequencing Reagents 200
+#                 #qualifyResource~ qualified
+#                 #containerType~ Sequencing Reagents 200
+#               passiveContainer Sequencing Solutions 200
+#                 #qualifyResource~ qualified
+#                 #containerType~ Sequencing Solutions 200
+          fieldset
+            legend Lab Processing
+            vertical
+              container Library Tube
+                deleteQueue~ Prep Sample for Sequencing
+              container Sequencing Chip
+                deleteQueue~ Prep Sample for Sequencing
+                insertQueue~ Run Proton
+              comments Comments
+      xfer duplicate
+        from Library Tube
+        to Sequencing Chip
+     
+    step Run Proton
+      
+      form 
+        include userAccountInfo
+        include resourceTable
+        vertical 
+          fieldset
+            legend Instructions
+            ol
+              li Scan in resources for proton run.
+              li Enter sequencing chip ID.
+              li Run proton system.
+              li Enter sequence results.
+              li Enter comments as necessary.
+              li Submit step.
+#           fieldset
+#             legend Resources
+#             vertical
+#               passiveContainer 200 Seq Reagents
+#                 #qualifyResource~ qualified
+#                 #containerType~ 200 Seq Reagents
+#               passiveContainer 200 Seq Solutions
+#                 #qualifyResource~ qualified
+#                 #containerType~ 200 Seq Solutions
+#               passiveContainer Seq supplies
+#                 #qualifyResource~ qualified
+#                 #containerType~ Seq supplies
+#               passiveContainer Proton
+#                 #qualifyResource~ qualified
+#                 #containerType~ Proton
+          fieldset
+            legend Lab Processing
+            vertical
+              container Sequencing Chip
+                deleteQueue~ Run Proton
+              container Sequence Results
+                deleteQueue~ Run Proton
+              comments Comments
+      xfer duplicate
+        from Sequencing Chip
+        to Sequence Results
+     

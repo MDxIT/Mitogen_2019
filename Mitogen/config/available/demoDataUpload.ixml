@@ -1,0 +1,26 @@
+config
+  steps
+    step Sales Demo Data Uploader
+      form
+        vertical
+          file dataSheet
+            destinationFolderName~ documents
+            destinationFilePrefix~ DemoData_0000000
+            screenLabel~ Data Sheet to Upload
+            required~ true
+
+      jython
+        import com.uniconnect.uniflow as uniflow
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from java.util import HashMap
+        from java.util import TreeMap
+        from java.sql import Statement
+        from com.sunquest.mitogen.lims.dataObjects import DemoDataLoader
+
+        fileName = "{_configPath}public/documents/{dataSheet}"
+        switchboard.log(fileName)
+
+        ddl = DemoDataLoader(fileName, switchboard)
+
+        ddl.processWorkbook()

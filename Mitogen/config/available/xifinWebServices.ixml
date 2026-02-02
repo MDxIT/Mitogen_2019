@@ -1,0 +1,59 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Xifin Web Services
+    step Test Xifin SOAP
+      form
+        link
+          rel= stylesheet
+          href= UNIstylesheet.css
+        vertical
+          text Accession Id
+            value= demo100
+        table
+#           sqlQuery~ select TOP 1 eventId, step, comments from events (NOLOCK) order by eventId desc
+          sqlQuery~ select eventId, step, comments from events order by eventId limit 1
+      sendSOAP accession
+        host www.xifin.net
+        hostURI https://www.xifin.net/test/accession/services
+        _ socketTimeout 3000
+        passwordType PasswordDigest
+        #password f5a57540eaa6f261308c961f148473f0
+        password Demo!23
+        soapenv:Envelope
+          xmlns:acc= http://www.xifin.com/schema/accessionSearch
+          xmlns:msg= http://www.xifin.com/schema/msgHeader
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:typ= http://www.xifin.com/schema/types
+          soapenv:Header 
+            wsse:Security 
+              soapenv:mustUnderstand= 1
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              wsse:UsernameToken 
+                wsu:Id= UsernameToken-12
+                wsse:Username transgendemo
+                wsse:Password
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest
+                wsse:Nonce
+                  EncodingType= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary
+                wsu:Created
+          soapenv:Body 
+            acc:AccessionSearchRequest
+              msg:MessageHeader 
+                msg:OrganizationName Demo
+                msg:SequenceNumber 1
+                msg:UserId Tester
+                msg:OrgAlias demo
+              acc:Payload
+                acc:AccessionSearchRequestMessage
+                  acc:AccessionId {Accession Id}
+        responseInstructions
+          forSubtrees env:Body.ns4:AccessionSearchResponse.ns4:Payload.ns4:AccessionSearchResponseMessage
+            jython switchboard.log('''_resultTreelog: {_resultTree} ''')
+            sql INSERT INTO tempXML (myResponse) VALUES {_resultTree}

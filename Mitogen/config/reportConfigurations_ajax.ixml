@@ -1,0 +1,1751 @@
+config
+  steps
+    stepGroup Report Configuration Ajax Servers
+    step Get Panel References
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= panelReferences
+        sqlPreparedQuery~
+          - SELECT 'true' AS "Select",
+          - referenceId AS "Reference",
+          - displayOrder AS "Order",
+          - assayType as 'Hide',
+          - codeName as 'Hide'
+          - FROM assayReferences
+          - WHERE codeName = ?
+          - AND assayType = ?
+          string {codeName}
+          string {assayType}
+        columnSpecs~ panelReferences
+          allowChangedRecordIds
+          column 1
+            inputType checkbox
+          column 2
+            inputType text
+              readonly=
+          column 3
+            inputType text
+              size= 5
+          column 4
+            class= hideColumn
+            inputType text
+          column 5
+            class= hideColumn
+            inputType text
+
+    step ajaxCheckName
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT reportName
+          - FROM reportDefinition
+          - WHERE reportName = ?
+          - AND ? = 'new'
+          - UNION
+          - SELECT 'DoesNotExist' as 'reportName'
+          - FROM dual
+          string {reportType}
+          string {reportId}
+
+    step ajaxGetDefinitionId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT rd.id as 'reportDefId',
+          - rdv.id as 'versionId'
+          - FROM reportDefinition rd
+          - INNER JOIN reportDefinitionVersion rdv
+          -    ON rd.id = rdv.reportDefinitionId
+          - WHERE rd.reportName = ?
+          - AND rdv.active = 1
+          string {reportType}
+
+    step ajaxGetReportSettings
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT rs.title,
+          - rs.reportDescription
+          -  FROM reportSettings rs
+          - INNER JOIN reportDefinitionVersion rdv
+          -    ON rs.reportDefinitionVersionId = rdv.id
+          - INNER JOIN reportDefinition rd
+          -    ON rdv.reportDefinitionId = rd.id
+          - WHERE rd.id = ?
+          string {definitionId}
+
+    step ajaxGetReportReferences
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= assayReferencesIncludedTable
+        class= referenceTables
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   CONCAT(r.codeName, ' - ',r.assayType) AS "Reference Type",
+          -   a.reference AS "Reference",
+          -   '' AS "Remove From Report",
+          -   r.id AS "Hidden"
+          - FROM reportReferences r
+          -   INNER JOIN allReferences a ON r.referenceId = a.id
+          -   INNER JOIN reportDefinitionVersion d ON r.reportDefinitionVersionId = d.id and d.active = 1
+          - WHERE d.reportDefinitionId = ?
+          string {reportVersion}
+        columnSpecs~ assayReferencesIncludedTable
+          column 3
+            inputType checkbox
+              class= referenceExclude
+          column 4
+            inputType text
+              class= reportReferenceId hide
+
+    step ajaxGetAllReferences
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= allReferencesTable
+        class= referenceTables
+        sqlPreparedQuery~
+          - SELECT
+          -   CONCAT(ar.codeName, ' - ',ar.assayType) AS "Reference Type",
+          -   a.reference AS "Reference",
+          -   '' AS "Include",
+          -   a.id AS 'Hidden'
+          - FROM allReferences a
+          - INNER JOIN assayReferences ar ON a.id = ar.referenceId
+          - WHERE a.active = 1
+          - AND ar.active = 1
+          - AND ar.referenceId NOT IN (SELECT
+          -                             referenceId
+          -                             FROM reportReferences r
+          -                               INNER JOIN reportDefinitionVersion d ON r.reportDefinitionVersionId = d.id and d.active = 1
+          -                             WHERE d.reportDefinitionId = ?)
+          string {reportVersion}
+        columnSpecs~ allReferencesTable
+          allowChangedRecordIds
+          column 3
+            inputType checkbox
+              class= referenceInclude
+          column 4
+            inputType text
+              class= assayReferenceId hide
+
+    step ajaxCheckCurrentReferences
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= checkCurrentReferences
+        sqlPreparedQuery~
+          - SELECT reference
+          - FROM allReferences a
+          - INNER JOIN assayReferences ar ON a.id = ar.referenceId
+          - WHERE a.active = 1
+          -   AND ar.active = 1
+          -   AND a.reference = ?
+          -   AND ar.codeName = ?
+          - UNION
+          - SELECT 'newReference' AS 'reference'
+          - FROM DUAL
+          string {reportReferences}
+          string {associatedPanelReference}
+
+    step ajaxGetReportPanels
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select panels
+        option
+        sqlPreparedQuery~
+          - SELECT DISTINCT r.panelCode
+          - FROM reportDefinitionPanels r
+          -   INNER JOIN reportDefinitionVersion rd ON r.reportDefinitionVersionId = rd.Id
+          - WHERE rd.reportDefinitionId = ?
+          -   AND rd.active = 1
+          string {reportVersion}
+
+    step ajaxGetAllWording
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= allWordingTable
+        class= reportTables
+        sqlPreparedQuery~
+          - SELECT
+          -   CONCAT(a.codeName, ' - ',a.Type) AS "Type",
+          -   a.sectionHeader AS "Header",
+          -   a.sectionContent AS "Content",
+          -   a.displayOrder AS "Order",
+          -   '' AS "Include",
+          -   a.id AS 'Hidden'
+          - FROM assayWording a
+          - WHERE a.active = 1
+          - AND a.codeName IN ( SELECT DISTINCT t.testCode as "Assay Code" from testPanels t
+          -                 INNER JOIN reportDefinitionPanels rdp on t.panelCode = rdp.panelCode
+          -                 WHERE rdp.reportDefinitionVersionId = ? group by t.testCode
+          -                 UNION
+          -                 SELECT rp.panelCode as "Assay Code"
+          -                 FROM reportDefinitionPanels rp
+          -                 WHERE rp.reportDefinitionVersionId = ?
+          -                 UNION
+          -                 SELECT DISTINCT tm.methodCode as "Assay Code"
+          -                 FROM testMethods tm
+          -                 INNER JOIN testPanels tp ON tm.testCode = tp.testCode
+          -                 INNER JOIN reportDefinitionPanels rp ON tp.panelCode = rp.panelCode
+          -                 WHERE rp.reportDefinitionVersionId = ?)
+          - AND a.id NOT IN (SELECT r.assayWordingId
+          -                   FROM reportWording r
+          -                   WHERE r.reportDefinitionVersionId = ?)
+          - ORDER BY codeName,displayOrder
+          string {reportVersion}
+          string {reportVersion}
+          string {reportVersion}
+          string {reportVersion}
+        columnSpecs~ allWordingTable
+          allowChangedRecordIds
+          column 5
+            inputType checkbox
+              class= wordingInclude
+          column 6
+            inputType text
+              class= assayWordingId hide
+
+    step ajaxGetReportWording
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= reportWordingIncludedTable
+        class= referenceTables
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   CONCAT(r.codeName, ' - ',r.sectionType) AS "Type",
+          -   r.sectionHeader AS "Header",
+          -   r.sectionContent AS "Content",
+          -   r.displayOrder AS "Order",
+          -   '' AS "Remove From Report",
+          -   r.id AS 'Hidden'
+          - FROM reportWording r
+          -   INNER JOIN reportDefinitionVersion d ON r.reportDefinitionVersionId = d.id and d.active = 1
+          - WHERE d.reportDefinitionId = ?
+          string {reportVersion}
+        columnSpecs~ assayReferencesIncludedTable
+          column 5
+            inputType checkbox
+              class= assayExclude
+          column 6
+            inputType text
+              class= reportWordingId hide
+
+    step ajaxCheckCurrentWording
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= checkCurrentReferences
+        sqlPreparedQuery~
+          - SELECT sectionContent AS 'wording'
+          - FROM assayWording a
+          - WHERE a.active = 1
+          -   AND a.codeName = ?
+          -   AND sectionHeader = ?
+          -   AND sectionContent = ?
+          -   AND displayOrder = ?
+          - UNION
+          - SELECT 'newWording' AS 'wording'
+          - FROM DUAL
+          string {selectedPanelWording}
+          string {reportWordingHeader}
+          string {reportWording}
+          string {reportWordingOrder}
+          errorMessage This wording already exists.
+
+    step ajaxCheckCurrentHeader
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= checkCurrentOrdering
+        sqlPreparedQuery~
+          - SELECT sectionHeader
+          - FROM assayWording
+          - WHERE codeName = ?
+          -   AND sectionHeader = ?
+          - UNION
+          - SELECT 'newHeader' AS 'sectionHeader'
+          - FROM DUAL
+          string {assaySelection}
+          string {header}
+
+    step ajaxCheckCurrentOrdering
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= checkCurrentOrdering
+        sqlPreparedQuery~
+          - SELECT displayOrder
+          - FROM assayWording
+          - WHERE codeName = ?
+          -   AND displayOrder = ?
+          - UNION
+          - SELECT 'newOrder' AS 'displayOrder'
+          - FROM DUAL
+          string {assaySelection}
+          string {order}
+
+    step ajaxLoadHeaderTemplates
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~ SELECT headerName, id
+          - FROM reportHeaders rh
+          - WHERE ((rh.primarySiteId IN (?, ?, ?)) AND
+          - (IFNULL(rh.secondarySiteId, '') IN (?, ?, ?, '')))
+          string {site1}
+          string {site2}
+          string {site3}
+          string {site1}
+          string {site2}
+          string {site3}
+
+    step ajaxGetHeaderSettings
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT rh.id,
+          - rh.primaryLogo,
+          - rh.primaryAddress,
+          - rh.secondaryLogo,
+          - rh.secondaryAddress,
+          - rh.reportDescription
+          - FROM reportDefinition rd
+          - INNER JOIN reportDefinitionVersion rdv
+          -   ON rdv.reportDefinitionId = rd.id
+          - INNER JOIN reportDefinitionSites rds
+          -   ON rds.reportDefinitionVersionId = rdv.id
+          - INNER JOIN reportSettings rs
+          -   ON rs.reportDefinitionVersionId = rds.reportDefinitionVersionId
+          - INNER JOIN reportHeaders rh
+          -   ON (? = 'true' AND rh.id = rs.headerId) OR (? <> 'true' AND ? = rh.id)
+          - WHERE rd.id = ?
+          - AND rdv.active = 1
+          string {getLatestTemplate}
+          string {getLatestTemplate}
+          string {headerId}
+          string {definitionId}
+
+
+
+    step Load Logos and Addresses
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= logosAndAddresses
+        sqlPreparedQuery~ SELECT CONCAT( os.name, ' (', os.organizationType, ')') AS 'Site',
+          - CASE WHEN os.organizationType = 'Master'
+          -          THEN CONCAT('<div><img src="images/logoUploads/globalLogo.png" alt="" border=3 height=100 width=100></img></div>')
+          -            ELSE CONCAT('<div><img src="', cf.location, '/', cf.fileName, '" alt="" border=3 height=100 width=100></img></div>') END AS 'Logo' ,
+          - CONCAT(IFNULL(os.address1,''), '<br>',
+          -                  IFNULL( os.city,''), ',',' ',
+          -                  IFNULL(os.state, ''),' ',
+          -                  IFNULL(os.postalCode,''), '<br>',
+          -                  IFNULL(os.country,'') ) AS 'Address',
+          - CASE WHEN os.siteId = rh.primarySiteId THEN
+          -   CASE WHEN rh.primaryLogo = b'1' AND rh.primaryAddress = b'1' THEN 'primaryLogoandAddress'
+          -   ELSE
+          -     CASE WHEN rh.primaryLogo = b'1' THEN 'primaryLogoOnly' ELSE 'none' END
+          -   END
+          - ELSE
+          -   CASE WHEN os.siteId = rh.secondarySiteId THEN
+          -     CASE WHEN rh.secondaryLogo = b'1' AND rh.secondaryAddress = b'1' THEN 'secondaryLogoandAddress'
+          -     ELSE
+          -       CASE WHEN rh.secondaryLogo = b'1' THEN 'secondaryLogoOnly' ELSE 'none' END
+          -     END
+          -   ELSE 'none' END
+          - END as 'Show on Report',
+          - os.siteId
+          - FROM reportDefinition rd
+          - INNER JOIN reportDefinitionVersion rdv
+          -    ON rdv.reportDefinitionId = rd.id
+          - INNER JOIN reportDefinitionSites rds
+          -    ON rds.reportDefinitionVersionId = rdv.id
+          - INNER JOIN organizationSites os
+          -    ON os.siteId = CASE os.organizationType WHEN 'Master' THEN rds.siteId WHEN 'Department' THEN rds.departmentId WHEN 'Location' THEN rds.locationId END
+          - LEFT JOIN containerFiles cf
+          -     ON os.orgId = cf.containerId
+          - LEFT JOIN reportSettings rs
+          -     ON rs.reportDefinitionVersionId = rds.reportDefinitionVersionId
+          - LEFT JOIN reportHeaders rh
+          -     ON (? = 'true' AND rh.id = rs.headerId) OR (? <> 'true' AND ? = rh.id)
+          - WHERE rd.id = ?
+          - AND rdv.active = 1
+          string {getLatestTemplate}
+          string {getLatestTemplate}
+          string {headerId}
+          string {definitionId}
+        columnSpecs~ logoSelection
+          allowChangedRecordIds
+          column 4
+            inputType select
+              class= logoSelect required
+              option None
+                class= none logoSelectOption
+                value= none
+                selected
+              option Primary Logo and Address
+                class= primaryLogo logoSelectOption
+                value= primaryLogoandAddress
+              option Primary Logo
+                class= primaryLogo logoSelectOption
+                value= primaryLogoOnly
+              option Secondary Logo and Address
+                class= secondaryLogo logoSelectOption
+                value= secondaryLogoandAddress
+              option Secondary Logo
+                class= secondaryLogo logoSelectOption
+                value= secondaryLogoOnly
+          column 5
+            inputType text
+              class= logoSelectSiteId hideColumn
+              readonly=
+
+    step ajaxCheckHeaderName
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT headerName
+          - FROM reportHeaders
+          - WHERE headerName = ?
+          - UNION
+          - SELECT 'DoesNotExist' as 'headerName'
+          - FROM dual
+          string {headerName}
+
+    step ajaxLoadMetaData
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= metaDataInfo
+        id= metaDataInfo
+        sqlPreparedQuery~
+          -  SELECT DISTINCT
+          -    fis.screenLabel AS "Field",
+          -    CASE
+          -       WHEN rmf.formInputSettingsId = fis.id
+          -       THEN 'true'
+          -       ELSE 'false'
+          -    END AS "Include In Report",
+          -    fis.id AS "formInputSettingId",
+          -    fc.inputName AS "InputName"
+          -  FROM reportDefinitionPanels r
+          -  INNER JOIN panels p ON r.panelCode = p.panelCode
+          -  INNER JOIN formDefinition f ON p.type = f.workflow
+          -     AND f.instance IN ('QC', 'Receiving')
+          -     AND f.formType = 'Accessioning'
+          -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+          -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+          -     AND fc.section = ?
+          -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+          -     AND rmf.reportDefinitionVersionId = ?
+          -  WHERE r.reportDefinitionVersionId = ?
+          -     AND (fc.required = '1' OR fis.showField = 'true')
+          -     AND fc.inputType NOT IN ('section','subsection')
+          -     AND fc.inputName NOT IN ('receiveAtOrderReview','specimenOrderMax','printBarcodesButton')
+          -  GROUP BY fis.id, p.type
+          - UNION
+          -  SELECT DISTINCT
+          -    fis.screenLabel AS "Field",
+          -    CASE
+          -       WHEN rmf.formInputSettingsId = fis.id
+          -       THEN 'true'
+          -       ELSE 'false'
+          -    END AS "Include In Report",
+          -    fis.id AS "formInputSettingId",
+          -    fc.inputName AS "InputName"
+          -  FROM reportDefinitionPanels r
+          -  INNER JOIN panels p ON r.panelCode = p.panelCode
+          -  INNER JOIN formDefinition f ON p.type = f.workflow
+          -     AND f.instance = 'QC'
+          -     AND f.formType = 'Accessioning'
+          -  INNER JOIN formInputSettings fis ON f.id = fis.formDefinitionId
+          -  INNER JOIN formConfigurableParts fc ON fis.formConfigurablePartsId = fc.id
+          -     AND fc.section = ?
+          -  LEFT JOIN reportMetadataFields rmf ON rmf.formInputSettingsId = fis.id
+          -     AND rmf.reportDefinitionVersionId = ?
+          -  WHERE r.reportDefinitionVersionId = ?
+          -     AND fc.inputName IN ('Panel Selection','Proband')
+          -     AND fis.showField = 'true'
+          -  GROUP BY fis.id, p.type
+          string {section}
+          string {reportMetaDataVersionId}
+          string {reportMetaDataVersionId}
+          string {section}
+          string {reportMetaDataVersionId}
+          string {reportMetaDataVersionId}
+        columnSpecs~ metaDataInfo
+          allowChangedRecordIds
+          column 2
+            inputType checkbox
+              class= metaDataSelection
+          column 3
+            inputType text
+              class= formInputSettingsId hide
+          column 4
+            inputType text
+              class= inputName hide
+
+    step ajaxGetMetaDataAssociatedDefinitionVersionId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   reportDefinitionVersionId
+          - FROM reportMetadataFields
+          - WHERE metadataTemplateId = ?
+          - ORDER BY reportDefinitionVersionId DESC
+          - LIMIT 1
+          int {metaDataTemplateId}
+
+    step getReportPanelType
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   p.type AS 'panelType', reportDefinitionVersionId
+          - FROM reportDefinitionVersion rd
+          - INNER JOIN reportDefinitionPanels r ON rd.id = r.reportDefinitionVersionId
+          - INNER JOIN panels p ON r.panelCode = p.panelCode
+          - WHERE rd.reportDefinitionId = ?
+          -   AND rd.active = '1'
+          - GROUP BY p.type
+          string {reportDefVersionId}
+
+    step ajaxLoadMetaDataTemplates
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select metadataTemplate
+        option {currentTemplateName}
+          value= {currentTemplateId}
+        option
+        sqlPreparedQuery~
+          -  SELECT DISTINCT
+          -     metadataName, t.id
+          -   FROM reportMetadataTemplates t
+          -   INNER JOIN reportMetadataFields r ON t.id = r.metadataTemplateId
+          -   INNER JOIN reportDefinitionPanels rd ON r.reportDefinitionVersionId = rd.reportDefinitionVersionId
+          -   INNER JOIN panels p ON rd.panelCode = p.panelCode
+          -     AND p.type = ?
+          -   AND t.id <> ?
+          string {reportPanelType}
+          string {currentTemplateId}
+
+
+    step ajaxCheckMetaDataTemplateName
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   metadataName
+          - FROM reportMetadataTemplates t
+          - WHERE metadataName = ?
+          - UNION
+          - SELECT
+          -   'newTemplateName' AS 'metadataName'
+          - FROM DUAL
+          string {newMetaDataName}
+
+
+    step ajaxGetPanelInterpretations
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT p.name AS 'Panel',
+          -  riw.overallResult AS 'Result',
+          -  riw.overallInterpretation AS 'Interpretation',
+          -  p.panelCode AS 'PanelCode'
+          - FROM reportDefinition rd
+          -  INNER JOIN reportDefinitionVersion rdv
+          -    ON rdv.reportDefinitionId = rd.id
+          - INNER JOIN reportDefinitionPanels rdp
+          -    ON rdp.reportDefinitionVersionId = rdv.id
+          -  INNER JOIN panels p
+          -    ON rdp.panelCode = p.panelCode
+          -  LEFT JOIN reportInterpretationWording riw
+          -    ON riw.reportDefinitionVersionId = rdv.id AND rdp.panelCode = riw.panelCode AND riw.isOverallReportResult = 0
+          - WHERE rd.id = ? AND rdv.active = 1
+          - GROUP BY p.name, riw.overallResult, riw.overallInterpretation
+          - ORDER BY p.name
+          string {definitionId}
+
+    step ajaxGetOverallInterpretations
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT rd.reportName AS 'ReportName',
+          -  riw.overallResult AS 'Result',
+          -  riw.overallInterpretation AS 'Interpretation',
+          -  CASE riw.isGroupSignout WHEN 1 THEN 'true' WHEN 0 THEN 'false' END AS 'GroupSignout'
+          - FROM reportDefinition rd
+          -  INNER JOIN reportDefinitionVersion rdv
+          -    ON rdv.reportDefinitionId = rd.id
+          -  LEFT JOIN reportInterpretationWording riw
+          -    ON riw.reportDefinitionVersionId = rdv.id AND riw.isOverallReportResult = 1
+          - WHERE rd.id = ? AND rdv.active = 1
+          - GROUP BY rd.reportName, riw.overallResult, riw.overallInterpretation
+          - ORDER BY Result
+          string {definitionId}
+
+    step Save Report Definition
+      form
+      jython
+        import json
+        import datetime
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+
+        reportDefData = r'''{definitionData}'''.encode("utf-8")
+        panelCodesData = r'''{panelCodesData}'''.encode("utf-8")
+        sitesData = r'''{sitesData}'''.encode("utf-8")
+        customersData = r'''{customersData}'''.encode("utf-8")
+
+        switchboard.log(reportDefData)
+        switchboard.log(panelCodesData)
+        switchboard.log(sitesData)
+        switchboard.log(customersData)
+
+        if reportDefData :
+          try:
+            eventId = switchboard.eventId
+            defData = json.loads(reportDefData, strict=False)
+            switchboard.log('*** START PROCESSING REPORT DEF DATA ')
+           # reportDefinitions = defData.get('repDefinitions', None)
+            switchboard.log(str(defData))
+            if defData:
+              reportId =  defData.get('reportId','new')
+              reportType = defData.get('reportType', '')
+              reportTitle = defData.get('reportTitle','')
+              reportDescription = defData.get('reportDescription','')
+              reportTemplate = defData.get('reportTemplate', '')
+              reportTemplateCSS = defData.get('reportTemplateCSS', '')
+              reportTemplateJS = defData.get('reportTemplateJS', '')
+              reportVersion = defData.get('versionNumber', 1.00)
+              lastReportVersion = str(float(reportVersion) - 1)
+              print lastReportVersion
+
+              switchboard.log(reportId)
+
+              switchboard.formResults.put('REPORTTYPE', reportType)
+              switchboard.formResults.put('REPORTID', reportId)
+              switchboard.formResults.put('REPORTTITLE', reportTitle)
+
+              if reportId == 'new':
+
+                insertDefDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportDefinition (reportName, eventId) VALUES (?, ?)")
+                insertDefDataSQL.setString(1, reportType)
+                insertDefDataSQL.setLong(2, eventId)
+                insertDefDataSQL.executeUpdate()
+
+                query = "SELECT LAST_INSERT_ID() AS 'id' "
+                stmt = switchboard.connection.createStatement()
+                rs = stmt.executeQuery(query);
+                defId = ''
+                while rs.next():
+                  defId = rs.getString('id')
+                rs.close();
+
+                insertDefVersionDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportDefinitionVersion (reportDefinitionId, versionNumber, active, eventId) VALUES (?, ?, ?, ?)")
+                insertDefVersionDataSQL.setString(1, defId)
+                insertDefVersionDataSQL.setString(2, reportVersion)
+                insertDefVersionDataSQL.setInt(3, int(1))
+                insertDefVersionDataSQL.setLong(4, eventId)
+                insertDefVersionDataSQL.executeUpdate()
+
+              else:
+
+                updateRepDefSQL = switchboard.connection.prepareStatement( "UPDATE reportDefinition SET reportName = ?, eventId = ? WHERE id =? and reportName <> ?")
+                updateRepDefSQL.setString(1, reportType)
+                updateRepDefSQL.setLong(2, eventId)
+                updateRepDefSQL.setString(3, reportId)
+                updateRepDefSQL.setString(4, reportType)
+                updateRepDefSQL.executeUpdate()
+
+                updateRepDefVersionSQL = switchboard.connection.prepareStatement( "UPDATE reportDefinitionVersion SET active = 0 WHERE reportDefinitionId = ?")
+                updateRepDefVersionSQL.setString(1, reportId)
+                updateRepDefVersionSQL.executeUpdate()
+
+                query = "SELECT id  AS 'checkExists' FROM reportDefinitionVersion WHERE reportDefinitionId = "+ str(reportId) + " AND versionNumber = " + str(reportVersion);
+                stmt = switchboard.connection.createStatement()
+                rs = stmt.executeQuery(query);
+                versionExists = ''
+                while rs.next():
+                  versionExists = rs.getString('checkExists')
+                rs.close();
+
+                if versionExists:
+                  updateRepDefVersionSQL2 = switchboard.connection.prepareStatement( "UPDATE reportDefinitionVersion SET eventId = ?, active = ? WHERE reportDefinitionId = ? AND versionNumber = ?")
+                  updateRepDefVersionSQL2.setLong(1, eventId)
+                  updateRepDefVersionSQL2.setInt(2, int(1))
+                  updateRepDefVersionSQL2.setString(3, reportId)
+                  updateRepDefVersionSQL2.setString(4, reportVersion)
+                  updateRepDefVersionSQL2.executeUpdate()
+
+                else:
+                  insertRepDefVersion = switchboard.connection.prepareStatement( "INSERT INTO reportDefinitionVersion (reportDefinitionId, versionNumber, active, eventId) VALUES(?,?,?,?)")
+                  insertRepDefVersion.setString(1, reportId)
+                  insertRepDefVersion.setString(2, reportVersion)
+                  insertRepDefVersion.setInt(3, int('1'))
+                  insertRepDefVersion.setLong(4, eventId)
+                  insertRepDefVersion.executeUpdate()
+
+              switchboard.log('*** START PROCESSING REPORT SETTINGS ')
+              query2 = "SELECT id FROM reportDefinitionVersion WHERE eventId = "+ str(eventId);
+              stmt2 = switchboard.connection.createStatement()
+              rs2 = stmt2.executeQuery(query2);
+              versionId = ''
+              while rs2.next():
+                versionId = rs2.getString('id')
+              rs2.close();
+              switchboard.formResults.put('VERSIONID', versionId)
+              switchboard.log(versionId)
+
+              updateRepSettingsSQL = switchboard.connection.prepareStatement( "INSERT INTO reportSettings (reportDefinitionVersionId, title, reportDescription, headerId, pageHeaderFooterId, reportTemplateHTML, reportTemplateCSS, reportTemplateJS, eventId) \
+                - (SELECT ?, ?, ?, rs.headerId, rs.pageHeaderFooterId, ?, ?, ?, ? \
+                - FROM reportSettings rs \
+                - INNER JOIN reportDefinitionVersion rdv ON rdv.id = rs.reportDefinitionVersionId \
+                - WHERE rdv.versionNumber = ? AND rdv.reportDefinitionId = ? ) \
+                - UNION \
+                -  (SELECT ?, ?, ?, null, null, ?, ?, ?, ? \
+                -  FROM dual ) LIMIT 1")
+              updateRepSettingsSQL.setString(1, versionId)
+              updateRepSettingsSQL.setString(2, reportTitle)
+              updateRepSettingsSQL.setString(3, reportDescription)
+              updateRepSettingsSQL.setString(4, reportTemplate)
+              updateRepSettingsSQL.setString(5, reportTemplateCSS)
+              updateRepSettingsSQL.setString(6, reportTemplateJS)
+              updateRepSettingsSQL.setLong(7, eventId)
+              updateRepSettingsSQL.setString(8, lastReportVersion)
+              updateRepSettingsSQL.setString(9, reportId)
+              updateRepSettingsSQL.setString(10, versionId)
+              updateRepSettingsSQL.setString(11, reportTitle)
+              updateRepSettingsSQL.setString(12, reportDescription)
+              updateRepSettingsSQL.setString(13, reportTemplate)
+              updateRepSettingsSQL.setString(14, reportTemplateCSS)
+              updateRepSettingsSQL.setString(15, reportTemplateJS)
+              updateRepSettingsSQL.setLong(16, eventId)
+
+              print updateRepSettingsSQL
+              updateRepSettingsSQL.executeUpdate()
+
+              deleteRepSettingsSQL = switchboard.connection.prepareStatement( "DELETE FROM reportSettings WHERE reportDefinitionVersionId = ? AND eventId <> ?")
+              deleteRepSettingsSQL.setString(1, versionId)
+              deleteRepSettingsSQL.setLong(2, eventId)
+              deleteRepSettingsSQL.executeUpdate()
+
+              siteData = json.loads(sitesData, strict=False)
+              switchboard.log('*** START PROCESSING SITES DATA ')
+              siteDefs = siteData['sites']
+              globalSite =  siteDefs.get('globalSite','')
+              department = siteDefs.get('department', '')
+              location = siteDefs.get('location','')
+
+              deleteSiteDataSQL =  switchboard.connection.prepareStatement( "DELETE FROM reportDefinitionSites WHERE reportDefinitionVersionId = ?")
+              deleteSiteDataSQL.setString(1,versionId)
+              deleteSiteDataSQL.executeUpdate()
+
+              insertSiteDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportDefinitionSites (reportDefinitionVersionId, siteId, departmentId, locationId, eventId) VALUES (?, ?, ?, ?, ?)")
+              insertSiteDataSQL.setString(1, versionId)
+              insertSiteDataSQL.setString(2, globalSite)
+              insertSiteDataSQL.setString(3, department)
+              insertSiteDataSQL.setString(4, location)
+              insertSiteDataSQL.setLong(5, eventId)
+              insertSiteDataSQL.executeUpdate()
+
+              deletePanelDataSQL = switchboard.connection.prepareStatement( "DELETE FROM reportDefinitionPanels WHERE reportDefinitionVersionId = ?")
+              deletePanelDataSQL.setString(1, versionId)
+              deletePanelDataSQL.executeUpdate()
+
+              panelData = json.loads(panelCodesData, strict=False)
+              switchboard.log('*** START PROCESSING PANEL CODE DATA ')
+              panelDefs = panelData['panelCodesArr']
+              for i in panelDefs:
+                panelCode = i
+
+                insertPanelDataSQL = switchboard.connection.prepareStatement( "INSERT IGNORE INTO reportDefinitionPanels (reportDefinitionVersionId, panelCode, eventId) VALUES (?, ?, ?)")
+                insertPanelDataSQL.setString(1, versionId)
+                insertPanelDataSQL.setString(2, panelCode)
+                insertPanelDataSQL.setLong(3, eventId)
+                insertPanelDataSQL.executeUpdate()
+
+              deleteCustomerDataSQL = switchboard.connection.prepareStatement( "DELETE FROM reportDefinitionCustomers WHERE reportDefinitionVersionId = ?")
+              deleteCustomerDataSQL.setString(1, versionId)
+              deleteCustomerDataSQL.executeUpdate()
+
+              customerData = json.loads(customersData, strict=False)
+              switchboard.log('*** START PROCESSING CUSTOMER DATA ')
+              customerDefs = customerData['customersArr']
+              for i in customerDefs:
+                customer = i
+
+                insertCustomerDataSQL = switchboard.connection.prepareStatement( "INSERT IGNORE INTO reportDefinitionCustomers (reportDefinitionVersionId, customerId, eventId) VALUES (?, ?, ?)")
+                insertCustomerDataSQL.setString(1, versionId)
+                insertCustomerDataSQL.setString(2, customer)
+                insertCustomerDataSQL.setLong(3, eventId)
+                insertCustomerDataSQL.executeUpdate()
+
+              switchboard.log('*** START PROCESSING REFERENCE DATA')
+              insertReferencesDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportReferences (reportDefinitionVersionId, assayType, codeName, referenceId, eventId) \
+                - SELECT DISTINCT ?, rr.assayType, rr.codeName, rr.referenceId, ? \
+                - FROM reportReferences rr \
+                - INNER JOIN reportDefinitionVersion rdv ON rdv.id = rr.reportDefinitionVersionId \
+                - WHERE rdv.versionNumber = ? AND rdv.reportDefinitionId = ? \
+                - ")
+              insertReferencesDataSQL.setString(1, versionId)
+              insertReferencesDataSQL.setLong(2, eventId)
+              insertReferencesDataSQL.setString(3, lastReportVersion)
+              insertReferencesDataSQL.setString(4, reportId)
+              insertReferencesDataSQL.executeUpdate()
+
+              deleteReferencesDataSQL = switchboard.connection.prepareStatement( "DELETE FROM reportReferences WHERE reportDefinitionVersionId = ? AND eventId <> ?")
+              deleteReferencesDataSQL.setString(1, versionId)
+              deleteReferencesDataSQL.setLong(2, eventId)
+              deleteReferencesDataSQL.executeUpdate()
+
+              switchboard.log('*** START PROCESSING WORDING DATA')
+              insertWordingDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportWording (reportDefinitionVersionId, assayWordingId, sectionType, codeName, sectionHeader, sectionContent, displayOrder, eventId) \
+                - SELECT DISTINCT ?, rw.assayWordingId, rw.sectionType, rw.codeName, rw.sectionHeader, rw.sectionContent, rw.displayOrder, ? \
+                - FROM reportWording rw \
+                - INNER JOIN reportDefinitionVersion rdv ON rdv.id = rw.reportDefinitionVersionId \
+                - WHERE rdv.versionNumber = ? AND rdv.reportDefinitionId = ? \
+                - ")
+              insertWordingDataSQL.setString(1, versionId)
+              insertWordingDataSQL.setLong(2, eventId)
+              insertWordingDataSQL.setString(3, lastReportVersion)
+              insertWordingDataSQL.setString(4, reportId)
+              insertWordingDataSQL.executeUpdate()
+
+              deleteWordingDataSQL = switchboard.connection.prepareStatement( "DELETE FROM reportWording WHERE reportDefinitionVersionId = ? AND eventId <> ?")
+              deleteWordingDataSQL.setString(1, versionId)
+              deleteWordingDataSQL.setLong(2, eventId)
+              deleteWordingDataSQL.executeUpdate()
+
+              switchboard.log('*** START PROCESSING  METADATA')
+              insertMetaDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportMetadataFields (reportDefinitionVersionId, formInputSettingsId, metadataTemplateId, eventId) \
+                - SELECT ?, rm.formInputSettingsId, rm.metadataTemplateId, ? \
+                - FROM reportMetadataFields rm \
+                - INNER JOIN reportDefinitionVersion rdv ON rdv.id = rm.reportDefinitionVersionId \
+                - WHERE rdv.versionNumber = ? AND rdv.reportDefinitionId = ? \
+                - ")
+              insertMetaDataSQL.setString(1, versionId)
+              insertMetaDataSQL.setLong(2, eventId)
+              insertMetaDataSQL.setString(3, lastReportVersion)
+              insertMetaDataSQL.setString(4, reportId)
+              insertMetaDataSQL.executeUpdate()
+
+              switchboard.log('*** START PROCESSING  INTERPRETATIONS')
+              insertInterpretationsDataSQL = switchboard.connection.prepareStatement( "INSERT INTO reportInterpretationWording (reportDefinitionVersionId, isOverallReportResult, panelCode, overallResult, overallInterpretation, isGroupSignout, eventId) \
+                - SELECT ?, ri.isOverallReportResult, ri.panelCode, ri.overallResult, ri.overallInterpretation, ri.isGroupSignout, ? \
+                - FROM reportInterpretationWording ri \
+                - INNER JOIN reportDefinitionVersion rdv ON rdv.id = ri.reportDefinitionVersionId \
+                - WHERE rdv.versionNumber = ? AND rdv.reportDefinitionId = ? \
+                - ")
+              insertInterpretationsDataSQL.setString(1, versionId)
+              insertInterpretationsDataSQL.setLong(2, eventId)
+              insertInterpretationsDataSQL.setString(3, lastReportVersion)
+              insertInterpretationsDataSQL.setString(4, reportId)
+              insertInterpretationsDataSQL.executeUpdate()
+
+              switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+          except Exception as e:
+            switchboard.log("---FAILURE TO INSERT/UPDATE REPORT DEFINITION DATA----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except StandardError as e:
+            switchboard.log("---*** Standard Py Error *** ")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except SystemException as e:
+            switchboard.log("---*** UNIFlow SystemException ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except SQLException as e:
+            switchboard.log("---*** SQLException ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except BaseException as e:
+            switchboard.log("---*** PyException ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except TypeError as e:
+            switchboard.log("---*** TypeError ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except:
+            switchboard.log("*** Unspecified Error *****")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Data processing has failed. Results have not been saved.
+
+             ## ENSURE reportName COLUMN IS UNIQUE
+      validateSql ! SELECT 1 FROM dual WHERE (SELECT COUNT(reportName) FROM reportDefinition WHERE reportName =?) > 1
+        string {_:reportType}
+        errorMessage This report type already exists. Enter a unique report type.
+
+      ## IN CASE SYSTEM TIMES OUT OR THEY SUBMIT AND ID IS NOT SET PROPERLY
+      validateSql SELECT 1 FROM dual WHERE ? <> ''
+        string {_:reportId}
+        errorMessage The system generated Report Id is empty. Go back to the Report Configuration List and try again.
+
+      validateSql SELECT 1 FROM dual WHERE ? <> ''
+        string {_:reportType}
+        errorMessage Report Type is a required field.
+
+      validateSql SELECT 1 FROM dual WHERE ? <> ''
+        string {_:reportTitle}
+        errorMessage Report Title is a required field.
+
+      validateSql SELECT 1 FROM reportDefinitionPanels WHERE reportDefinitionVersionId = ?
+        string {_:versionId}
+        errorMessage At least one panel must be selected.
+
+    step Save Report Header
+      form
+
+      ifCondition {saveNewHeader}
+        advanced~
+        equals~ true
+        and~ {headerId}
+          isBlank~
+
+
+        validateSql ! SELECT 1 FROM reportHeaders WHERE headerName = ?
+          string {headerName}
+          errorMessage ** The Header Name already exists
+          ## WILL ADJUST THIS TO LOOK FOR "new" FOR NEXT USER STORY
+
+        validateSql SELECT 1 FROM dual WHERE ? <> ''
+          string {headerName}
+          errorMessage ** Header Name is a required field.
+
+
+        sqlPreparedStatement
+          - INSERT INTO reportHeaders (headerName, primarySiteId, secondarySiteId, primaryLogo, primaryAddress, secondaryLogo, secondaryAddress, reportDescription, eventId)
+          - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          string {headerName}
+          string {primarySiteId}
+          string {secondarySiteId}
+            blankIsNull~ true
+          int {primaryLogo}
+          int {primaryAddress}
+          int {secondaryLogo}
+          int {secondaryAddress}
+          int {reportDescription}
+          long {_eventId}
+
+        setFormQueryResult
+          sqlQuery~ SELECT LAST_INSERT_ID() AS 'headerId'
+
+        #### Update existing header
+        else
+
+          setFormQueryResult headerId
+            value= {headerId}
+
+          sqlPreparedStatement
+            - UPDATE reportHeaders SET
+            -   primarySiteId = ?,
+            -   secondarySiteId = ?,
+            -   primaryLogo = ?,
+            -   primaryAddress = ?,
+            -   secondaryLogo = ?,
+            -   secondaryAddress = ?,
+            -   reportDescription = ?,
+            -   eventId = ?
+            -   WHERE id = ?
+            string {primarySiteId}
+            string {secondarySiteId}
+              blankIsNull~ true
+            int {primaryLogo}
+            int {primaryAddress}
+            int {secondaryLogo}
+            int {secondaryAddress}
+            int {reportDescription}
+            long {_eventId}
+            string {_:headerId}
+
+
+      setFormQueryResult
+        sqlPreparedQuery~
+          - SELECT id AS 'versionId'
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ?
+          - AND active = 1
+          string {definitionId}
+
+      sqlPreparedStatement
+        - UPDATE reportSettings
+        - SET headerId = ?
+        - WHERE reportDefinitionVersionId = ?
+        string {_:headerId}
+        string {versionId}
+
+
+    step ajaxGetPageHeaderFooterTemplate
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   id AS "id",
+          -   title AS "title",
+          -   pageNumber AS "pageNumber",
+          -   labAddress AS "labAddress",
+          -   labName AS "labName",
+          -   patientName AS "patientName",
+          -   mrn AS "mrn",
+          -   dob AS "dob"
+          - FROM reportPageHeaderFooter
+          - WHERE id = ?
+          - UNION
+          - SELECT
+          - '', '', '', '', '', '', '', ''
+          - LIMIT 1
+          string {pageHeaderFooterId}
+
+    step Save Report Page Header and Footer
+      form
+        text pageHeaderFooterTemp
+          value= {pageHeaderFooterTemp}
+
+        text pageHeaderFooterTempName
+          value= {pageHeaderFooterTempName}
+
+        text pageReportTitle
+          value= {pageReportTitle}
+
+        text pagePageNo
+          value= {pagePageNo}
+
+        text pageSiteName
+          value= {pageSiteName}
+
+        text pageSiteAddress
+          value= {pageSiteAddress}
+
+        text pagePatientName
+          value= {pagePatientName}
+
+        text pagePatientMRN
+          value= {pagePatientMRN}
+
+        text pagePatientDOB
+          value= {pagePatientDOB}
+
+        text recId
+          value= {recId}
+
+      # if new template is not blank, insert as new template
+      ifCondition {pageHeaderFooterTempName}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - INSERT INTO reportPageHeaderFooter (templateName, title, pageNumber, labAddress, labName, patientName, mrn, dob, eventId)
+          - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          string {pageHeaderFooterTempName}
+          string {pageReportTitle}
+          string {pagePageNo}
+          string {pageSiteAddress}
+          string {pageSiteName}
+          string {pagePatientName}
+          string {pagePatientMRN}
+          string {pagePatientDOB}
+          long {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT
+            -  id AS 'reportPageHeaderFooterId'
+            - FROM reportPageHeaderFooter
+            - WHERE eventId = ?
+            long {_eventId}
+
+      # if existing template is not blank and new template is blank, update existing template
+      ifCondition {pageHeaderFooterTemp}
+        advanced~
+        not~
+          isBlank~
+        and~ {pageHeaderFooterTempName}
+          isBlank~
+
+        sqlPreparedStatement
+          - UPDATE reportPageHeaderFooter SET
+          -   title = ?,
+          -   pageNumber = ?,
+          -   labAddress = ?,
+          -   labName = ?,
+          -   patientName = ?,
+          -   mrn = ?,
+          -   dob = ?,
+          -   eventId = ?
+          - WHERE id = ?
+          string {pageReportTitle}
+          string {pagePageNo}
+          string {pageSiteAddress}
+          string {pageSiteName}
+          string {pagePatientName}
+          string {pagePatientMRN}
+          string {pagePatientDOB}
+          long {_eventId}
+          string {pageHeaderFooterTemp}
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT
+            -  id AS 'reportPageHeaderFooterId'
+            - FROM reportPageHeaderFooter
+            - WHERE id = ?
+            long {pageHeaderFooterTemp}
+
+      setFormQueryResult
+        sqlPreparedQuery~
+          - SELECT
+          -   id AS "reportVersionId"
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ?
+          -   AND active = 1
+          long {recId}
+
+      sqlPreparedStatement
+        - UPDATE reportSettings SET
+        -   pageHeaderFooterId = ?
+        - WHERE reportDefinitionVersionId = ?
+        string {_:reportPageHeaderFooterId}
+        string {_:reportVersionId}
+
+
+    step Save Report Metadata
+      form
+        text reportVersion
+          value= {reportVersion}
+        text existingTemplateId
+          value= {existingTemplateId}
+        text newTemplateName
+          value= {newTemplateName}
+
+      ## if new template is not blank, insert as new template
+      ifCondition {newTemplateName}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - INSERT INTO reportMetadataTemplates(metadataName,eventId)
+          - VALUES(?,?)
+          string {newTemplateName}
+          long {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT
+            -  id AS 'metadataTemplateId'
+            - FROM reportMetadataTemplates
+            - WHERE eventId = ?
+            long {_eventId}
+
+      ## if existing template is not blank and new template is blank, update existing template
+      ifCondition {existingTemplateId}
+        advanced~
+        not~
+          isBlank~
+        and~ {newTemplateName}
+          isBlank~
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT
+            -  id AS 'metadataTemplateId'
+            - FROM reportMetadataTemplates
+            - WHERE id = ?
+            long {existingTemplateId}
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT
+          -   id AS 'reportDefinitionVersionId'
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ?
+          -   AND active = 1
+          long {reportVersion}
+
+      sqlPreparedStatement
+        - DELETE FROM reportMetadataFields
+        - WHERE reportDefinitionVersionId = ?
+        long {_:reportDefinitionVersionId}
+
+      jython
+        import json
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+
+        formInputSettingsData = r'''{formInputJsonString}'''.encode("utf-8")
+        switchboard.log(formInputSettingsData)
+
+        if formInputSettingsData :
+          try:
+            formInputSettingsDataDef = json.loads(formInputSettingsData, strict=False)
+
+            sqlInsertReportMetadataFields = "INSERT INTO reportMetadataFields \
+              - (reportDefinitionVersionId,formInputSettingsId,metadataTemplateId,eventId) \
+              - VALUES(?,?,?,?) "
+            psReportMetadataFields = switchboard.connection.prepareStatement(sqlInsertReportMetadataFields)
+
+            for i in formInputSettingsDataDef:
+
+              if i == 'formInputSettingsIdArr':
+                formInputSettingsDef = formInputSettingsDataDef[i]
+
+                for item in formInputSettingsDef:
+                  formInputSettingsId = item.encode("utf-8")
+
+                  print "------------- FINISHED SETTING META DATA REPORT VALUES -----------------"
+
+                  psReportMetadataFields.setLong(1, {_:reportDefinitionVersionId})
+                  psReportMetadataFields.setString(2, formInputSettingsId)
+                  psReportMetadataFields.setLong(3, {_:metadataTemplateId})
+                  psReportMetadataFields.setLong(4, {_eventId})
+                  psReportMetadataFields.execute()
+                  switchboard.log(str(psReportMetadataFields))
+
+                  print "------------- FINISHED INSERT TO META DATA REPORT DEF -----------------"
+                  switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+
+          except Exception as e:
+            switchboard.log("---*** Exception *** --- FAILURE TO INSERT/UPDATE ----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except StandardError as e:
+            switchboard.log("---*** Standard Py Error *** ----FAILURE TO INSERT/UPDATE ----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except SystemException as e:
+            switchboard.log("---*** UNIFlow SystemException ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except SQLException as e:
+            switchboard.log("---*** SQLException ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except BaseException as e:
+            switchboard.log("---*** PyException ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except TypeError as e:
+            switchboard.log("---*** TypeError ***----")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+          except:
+            switchboard.log("*** Unspecified Error *****")
+            switchboard.log(str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Metadata Template not created
+
+    step Save New References
+      form
+        text reportVersion
+          value= {reportVersion}
+        text reportReferences
+          value= {reportReferences}
+        text associatedPanelReference
+          value= {associatedPanelReference}
+
+
+      ## Check to ensure that Test/Panel/Method is selected
+      ifCondition {reportReferences}
+        advanced~
+        not~
+          isBlank~
+        and~ {associatedPanelReference}
+          isBlank~
+        validateSql
+          - SELECT 1
+          - FROM DUAL
+          - WHERE 1 <> 1
+          errorMessage Fields marked with a red left edge are required. Enter text in all required fields.
+      ## Check to ensure reference is not blank if they select a test/panel/method
+      ifCondition {associatedPanelReference}
+        advanced~
+        not~
+          isBlank~
+        and~ {reportReferences}
+          isBlank~
+        validateSql
+          - SELECT 1
+          - FROM DUAL
+          - WHERE 1 <> 1
+          errorMessage Fields marked with a red left edge are required. Enter text in all required fields.
+      ifCondition {reportReferences}
+        advanced~
+        not~
+          isBlank~
+        and~ {associatedPanelReference}
+          not~
+            isBlank~
+        ## Check to see if Reference already exists
+        validateSql
+          - ! SELECT 1
+          - FROM allReferences a
+          - INNER JOIN assayReferences ar ON a.id = ar.referenceId
+          - WHERE a.active = 1
+          - AND ar.active = 1
+          - AND a.reference = ?
+          - AND ar.codeName = ?
+          string {reportReferences}
+          string {associatedPanelReference}
+          errorMessage This reference already exists.
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT 'Test' AS 'AssayType'
+            - FROM tests
+            - WHERE testCode = ?
+            - UNION ALL
+            - SELECT 'Panel' AS 'AssayType'
+            - FROM panels
+            - WHERE panelCode = ?
+            - UNION ALL
+            - SELECT 'Method' AS 'AssayType'
+            - FROM methods
+            - WHERE methodCode = ?
+            string {associatedPanelReference}
+            string {associatedPanelReference}
+            string {associatedPanelReference}
+        sqlPreparedStatement~
+          - INSERT INTO allReferences (reference, url, active, eventId)
+          - VALUES (replace(?, '\n', ''),?,?,?)
+          string {reportReferences}
+          string temp
+          int 1
+          long {_eventId}
+        setFormQueryResult
+          sqlPreparedQuery~
+            - SELECT
+            -  id AS 'referenceId'
+            - FROM allReferences
+            - WHERE eventId = ?
+            -   AND active = ?
+            long {_eventId}
+            int 1
+        sqlPreparedStatement~
+          - INSERT INTO assayReferences(assayType,codeName,referenceId,active,eventId)
+          - VALUES(?,?,?,?,?)
+          string {_:AssayType}
+          string {associatedPanelReference}
+          int {_:referenceId}
+          int 1
+          long {_eventId}
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   id AS 'reportDefinitionVersionId'
+            - FROM reportDefinitionVersion
+            - WHERE reportDefinitionId = ?
+            -   AND active = 1
+            long {reportVersion}
+        sqlPreparedStatement
+          - INSERT INTO reportReferences(reportDefinitionVersionId,assayType,codeName,referenceId,eventId)
+          - VALUES(?,?,?,?,?)
+          long {_:reportDefinitionVersionId}
+          string {_:AssayType}
+          string {associatedPanelReference}
+          string {_:referenceId}
+          long {_eventId}
+
+    step Save Report References
+      form
+        text reportVersion
+          value= {reportVersion}
+        text assayReferenceId
+          value= {assayReferenceId}
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   id AS 'reportDefinitionVersionId'
+            - FROM reportDefinitionVersion
+            - WHERE reportDefinitionId = ?
+            -   AND active = 1
+            long {reportVersion}
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   referenceId,
+            -   assayType,
+            -   codeName
+            - FROM assayReferences
+            - WHERE referenceId = ?
+            string {assayReferenceId}
+
+        sqlPreparedStatement
+          - INSERT INTO reportReferences(reportDefinitionVersionId,assayType,codeName,referenceId,eventId)
+          - VALUES(?,?,?,?,?)
+          long {_:reportDefinitionVersionId}
+          string {_:assayType}
+          string {_:codeName}
+          string {_:referenceId}
+          long {_eventID}
+
+    step Remove Report References
+      form
+        text reportVersion
+          value= {reportVersion}
+        text reportReferenceId
+          value= {reportReferenceId}
+
+        sqlPreparedStatement
+          - DELETE FROM reportReferences
+          - WHERE id = ?
+          string {reportReferenceId}
+
+
+    step Save Report Wording
+      form
+        text reportVersion
+          value= {reportVersion}
+        text assayWordingId
+          value= {assayWordingId}
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   id AS "reportDefinitionVersionId"
+            - FROM reportDefinitionVersion
+            - WHERE reportDefinitionId = ?
+            -   AND active = 1
+            long {reportVersion}
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   id AS "assayWordingId",
+            -   type AS "sectionType",
+            -   codeName,
+            -   sectionHeader,
+            -   sectionContent,
+            -   displayOrder
+            - FROM assayWording
+            - WHERE id = ?
+            string {assayWordingId}
+
+        sqlPreparedStatement
+          - INSERT INTO reportWording(reportDefinitionVersionId,assayWordingId,sectionType,codeName,sectionHeader,sectionContent,displayOrder,eventId)
+          - VALUES(?,?,?,?,?,?,?,?)
+          long {_:reportDefinitionVersionId}
+          long {_:assayWordingId}
+          string {_:sectionType}
+          string {_:codeName}
+          string {_:sectionHeader}
+          string {_:sectionContent}
+          int {_:displayOrder}
+          long {_eventId}
+
+    step Remove Report Wording
+      form
+        text reportVersion
+          value= {reportVersion}
+        text reportWordingId
+          value= {reportWordingId}
+
+        sqlPreparedStatement
+          - DELETE FROM reportWording
+          - WHERE id = ?
+          string {reportWordingId}
+
+
+
+    step Save New Report Wording
+      form
+        text reportVersion
+          value= {reportVersion}
+        text reportWording
+          value= {reportWording}
+        text selectedPanelWording
+          value= {selectedPanelWording}
+        text reportWordingOrder
+          value= {reportWordingOrder}
+        text reportWordingHeader
+          value= {reportWordingHeader}
+
+
+      # Check to ensure that Test/Panel/Method, Header & Order are ALL selected WHEN Wording is not blank
+      ifCondition {reportWording}
+        advanced~
+        not~
+          isBlank~
+        and~ {selectedPanelWording}
+          isBlank~
+        and~ {reportWordingOrder}
+          isBlank~
+        and~ {reportWordingHeader}
+          isBlank~
+        validateSql
+          - SELECT 1
+          - FROM DUAL
+          - WHERE 1 <> 1
+          errorMessage Fields marked with a red left edge are required. Enter text in all required fields.
+
+      # ## Check to ensure that wording, Header & Order are ALL selected WHEN Test/Panel/Method is not blank
+      ifCondition {selectedPanelWording}
+        advanced~
+        not~
+          isBlank~
+        and~ {reportWording}
+          isBlank~
+        and~ {reportWordingOrder}
+          isBlank~
+        and~ {reportWordingHeader}
+          isBlank~
+        validateSql
+          - SELECT 1
+          - FROM DUAL
+          - WHERE 1 <> 1
+          errorMessage Fields marked with a red left edge are required. Enter text in all required fields.
+
+
+      ## Check to ensure that wording, Test/Panel/Method & Order are ALL selected WHEN Header is not blank
+      ifCondition {reportWordingHeader}
+        advanced~
+        not~
+          isBlank~
+        and~ {reportWording}
+          isBlank~
+        and~ {selectedPanelWording}
+          isBlank~
+        and~ {reportWordingOrder}
+          isBlank~
+        validateSql
+          - SELECT 1
+          - FROM DUAL
+          - WHERE 1 <> 1
+          errorMessage Fields marked with a red left edge are required. Enter text in all required fields.
+
+      ## Check to ensure that wording, Test/Panel/Method & Header are ALL selected WHEN Order is not blank
+      ifCondition {reportWordingOrder}
+        advanced~
+        not~
+          isBlank~
+        and~ {reportWording}
+          isBlank~
+        and~ {selectedPanelWording}
+          isBlank~
+        and~ {reportWordingHeader}
+          isBlank~
+        validateSql
+          - SELECT 1
+          - FROM DUAL
+          - WHERE 1 <> 1
+          errorMessage Fields marked with a red left edge are required. Enter text in all required fields.
+
+      ifCondition {reportWording}
+        advanced~
+        not~
+          isBlank~
+        and~ {selectedPanelWording}
+          not~
+            isBlank~
+        and~ {reportWordingOrder}
+          not~
+            isBlank~
+        and~ {reportWordingHeader}
+          not~
+            isBlank~
+        ## Check to see if wording already exists
+        validateSql
+          - ! SELECT 1
+          -   FROM assayWording a
+          -   WHERE a.active = 1
+          -     AND a.codeName = ?
+          -     AND sectionHeader = ?
+          -     AND sectionContent = ?
+          -     AND displayOrder = ?
+          string {selectedPanelWording}
+          string {reportWordingHeader}
+          string {reportWording}
+          string {reportWordingOrder}
+          errorMessage This wording already exists.
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT 'Test' AS 'AssayType'
+            - FROM tests
+            - WHERE testCode = ?
+            - UNION ALL
+            - SELECT 'Panel' AS 'AssayType'
+            - FROM panels
+            - WHERE panelCode = ?
+            - UNION ALL
+            - SELECT 'Method' AS 'AssayType'
+            - FROM methods
+            - WHERE methodCode = ?
+            string {selectedPanelWording}
+            string {selectedPanelWording}
+            string {selectedPanelWording}
+
+        sqlPreparedStatement
+          - INSERT INTO assayWording(type,codeName,sectionHeader,sectionContent,displayOrder,active,eventId)
+          - VALUES(?,?,?,?,?,?,?)
+          string {_:AssayType}
+          string {selectedPanelWording}
+          string {reportWordingHeader}
+          string {reportWording}
+          string {reportWordingOrder}
+          int 1
+          long {_eventId}
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   id AS 'reportDefinitionVersionId'
+            - FROM reportDefinitionVersion
+            - WHERE reportDefinitionId = ?
+            -   AND active = 1
+            long {reportVersion}
+
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT id AS 'assayWordingId'
+            - FROM assayWording
+            - WHERE eventId = ?
+            string {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO reportWording(reportDefinitionVersionId,assayWordingId,sectionType,codeName,sectionHeader,sectionContent,displayOrder,eventId)
+          - VALUES(?,?,?,?,?,?,?,?)
+          long {_:reportDefinitionVersionId}
+          long {_:assayWordingId}
+          string {_:AssayType}
+          string {selectedPanelWording}
+          string {reportWordingHeader}
+          string {reportWording}
+          string {reportWordingOrder}
+          long {_eventId}
+
+
+
+    step Clear Panel Interpretations For Version
+      form
+        text definitionId
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT id AS 'versionId'
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ?
+          - AND active = 1
+          string {definitionId}
+
+      sqlPreparedStatement
+        - DELETE FROM reportInterpretationWording WHERE reportDefinitionVersionId = '{_:versionId}'
+        ## cannot pass parameter here, get a parameter index out of range error even though it's just the one parameter, string has to be directly in statement to execute
+
+    step Clear Overall Interpretations For Version
+      form
+        text definitionId
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT id AS 'versionId'
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ?
+          - AND active = 1
+          string {definitionId}
+
+      sqlPreparedStatement
+        - DELETE FROM reportInterpretationWording WHERE reportDefinitionVersionId = '{_:versionId}' AND isOverallReportResult = 1
+        ## cannot pass parameter here, get a parameter index out of range error even though it's just the one parameter, string has to be directly in statement to execute
+
+
+    step Save Report Panel Interpretations
+      form
+        text definitionId
+        text resultText
+        text resultInterpretation
+        text panelCode
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT id AS 'versionId'
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ? AND active = 1
+          string {definitionId}
+
+      sqlPreparedStatement
+        - INSERT INTO reportInterpretationWording(reportDefinitionVersionId, isOverallReportResult, panelCode, overallResult, overallInterpretation, isGroupSignout, eventId)
+        - VALUES(?, ?, ?, ?, ?, ?, ?)
+        string {_:versionId}
+        int 0
+        string {panelCode}
+        string {resultText}
+        string {resultInterpretation}
+        int 0
+        long {_eventId}
+
+      validateSql
+        - SELECT 1
+        - FROM dual
+        - WHERE ? <> ''
+        string {resultText}
+        errorMessage Panel Overall Result cannot be blank
+
+    step Save Report Overall Interpretations
+      form
+        text definitionId
+        text resultText
+        text resultInterpretation
+        # text groupSignout
+
+      setFormQueryResult
+        sqlPreparedQuery
+          - SELECT id AS 'versionId'
+          - FROM reportDefinitionVersion
+          - WHERE reportDefinitionId = ? AND active = 1
+          string {definitionId}
+
+      sqlPreparedStatement
+        - INSERT INTO reportInterpretationWording(reportDefinitionVersionId, isOverallReportResult, overallResult, overallInterpretation, isGroupSignout, eventId)
+        - VALUES(?, ?, ?, ?, ?, ?)
+        string {_:versionId}
+        int 1
+        string {resultText}
+        string {resultInterpretation}
+        int 0
+        long {_eventId}
+
+      validateSql
+        - SELECT 1
+        - FROM dual
+        - WHERE ? <> ''
+        string {resultText}
+        errorMessage Overall Result cannot be blank

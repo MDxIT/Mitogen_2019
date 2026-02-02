@@ -1,0 +1,788 @@
+config
+  steps
+    stepGroup Sites
+    step Site Configurations
+      accessLevel 10
+      jsScripts
+        src js/admin/sites.js
+      form
+        include stepInstructions
+        ENCTYPE= multipart/form-data
+        formPreparedQuery~
+          - SELECT
+          -   orgId,
+          -   siteId,
+          -   organizationType,
+          -   siteCode,
+          -   name,
+          -   address1,
+          -   address2,
+          -   city,
+          -   state,
+          -   postalcode,
+          -   country,
+          -   email,
+          -   website,
+          -   phone1,
+          -   phone2,
+          -   fax1,
+          -   fax2,
+          -   timeZone,
+          -   dateFormat,
+          -   language
+          - FROM organizationSites os
+          - WHERE organizationType = 'Master'
+          -   AND isSystem = 1
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   CONCAT(location, '/', fileName) AS 'filePath'
+          - FROM containerFiles
+          - WHERE containerId = ?
+          -   AND fileType = 'globalLogos'
+          string {_:siteId}
+          allowEmptyResults~
+
+        hidden siteId
+          value= {_:siteId}
+
+        div
+          class= tabs
+          ul
+            li
+              a Global Site Settings
+                href= #globalSites
+            li
+              a Departments & Locations
+                href= #secondarySites
+
+          div
+            id= globalSites
+            div
+              class= horizontalFlex
+              div
+                class= verticalFlex
+                label  Site Name
+                  for= siteName
+                text siteName
+                  id= siteName
+                  value= {_:name}
+                label  Site Code
+                  for= siteCode
+                text siteCode
+                  id= siteCode
+                  value= {_:siteCode}
+                label  Site Type
+                  for= siteType
+                select siteType
+                  id= siteType
+                  option Master
+                    value= master
+                label  Time Zone
+                  for= timeZone
+                select timeZone
+                  id= timeZone
+                  value= {_:timeZone}
+                  setName~ timeZone
+                  required~ false
+                label  Date Format
+                  for= dateFormat
+                select dateFormat
+                  id= dateFormat
+                  value= {_:dateFormat}
+                  setName~ dateFormat
+                  required~ false
+                label  Preferred Language
+                  for= language
+                select language
+                  id= language
+                  value= {_:language}
+                  option English
+                  setName~ language
+                  required~ false
+              div
+                class= verticalFlex
+                label Address 1
+                  for= address1
+                text address1
+                  id= address1
+                  value= {_:address1}
+                label Address 2
+                  for= address2
+                text address2
+                  id= address2
+                  value= {_:address2}
+                label City
+                  for= city
+                text city
+                  id= city
+                  value= {_:city}
+                label State
+                  for= state
+                text state
+                  id= state
+                  value= {_:state}
+                label Postal Code
+                  for= postalcode
+                text postalcode
+                  id= postalcode
+                  value= {_:postalcode}
+                label Country
+                  for= country
+                text country
+                  id= country
+                  value= {_:country}
+              div
+                class= verticalFlex
+                label Phone
+                  for= phone1
+                text phone1
+                  id= phone1
+                  value= {_:phone1}
+                label Alt Phone
+                  for= phone2
+                text phone2
+                  id= phone2
+                  value= {_:phone2}
+                label Fax
+                  for= fax1
+                text fax1
+                  id= fax1
+                  value= {_:fax1}
+                label Alt Fax
+                  for= fax2
+                text fax2
+                  id= fax2
+                  value= {_:fax2}
+                label Email
+                  for= email
+                text email
+                  id= email
+                  value= {_:email}
+                label Website
+                  for= website
+                text website
+                  id= website
+                  value= {_:website}
+              div
+                class= verticalFlex
+                label Logo (png)
+                  for= globalLogo
+                file globalLogo
+                  id= globalLogo
+                  destinationFolderName~ images/globalLogos
+                  destinationFilePrefix~ globalLogos_0000000
+                  required~ false
+                  containerId~ {_eventId}
+                  fileType~ Global Logo
+                hr
+                label Current Logo
+                  for= currentGlobalLogo
+                img
+                  id= currentGlobalLogo
+                  class= currentLogoStyle
+                  src= !!! {_:filePath}
+
+          div
+            id= secondarySites
+            div
+              class= tabs
+              ul
+                li
+                  a Departments
+                    href= #departments
+                li
+                  a Locations
+                    href= #locations
+              div
+                id= departments
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   os1.name AS 'Parent Site',
+                    -   os.name AS 'Department Name',
+                    -   os.siteCode AS 'Department Code',
+                    -   os.timeZone AS 'Time Zone',
+                    -   os.dateFormat AS 'Date Format',
+                    -   os.language AS 'Language',
+                    -   os.address1 AS 'Address 1',
+                    -   os.address2 AS 'Address 2',
+                    -   os.city AS 'City',
+                    -   os.state AS 'State',
+                    -   os.postalcode AS 'Zip',
+                    -   os.email AS 'Email',
+                    -   os.website AS 'Website',
+                    -   CONCAT('<img src="', location, '', fileName, '" alt="" border=3 height=100 width=100></img>') AS 'Current Logo',
+                    -   '' AS 'Logo',
+                    -   os.siteId AS "Hidden",
+                    -   '' AS "Hidden",
+                    -   os.orgId AS "Hidden"
+                    - FROM organizationSites os
+                    -   LEFT JOIN organizationSites os1 ON os.parentSiteId = os1.siteId
+                    -   LEFT JOIN containerFiles cf ON os.siteId = cf.containerId
+                    -     AND cf.fileType = 'departmentLogo'
+                    - WHERE os.organizationType = 'Department'
+                    - UNION ALL
+                    - SELECT
+                    -   '' AS 'Parent Site',
+                    -   '' AS 'Department Name',
+                    -   '' AS 'Department Code',
+                    -   '' AS 'Time Zone',
+                    -   '' AS 'Date Format',
+                    -   '' AS 'Language',
+                    -   '' AS 'Address 1',
+                    -   '' AS 'Address 2',
+                    -   '' AS 'City',
+                    -   '' AS 'State',
+                    -   '' AS 'Zip',
+                    -   '' AS 'Email',
+                    -   '' AS 'Website',
+                    -   '' AS 'Current Logo',
+                    -   '' AS 'Logo',
+                    -   no AS "Hidden",
+                    -   'NEW' AS "Hidden",
+                    -   '' AS "Hidden"
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ departments
+                    allowChangedRecordIds
+                    column 1
+                      inputType select
+                        option
+                        sqlPreparedQuery~
+                          - SELECT
+                          -   name,siteId
+                          - FROM organizationSites
+                          - WHERE organizationType = 'Master'
+                          -   AND isSystem = 1
+                    column 2
+                      inputType text
+                        validate~ SELECT 1 FROM dual
+                          - WHERE ( EXISTS (SELECT 1 FROM organizationSites WHERE organizationType = 'Department' AND name = '{_thisInput}' and siteId = '{_columnInput:16}') OR '{_thisInput}' = '' )
+                          - OR NOT EXISTS (SELECT 1 FROM organizationSites WHERE organizationType = 'Department' AND name = '{_thisInput}')
+                          errorMessage~ This department name already exists. Please enter a unique department name.
+                    column 3
+                      inputType text
+                        size= 6
+                    column 4
+                      inputType select
+                    column 5
+                      inputType select
+                    column 6
+                      inputType select
+                    column 7
+                      inputType text
+                    column 8
+                      inputType text
+                    column 9
+                      inputType text
+                    column 10
+                      inputType text
+                    column 11
+                      inputType text
+                    column 12
+                      inputType text
+                    column 13
+                      inputType text
+                    column 15
+                      inputType files
+                        destinationFolderName~ images/departmentLogos
+                        destinationFilePrefix~ logo_0000000
+                        required~ false
+                        containerId~ {_columnInput:16}
+                        maxlength= 1
+                        fileType~ departmentLogo
+                    column 16
+                      inputType text
+                        class= hideColumn
+                    column 17
+                      inputType text
+                        class= hideColumn
+                    column 18
+                      inputType text
+                        class= hideColumn
+                    ### SITE TYPE = DEPARTMENT
+              div
+                id= locations
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   os1.name AS 'Department Site',
+                    -   os.name AS 'Location Name',
+                    -   os.siteCode AS 'Location Code',
+                    -   os.timeZone AS 'Time Zone',
+                    -   os.dateFormat AS 'Date Format',
+                    -   os.language AS 'Language',
+                    -   os.address1 AS 'Address 1',
+                    -   os.address2 AS 'Address 2',
+                    -   os.city AS 'City',
+                    -   os.state AS 'State',
+                    -   os.postalcode AS 'Zip',
+                    -   os.email AS 'Email',
+                    -   os.website AS 'Website',
+                    -   CONCAT('<img src="', location, '', fileName, '" alt="" border=3 height=100 width=100></img>') AS 'Current Logo',
+                    -   '' AS 'Logo',
+                    -   os.siteId AS 'Hidden',
+                    -   '' AS "Hidden",
+                    -   os.orgId AS 'Hidden'
+                    - FROM organizationSites os
+                    -   LEFT JOIN organizationSites os1 ON os.parentSiteId = os1.siteId
+                    -   LEFT JOIN containerFiles cf ON os.siteId = cf.containerId
+                    -     AND cf.fileType = 'locationLogo'
+                    - WHERE os.organizationType = 'Location'
+                    - UNION ALL
+                    - SELECT
+                    -   '' AS 'Department Site',
+                    -   '' AS 'Location Name',
+                    -   '' AS 'Location Code',
+                    -   '' AS 'Time Zone',
+                    -   '' AS 'Date Format',
+                    -   '' AS 'Language',
+                    -   '' AS 'Address 1',
+                    -   '' AS 'Address 2',
+                    -   '' AS 'City',
+                    -   '' AS 'State',
+                    -   '' AS 'Zip',
+                    -   '' AS 'Email',
+                    -   '' AS 'Website',
+                    -   '' AS 'Current Logo',
+                    -   '' AS 'Logo',
+                    -   no AS '',
+                    -   'NEW' AS "Hidden",
+                    -   '' AS 'Hidden'
+                    - FROM numbers
+                    - LIMIT 10
+                  columnSpecs~ locations
+                    allowChangedRecordIds
+                    column 1
+                      inputType select
+                        option
+                        sqlPreparedQuery~
+                          - SELECT
+                          -   name,siteId
+                          - FROM organizationSites
+                          - WHERE organizationType = 'Department'
+                          -   AND isSystem = 1
+
+                    column 2
+                      inputType text
+                        validate~ SELECT 1 FROM dual
+                          - WHERE ( EXISTS (SELECT 1 FROM organizationSites WHERE organizationType = 'Location' AND name = '{_thisInput}' and siteId = '{_columnInput:16}') OR '{_thisInput}' = '' )
+                          - OR NOT EXISTS (SELECT 1 FROM organizationSites WHERE organizationType = 'Location' AND name = '{_thisInput}')
+                          errorMessage~ This location name already exists. Please enter a unique location name.
+                    column 3
+                      inputType text
+                        size= 6
+                    column 4
+                      inputType select
+                    column 5
+                      inputType select
+                    column 6
+                      inputType select
+                    column 7
+                      inputType text
+                    column 8
+                      inputType text
+                    column 9
+                      inputType text
+                    column 10
+                      inputType text
+                    column 11
+                      inputType text
+                    column 12
+                      inputType text
+                    column 13
+                      inputType text
+                    column 15
+                      inputType files
+                        destinationFolderName~ images/locationLogos
+                        destinationFilePrefix~ logo_0000000
+                        required~ false
+                        containerId~ {_columnInput:16}
+                        maxlength= 1
+                        fileType~ locationLogo
+                    column 16
+                      inputType text
+                        class= hideColumn
+                    column 17
+                      inputType text
+                        class= hideColumn
+                    column 18
+                      inputType text
+                        class= hideColumn
+                    ### SITE TYPE = LOCATION
+
+      ## inserts for global tab
+      ifCondition {siteId}
+        advanced~
+        isBlank~
+        setFormQueryResult
+          sqlPreparedQuery
+            - SELECT
+            -   'O{_getNextSequence:orgId}' AS 'OrgId',
+            -   'S{_getNextSequence:siteId}' AS 'SiteId'
+
+        sqlPreparedStatement
+          - INSERT INTO organizations(orgId,name,eventId)
+          - VALUES(?,?,?)
+          string {_:OrgId}
+          string {siteName}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO organizationSites(siteId,orgId,name,siteCode,organizationType,isSystem,address1,address2,city,state,postalcode,country,email,website,phone1,phone2,fax1,fax2,timezone,dateFormat,language,eventId)
+          - VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          string {_:SiteId}
+          string {_:OrgId}
+          string {siteName}
+          string {siteCode}
+          string Master
+          int 1
+          string {address1}
+          string {address2}
+          string {city}
+          string {state}
+          string {postalcode}
+          string {country}
+          string {email}
+          string {website}
+          string {phone1}
+          string {phone2}
+          string {fax1}
+          string {fax2}
+          string {timeZone}
+          string {dateFormat}
+          string {language}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO containerFiles (containerId, fileType, fileName, location, eventId)
+          - VALUES(?, 'globalLogos', ?, ?, ?)
+          string {_:SiteId}
+          string {globalLogo}
+          string images/globalLogos
+          long {_eventId}
+
+        else
+          sqlPreparedStatement
+            - UPDATE organizations
+            -   SET name = ?,
+            -   eventId = ?
+            - WHERE orgId = ?
+            string {siteName}
+            long {_eventId}
+            string {orgId}
+
+          sqlPreparedStatement
+            - UPDATE organizationSites
+            -   SET siteCode = ?,
+            -   name = ?,
+            -   address1 = ?,
+            -   address2 = ?,
+            -   city = ?,
+            -   state = ?,
+            -   postalcode = ?,
+            -   country = ?,
+            -   email = ?,
+            -   website = ?,
+            -   phone1 = ?,
+            -   phone2 = ?,
+            -   fax1 = ?,
+            -   fax2 = ?,
+            -   timezone = ?,
+            -   dateFormat = ?,
+            -   language = ?,
+            -   eventId = ?
+            - WHERE siteId = ?
+            string {siteCode}
+            string {siteName}
+            string {address1}
+            string {address2}
+            string {city}
+            string {state}
+            string {postalcode}
+            string {country}
+            string {email}
+            string {website}
+            string {phone1}
+            string {phone2}
+            string {fax1}
+            string {fax2}
+            string {timeZone}
+            string {dateFormat}
+            string {language}
+            long {_eventId}
+            string {siteId}
+
+          ifCondition {globalLogo}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement
+              - DELETE FROM containerFiles
+              - WHERE containerId = ?
+              string {siteId}
+
+            sqlPreparedStatement
+              - INSERT INTO containerFiles (containerId, fileType, fileName, location, eventId)
+              - VALUES(?, 'globalLogos', ?, ?, ?)
+              string {siteId}
+              string {globalLogo}
+              string images/globalLogos
+              long {_eventId}
+
+      ## inserts for Department tab
+      forRows departments
+        ifCondition {_columnInput_departments:1}
+          advanced~
+          not~
+            isBlank~
+          validateSql SELECT 1 FROM DUAL WHERE '{_columnInput_departments:2}' != ''
+            errorMessage A department name is required for each parent site
+        ifCondition {_columnInput_departments:2}
+          advanced~
+          not~
+            isBlank~
+          validateSql SELECT 1 FROM DUAL WHERE '{_columnInput_departments:1}' != ''
+            errorMessage A parent site is required for each department name
+
+          ifCondition {_columnInput_departments:18}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement
+              - UPDATE organizations
+              -   SET name = ?,
+              -   eventId = ?
+              - WHERE orgId = ?
+              string {_columnInput_departments:2}
+              long {_eventId}
+              string {_columnInput_departments:18}
+
+          ifCondition {_columnInput_departments:16}
+            advanced~
+            not~
+              isBlank~
+            and~ {_columnInput_departments:17}
+              isBlank~
+            sqlPreparedStatement
+              - UPDATE organizationSites
+              -   SET siteCode = ?,
+              -   name = ?,
+              -   address1 = ?,
+              -   address2 = ?,
+              -   city = ?,
+              -   state = ?,
+              -   postalcode = ?,
+              -   email = ?,
+              -   website = ?,
+              -   timezone = ?,
+              -   dateFormat = ?,
+              -   language = ?,
+              -   parentSiteId = ?,
+              -   eventId = ?
+              - WHERE siteId = ?
+              string {_columnInput_departments:3}
+              string {_columnInput_departments:2}
+              string {_columnInput_departments:7}
+              string {_columnInput_departments:8}
+              string {_columnInput_departments:9}
+              string {_columnInput_departments:10}
+              string {_columnInput_departments:11}
+              string {_columnInput_departments:12}
+              string {_columnInput_departments:13}
+              string {_columnInput_departments:4}
+              string {_columnInput_departments:5}
+              string {_columnInput_departments:6}
+              string {_columnInput_departments:1}
+              long {_eventId}
+              string {_columnInput_departments:16}
+
+            ifCondition
+              advanced~
+              sqlPreparedQuery~ SELECT 1 FROM containerFiles WHERE containerId = ? AND fileType = 'departmentLogo' AND eventId = ?
+                string {_columnInput_departments:16}
+                string {_eventId}
+
+              sqlPreparedStatement
+                - DELETE FROM containerFiles
+                - WHERE containerId = ?
+                - AND fileType = 'departmentLogo'
+                - AND eventId <> ?
+                string {_columnInput_departments:16}
+                string {_eventId}
+
+            else
+              setFormQueryResult
+                sqlPreparedQuery
+                  - SELECT
+                  -   'O{_getNextSequence:orgId}' AS 'OrgId',
+                  -   'S{_getNextSequence:siteId}' AS 'SiteId'
+
+              sqlPreparedStatement
+                - INSERT INTO organizations(orgId,name,eventId)
+                - VALUES(?,?,?)
+                string {_:OrgId}
+                string {_columnInput_departments:2}
+                long {_eventId}
+
+              sqlPreparedStatement
+                - INSERT INTO organizationSites(siteId,orgId,parentSiteId,name,siteCode,organizationType,isSystem,address1,address2,city,state,postalcode,email,website,timezone,dateFormat,language,eventId)
+                - VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                string {_:SiteId}
+                string {_:OrgId}
+                string {_columnInput_departments:1}
+                string {_columnInput_departments:2}
+                string {_columnInput_departments:3}
+                string Department
+                int 1
+                string {_columnInput_departments:7}
+                string {_columnInput_departments:8}
+                string {_columnInput_departments:9}
+                string {_columnInput_departments:10}
+                string {_columnInput_departments:11}
+                string {_columnInput_departments:12}
+                string {_columnInput_departments:13}
+                string {_columnInput_departments:4}
+                string {_columnInput_departments:5}
+                string {_columnInput_departments:6}
+                long {_eventId}
+
+              sqlPreparedStatement
+                - UPDATE containerFiles
+                -   SET containerId = ?
+                -   WHERE containerId = ?
+                -   AND fileType = 'departmentLogo'
+                -   AND ? = 'NEW'
+                string {_:SiteId}
+                string {_columnInput_departments:16}
+                string {_columnInput_departments:17}
+
+      # # ## inserts for Location tab
+      forRows locations
+        ifCondition {_columnInput_locations:1}
+          advanced~
+          not~
+            isBlank~
+          validateSql SELECT 1 FROM DUAL WHERE '{_columnInput_locations:2}' != ''
+            errorMessage A location name is required for each department site
+
+        ifCondition {_columnInput_locations:2}
+          advanced~
+          not~
+            isBlank~
+          validateSql SELECT 1 FROM DUAL WHERE '{_columnInput_locations:1}' != ''
+            errorMessage A department site is required for each location name
+          ifCondition {_columnInput_locations:18}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement
+              - UPDATE organizations
+              -   SET name = ?,
+              -   eventId = ?
+              - WHERE orgId = ?
+              string {_columnInput_locations:2}
+              long {_eventId}
+              string {_columnInput_locations:18}
+          ifCondition {_columnInput_locations:16}
+            advanced~
+            not~
+              isBlank~
+            and~ {_columnInput_locations:17}
+              isBlank~
+            sqlPreparedStatement
+              - UPDATE organizationSites
+              -   SET siteCode = ?,
+              -   name = ?,
+              -   address1 = ?,
+              -   address2 = ?,
+              -   city = ?,
+              -   state = ?,
+              -   postalcode = ?,
+              -   email = ?,
+              -   website = ?,
+              -   timezone = ?,
+              -   dateFormat = ?,
+              -   language = ?,
+              -   parentSiteId = ?,
+              -   eventId = ?
+              - WHERE siteId = ?
+              string {_columnInput_locations:3}
+              string {_columnInput_locations:2}
+              string {_columnInput_locations:7}
+              string {_columnInput_locations:8}
+              string {_columnInput_locations:9}
+              string {_columnInput_locations:10}
+              string {_columnInput_locations:11}
+              string {_columnInput_locations:12}
+              string {_columnInput_locations:13}
+              string {_columnInput_locations:4}
+              string {_columnInput_locations:5}
+              string {_columnInput_locations:6}
+              string {_columnInput_locations:1}
+              long {_eventId}
+              string {_columnInput_locations:16}
+
+            ifCondition
+              advanced~
+              sqlPreparedQuery~ SELECT 1 FROM containerFiles WHERE containerId = ? AND fileType = 'locationLogo' AND eventId = ?
+                string {_columnInput_locations:16}
+                string {_eventId}
+
+              sqlPreparedStatement
+                - DELETE FROM containerFiles
+                - WHERE containerId = ?
+                - AND fileType = 'locationLogo'
+                - AND eventId <> ?
+                string {_columnInput_locations:16}
+                string {_eventId}
+
+            else
+              setFormQueryResult
+                sqlPreparedQuery
+                  - SELECT
+                  -   'O{_getNextSequence:orgId}' AS 'OrgId',
+                  -   'S{_getNextSequence:siteId}' AS 'SiteId'
+
+              sqlPreparedStatement
+                - INSERT INTO organizations(orgId,name,eventId)
+                - VALUES(?,?,?)
+                string {_:OrgId}
+                string {_columnInput_locations:2}
+                long {_eventId}
+
+              sqlPreparedStatement
+                - INSERT INTO organizationSites(siteId,orgId,parentSiteId,name,siteCode,organizationType,isSystem,address1,address2,city,state,postalcode,email,website,timezone,dateFormat,language,eventId)
+                - VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                string {_:SiteId}
+                string {_:OrgId}
+                string {_columnInput_locations:1}
+                string {_columnInput_locations:2}
+                string {_columnInput_locations:3}
+                string Location
+                int 1
+                string {_columnInput_locations:7}
+                string {_columnInput_locations:8}
+                string {_columnInput_locations:9}
+                string {_columnInput_locations:10}
+                string {_columnInput_locations:11}
+                string {_columnInput_locations:12}
+                string {_columnInput_locations:13}
+                string {_columnInput_locations:4}
+                string {_columnInput_locations:5}
+                string {_columnInput_locations:6}
+                long {_eventId}
+
+              sqlPreparedStatement
+                - UPDATE containerFiles
+                -   SET containerId = ?
+                -   WHERE containerId = ?
+                -   AND fileType = 'locationLogo'
+                -   AND ? = 'NEW'
+                string {_:SiteId}
+                string {_columnInput_locations:16}
+                string {_columnInput_locations:17}

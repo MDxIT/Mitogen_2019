@@ -1,0 +1,328 @@
+config
+  includes
+    includeable poolTubeList_table
+      ### PARAMETERS IN
+      ###   col1 - Provide one of the static headers in pool tube list table to
+      ###     display that column in the table
+      ###   col2 - See col1
+      ###   col3 - See col1
+      ###   col4 - See col1
+      ###   col5 - See col1
+      ###   col6 - See col1
+      ###   prioritySetName - Provide setName for priority display value
+      ###   print - Enable printing barcode for individual pool tubes
+      ###   action - Enable setting action for individual pool tubes
+      ###   comments - Enable commenting for individual pool tubes
+      ###   commentHistory - Show/Hide comment history for individual pool tubes
+      ###   actionSetName - Provide setName for action
+      ###   counter - Show/Hide counter for pool tube list (value= On/Off)
+      ###   validateOrTransfer - Provide option to either perform validation
+      ###     or transfer (value= Validate/Transfer)
+      ###   printAll - Configure print list
+      ###   scanAll - Set value to true to make all scan fields required
+      ###   containerIdGen - Set value to 'Auto Generated' to include
+      ###     a button that generates an ID for the scan field. This only works
+      ###     if validateOrTransfer is set to Transfer
+      ###   fileType - Specify a string to associate any information to all uploaded files
+
+      script
+        src= js/components/listConfig.js
+      script
+        src= js/components/poolTubeList.js
+      script
+        src= js/components/sampleListUtils.js
+
+
+      configurePreparedQuery~ SELECT
+        - CASE WHEN ? = 'Yes' THEN 'Print' ELSE '' END AS "poolTubeList_print",
+        - CASE WHEN ? = 'Yes' THEN 'Action' ELSE '' END AS "poolTubeList_action",
+        - CASE WHEN ? = 'Yes' THEN 'Comments' ELSE '' END AS "poolTubeList_comments",
+        - CASE WHEN ? = 'Yes' THEN 'Comment History' ELSE '' END AS "poolTubeList_commentHistory"
+        string {_includeParm:print}
+        string {_includeParm:action}
+        string {_includeParm:comments}
+        string {_includeParm:commentHistory}
+
+
+
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+      hidden indicator
+        value= {_includeParm:printAll}
+        id= printIndicator
+      hidden counterConfig
+        value= {_includeParm:counter}
+        id= counterConfig
+      hidden scanAllConfig
+        value= {_includeParm:scanAll}
+        id= scanAllConfig
+      hidden containerIdGen
+        value= {_includeParm:containerIdGen}
+        id= containerIdGen
+      hidden currentStepName
+        value= {_step}
+        id= currentStepName
+
+      div
+        class= additionalColumns
+        hidden col1
+          value= {_includeParm:col1}
+        hidden col2
+          value= {_includeParm:col2}
+        hidden col3
+          value= {_includeParm:col3}
+        hidden col4
+          value= {_includeParm:col4}
+        hidden col5
+          value= {_includeParm:col5}
+        hidden col6
+          value= {_includeParm:col6}
+
+        hidden print
+          value= {_:poolTubeList_print}
+        hidden action
+          value= {_:poolTubeList_action}
+        hidden comments
+          value= {_:poolTubeList_comments}
+        hidden commentHistory
+          value= {_:poolTubeList_commentHistory}
+        hidden validateOrTransfer
+          id= poolTubeList_validateOrTransfer
+          value= {_includeParm:validateOrTransfer}
+
+      div
+        id= selectAllDiv
+        vertical
+          checkbox selectAll
+            id= selectAll
+            class= selectAll
+            screenLabel~ Select All Pool Tubes
+
+
+      div
+        id= poolTubeListGroup
+        class= printMe
+        div
+          vertical2
+            text counter
+              id= poolTubeListCounter
+              screenLabel~ Pool Tubes Selected
+              value= 0
+              readonly=
+            div
+              id= poolTubeListMessages
+
+
+        br
+        br
+        table
+          id= poolTubeListTable
+          sqlPreparedQuery
+            - SELECT
+            -   '' AS "Select",
+            -   pr.currentContainerId AS "Pool Tube Id",
+            -   '' AS "Barcode Scan",
+            -   '' AS "Action",
+            -   '' AS "Print",
+            -   '' AS "Comments",
+            -   pr.poolRunId,
+            -   '' AS 'File Upload',
+            -   vV.displayValue AS "Priority",
+            -   cp1.value AS "Category",
+            -   e.userId AS "Queued By",
+            -   CONCAT(s.storageContainerId, IF(s.location = 'storage', '', CONCAT(':', s.location))) AS "Storage Location",
+            -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "Comment History",
+            -   DATE(e.eventDate) AS "Queued By Date"
+            - FROM queues q
+            - INNER JOIN poolRuns pr
+            -   ON pr.poolRunId = q.containerId
+            - INNER JOIN events e
+            -   ON e.eventId = q.eventId
+            - LEFT JOIN containerProperties cp1
+            -   ON pr.currentContainerId = cp1.containerId AND cp1.property = 'Container Category'
+            - LEFT JOIN containerProperties cp2
+            -   ON pr.currentContainerId = cp2.containerId AND cp2.property = 'Container Priority'
+            - LEFT JOIN validValues vV
+            -   ON vV.setName = ? AND vV.value = cp2.value
+            - LEFT JOIN storage s
+            -   ON s.content = pr.currentContainerId
+            - LEFT JOIN containerNotes cn
+            -   ON pr.poolRunId = cn.containerId
+            - WHERE q.step = ?
+            - GROUP BY pr.currentContainerId
+            string {_includeParm:prioritySetName}
+            string {_step}
+          columnSpecs~ poolTubes
+            allowChangedRecordIds true
+            column 1
+              inputType checkbox
+                class= poolTubeListTable_checkbox
+                required~ false
+            column 2
+              inputType container
+                recordContainerHistory~ false
+                acceptQueue~ any
+                readonly=
+                class= poolTubeListTable_poolTubeId
+            column 3
+              inputType container
+                acceptQueue~ any
+                class= barcodeBackground poolTubeListTable_scan listTable_scan
+                required~ {_includeParm:scanAll}
+                validate~ SELECT 1 FROM DUAL WHERE (? = ? AND ? = 'true')
+                  - OR (? = 'false')
+                  string {_thisInput}
+                  string {_columnInput:2}
+                  string {_columnInput:1}
+                  string {_columnInput:1}
+                  errorMessage~ Barcode scanned must be matched with Pool Tube Id
+                  configureIf~ {_includeParm:validateOrTransfer} 
+                    advanced~
+                    equals~ Validate
+                containerType~ poolTubeId
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+                    and~ {_includeParm:containerIdGen}
+                      not~
+                        equals~ Use Existing Identifier
+                containerType~ Consumable
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+                    or~
+                      equals~ Split
+                    and~ {_includeParm:containerIdGen}
+                      equals~ Use Existing Identifier
+                new~ true
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+                    and~ {_includeParm:containerIdGen}
+                      not~
+                        equals~ Use Existing Identifier
+                addContent~
+                  configureIf~ {_includeParm:validateOrTransfer}
+                    advanced~
+                    equals~ Transfer
+
+            column 4
+              inputType select
+                class= poolTubeList_action
+                setName~ {_includeParm:actionSetName}
+                required~ false
+            column 5
+              inputType hidden
+                class= poolTubeList_printButton printButton
+            column 6
+              inputType textArea
+                class= poolTubeListTable_comment disabled
+                readonly=
+            column 7
+              inputType container
+                class= hideColumn
+                acceptQueue~ any
+                recordContainerHistory~ false
+            column 8
+              inputType files
+                destinationFolderName~ ../private/poolList/{_columnInput:3}/{_eventId}
+                containerId~ {_columnInput:3}
+                fileType~ {_includeParm:fileType}
+                  configureIf~ {_includeParm:fileType}
+                    advanced~
+                    not~
+                      isBlank~
+                fileType~ Pool List
+                  configureIf~ {_includeParm:fileType}
+                    advanced~
+                    isBlank~
+                required~ false
+            column 14
+              formatDate~
+
+    includeable poolTubeList_SQL
+      allowDuplicateContainerIds
+
+      forRows poolTubes
+
+        # Insert comment to containerNotes
+        ifCondition {_columnInput_poolTubes:1}
+          advanced~
+          equals~ true
+          and~ {_columnInput_poolTubes:3}
+            not~
+              isBlank~
+          and~ {_columnInput_poolTubes:6}
+            not~
+              isBlank~
+
+          sqlPreparedStatement INSERT INTO containerNotes
+            - (containerId, noteType, note, eventId)
+            - VALUES (?, 'comment', ?, ?)
+            string {_columnInput_poolTubes:7}
+            string {_columnInput_poolTubes:6}
+            long {_eventId}
+
+        # Track container history
+        ifCondition {_columnInput_poolTubes:3}
+          advanced~ 
+          not~
+            isBlank~
+
+          sqlPreparedStatement~ INSERT INTO containerHistory
+            - (containerId, eventId) VALUES (?, ?)
+            string {_columnInput_poolTubes:6}
+            long {_eventId}
+
+          sqlPreparedStatement~
+            - UPDATE poolRuns
+            -   SET lastUpdatedEventId = ?
+            - WHERE poolRunId = ?
+            long {_eventId}
+            string {_columnInput_poolTubes:7}
+
+          # Handling transfers
+          ifCondition {_includeParm:validateOrTransfer}
+            advanced~
+            equals~ Transfer
+
+            sqlPreparedStatement~ INSERT INTO containerHistory
+              - (containerId, eventId)
+              - VALUES (?, ?)
+              string {_columnInput_poolTubes:3}
+              long {_eventId}
+
+            sqlPreparedStatement~ INSERT INTO resourceHistory (containerId, eventId)
+              - SELECT c.containerId, ?
+              - FROM containers c
+              - WHERE c.containerId = ?
+              -   AND c.containerType = 'Consumable'
+              long {_eventId}
+              string {_columnInput_samples:4}
+
+            sqlPreparedStatement~
+              - UPDATE containers SET
+              -   containerType = 'poolTubeId'
+              - WHERE containerId = ?
+              -   AND containerType = 'Consumable'
+              string {_columnInput_samples:4}
+
+            # Copy contents from column 2 to column 3
+            sqlPreparedStatement~ INSERT INTO contents
+              - (containerId, attribute, contentType, content, eventId)
+              - SELECT ?, attribute, contentType, content, ? FROM contents
+              - WHERE containerId = ? AND containerId <> content
+              string {_columnInput_poolTubes:3}
+              long {_eventId}
+              string {_columnInput_poolTubes:2}
+
+
+
+
+
+
+
+
+
+

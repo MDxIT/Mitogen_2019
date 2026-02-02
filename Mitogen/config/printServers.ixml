@@ -1,0 +1,189 @@
+config
+  steps
+    stepGroup Print Server Configuration
+    step Print Server Configuration
+      accessLevel 10
+      jsScripts
+        src js/printing/printServersConfiguration.js
+      form
+        include stepInstructions
+        data-parsley-validate=
+        div
+          id= modal
+
+        hidden showSubmit
+        fieldset
+          table
+            id= printServersTable
+            class= datatable printServersTable
+            sqlPreparedQuery~ SELECT p.id AS "printerId"
+              - , p.printerName AS "Printer Name"
+              - , p.printServerName AS "Print Server Name"
+              - , p.printerLanguage AS "Printer Language"
+              - , p.isEnabled AS "Enabled"
+              - FROM printers p
+              - UNION ALL
+              - SELECT "New", "", "", "ZPL", "1"
+            columnSpecs~ printServersTable
+              column 1
+                inputType hidden
+                  class= printerId
+                  readonly= true
+                  readonly~
+              column 2
+                inputType text
+              column 3
+                inputType text
+              column 4
+                inputType select
+                  option ZPL
+                    value= ZPL
+                  option EPL
+                    value= EPL
+                  option PCL
+                    value= PCL
+              column 5
+                inputType select
+                  option Yes
+                    value= 1
+                  option No
+                    value= 0
+
+
+      forRows printServersTable
+        validateSql SELECT 1 FROM dual
+          -  WHERE NOT EXISTS(SELECT printerName FROM printers WHERE printerName = ?)
+          -     OR ? = ''
+          -     OR EXISTS(SELECT printerName FROM printers WHERE printerName = ? AND id = ?)
+          string {_columnInput_printServersTable:2}
+          string {_columnInput_printServersTable:2}
+          string {_columnInput_printServersTable:2}
+          string {_columnInput_printServersTable:1}
+          errorMessage Duplicate printer names are not allowed
+
+        ifCondition {_columnInput_printServersTable:1}
+          advanced~
+          not~
+            equals~ New
+          and~ {_columnInput_printServersTable:2}
+            not~
+              isBlank~
+          sqlPreparedStatement UPDATE printers SET printerName = ?, printServerName = ?, printerLanguage = ?, isEnabled = ?, eventId = ? WHERE id = ?
+            string {_columnInput_printServersTable:2}
+            string {_columnInput_printServersTable:3}
+            string {_columnInput_printServersTable:4}
+            long {_columnInput_printServersTable:5}
+            long {_eventId}
+            string {_columnInput_printServersTable:1}
+          else
+            ifCondition {_columnInput_printServersTable:1}
+              advanced~
+              equals~ New
+              and~ {_columnInput_printServersTable:2}
+                not~
+                  isBlank~
+              sqlPreparedStatement INSERT INTO printers (printerName, printServerName, printerLanguage, isEnabled, eventId)
+                - SELECT ?,?,?,?,? FROM dual WHERE NOT EXISTS(SELECT printerName FROM printers WHERE printerName = ?)
+                string {_columnInput_printServersTable:2}
+                string {_columnInput_printServersTable:3}
+                string {_columnInput_printServersTable:4}
+                long {_columnInput_printServersTable:5}
+                long {_eventId}
+                string {_columnInput_printServersTable:2}
+
+
+
+
+
+    step Auto Import Print Servers
+      accessLevel 10
+      jsScripts
+        src js/printing/autoImportPrintServers.js
+      form
+        include stepInstructions
+        hidden showSubmit
+
+      setFormQueryResult processingSuccessful
+        value= false
+
+      jython
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from javax.print import PrintException
+        from javax.print import PrintService
+        from javax.print import PrintServiceLookup
+
+        try:
+          printServices = PrintServiceLookup.lookupPrintServices(None, None)
+
+          sqlInsertPrintServiceNames = "INSERT INTO printers (printerName, eventId) VALUES (?, ?)"
+          psSqlInsertPrintServiceNames = switchboard.connection.prepareStatement(sqlInsertPrintServiceNames)
+
+          for item in printServices:
+            print "------------- loop through print services -----------------"
+            print str(item.getName())
+
+            selectPrinterNameExistsQuery = ("SELECT id, printerName, printerLanguage, isEnabled FROM printers WHERE printerName = '" + str(item.getName()) + "'")
+            stmt = switchboard.connection.createStatement()
+            rs = stmt.executeQuery(selectPrinterNameExistsQuery)
+
+            selectPrinterNameExists = 'No'
+
+            while rs.next():
+              if(rs.getString('printerName') != ''):
+                selectPrinterNameExists = 'Yes'
+            rs.close();
+
+            print "------------- selectPrinterNameExists -----------------"
+            print selectPrinterNameExists
+
+            if selectPrinterNameExists == 'No':
+              psSqlInsertPrintServiceNames.setString(1, str(item.getName()))
+              psSqlInsertPrintServiceNames.setLong(2, {_eventId})
+
+              print "------------- FINISHED SETTING VALUES -----------------"
+              psSqlInsertPrintServiceNames.execute()
+              print psSqlInsertPrintServiceNames
+              print "------------- FINISHED INSERT -----------------"
+
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+        except Exception as e:
+          switchboard.log("---*** Exception *** --- FAILURE TO INSERT/UPDATE ----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ----FAILURE TO INSERT/UPDATE ----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Error importing Print Servers
+
+

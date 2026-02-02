@@ -1,0 +1,224 @@
+@import url('https://fonts.googleapis.com/css?family=Raleway|Roboto|Montserrat&display=swap');
+
+#patientForm0 #stepFormSubmitButton {
+  position: absolute !important;
+  top:  112px;
+  left: 300px;
+}
+
+#findPatientDiv input[type=button], a.button,table input[type="button"]{
+  background-color: #ffffff;
+  color: #1E88E5 !important;
+  margin-left: 20px;
+  text-decoration: none;
+  border: 1px solid #1E88E5;
+}
+
+#errorId {
+  position: absolute;
+  top: 10px;
+  left: 200px;
+}
+
+.searchInput {
+  width: 170px;
+}
+
+#patientType{
+  height: 28px;
+}
+
+#patientsCandidates {
+  margin-top: 30px;
+}
+
+/* form 1 */
+
+.expand{
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  font-weight: normal;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  color: #2b2b2b;
+  margin-bottom: 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+.pageSection{
+  border: 1px solid #cdcdcd;
+  border-radius: 10px;
+  width: 100%;
+}
+.sectionTitle{
+  padding: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  color: #2b2b2b;
+  text-transform: uppercase;
+  border-bottom: 1px solid #cdcdcd;
+  cursor: pointer;
+}
+
+.sectionContent {
+  padding: 15px;
+}
+
+#patientOrdersTable {
+  padding: 15px;
+}
+
+ a.ui-button{
+  height: 36px;
+  -webkit-box-shadow: none;
+  box-shadow: none;
+  margin-left: -28px;
+  background: transparent !important;
+ }
+
+ .insuranceSection{
+   padding: 25px 40px 25px 40px;
+ }
+ #govtPolicies {
+    padding: 25px 40px 10px 40px;
+    border-bottom: 1px solid #eeeeee;
+    width: auto;
+ }
+
+#govtPolicies .verticalFlex {
+  margin-right: 10px;
+}
+  .horizontalFlex{
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+ }
+ .horizontalFlex-spacearound {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-around;
+ }
+ .verticalFlex {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 30px;
+ }
+
+ #patientForm1 input[type=text]{
+     width: 200px;
+     height: 36px;
+     border-radius: 10px;
+     border: 1px solid #B5B5B5;
+     margin-bottom: 10px;
+     padding-left: 15px;
+     font-family: 'Roboto', sans-serif;
+ }
+
+ #patientForm1 select {
+     width: 217px;
+     height: 40px;
+     border: 1px solid #B5B5B5;
+     border-radius: 10px !important;
+     margin-bottom: 10px;
+     background: transparent;
+     padding-left: 15px;
+     font-size: 12px;
+     font-family: 'Roboto', sans-serif;
+ }
+
+  #patientForm1 select[multiple]{
+     width: 217px;
+     height: 130px;
+     border: 1px solid #B5B5B5;
+     border-radius: 10px !important;
+     margin-bottom: 10px;
+     background: transparent;
+     padding-left: 15px;
+     overflow-y: auto;
+     font-family: 'Roboto', sans-serif;
+ }
+  #patientForm1 .dataTables_wrapper select {
+        height: auto;
+        width: auto;
+  }
+
+  #patientForm1 .combobox {
+     width: 205px;
+     height: 38px;
+     border-radius: 10px;
+     border: 1px solid #B5B5B5;
+     margin-bottom: 10px;
+     padding-left: 10px;
+     font-family: 'Roboto', sans-serif;
+ }
+
+#patientForm1 .required {
+    border: 1px solid #B5B5B5 !important;
+    border-left: 5px solid #f44336 !important;
+    font-family: 'Roboto', sans-serif;
+}
+  #patientForm1 label {
+    font-size: 12px;
+    font-family: 'Roboto', sans-serif;
+    /*font-weight: normal;*/
+    color: #2b2b2b;
+    margin-left: 12px;
+    background-color: #ffffff;
+    margin-bottom: -5px;
+    z-index: 100;
+    padding: 0px 5px 0px 5px;
+  }
+  #patientForm1 #mrn {
+     width: 200px;
+     height: 25px !important;
+     border-radius: 10px;
+     border: 1px solid #B5B5B5;
+     margin-bottom: 10px;
+     padding-top: 10px;
+     padding-left: 15px;
+     font-family: 'Roboto', sans-serif !important;
+     overflow: auto;
+     font-size: 12px !important;
+  }
+  #insuranceHistory {
+    padding: 20px 0px 20px 40px;
+  }
+
+  .fa-question-circle, .fa-edit {
+    cursor:pointer;
+  }
+
+#unmergeDetails{
+  border-left: 1px solid #eeeeee;
+  margin: none;
+}
+
+  .requests {
+    margin: 10px 0px 20px 0px;
+    color: #9e9e9e;
+  }
+
+  .smallBanner {
+  padding: 15px 15px 0px 15px;
+  background: #fff;
+  border-left: 10px solid #5007b5;
+  border-top: 1px solid #5007b5;
+  border-right: 1px solid #5007b5;
+  border-bottom: 1px solid #5007b5;
+  border-radius: 10px;
+  }
+
+  .userInfoMsg{
+    color:#1976D2 ;
+    font-size: 12px;
+    padding :0px 0px 10px 2px;
+  }

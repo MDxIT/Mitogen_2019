@@ -1,0 +1,822 @@
+# Default tables
+table containers
+  containerId varchar (255) not null
+  containerType varchar (255)
+  accountId varchar(50)
+  manufacturerBarcode varchar(255)
+  expirationDate datetime
+  priority float default 6.0
+  projectId varchar (50)
+  experimentId varchar (50)
+  eventId int
+  primary key (containerId)
+
+index containerscontainerType ON containers (containerType)
+
+INSERT INTO containers (containerId, containerType, priority, eventId) VALUES ('--', 'unavailable', 6, -1);
+INSERT INTO containers (containerId, containerType, priority, eventId) VALUES ('Blank', 'Blank', 6, -1);
+INSERT INTO containers (containerId, containerType, priority, eventId) VALUES ('Control', 'Control', 6, -1);
+INSERT INTO containers (containerId, containerType, priority, eventId) VALUES ('Sample', 'Sample', 6, -1);
+
+table containerHistory
+  containerId varchar (50) not null
+  eventId int not null
+
+index containerHistoryCIdIx ON containerHistory(containerId)
+index containerHistoryEvIdIx ON containerHistory(eventId)
+
+table containerDescriptions
+  containerId
+  type
+  description longtext
+  eventId int
+
+index containerIdDescription ON containerDescriptions (containerId)
+index containerIdDescriptionType ON containerDescriptions (type)
+
+table containerProperties
+  containerId
+  attribute
+  property
+  unitOfMeasure
+  value
+  eventId
+
+index containerPropertiesIdx on containerProperty (containerId,attribute,eventId)
+
+table containerTransferHistory
+  containerId varchar (50) not null
+  eventId int not null
+  sourceContainerId varchar (50) not null
+  transferMap varchar (50)
+
+index containerTransferHistoryCIDIX ON containerTransferHistory(containerId)
+index containerTransferHistoryEVIDIX ON containerTransferHistory(eventId)
+
+table contents
+  containerId varchar (50) not null
+  attribute varchar (50)
+  contentType varchar (50)
+  content varchar (50)
+  eventId int
+
+index contentsIndex ON contents (containerId, attribute)
+index contentsValueTypeIndex ON contents (contentType)
+index contentsValueIndex ON contents (content)
+
+table events
+  eventId int not null
+  step varchar (50)
+  eventDate datetime
+  userId varchar (50)
+  station varchar (254)
+  comments longtext
+  overrideUserId varchar (50)
+  versionId varchar (50)
+  sopVersion varchar(50)
+  request blob
+  response blob
+  primary key (eventId)
+
+insert into events (eventId,step,userId) VALUES (-1,'','System')
+
+table batches
+  batchId varchar(50) not null
+  fromContainerId varchar(255) not null
+  fromWell varchar(50) not null
+  toWell varchar(50)not null
+  volume float not null
+  eventId int
+
+table futureEvents
+  eventDate datetime
+  action varchar(20)
+  param1 varchar(50)
+  param2 varchar(50)
+  eventId int
+
+index futureEventsEventDate ON futureEvents(eventDate)
+
+table groups
+  groupId varchar(100)
+  managerId varchar (255)
+  description varchar(200)
+  eventId int
+
+index groupsIdIx on groups(groupId)
+
+table loginHistory
+  userId
+  eventDate datetime
+  password
+  outcome
+  station
+
+index loginHistoryUserIdIx on loginHistory (userId);
+
+table notifications
+  notificationId varchar(255)
+  userId varchar(255)
+  eventId int
+
+table numbers 
+  no int 
+
+table notificationHistory
+  notificationId varchar(255) not null
+  recipientType varchar(255)
+  recipientId varchar(255)
+  email varchar(255)
+  #Sybase: 'datetime'; Oracle: 'date'
+  notificationDate datetime not null
+
+table plateMaps
+  plateMapName varchar(50)
+  well varchar(50)
+
+table qualifications
+  containerId varchar(255) not null
+  qualification varchar(100) not null
+  step varchar (50) not null
+  versionId varchar(50)
+  expirationDate datetime not null
+  eventId int not null
+
+index qualificationsIx ON qualifications (containerId, qualification, step)
+
+table queues
+  containerId varchar (255) not null
+  step varchar (50) not null
+  eventId int
+
+index queuescontainerId ON queues (containerId)
+index queuesStep ON queues (step)
+
+table queueHistory
+  containerId varchar (255) not null
+  step varchar (50) not null
+  eventId int
+  deleteEventId int
+
+index queueHistorycontainerId ON queueHistory (containerId)
+
+table queueMaps
+  fromStep varchar(255)
+  mapCondition varchar(255)
+  nextStep varchar(255)
+  eventId int
+
+table resourceHistory
+  containerId varchar (50) not null
+  eventId int not null
+
+index resourceHistoryCIdIx ON resourceHistory(containerId)
+index resourceHistoryEvIdIx ON resourceHistory(eventId)
+
+table sequences
+  sequenceName varchar (50) not null
+  lastNumber int not null
+
+insert into sequences(sequenceName, lastNumber) values ('eventId', 1)
+insert into sequences values ('addressId',10);
+insert into sequences values ('emailId',10);
+insert into sequences(sequenceName, lastNumber) values ('panelId', 5);
+insert into sequences(sequenceName, lastNumber) values ('patientId', 5);
+insert into sequences values ('phoneId',10);
+insert into sequences(sequenceName, lastNumber) values ('physicianId', 5);
+insert into sequences(sequenceName, lastNumber) values ('referenceId', 3);
+insert into sequences(sequenceName, lastNumber) values ('reqId', 10);
+insert into sequences(sequenceName, lastNumber) values ('studyId', 10);
+insert into sequences(sequenceName, lastNumber) values ('testId', 5);
+insert into sequences(sequenceName, lastNumber) values ('ticketId', 10);
+insert into sequences(sequenceName, lastNumber) values ('vendorId', 10);
+
+table steps
+  stepId varchar(255) not null default ''
+  stepGroup
+  sequence float
+  definition text
+  eventId int
+  primary key (stepId)
+
+table stepGroups
+  stepGroup varchar(255)
+  stepGroupSequence float
+  stepName varchar(255)
+  stepNameSequence float
+  eventId int
+
+table transferMaps
+  transferMap varchar(50) not null
+  sourceAttribute varchar(50) not null
+  destinationAttribute varchar(50) not null
+  primary key (transferMap, sourceAttribute, destinationAttribute)
+
+insert into transferMaps values ('plate', 'plate', 'plate')
+insert into transferMaps values ('self', 'self', 'self')
+
+table userInfo
+  userId varchar (50) not null
+  password varchar (50) not null
+  name
+  accessLevel int default 0 not null
+  accountId varchar (50)
+  email varchar (50)
+  userProfile varchar(4000)
+  phone varchar (50)
+  active
+  eventId int
+  passwordUpdateEventId int
+  failedLoginAttempts int default 0
+  primary key (userId)
+
+# Insert initial admin user: admin/secure01
+#insert into userInfo (userId, password, name, accessLevel, accountId, email, phone, active, eventId) values ('admin','Mg0GxHSb7VcQE3U8xVAlP4ZKhHg=','Administrator',12,'MITOGEN','','','true',1)
+
+table userPrivileges
+  userId varchar (50) not null
+  status varchar(50) not null
+  authorizedStep varchar(50) not null
+  eventId int
+  primary key (userId, authorizedStep)
+
+index userPrivilegesUserId ON userPrivileges (userId)
+
+table validValues
+  setName varchar(255) not null default ''
+  displayValue
+  value varchar(255) not null default ''
+  displayOrder float default 0.0
+  eventId int
+  primary key (setName, value)
+
+table translation
+  fromLexicon varchar(255) not null default ''
+  fromLabel varchar(255) not null default ''
+  toLexicon varchar(255) 
+  toLabel
+  eventId int
+  primary key (fromLexicon, fromLabel)
+
+index validValuesSetName on validValues(setName)
+
+table menu
+  section varchar(64) NOT NULL
+  item varchar(64) NOT NULL
+  category varchar(64) DEFAULT NULL
+  active varchar(8) DEFAULT 'true'
+  PRIMARY KEY (section,item)
+
+table  analysis
+  page varchar(100)
+  location varchar(100)
+  containerId varchar(100)
+  typeControl varchar(100)
+  ct varchar(100)
+  Calc_Conc varchar(100)
+  Var varchar(100)
+  Rep_Ct varchar(100)
+  Rep_Ct_Std_Dev varchar(100)
+  Rep_Ct_Cl varchar(100)
+  Rep_Calc_Conc varchar(100)
+  Rep_Calc_Conc95 varchar(100)
+  eventId  int
+
+table referenceDocuments
+  Id int not null default '0'
+  description longtext
+  url
+  disabled int
+  eventId int
+  primary key (Id)
+
+table reqTestPanels
+  reqId varchar(50) not null default ''
+  panelId varchar(50) not null default ''
+  eventid int
+  primary key (reqId,panelId)
+
+table reqTests
+  reqId varchar(50) not null default ''
+  testId int not null default '0'
+  eventid int
+  primary key (reqId,testId)
+
+table stats
+  eventId int
+  type
+  eventDate
+  containerId
+  primary key (eventId)
+
+table testsForPanel
+  panelId int not null default '0'
+  testId int not null default '0'
+  eventId int
+  primary key (panelId,testId)
+
+table testPanels
+  Id int not null default ''
+  name
+  disabled int
+  type
+  panelCode
+  description longtext
+  interpretation longtext
+  significance longtext
+  dosageRecommendation longtext
+  intendedUse longtext
+  prevalence longtext
+  indication longtext
+  coAdminDrugs longtext
+  eventId int
+  primary key (Id)
+
+table testReferences
+  testId int
+  refId int
+  eventId int
+  primary key (testId,refId)
+
+table tests
+  Id int not null default '0'
+  name
+  abbreviation
+  description longtext
+  interpretation longtext
+  significance longtext
+  dosageRecommendation longtext
+  intendedUse longtext
+  disabled int
+  type
+  testCode
+  eventId int
+  primary key (Id)
+
+table recommendations
+  testName1
+  assayName1
+  mutation1
+  genotype1
+  phenotype1
+  description1 longtext
+  testName2
+  assayName2
+  mutation2
+  genotype2
+  phenotype2
+  description2 longtext
+  recommendation longtext
+  refs longtext
+  eventId int
+
+table reportData
+  reportId
+  description longtext
+  interpretation longtext
+  significance longtext
+  dosageRecommendation longtext
+  intendedUse longtext
+  eventId int
+  requestId
+  medicinesAffected longtext
+  patientsWithVariants longtext
+  patientHistory longtext
+  additionalInformation text
+  disclaimer text
+  indication text
+  pharmdSignature
+  pathSignature
+  directorSignature
+  pharmDDate
+  pathDate
+  directorDate
+
+table reportHTML
+  reqId varchar(255) not null default ''
+  html mediumtext
+  eventId int
+  PRIMARY KEY (reqId,eventId)
+
+table reportResults 
+  reportId
+  assay
+  mutation
+  result
+  description
+  eventId int 
+  aliquotId
+  specimentId
+  reportOrder int 
+
+table reportResults1
+  reportId
+  assay 
+  mutation
+  result
+  description 
+  eventId int 
+  specimentId
+  aliquotId
+  reportOrder int 
+
+table reportResults2
+  reportId
+  assay
+  mutation
+  result
+  description
+  eventId int
+  specimentId
+  aliquotId
+  reportOrder int
+
+table reportTests
+  reportId varchar(255)
+  requestId varchar(255)
+  testId int
+  description longtext
+  interpretation longtext
+  significance longtext
+  dosageRecommendation longtext
+  intendedUse longtext
+  patientsWithVariants longtext
+  eventId int
+
+table rows
+  rowNum int(11) not null default '0'
+  PRIMARY KEY (rowNum)
+
+insert into rows (rowNum) values('1');
+insert into rows (rowNum) values('2');
+insert into rows (rowNum) values('3');
+insert into rows (rowNum) values('4');
+insert into rows (rowNum) values('5');
+insert into rows (rowNum) values('6');
+insert into rows (rowNum) values('7');
+insert into rows (rowNum) values('8');
+insert into rows (rowNum) values('9');
+insert into rows (rowNum) values('10');
+insert into rows (rowNum) values('11');
+insert into rows (rowNum) values('12');
+insert into rows (rowNum) values('13');
+insert into rows (rowNum) values('14');
+insert into rows (rowNum) values('15');
+insert into rows (rowNum) values('16');
+insert into rows (rowNum) values('17');
+insert into rows (rowNum) values('18');
+insert into rows (rowNum) values('19');
+insert into rows (rowNum) values('20');
+insert into rows (rowNum) values('21');
+insert into rows (rowNum) values('22');
+insert into rows (rowNum) values('23');
+insert into rows (rowNum) values('24');
+insert into rows (rowNum) values('25');
+insert into rows (rowNum) values('26');
+insert into rows (rowNum) values('27');
+insert into rows (rowNum) values('28');
+insert into rows (rowNum) values('29');
+insert into rows (rowNum) values('30');
+insert into rows (rowNum) values('31');
+insert into rows (rowNum) values('32');
+insert into rows (rowNum) values('33');
+insert into rows (rowNum) values('34');
+insert into rows (rowNum) values('35');
+insert into rows (rowNum) values('36');
+insert into rows (rowNum) values('37');
+insert into rows (rowNum) values('38');
+insert into rows (rowNum) values('39');
+
+table documentAssignments
+  documentId
+  assignmentType
+  userId
+  eventId
+
+table documentRecords
+  documentVersionId varchar(255) not null
+  document longblob
+  eventId int
+  lastUpdateEventId int
+  primary key (documentVersionId)
+
+table documentRecordsHistory
+  documentVersionId varchar(255) not null
+  document longblob
+  eventId int
+  lastUpdateEventId int not null default '0'
+  primary key (documentVersionId,lastUpdateEventId)
+
+table documents
+  documentId
+  title varchar(100)
+  description varchar(4000)
+  groupId varchar(100)
+  currentVersionId
+  fileName
+  step
+  revFrequency int
+  eventId int
+
+index documentsIdIx ON documents(documentId)
+
+table documentVersionAssignments
+  documentVersionId
+  assignmentType
+  userId
+  decision
+  eventId int
+  lastUpdateEventId int
+  primary key (documentVersionId,assignmentType,userId)
+
+table documentVersionAssignmentsHistory
+  documentVersionId not null default ''
+  assignmentType not null default ''
+  userId not null default ''
+  decision
+  eventId int
+  lastUpdateEventId int not null default '0'
+  primary key (documentVersionId,assignmentType,userId,lastUpdateEventId)
+
+table documentVersions
+  documentVersionId
+  documentId
+  title varchar(100)
+  description varchar(4000)
+  groupId varchar(100)
+  revFrequency int
+  fileName
+  sourceFileName varchar(200)
+  changes varchar(4000)
+  groupManagerApprovalEventId int
+  eventId int
+  lastUpdateEventId int
+
+index documentVersionIdIx ON documentVersions(documentVersionId)
+index documentVersionDocumentIdIx ON documentVersions(documentId,documentVersionId)
+
+table projects
+  projectId
+  title
+  active
+  eventId int
+
+table notes
+  noteId
+  projectId
+  title
+  meetingDate date
+  document
+  description text
+  eventId int
+
+table tickets
+  ticketId
+  projectId
+  relatedNoteId
+  milestoneId
+  assignedTo
+  stepName
+  image
+  description text
+  priority int
+  workHours
+  eventId int
+
+table ticketAssignments
+  fromUserId
+  toUserId
+
+table milestones
+  milestoneId
+  projectId
+  description text
+  startDate date
+  endDate date
+  eventId int
+
+table notificationPreferences
+  notificationId
+  userId
+  isSet
+
+table tasks
+  taskId varchar(255) not null default ''
+  AssignedUserId
+  description
+  period
+  eventId int
+  primary key (taskId)
+
+table entities
+  entityId not null default ''
+  entityType
+  firstName
+  middleName
+  lastName
+  userId
+  status
+  eventId int
+  primary key (entityId)
+
+table entityAddresses
+  entityId
+  address1
+  address2
+  city
+  state
+  postalCode
+  country
+  type
+  status
+  eventId int
+
+index entityAddressesIdx on entityAddresses (entityId,type)
+
+table entityEmails
+  entityId
+  email
+  type
+  status
+  eventId int
+
+index entityEmailIdx on entityEmails (entityId,type)
+
+table entityPhones
+  entityId
+  number
+  type
+  status
+  eventId int
+
+index entityPhonesIdx on entityPhones (entityId,type)
+
+table entityRelations
+  entityId
+  memberId
+  role
+  eventId int
+
+index entityRelationsIdx on entityRelations (entityId,memberId,role)
+
+table patients
+  patientId varchar(255) not null default ''
+  dob
+  mrn
+  ssn
+  gender
+  ethnicity
+  medications
+  problemMedications
+  allergies
+  eventId
+  primary key (patientId)
+
+table documentAssignments
+  documentId varchar(255) DEFAULT NULL
+  assignmentType varchar(255) DEFAULT NULL
+  userId varchar(255) DEFAULT NULL
+  eventId int(11) DEFAULT NULL
+
+table physicians
+  physicianId varchar(255) not null default ''
+  title
+  dob
+  ssn
+  gender
+  specialty
+  npi
+  license
+  expires
+  eventId
+  primary key (physicianId)
+
+table requestForms
+  Id varchar(255) NOT NULL DEFAULT ''
+  patientId varchar(255) DEFAULT NULL
+  physicianId varchar(255) DEFAULT NULL
+  organizationId varchar(255) DEFAULT NULL
+  specimenId varchar(255) DEFAULT NULL
+  specimenIdR varchar(255) DEFAULT NULL
+  externalSpecimenId varchar(255) DEFAULT NULL
+  tissueType varchar(255) DEFAULT NULL
+  sampleType varchar(255) DEFAULT NULL
+  testType varchar(255) DEFAULT NULL
+  billTo varchar(255) DEFAULT NULL
+  histodiagnostic varchar(255) DEFAULT NULL
+  otherDescription varchar(255) DEFAULT NULL
+  collectionDate varchar(255) DEFAULT NULL
+  collectionTime varchar(255) DEFAULT NULL
+  amPm varchar(255) DEFAULT NULL
+  clinicalHistory longtext
+  icdCodes1 varchar(255) DEFAULT NULL
+  icdCodes2 varchar(255) DEFAULT NULL
+  icdCodes3 varchar(255) DEFAULT NULL
+  icdCodes4 varchar(255) DEFAULT NULL
+  icdCodes5 varchar(255) DEFAULT NULL
+  icdCodes6 varchar(255) DEFAULT NULL
+  icdCodes7 varchar(255) DEFAULT NULL
+  histopatholigicDiagnosis varchar(255) DEFAULT NULL
+  faceSheet varchar(255) DEFAULT NULL
+  copyTo varchar(255) DEFAULT NULL
+  sendCourtesyTo varchar(255) DEFAULT NULL
+  consent varchar(255) DEFAULT NULL
+  lmd varchar(255) DEFAULT NULL
+  medCount int(11) DEFAULT NULL
+  PGxType varchar(255) DEFAULT NULL
+  eventId int(11) DEFAULT NULL
+  tubes varchar(255) DEFAULT NULL
+  receivedDate date DEFAULT NULL
+  returnBlock varchar(255) DEFAULT NULL
+  amendedEventId int(11) DEFAULT NULL
+  QNSEventId int(11) DEFAULT NULL
+  medications text
+  replicateElutionId int(11) DEFAULT NULL
+  clinicalTrial varchar(255) DEFAULT NULL
+  workersComp varchar(255) DEFAULT NULL
+  doi date DEFAULT NULL
+  tempCheck varchar(255) DEFAULT NULL
+  privateInsurance varchar(255) DEFAULT NULL
+  patientSignature varchar(255) DEFAULT NULL
+  patientSignatureDate date DEFAULT NULL
+  physicianSignature varchar(255) DEFAULT NULL
+  employerCity varchar(255) DEFAULT NULL
+  physicianSignatureDate date DEFAULT NULL
+  employerPhone varchar(255) DEFAULT NULL
+  collectorName varchar(255) DEFAULT NULL
+  resultConsistency varchar(25) DEFAULT 'Consistent'
+  employerZip varchar(255) DEFAULT NULL
+  employerState varchar(255) DEFAULT NULL
+  viewedEventId int(11) DEFAULT NULL
+  employerAddress2 varchar(255) DEFAULT NULL
+  signedEventId int(11) DEFAULT NULL
+  icdCodes8 varchar(255) DEFAULT NULL
+  employerAddress1 varchar(255) DEFAULT NULL
+  icdCodes9 varchar(255) DEFAULT NULL
+  employer varchar(255) DEFAULT NULL
+  initialReleaseEventId int(11) DEFAULT NULL
+  receiveEventId int(11) DEFAULT NULL
+  physicianComment text
+  questResult varchar(255) DEFAULT NULL
+  cytoTest varchar(255) DEFAULT NULL
+  priority varchar(255) DEFAULT NULL
+  additionalPhysicianId varchar(255) DEFAULT NULL
+  clinNotes varchar(255) DEFAULT NULL
+  correctedEventId int(11) DEFAULT NULL
+  addendumEventId int(11) DEFAULT NULL
+  sendingApp varchar(255) DEFAULT NULL
+  geneInsightVcfEventId int(11) DEFAULT NULL
+  geneInsightPhiEventId int(11) DEFAULT NULL
+  PRIMARY KEY (Id) USING BTREE
+  KEY patientId (patientId) USING BTREE
+  KEY physicianId (physicianId) USING BTREE
+  KEY organizationId (organizationId) USING BTREE
+
+table requestProperties
+  requestId varchar(45)
+  property varchar(45)
+  value varchar(400)
+  eventId int
+
+table reqRequiredFieldErrors
+  reqId  varchar(255) not null default ''
+  requiredFieldId varchar(255) not null default ''
+  eventId int
+  primary key (reqId, requiredFieldId)
+
+table reqRequiredFieldDescriptions
+  Id varchar(255) not null default ''
+  requiredField
+  comment text
+  primary key (Id)
+
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('1', 'billTo', 'Bill To is required.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('2', 'organizationId', 'Customer is required.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('3', 'physicianId', 'Physician is required.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('4', 'sampleType', 'Sample Type is required.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('5', 'collectionDate', 'Collection Date is required.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('6', 'testSelection', 'At least one test must be selected.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('7', 'patientName', 'Patient is required.');
+INSERT INTO reqRequiredFieldDescriptions (Id, requiredField, comment) VALUES ('8', 'collectionBeforeReceived', 'Collection Date must be before Received Date.');
+
+table hl7Communication 
+  id int(11) unsigned NOT NULL AUTO_INCREMENT
+  message text
+  messageCode varchar(255) DEFAULT NULL
+  messageGUID varchar(255) DEFAULT NULL
+  importEventId int(11) DEFAULT NULL
+  eventId int(11) DEFAULT NULL
+  PRIMARY KEY (id)
+
+table barcodePrinter
+  id int(11) NOT NULL AUTO_INCREMENT
+  barcode varchar(255) DEFAULT NULL
+  zpl text
+  printerName varchar(255) DEFAULT NULL
+  printerIP varchar(255) DEFAULT NULL
+  printerPort int(11) DEFAULT NULL
+  printed int(11) DEFAULT NULL
+  eventId int(11) DEFAULT NULL
+  extBarcodeId int(11) DEFAULT NULL
+  PRIMARY KEY (id)
+  KEY idxBarcode (barcode)

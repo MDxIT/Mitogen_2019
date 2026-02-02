@@ -1,0 +1,1100 @@
+config
+  steps
+    stepGroup Patients
+    step Patients
+      accessLevel 6
+      cssLinks
+        link css/fontawesome/css/all.min.css
+        link css/admin/patients.css
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/admin/patients_f0.js
+      form
+        include stepInstructions
+        id= patientForm0
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        div
+          fieldset
+            legend Enter Patient ID
+            div
+              simpleTable
+                tr
+                  td &nbsp; Patient ID
+                tr
+                  td
+                    text _recId
+                      id= patientRecId
+                      class= searchInput
+                      required~ false
+                      validate~ select patientId from patients where patientId = '{_recId}'
+                        errorMessage~ This Patient ID does not exist.
+                      keepValue~
+                      value= {_recId}
+
+        div
+          id= findPatientDiv
+          fieldset
+            legend Find Patient
+            div
+              simpleTable
+                tr
+                  td &nbsp;Patient MRN
+                  td &nbsp;Last Name
+                  td &nbsp;First Name
+                  td &nbsp;DOB
+                  td &nbsp;Gender
+                  td
+                  td
+                tr
+                  style= display: none;
+                  td Patient Id
+                    colspan= 3
+                    text patientId
+                tr
+                  td
+                    text patientMRN
+                      id= patientMRN
+                      class= searchInput
+                  td
+                    text patientLastName
+                      id= patientLastName
+                      class= searchInput
+                  td
+                    text patientFirstName
+                      id= patientFirstName
+                      class= searchInput
+                  td
+                    date patientDOB
+                      id= patientDOB
+                      class= datePickerDOB searchInput
+                      placeholder=  &#128197;
+                  td
+                    select patientGender
+                      id= patientType
+                      class= searchSelect
+                      setName~ gender
+                      required~ false
+                      option Male
+                        value= M
+                      option Female
+                        value= F
+                      option Unknown
+                        value= U
+                    colspan= 2
+                    td
+                    td
+                      button
+                        value= Search
+                        id= searchButton
+                        class= button
+                    td
+                      button
+                        value= Clear
+                        id= clearButton
+                        class= button
+            div
+              id= patientsCandidates
+
+      form
+        include stepInstructions
+        id= patientForm1
+        script
+          src= js/admin/patients_f1.js
+        autocomplete= off
+        data-parsley-validate=
+
+        formPreparedQuery~ SELECT address1,
+          -  address2,
+          -  city,
+          -  state,
+          -  postalCode,
+          -  country,
+          -  email,
+          -  phone1CountryCode,
+          -  phone1,
+          -  phone2CountryCode,
+          -  phone2,
+          -  phone3CountryCode,
+          -  phone3,
+          -  familyId
+          - FROM patients
+          - WHERE patientId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~ SELECT GROUP_CONCAT(DISTINCT mrn SEPARATOR "\n") AS "mrnList"
+          - FROM patientSources
+          - WHERE patientId = ?
+          string {_recId}
+
+        configurePreparedQuery~
+          -  SELECT up.authorizedStep as "govtIdAccess"
+          -   FROM userPrivileges up
+          -   WHERE up.userId = ?
+          -     AND up.authorizedStep = 'canViewFullSSN'
+          -     AND up.status = 'active'
+          -   UNION ALL
+          -  SELECT 'NoAccess' as "govtIdAccess"
+          -   FROM dual
+          - LIMIT 1
+          string {_userId}
+
+        include fullPatientCard
+          parameter~ patientId
+            value= {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden govtIdAccess
+          id= govtIdAccess
+          value= {_:govtIdAccess}
+        hidden ethnicityList
+          id= ethnicityList
+          value= {_:ethnicity}
+        hidden patientId
+          value= {_recId}
+          id= patientId
+          readonly=
+
+        hr
+        div
+          class= expand
+          span <i class="far fa-plus-square"></i> Expand All
+            class= expandAll
+          span &nbsp &nbsp &nbsp
+          span <i class="far fa-minus-square"></i> Collapse All
+            class= collapseAll
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Orders
+          div
+            id= patientOrdersTable
+            class= sectionContent
+            table
+              class= stdTableBasic formatDateTable
+              sqlPreparedQuery~ SELECT CONCAT('<a href=# class= viewOrder>',rf.requestId,'</a>') as "Order ID",
+                -  CONCAT(ph.first_name, ' ', ph.last_name) as "Physician",
+                -  date(rf.receivedDate) as "Req Date",
+                -  GROUP_CONCAT(
+                -           DISTINCT p.name
+                -           ORDER BY rp.panelCode SEPARATOR "<br>" ) as "Panel(s)",
+                -  GROUP_CONCAT(
+                -           DISTINCT rs.specimenId
+                -           ORDER BY rs.specimenId SEPARATOR "<br>") as "Specimen(s)"
+                # - GROUP_CONCAT(
+                # -           DISTINCT CONCAT(rd.reportId, ' - ', IF(rd.signedEventId is null, "Pending", DATE_FORMAT(e.eventDate, "%m/%d/%Y")))
+                # -           ORDER BY rd.reportId SEPARATOR "<br>") as "Report(s)"
+                -  , rf.status as "Status"
+                - FROM requestForms rf
+                - INNER JOIN physicians ph ON rf.physicianId = ph.physicianId
+                - INNER JOIN reqPanels rp ON rf.requestId = rp.requestId
+                - INNER JOIN panels p ON rp.panelCode = p.panelCode
+                - LEFT JOIN requestSpecimens rs ON rf.requestId = rs.requestId
+                - LEFT JOIN reportDetails rd on rf.id = rd.requestFormsId and rd.status = 'Reported'
+                - LEFT JOIN events e on rd.statusEventId = e.eventId
+                - WHERE rf.patientId = ?
+                - GROUP BY rf.requestId, rp.requestId
+                - ORDER BY rf.requestId desc
+                string {_recId}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Patient Info
+          div
+            id= editPatientInfo
+            class= sectionContent  horizontalFlex-spacearound
+            div
+              class= verticalFlex
+              label First Name
+              text firstName
+                id= firstName
+                required~ true
+                class= required
+                value= {_:firstName}
+              label Middle Name
+              text middleName
+                id= middleName
+                value= {_:middleName}
+              label Last Name
+              text lastName
+                id= lastName
+                required~ true
+                class= required
+                value= {_:lastName}
+              label DOB
+              date DOB
+                convert~ false
+                id= dob
+                class= datePickerDOB required
+                value= {_:patDob}
+              label MRN  <i class="far fa-question-circle"></i>
+                title= A list of known MRNs. Not an editable field.
+              textArea MRN
+                id= mrn
+                value= {_:mrnList}
+                readonly=
+              label Government ID
+              text govtId
+                id= govtId
+                value= {_:rawGovtId}
+              label Family ID
+              text familyId
+                id= familyId
+                value= {_:familyId}
+                origValue= {_:familyId} 
+                data-parsley-type= alphanum
+              div 
+                id= famIdUserInfo
+                class= userInfoMsg
+                span Please update the Family ID for <br>other members of the family.
+              label Genetic Gender
+              select geneticGender
+                id= geneticGender
+                option {_:geneticGender}
+                sqlPreparedQuery~ select value from validValues where setName = ? order by displayValue
+                  string gender
+              label Gender ID
+              select genderId
+                option {_:genderId}
+                sqlPreparedQuery~ select value from validValues where setName = ? order by displayValue
+                  string gender
+              label Ethnicity
+              select ethnicity
+                id= patientEthnicity
+                multiple=
+                size= 6
+                option
+                sqlPreparedQuery~ select value from validValues where setName = ? order by displayValue
+                  string Ethnicity
+            div
+              class= verticalFlex
+              label Address Line 1
+              text address1
+                id= address1
+                value= {_:address1}
+              label Addres Line 2
+              text address2
+                id= address2
+                value= {_:address2}
+              label City
+              text city
+                id= city
+                value= {_:city}
+              label State
+              select state
+                id= state
+                option {_:state}
+                sqlQuery~ select code from state order by code
+              label Postal Code
+              text postalCode
+                id= postalCode
+                value= {_:postalCode}
+              label Country
+              select country
+                id= country
+                option {_:country}
+                option USA
+                sqlQuery~ select country_name from countries order by country_name
+            div
+              class= verticalFlex
+              label Home Phone Country Code
+              text homeCountryCode
+                id= phone1Code
+                value= {_:phone1CountryCode}
+              label Home Phone
+              text homePhone
+                id= phone1
+                value= {_:phone1}
+                type= tel
+                placeholder= ###-###-####
+                #data-parsley-pattern= ^\d{3}-\d{3}-\d{4}$
+               # data-parsley-error-message= Please input phone numbers in the following format ###-###-####
+              label Work Phone Country Code
+              text workCountryCode
+                id= phone2Code
+                value= {_:phone2CountryCode}
+              label Work Phone
+              text workPhone
+                id= phone2
+                value= {_:phone2}
+                type= tel
+                placeholder= ###-###-####
+               # data-parsley-pattern= ^\d{3}-\d{3}-\d{4}$
+                #data-parsley-error-message= Please input phone numbers in the following format ###-###-####
+              label Mobile Phone Country Code
+              text mobileCountryCode
+                id= phone3Code
+                value= {_:phone3CountryCode}
+              label Mobile Phone
+              text mobilePhone
+                id= phone3
+                value= {_:phone3}
+                type= tel
+                placeholder= ###-###-####
+                #data-parsley-pattern= ^\d{3}-\d{3}-\d{4}$
+                #data-parsley-error-message= Please input phone numbers in the following format ###-###-####
+              label Email
+              text email
+                id= email
+                value= {_:email}
+                type= email
+                data-parsley-type= email
+                data-parsley-required= false
+
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Insurance
+          div
+            id= editInsurance
+            class= sectionContent
+            div
+              class= tabs
+              ul
+                li
+                  a Primary
+                    href= #primaryIns
+                li
+                  a Secondary
+                    href= #secondaryIns
+                li
+                  a Historical Providers
+                    href= #historical
+              div
+                id= primaryIns
+                div
+                  id= govtPolicies
+                  class= horizontalFlex
+                  div
+                    class= verticalFlex
+                    div
+                      checkbox medicare
+                        id= medicareCheck
+                        screenLabel~
+                        value= {_:PrimaryMedicare}
+                      span Medicare
+                    div
+                      id= medicareNumber
+                      class= verticalFlex
+                      label Medicare #
+                      text medicareNo
+                        value= {_:PrimaryMedicareNo}
+                  div
+                    class= verticalFlex
+                    div
+                      checkbox  medicaid
+                        id= medicaidCheck
+                        screenLabel~
+                        value= {_:PrimaryMedicaid}
+                      span Medicaid
+                    div
+                      id= medicaidNumber
+                      class= verticalFlex
+                      label Medicaid #
+                      text medicaidNo
+                        value= {_:PrimaryMedicaidNo}
+                div
+                  class= horizontalFlex
+                  div
+                    class= insuranceSection verticalFlex
+                    label Insurance Provider <i class="far fa-edit insuranceCarrierEdit"></i>
+                      title= Select the edit icon to add a new insurance carrier to the system or edit an existing one.
+                    select primaryProvider
+                      id= primaryInsuranceList
+                      option {_:PrimaryIns}
+                        value= {_:PrimaryInsId}
+                      sqlPreparedQuery~ select carrierName, id
+                        - from insuranceCarriers
+                        - order by carrierName
+                    label Policy #
+                    text primaryPolicyNo
+                      id= primaryPolicyNo
+                      value= {_:PrimaryPolNo}
+                    label Group ID #
+                    text primaryGroupNo
+                      id= primaryGroupNo
+                      value= {_:PrimaryGroupNo}
+
+                  div
+                    class= insuranceSection verticalFlex
+                    label First Name
+                    text primaryFirstName
+                      value= {_:PrimaryFirst}
+                    label Last Name
+                    text primaryLastName
+                      value= {_:PrimaryLast}
+                    label DOB
+                    date primaryDOB
+                      convert~ false
+                      class= datePickerDOB
+                      value= {_:PrimaryDOB}
+                    label Relationship
+                    select primaryRelationship
+                      option {_:PrimaryRelationship}
+                      sqlPreparedQuery~ select value from validValues where setName = ?
+                        string relationship
+
+              div
+                id= secondaryIns
+                div
+                  class= horizontalFlex
+                  div
+                    class= insuranceSection verticalFlex
+                    label Secondary Insurance Provider <i class="far fa-edit insuranceCarrierEdit"></i>
+                    select secondaryProvider
+                      id= secondaryInsuranceList
+                      option {_:SecondaryIns}
+                        value= {_:SecondaryInsId}
+                      sqlPreparedQuery~ select carrierName, id
+                        - from insuranceCarriers
+                        - order by carrierName
+                    label Policy #
+                    text secondaryPolicyNo
+                      id= secondaryPolicyNo
+                      value= {_:SecondaryPolNo}
+                    label Group ID #
+                    text secondaryGroupNo
+                      id= secondaryGroupNo
+                      value= {_:SecondaryGroupNo}
+                  div
+                    class= insuranceSection verticalFlex
+                    label First Name
+                    text secondaryFirstName
+                      value= {_:SecondaryFirst}
+                    label Last Name
+                    text secondaryLastName
+                      value= {_:SecondaryLast}
+                    label DOB
+                    date secondaryDOB
+                      convert~ false
+                      class= datePickerDOB
+                      value= {_:SecondaryDOB}
+                    label Relationship
+                    select secondaryRelationship
+                      option {_:SecondaryRelationship}
+                      sqlPreparedQuery~ SELECT value FROM validValues WHERE setName = ?
+                        string relationship
+
+              div
+                id= historical
+                div
+                  id= insuranceHistory
+                  table
+                    sqlPreparedQuery~ SELECT
+                      - CONCAT('<a href=# class= viewOrder>',pb.requestId,'</a>') as "Order ID",
+                      -  ic.carrierName as "Primary Insurance",
+                      -  pb.policyNumber1 as "Policy #",
+                      -  pb.groupNumber1 as "Group #",
+                      -  CONCAT(pb.policyHolder1FirstName, ' ', pb.policyHolder1LastName) as "Policy Holder",
+                      -  pb.policyHolder1Relationship as "Relationship",
+                      -  DATE_FORMAT(e.eventDate, '%m/%d/%Y') as "Date Associated"
+                      - FROM patientBilling pb
+                      - INNER JOIN insuranceCarriers ic on pb.carrierId1 = ic.id
+                      - INNER JOIN events e on pb.eventId = e.eventId
+                      - WHERE  pb.patientId = '{_recId}'
+                      - UNION
+                      - SELECT 'No Order' as"Req ID",
+                      -  ic1.carrierName as "Primary Insurance",
+                      -  pbd.policyNumber1 as "Policy #",
+                      -  pbd.groupNumber1 as "Group #",
+                      -  CONCAT(pbd.policyHolder1FirstName, ' ', pbd.policyHolder1LastName) as "Policy Holder",
+                      -  pbd.policyHolder1Relationship as "Relationship",
+                      -  DATE_FORMAT(e1.eventDate, '%m/%d/%Y') as "Date Associated"
+                      -  FROM patientBillingDefault pbd
+                      - INNER JOIN insuranceCarriers ic1 on pbd.carrierId1 = ic1.id
+                      - INNER JOIN events e1 on pbd.eventId = e1.eventId
+                      - WHERE  pbd.patientId = ?
+                      string {_recId}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Unmerge
+          div
+            id= unmergePatients
+            class= sectionContent horizontalFlex
+            div
+              class= verticalFlex
+              h4 Patient MRNs
+              div
+                class= tabs
+                ul
+                  li
+                    a Active MRNs
+                      href= #active
+                  li
+                    a Inactive MRNs
+                      href= #inactive
+
+                div
+                  id= active
+                  table
+                    class= stdTableSort formatDateTable
+                    id= unmergeTable
+                    sqlPreparedQuery~ SELECT '' as "Unmerge",
+                      -  ps.sqId as "Hidden",
+                      -  CONCAT('<b>', ps.mrn,'</b>') as "MRN",
+                      -  ps.status as "Status",
+                      -  ps.mrnFacility as 'MRN Location',
+                      -  CONCAT('<a href=# class= viewSite>',ps.siteId,'</a>') as "Client",
+                      -  date(e.eventDate) AS "Date",
+                      -  ps.Id as "Hidden"
+                      - FROM patientSources ps
+                      - INNER JOIN events e
+                      -      ON ps.eventId = e.eventId
+                      - WHERE patientId = ?
+                      - AND status = 'active'
+                      - ORDER BY e.eventDate DESC
+                      string {_recId}
+                    columnSpecs~ unmergePatientTable
+                      allowChangedRecordIds
+                      column 1
+                        inputType checkbox
+                          class= unmergeCheckbox
+                      column 2
+                        inputType text
+                          readonly=
+                          class= hideColumn patientSqidCol
+                      column 7
+                        formatDate~
+                      column 8
+                        inputType text
+                          readonly=
+                          class= hideColumn psId
+                div
+                  id= inactive
+                  table
+                    class= stdTableSort formatDateTable
+                    id= unmergeTableInactive
+                    sqlPreparedQuery~ SELECT '' as "Unmerge",
+                      -  ps.sqId as "Hidden",
+                      -  CONCAT('<b>', ps.mrn,'</b>') as "MRN",
+                      -  ps.status as "Status",
+                      -  ps.mrnFacility as "MRN Location",
+                      -  CONCAT('<a href=# class= viewSite>',ps.siteId,'</a>') as "Client",
+                      -  date(e.eventDate) AS "Date",
+                      -  ps.Id as "Hidden"
+                      - FROM patientSources ps
+                      - INNER JOIN events e
+                      -      ON ps.eventId = e.eventId
+                      - WHERE patientId = ?
+                      - AND status = 'inactive'
+                      - GROUP BY ps.sqId
+                      - ORDER BY e.eventDate DESC
+                      string {_recId}
+                    columnSpecs~ unmergePatientTable2
+                      allowChangedRecordIds
+                      column 1
+                        inputType checkbox
+                          class= unmergeCheckbox
+                      column 2
+                        inputType text
+                          readonly=
+                          class= hideColumn patientSqidCol
+                      column 7
+                        formatDate~
+                      column 8
+                        inputType text
+                          readonly=
+                          class= hideColumn psId
+            div
+              id= unmergeDetails
+              class= verticalFlex hide
+              hidden selectedMRN
+                id= selectedMRN
+              hidden selectedPatientSqid
+                id= selectedSqid
+              hidden psRowId
+                id= psRowId
+              hidden validSqid
+                id= validSqid
+                value= invalid
+              hidden sqIdPatientId
+                id= sqIdPatientId
+                value= new
+              hidden reqList
+                id= reqList
+
+              h4 Enter a SQ ID for Unmerge of MRN:
+                id= unmergeHeader
+              div
+                class= horizontalFlex
+                div
+                  class= verticalFlex
+                  label Patient/MRN Status  <i class="far fa-question-circle"></i>
+                    title= Set this Patient /MRN record to inactive if it is no longer being used in the system.
+                      - &#10 If there are no existing requests the status will automatically be set to inactive.
+                      - &#10 If some requests are left assigned to this MRN under the current patient, the status will be left up to the user's discretion..
+                  select oldPatientStatus
+                    id= oldPatientStatus
+                    option inactive
+                    option active
+                  div
+                    id= currentRequests
+                    class= requests
+                div
+                  class= verticalFlex
+                  label Patient SQ ID
+                    for= patientSqid
+                  text patientSqid
+                    id= patientSqid
+                    class= required
+                  div
+                    id= newSqidDetails
+                    class= requests hide
+                    div
+                      tabIndex= 0
+                      span This SQ ID exists in the system.
+                      br
+                      span The selected MRN and requests will be merged into this patient.
+                    p
+                    div
+                      class= smallBanner
+                      div
+                        class= patientNameBanner patientInfo
+                        span <i class="fas fa-id-badge"></i>
+                        span
+                          id= sqidName
+                      div
+                        class= horizontalFlex-spacebetween
+                        div
+                          class= dataBlock
+                          div
+                            class= bannerLabel
+                            span DOB
+                          div
+                            class= bannerData patientInfo
+                            span
+                              id= sqidDOB
+                        div
+                          class= dataBlock
+                          div
+                            class= bannerLabel
+                            span Sex
+                          div
+                            class= bannerData patientInfo
+                            span
+                              id= sqidGender
+                    div
+                      class= expand
+                      span <i class="far fa-plus-square"></i> View Requests
+                        class= expandRequests
+                      span <i class="far fa-minus-square"></i> Hide Requests
+                        class= collapseRequests hide
+                  div
+                    id= newSqidRequests
+                    class= requests hide
+
+
+      nextStep Patients
+        recId {patientId}
+        formNumber 1
+
+      ## UPDATE PATIENT INFO
+      sqlPreparedStatement UPDATE patients
+        - SET firstName = ?,
+        -  middleName = ?,
+        -  lastName = ?,
+        -  status = ?,
+        -  address1 = ?,
+        -  address2 = ?,
+        -  city = ?,
+        -  state = ?,
+        -  postalCode = ?,
+        -  country = ?,
+        -  email = ?,
+        -  phone1CountryCode = ?,
+        -  phone1 = ?,
+        -  phone2CountryCode = ?,
+        -  phone2 = ?,
+        -  phone3CountryCode = ?,
+        -  phone3 = ?,
+        -  dob = ?,
+        -  govtId = ?,
+        -  geneticGender = ?,
+        -  genderId = ?,
+        -  ethnicity = '',
+        -  eventId = ?,
+        -  familyId = ?
+        - WHERE patientId = ?
+        string {firstName}
+        string {middleName}
+        string {lastName}
+        string active
+        string {address1}
+        string {address2}
+        string {city}
+        string {state}
+        string {postalCode}
+        string {country}
+        string {email}
+        string {homeCountryCode}
+        string {homePhone}
+        string {workCountryCode}
+        string {workPhone}
+        string {mobileCountryCode}
+        string {mobilePhone}
+        string {DOB}
+        string {govtId}
+        string {geneticGender}
+        string {genderId}
+        long {_eventId}
+        string {familyId}
+        string {patientId}
+
+      sqlPreparedStatement DELETE FROM patientEthnicities
+        - WHERE patientId = ?
+        string {patientId}
+
+      forEachSelectedOption ethnicity
+        sqlPreparedStatement INSERT INTO patientEthnicities
+          - (patientId, ethnicityName, eventId)
+          - VALUES ( ?, ?, ?)
+          string {patientId}
+          string {_resultSet:ethnicity}
+          long {_eventId}
+
+        sqlPreparedStatement UPDATE patients
+          - SET ethnicity = CONCAT(ethnicity, ',', ?)
+          - WHERE patientId = ?
+          string {_resultSet:ethnicity}
+          string {patientId}
+
+      sqlPreparedStatement UPDATE patients
+        - SET ethnicity = (SELECT TRIM(BOTH ',' FROM ethnicity))
+        - WHERE patientId = ?
+        string {patientId}
+
+      ## UPDATE  OR INSERT  INSURANCE ##
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ SELECT 1 FROM dual WHERE ? = (select patientId from patientBillingDefault where patientId = ? limit 1)
+          string {patientId}
+          string {patientId}
+        sqlPreparedStatement UPDATE patientBillingDefault
+          - SET governmentPayment1 = (CASE WHEN ? = 'true' THEN 1 ELSE 0 END),
+          -  governmentPolicyNumber1 = ?,
+          -  governmentPayment2 = (CASE WHEN ? = 'true' THEN 1 ELSE 0 END),
+          -  governmentPolicyNumber2 = ?,
+          -  privateInsurance = (CASE ? WHEN '' THEN 0 ELSE 1 END ),
+          -  carrierId1 = (CASE ? WHEN '' THEN NULL ELSE ? END),
+          -  policyNumber1 = ?,
+          -  groupNumber1 = ?,
+          -  policyHolder1FirstName = ?,
+          -  policyHolder1LastName = ?,
+          -  policyHolder1DOB = '{primaryDOB}',
+          -  policyHolder1Relationship = ?,
+          -  carrierId2  = (CASE ? WHEN '' THEN NULL ELSE ? END),
+          -  policyNumber2 = ?,
+          -  groupNumber2 = ?,
+          -  policyHolder2FirstName = ?,
+          -  policyHolder2LastName = ?,
+          -  policyHolder2DOB = '{secondaryDOB}',
+          -  policyHolder2Relationship = ?,
+          -  eventId = ?
+          - WHERE patientId = ?
+          string {medicare}
+          string {medicareNo}
+          string {medicaid}
+          string {medicaidNo}
+          string {primaryProvider}
+          string {primaryProvider}
+          string {primaryProvider}
+          string {primaryPolicyNo}
+          string {primaryGroupNo}
+          string {primaryFirstName}
+          string {primaryLastName}
+          string {primaryRelationship}
+          string {secondaryProvider}
+          string {secondaryProvider}
+          string {secondaryPolicyNo}
+          string {secondaryGroupNo}
+          string {secondaryFirstName}
+          string {secondaryLastName}
+          string {secondaryRelationship}
+          long {_eventId}
+          string {patientId}
+        else
+          sqlPreparedStatement INSERT INTO patientBillingDefault (
+            - patientId,
+            -  governmentPayment1,
+            -  governmentPolicyNumber1,
+            -  governmentPayment2,
+            -  governmentPolicyNumber2,
+            -  privateInsurance,
+            -  carrierId1,
+            -  policyNumber1,
+            -  groupNumber1,
+            -  policyHolder1FirstName,
+            -  policyHolder1LastName,
+            -  policyHolder1DOB,
+            -  policyHolder1Relationship,
+            -  carrierId2,
+            -  policyNumber2,
+            -  groupNumber2,
+            -  policyHolder2FirstName,
+            -  policyHolder2LastName,
+            -  policyHolder2DOB,
+            -  policyHolder2Relationship,
+            -  eventId )
+            - SELECT
+            - ?,
+            -  (CASE ? WHEN 'true' THEN 1 ELSE 0 END),
+            -  ?,
+            -  (CASE ? WHEN 'true' THEN 1 ELSE 0 END),
+            -  ?,
+            -  (CASE ? WHEN '' THEN 0 ELSE 1 END ),
+            -  (CASE ? WHEN '' THEN NULL ELSE ? END),
+            -  ?,
+            -  ?,
+            -  ?,
+            -  ?,
+            -  (CASE ? WHEN '' THEN NULL ELSE ? END),
+            -  ?,
+            -  (CASE ? WHEN '' THEN NULL ELSE ? END),
+            -  ?,
+            -  ?,
+            -  ?,
+            -  ?,
+            -  (CASE ? WHEN '' THEN NULL ELSE ? END),
+            -  ?,
+            -  ?
+            - FROM dual
+            string {patientId}
+            string {medicare}
+            string {medicareNo}
+            string {medicaid}
+            string {medicaidNo}
+            string {primaryProvider}
+            string {primaryProvider}
+            string {primaryProvider}
+            string {primaryPolicyNo}
+            string {primaryGroupNo}
+            string {primaryFirstName}
+            string {primaryLastName}
+            string {primaryDOB}
+            string {primaryDOB}
+            string {primaryRelationship}
+            string {secondaryProvider}
+            string {secondaryProvider}
+            string {secondaryPolicyNo}
+            string {secondaryGroupNo}
+            string {secondaryFirstName}
+            string {secondaryLastName}
+            string {secondaryDOB}
+            string {secondaryDOB}
+            string {secondaryRelationship}
+            long {_eventId}
+
+
+      validateSql ! SELECT 1 from dual WHERE '{psRowId}' <> '' AND '{patientSqid}' = '' AND '{validSqid}' = 'invalid'
+        errorMessage The Patient SQ ID is required for Unmerge.
+
+      ifCondition {psRowId}
+        advanced~
+        not~
+          isBlank~
+        and~ {selectedPatientSqid}
+          not~
+            isBlank~
+        and~ {selectedMRN}
+          not~
+            isBlank~
+        and~ {validSqid}
+          not~
+            equals~ invalid
+        sqlPreparedStatement UPDATE patientSources
+          - SET status = (CASE WHEN (? = '') THEN 'inactive' ELSE ? END)
+          - WHERE id = ?
+          string {oldPatientStatus}
+          string {oldPatientStatus}
+          int {psRowId}
+
+        ifCondition {validSqid}
+          advanced~
+          equals~ new
+          setFormQueryResult
+            sqlQuery CALL sp_getNextSequence('patientId', 'thePatientId')
+            #value= PA{_getNextSequence:patientId}
+
+          else
+            setFormQueryResult
+              sqlPreparedQuery select ? as 'thePatientId' from dual
+                string {sqIdPatientId}
+
+        ifCondition {validSqid}
+          advanced~
+          equals~ new
+          sqlPreparedStatement INSERT INTO patients
+            - (patientId,
+            -  sqId,
+            -  firstName,
+            -  middleName,
+            -  lastName,
+            -  userId,
+            -  status,
+            -  placerPatientId,
+            -  address1,
+            -  address2,
+            -  city,
+            -  state,
+            -  postalCode,
+            -  country,
+            -  email,
+            -  phone1CountryCode,
+            -  phone1,
+            -  phone2CountryCode,
+            -  phone2,
+            -  phone3CountryCode,
+            -  phone3,
+            -  dob,
+            -  govtId,
+            -  geneticGender,
+            -  genderId,
+            -  ethnicity,
+            -  eventId )
+            - SELECT
+            - ?,
+            -  ?,
+            -  p.firstName,
+            -  p.middleName,
+            -  p.lastName,
+            -  p.userId,
+            -  p.status,
+            -  p.placerPatientId,
+            -  p.address1,
+            -  p.address2,
+            -  p.city,
+            -  p.state,
+            -  p.postalCode,
+            -  p.country,
+            -  p.email,
+            -  p.phone1CountryCode,
+            -  p.phone1,
+            -  p.phone2CountryCode,
+            -  p.phone2,
+            -  p.phone3CountryCode,
+            -  p.phone3,
+            -  p.dob,
+            -  p.govtId,
+            -  p.geneticGender,
+            -  p.genderId,
+            -  p.ethnicity,
+            -  ?
+            - FROM patientSources p
+            - WHERE p.Id = ?
+            string {_:thePatientId}
+            string {patientSqid}
+            long {_eventId}
+            string {psRowId}
+
+
+
+        sqlPreparedStatement INSERT INTO patientSources
+          - (patientId,
+          -  sqId,
+          -  master,
+          -  mrn,
+          -  mrnType,
+          -  mrnFacility,
+          -  assigningAuthority,
+          -  sqIdNumberType,
+          -  siteId,
+          -  firstName,
+          -  middleName,
+          -  lastName,
+          -  userId,
+          -  status,
+          -  placerPatientId,
+          -  address1,
+          -  address2,
+          -  city,
+          -  state,
+          -  postalCode,
+          -  country,
+          -  email,
+          -  phone1CountryCode,
+          -  phone1,
+          -  phone2CountryCode,
+          -  phone2,
+          -  phone3CountryCode,
+          -  phone3,
+          -  dob,
+          -  govtId,
+          -  geneticGender,
+          -  eventId,
+          -  ethnicity,
+          -  genderId)
+          - SELECT ?,
+          -  ?,
+          -  CASE ? WHEN 'new' THEN 1 ELSE 0 END,
+          -  ?,
+          -  ps.mrnType,
+          -  ps.mrnFacility,
+          -  ps.assigningAuthority,
+          -  ps.sqIdNumberType,
+          -  ps.siteId,
+          -  ps.firstName,
+          -  ps.middleName,
+          -  ps.lastName,
+          -  ps.userId,
+          -  ?,
+          -  ps.placerPatientId,
+          -  ps.address1,
+          -  ps.address2,
+          -  ps.city,
+          -  ps.state,
+          -  ps.postalCode,
+          -  ps.country,
+          -  ps.email,
+          -  ps.phone1CountryCode,
+          -  ps.phone1,
+          -  ps.phone2CountryCode,
+          -  ps.phone2,
+          -  ps.phone3CountryCode,
+          -  ps.phone3,
+          -  ps.dob,
+          -  ps.govtId,
+          -  ps.geneticGender,
+          -  ?,
+          -  ps.ethnicity,
+          -  ps.genderId
+          - FROM patientSources ps
+          - WHERE ps.Id = {psRowId}
+          string {_:thePatientId}
+          string {patientSqid}
+          string {validSqid}
+          string {selectedMRN}
+          string active
+          long {_eventId}
+
+      ifCondition {reqList}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement UPDATE requestForms
+          - SET patientId = ?,
+          -  eventId = ?
+          - WHERE  requestId IN ({reqList})
+          string {_:thePatientId}
+          long {_eventId}
+
+        sqlPreparedStatement UPDATE requestSpecimens
+          - SET patientId = ?,
+          -  eventId = ?
+          - WHERE requestId IN ({reqList})
+          string {_:thePatientId}
+          long {_eventId}
+
+
+          ### NEED TO UNMERGE/MERGE REPORTS HERE...WHEN REPORTING SCHEMA IS FINISHED
+          ### CHECK REPORT STATUS, IF ALREADY SIGNED AND COMPLETED AN ALTERED REPORT WILL BE NEEDED
+

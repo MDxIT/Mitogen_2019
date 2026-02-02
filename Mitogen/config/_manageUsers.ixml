@@ -1,0 +1,363 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Manage User Privileges
+    step Manage User Groups and Access Level
+      accessLevel 10
+      authorizedGroup MITOGEN
+      authorizedGroup InternalAdmin
+      form
+        include userAccountInfo
+        script
+          - $(function() {
+          - $('#accordion').accordion({
+          - collapsible: true,
+          - heightStyle: 'content'
+          -   });
+          - });
+
+        vertical
+          div
+            id= accordion
+            h3 Create New Authorized Group
+            div
+              vertical
+                text Authorized Step
+                  screenLabel~ Authorized Step or Group Name
+                  size= 50
+                text Status
+                  value= active
+                  readonly=
+                select userIdCreate
+                  screenLabel~ Select Authorized Users
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663' and accountId <> 'MITOGEN' and accountId <> 'chpwdMITOGEN' and accountId <> 'UNICONNECT' and accountId <> 'chpwdUNICONNECT'
+
+            h3 Add User to Groups
+            div
+              vertical
+                select userIdAdd
+                  screenLabel~ Select UserId
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663' and accountId <> 'MITOGEN' and accountId <> 'chpwdMITOGEN' and accountId <> 'UNICONNECT' and accountId <> 'chpwdUNICONNECT'
+                select authorizedGroupsAdd
+                  screenLabel~ Authorized Step or Group Name
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct authorizedStep from userPrivileges
+
+            h3 Add Group to Users
+            div
+              vertical
+                select authorizedGroupOne
+                  screenLabel~ Authorized Step or Group Name
+                  sqlQuery~ select distinct authorizedStep from userPrivileges
+                select userIdAddGroups
+                  screenLabel~ User Id
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663' and accountId <> 'MITOGEN' and accountId <> 'chpwdMITOGEN' and accountId <> 'UNICONNECT' and accountId <> 'chpwdUNICONNECT'
+
+
+            h3 Delete User(s) From All Groups
+            div
+              vertical
+                span This will remove the user(s) from ALL authorized steps or groups in the database. Proceed with caution.
+              vertical
+                select userIdRemove
+                  screenLabel~ UserId
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663' and accountId <> 'MITOGEN' and accountId <> 'chpwdMITOGEN' and accountId <> 'UNICONNECT' and accountId <> 'chpwdUNICONNECT'
+
+            h3 Update Groups
+            div
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select '' as 'Remove', '' as 'Update Status', up.userId as 'UserId', up.authorizedStep as 'Authorized Step', up.status as 'Status'
+                    + from userPrivileges up
+                    + inner join userInfo u
+                    + on up.userId = u.userId
+                    + where u.userId <> '4bc24939ff98dbb663' and u.accountId <> 'MITOGEN' and u.accountId <> 'chpwdMITOGEN' and u.accountId <> 'UNICONNECT' and u.accountId <> 'chpwdUNICONNECT'
+                  columnSpecs~ priv
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType checkbox
+                    column 3
+                      inputType text
+                        readonly=
+                        style= background:transparent; border:none;
+                    column 4
+                      inputType text
+                        readonly=
+                        style= background:none; border:none;
+                    column 5
+                      inputType select
+                        option active
+                        option inactive
+
+
+
+            h3 Edit User Access Level
+            div
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select '' as 'Update', userId as 'UserId', name as 'Name', accessLevel as 'Access Level'
+                    + from userInfo where userId <> '4bc24939ff98dbb663' and accountId <> 'MITOGEN' and accountId <> 'chpwdMITOGEN' and accountId <> 'UNICONNECT' and accountId <> 'chpwdUNICONNECT' and accessLevel <= 10
+                  columnSpecs~ accessLevel
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType text
+                        readonly=
+                        style= background:transparent; border:none;
+                    column 4
+                      inputType text
+                        size= 3
+                        validate~ select '{_columnInput:4}' from dual where ('{_columnInput:4}' >= 2 and '{_columnInput:4}' <= 10)
+                          errorMessage~ The access level must be set between 2 and 10
+
+      forRows priv
+        ifCondition {_columnInput_priv:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from userPrivileges where userId = ? and authorizedStep = ?
+            string {_columnInput_priv:3}
+            string {_columnInput_priv:4}
+        ifCondition {_columnInput_priv:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update userPrivileges
+            + set status = ?
+            + where userId = ? and authorizedStep = ?
+            string {_columnInput_priv:5}
+            string {_columnInput_priv:3}
+            string {_columnInput_priv:4}
+      forRows accessLevel
+        ifCondition {_columnInput_accessLevel:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update userInfo set accessLevel = ? where userId = ?
+            string {_columnInput_accessLevel:4}
+            string {_columnInput_accessLevel:2}
+
+      forEachSelectedOption userIdCreate
+        sqlPreparedStatement insert into userPrivileges (userId, status, authorizedStep, eventId)
+          + values (?, ?, ?, ?)
+          string {_resultSet:userIdCreate}
+          string {Status}
+          string {Authorized Step}
+          long {_eventId}
+
+      forEachSelectedOption authorizedGroupsAdd
+        sqlPreparedStatement insert into userPrivileges (userId, status, authorizedStep, eventId)
+          + values (?, 'active', ?, ?)
+          string {userIdAdd}
+          string {_resultSet:authorizedGroupsAdd}
+          long {_eventId}
+
+      forEachSelectedOption userIdAddGroups
+        sqlPreparedStatement insert into userPrivileges (userId, status, authorizedStep, eventId)
+          + values (?, 'active',?, ?)
+          string {_resultSet:userIdAddGroups}
+          string {authorizedGroupOne}
+          long {_eventId}
+
+      forEachSelectedOption userIdRemove
+        sqlPreparedStatement delete from userPrivileges where userId = ?
+          string {_resultSet:userIdRemove}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ##SUPER USER STEPS
+    step Super Manage User Groups and Access Level
+      accessLevel 12
+      authorizedGroup MITOGEN
+      form
+        include userAccountInfo
+        script
+          - $(function() {
+          - $('#accordion').accordion({
+          - collapsible: true,
+          - heightStyle: 'content'
+          -   });
+          - });
+
+        vertical
+          div
+            id= accordion
+            h3 Create New Authorized Group
+            div
+              vertical
+                text Authorized Step
+                  screenLabel~ Authorized Step or Group Name
+                  size= 50
+                text Status
+                  value= active
+                  readonly=
+                select userIdCreate
+                  screenLabel~ Select Authorized Users
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663'
+
+            h3 Add User to Groups
+            div
+              vertical
+                select userIdAdd
+                  screenLabel~ Select UserId
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663'
+                select authorizedGroupsAdd
+                  screenLabel~ Authorized Step or Group Name
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct authorizedStep from userPrivileges
+
+            h3 Add Group to Users
+            div
+              vertical
+                select authorizedGroupOne
+                  screenLabel~ Authorized Step or Group Name
+                  sqlQuery~ select distinct authorizedStep from userPrivileges
+                select userIdAddGroups
+                  screenLabel~ User Id
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663'
+
+
+            h3 Delete User(s) From All Groups
+            div
+              vertical
+                span This will remove the user(s) from ALL authorized steps or groups in the database. Proceed with caution.
+              vertical
+                select userIdRemove
+                  screenLabel~ UserId
+                  multiple=
+                  size= 7
+                  sqlQuery~ select distinct userId from userInfo where userId <> '4bc24939ff98dbb663'
+
+            h3 Update Groups
+            div
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select '' as 'Remove', '' as 'Update Status', up.userId as 'UserId', up.authorizedStep as 'Authorized Step', up.status as 'Status'
+                    + from userPrivileges up
+                    + inner join userInfo u
+                    + on up.userId = u.userId
+                    + where u.userId <> '4bc24939ff98dbb663'
+                  columnSpecs~ priv
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType checkbox
+                    column 3
+                      inputType text
+                        readonly=
+                        style= background:transparent; border:none;
+                    column 4
+                      inputType text
+                        readonly=
+                        style= background:none; border:none;
+                    column 5
+                      inputType select
+                        option active
+                        option inactive
+
+
+
+            h3 Edit User Access Level
+            div
+              vertical
+                table
+                  class= stdTableSort
+                  sqlQuery~ select '' as 'Update', userId as 'UserId', name as 'Name', accessLevel as 'Access Level'
+                    + from userInfo where userId <> '4bc24939ff98dbb663'
+                  columnSpecs~ accessLevel
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType text
+                        readonly=
+                        style= background:transparent; border:none;
+                    column 4
+                      inputType text
+                        size= 3
+                        validate~ select '{_columnInput:4}' from dual where ('{_columnInput:4}' >= 2 and '{_columnInput:4}' <= 14)
+                          errorMessage~ The access level must be set between 2 and 14
+      forRows priv
+        ifCondition {_columnInput_priv:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from userPrivileges where userId = ? and authorizedStep = ?
+            string {_columnInput_priv:3}
+            string {_columnInput_priv:4}
+        ifCondition {_columnInput_priv:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update userPrivileges
+            + set status = ?
+            + where userId = ? and authorizedStep = ?
+            string {_columnInput_priv:5}
+            string {_columnInput_priv:3}
+            string {_columnInput_priv:4}
+      forRows accessLevel
+        ifCondition {_columnInput_accessLevel:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update userInfo set accessLevel = ? where userId = ?
+            string {_columnInput_accessLevel:4}
+            string {_columnInput_accessLevel:2}
+      forEachSelectedOption userIdCreate
+        sqlPreparedStatement insert into userPrivileges (userId, status, authorizedStep, eventId)
+          + values (?, ?, ?, ?)
+          string {_resultSet:userIdCreate}
+          string {Status}
+          string {Authorized Step}
+          long {_eventId}
+
+      forEachSelectedOption authorizedGroupsAdd
+        sqlPreparedStatement insert into userPrivileges (userId, status, authorizedStep, eventId)
+          + values (?, 'active', ?, ?)
+          string {userIdAdd}
+          string {_resultSet:authorizedGroupsAdd}
+          long {_eventId}
+
+      forEachSelectedOption userIdAddGroups
+        sqlPreparedStatement insert into userPrivileges (userId, status, authorizedStep, eventId)
+          + values (?, 'active',?, ?)
+          string {_resultSet:userIdAddGroups}
+          string {authorizedGroupOne}
+          long {_eventId}
+
+      forEachSelectedOption userIdRemove
+        sqlPreparedStatement delete from userPrivileges where userId = ?
+          string {_resultSet:userIdRemove}

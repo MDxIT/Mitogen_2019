@@ -1,0 +1,113 @@
+config
+  steps
+    stepGroup TrayMap Ajax Servers
+    
+    step AjaxGetTransferMapMMInfo
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT DISTINCT concat('Master Mix: ', IFNULL(mm.name,'None')) AS "mastermix", tmma.destinationAttribute AS "position"
+          - FROM transferMapStepAssignments tmsa
+          - INNER JOIN transferMapMMAssignments tmma
+          -   ON tmsa.id = tmma.transferMapStepID
+          - LEFT JOIN masterMixes mm
+          -   ON tmma.mmId = mm.Id
+          - WHERE tmsa.step = ?
+          -   AND tmsa.displayOrder = ?
+          string {currentStep}
+          string {currentLoop}
+
+    step AjaxGetTransferMapByName
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select tm.sourceAttribute AS "attribute", group_concat(distinct c.content separator '<br>') AS "content", tmp.sourceType as 'type' 
+          - FROM transferMapProperties tmp
+          - INNER JOIN transferMaps tm ON tm.transfermap = tmp.id  
+          - LEFT JOIN contents c on c.attribute = tm.sourceAttribute and c.containerId = ? and c.contentType <> 'runId' and c.contentType <> 'Master Mix' and c.contentType <> 'masterMix'
+          - where tmp.name = ?
+          -   and 1 = ?
+          - group by tm.sourceAttribute
+          - union all
+          - select tm.destinationAttribute AS "attribute", tm.sourceAttribute AS "content", tmp.destinationType as 'type' 
+          - FROM transferMaps tm
+          - INNER JOIN transferMapProperties tmp ON tm.transfermap = tmp.id  
+          - where tmp.name = ?
+          - and 0 = ?
+          string {sourcePlate}
+          string {transferMap}
+          int {runContent}
+          string {transferMap}
+          int {runContent}
+
+    step AjaxGetCYPReporterAdditionMMInfo
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT 
+          - CONCAT('Test: ', ?, ' ', 'Master Mix: ', ?) AS "mastermix", 
+          - c.attribute AS "position"
+          - FROM contents c
+          - INNER JOIN containerProperties cp
+          -   ON c.content = cp.containerid
+          -   AND cp.attribute = 'workflowIdentifier'
+          -   AND cp.value = ?
+          - WHERE c.containerid = ?
+          - UNION
+          - SELECT 
+          - CONCAT('Test: ', ?, ' ', 'Master Mix: ', ?) AS "mastermix", 
+          - c.attribute AS "position"
+          - FROM contents c
+          - INNER JOIN containerProperties cp
+          -   ON c.content = cp.containerid
+          -   AND cp.attribute = 'workflowIdentifier'
+          -   AND cp.value = ?
+          - WHERE c.containerid = ?
+          string {workFlow1}
+          string {MM1}
+          string {workFlow1}
+          string {plateId}
+          string {workFlow2}
+          string {MM2}
+          string {workFlow2}
+          string {plateId}
+
+    step Ajax Get Steps By Protocol
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~ SELECT DISTINCT fst.name
+          - FROM loadedProtocols lp
+          - INNER JOIN fsProtocols fsp
+          -   ON lp.protocolId = fsp.id
+          - INNER JOIN fsTasks fst
+          -   ON fst.protocolID = fsp.id
+          - WHERE fsp.name = ?
+          - UNION
+          - SELECT DISTINCT fsr.name
+          - FROM loadedProtocols lp
+          - INNER JOIN fsProtocols fsp
+          - ON lp.protocolId = fsp.id
+          - INNER JOIN fsRoutines fsr
+          -   ON fsr.protocolId = fsp.id
+          - WHERE fsp.name = ?
+          string {selectProtocol}
+          string {selectProtocol}
+          
+
+    step Ajax Get RequestId By SpecimenId
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~ SELECT DISTINCT rs.requestId
+          - FROM contents c
+          - INNER JOIN requestSpecimens rs
+          -   ON c.content = rs.requestid
+          - INNER JOIN specimenMethods sm
+          -   ON rs.id = sm.requestSpecimensId
+          - WHERE containerId = ?
+          string {specimenId}
+
+

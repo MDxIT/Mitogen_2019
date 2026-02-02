@@ -1,0 +1,111 @@
+.redText {
+  color: red;
+}
+
+.greenText {
+  color: green;
+}
+
+.inheritOverflow {
+  overflow: inherit !important;
+}
+
+.includeSection {
+  float:left;
+  text-align:left;
+  width: 175px;
+}
+
+
+.accSysNameLabel {
+  font-size:8px;
+}
+
+.accSysName {
+  font-weight:bold;
+  padding-left:0px;
+  text-align: left;
+
+}
+
+.accSectionInput {
+  font-weight:bold;
+}
+
+.accordionContent {
+  margin-left:30px;
+}
+
+.accordionSection {
+  border-left: 2px solid #717171;
+  border-top: 2px solid #717171;
+  padding-left: 8px;
+  width:900px;
+}
+
+.accordionSubSection {
+  border-left: 2px solid #717171;
+  border-top: 2px solid #717171;
+  margin-left: 10px;
+  padding-left: 8px;
+}
+
+.hiddenOnLoad {
+  display:none;
+}
+
+#form1 #stepFormSubmitButton {
+  display:none;
+}
+
+.textAlignRight {
+  text-align: right;
+}
+
+#addNewRecipient {
+  float:right;
+}
+
+.drugSelection {
+  width: 30%;
+  float: left;
+}
+
+.newborn {
+  width: 45%;
+  float: left;
+}
+
+.clinicalInformationBasicDiv {
+  float: left;
+}
+
+.formBreak {
+  clear: both
+}
+
+.searchCodeType{
+  width: 120px;
+}
+
+.searchCode{
+  width: 120px;
+}
+
+.codeKeywords{
+ width: 300px;
+}
+
+.codeCandidates{
+  max-height: 300px;
+  overflow: scroll;
+}
+
+.searchCodeId{
+  display: none;
+}
+
+.searchCodeIdRow{
+  display: none;
+}
+

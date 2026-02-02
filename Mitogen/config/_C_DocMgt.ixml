@@ -1,0 +1,1844 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Doc Mgmt
+    step Document Listing
+      queueQuery select 
+        - d.documentId as 'Document Id', g.description as 'Group', d.title  as 'Title',   
+        - case when d.fileName is not null and d.fileName <> '' then
+        -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+        - when dr.document is not null and dr.document <> '' then 
+        -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+        -   else '' end as 'URL',
+        - d.description as 'Description',
+        - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version',
+        - u1.name as 'Author',
+        - DATE_FORMAT(e.eventDate, '%Y-%c-%d') as 'Last Approval Date'
+        - from queues q
+        - join documents d on d.documentId = q.containerId
+        - join groups g on g.groupId = d.groupId
+        - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+        - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+        - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+        - join events e on e.eventId = dv.groupManagerApprovalEventId
+        - join userInfo u1 on u1.userId = da.userId
+        - where q.step = 'Document Listing'
+        - group by d.documentId
+        - order by d.groupId, d.documentId
+        
+      form
+        include userAccountInfo
+        formQuery~ select group_concat(groupId order by description SEPARATOR '*') as 'groupIds',
+          - group_concat(description order by description SEPARATOR '*' ) as 'groupNames'
+          - from groups
+        formQuery~ select accessLevel from userInfo where userId = '{_userId}'
+        
+        script
+          - $(document).ready(function(){
+          -   var groupIds = $('#groupIds').val().split('*');
+          -   var groupNames = $('#groupNames').val().split('*');
+          -   if(groupIds == ''){ 
+          -     $('#documents').html('<span style="font-weight: bold; color: red;">No document groups exist yet.</span>');
+          -   } else{
+          -     for(var i = 0; i < groupIds.length; i++){
+          -       var groupId = groupIds[i];
+          -       var groupName = groupNames[i];
+          -       // Only show the groups that actually have names.
+          -       if(groupName != '') {
+          -         $('#documentsUL').append('<li><a href="#'+groupId+'">'+groupName+'</a></li>');
+          -         $('#documents').append('<div id="'+groupId+'"></div>');
+          -         $('#'+groupId).load('uniflow?callback=?&stepName=Document+Listing+Server&groupId='+groupId, function(){
+          -           hideObsoleteColumn($(this));
+          -         });
+          -       } 
+          -     }
+          -    $('#documents').tabs();
+          -   }
+          ### Hide this table, because it holds the same data pulled in through Ajax.
+          -   $('#tAllGroups').hide();
+          - });
+          - 
+          - function viewWebDoc(docId){
+          -   $.getJSON('uniflow?callback=?&stepName=Web+Document+Server&documentId='+docId, {}, function(data,status){
+          -     var html = '<html><head><title>' + 'Web Document for ' + docId + '</title>'
+          -     html+='<link href="css/webDocument.css" rel="stylesheet"/>'
+          -     html+= '</head><body id="webDocHTML">';
+          -     html+= data[0].document +  '</body></html>';
+          -     var win=window.open('url', 'Web Document', 'width=700,height=540,scrollbars=yes');
+          -     win.document.write(html);
+          -     win.document.close();
+          -   }); 
+          - }
+          -
+          - function requestChange(checkedElem){
+          -   var docId = checkedElem.parent().parent().find('input.documentId').val();
+          -   console.log(docId);
+          -   var mainTableDocElem = $('#tAllGroups td.col4 input[value="'+docId+'"');
+          -   mainTableDocElem.parent().parent().find('input.requestChange').prop('checked', checkedElem.prop('checked'));
+          - }
+          -
+          - function markObsolete(checkedElem){
+          -   var docId = checkedElem.parent().parent().find('input.documentId').val();
+          -   console.log(docId);
+          -   var mainTableDocElem = $('#tAllGroups td.col4 input[value="'+docId+'"');
+          -   mainTableDocElem.parent().parent().find('input.markObsolete').prop('checked', checkedElem.prop('checked'));
+          - }
+          -
+          - function hideObsoleteColumn(groupIdDiv){
+          -   groupIdDiv.find('table tr').each(function(){
+          -     $(this).children('th:gt(8), td:gt(8)').hide();
+          -     var acclevel = Number.parseInt($("#MyAccessLevel").val());
+          -     var thisAuthor = $(this).find('td:eq(9) input').val();
+          -     var thisIsMe = $(this).find('td:eq(10) input').val();
+          -     // If authorId is not equal to the current userId, hide Mark Obsolete
+          -     if( thisAuthor != thisIsMe && acclevel < 10 ){
+          -       $(this).find('td:eq(8) input').hide();
+          -     }
+          -   });
+          - }
+        
+        hidden MyAccessLevel
+          id= MyAccessLevel
+          value= {_:accessLevel}
+        hidden groupIds
+          id= groupIds
+          value= {_:groupIds}
+        hidden groupNames
+          id= groupNames
+          value= {_:groupNames}
+        
+        fieldset
+          legend Instructions
+          li All active versions of documents are listed here
+          li This page is for viewing documents, requesting changes, and marking documents obsolete (for authors only).
+          
+        div
+          id= documents
+          style= margin-top: 10px;
+          ul
+            id= documentsUL
+        
+        ## This table is for requesting changes and marking documents obsolete. Because the tables above
+        ## are loaded through Ajax to allow for dynamic tab building, this table is here to control checkboxes
+        ## marked in the above Ajax loaded tables. If the user has disabled javascript, this table below will be shown.
+        table
+          class= stdTableSort
+          id= tAllGroups
+          sqlQuery~ select g.description as 'Group', d.title  as 'Title',   
+            - case when d.fileName is not null and d.fileName <> '' then
+            -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            - d.description as 'Description',
+            - d.documentId as 'Document Id', 
+            - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version',
+            - u1.name as 'Author',
+            - DATE_FORMAT(e.eventDate, '%Y-%c-%d') as 'Last Approval Date',
+            - '' as 'Request Change', '' as 'Mark Obsolete'
+            - from queues q
+            - join documents d on d.documentId = q.containerId
+            - join groups g on g.groupId = d.groupId
+            - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+            - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+            - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+            - join events e on e.eventId = dv.groupManagerApprovalEventId
+            - join userInfo u1 on u1.userId = da.userId
+            - where q.step = 'Document Listing'
+            - group by d.documentId
+            - order by d.groupId, d.documentId
+        
+          columnSpecs~ tAllGroups
+            allowChangeRecordIds
+            column 5
+              inputType container
+                class= readonly documentId
+                readonly=
+                if~ {_columnInput:9} 
+                  advanced~
+                  equals~ true
+                  insertQueue~ Pending Review Documents
+                if~ {_columnInput:10} 
+                  advanced~
+                  equals~ true
+                  deleteQueue~ Document Listing
+            column 9
+              inputType checkbox
+                class= requestChange
+            column 10
+              inputType checkbox
+                class= markObsolete
+                validate~ select 1 from documentAssignments
+                  - where ( '{_columnInput:10}' = 'true' and
+                  - assignmentType = 'author' and documentId = '{_columnInput:5}'
+                  - and userId = '{_userId}' )
+                  - or '{_columnInput:10}' = 'false'
+                  - or exists (select 1 from userInfo where userId = '{_userId}' and accessLevel >= 10 limit 1)
+                  errorMessage~ Only the author can mark a document obsolete.
+            notification Document Pending Review
+              conditionQuery select documentId, '{Comments}' from documents where documentId = '{_columnInput:5}'
+                - and '{_columnInput:9}' = 'true'
+              emailListQuery select u.email, 'userId', a.userId
+                - from documentAssignments a
+                - inner join userInfo u on u.userId = a.userId
+                - where a.documentId = '{_columnInput:5}' and a.assignmentType = 'author'
+              subject Document {1} Pending Review
+              message 
+                html
+                  p A request for change has been made regarding document {1} at {0}.  <br><br><b>Request: </b>{2}<br><br>Please go to <b>Pending Review Documents</b> to review this request.
+                
+        vertical
+          comments Comments
+            required~ true
+    
+    step Create Group
+      form
+        include userAccountInfo
+
+        fieldset
+          legend Instructions
+          li The Group Id must not contain any spaces.  For example, use DocumentType not Document Type.
+        vertical
+          container Group Id
+            containerType~ Group
+            new~ true
+            required~ true
+          text Manager User Id
+            value= {_userId}
+            validate~ select userId from userInfo where userId = '{Manager User Id}' and active = 'true'
+              errorMessage~ The Manager User Id is not a defined user id or is not an active user
+          text Group Name
+            required~ true
+      sqlPreparedStatement insert into groups (groupId, managerId, description, eventId) 
+        + values (?, ? , ? , ?)
+        string {Group Id}
+        string {Manager User Id}
+        string {Group Name}
+        long {_eventId}
+    
+    step Create/Revise Document
+      queueQuery select 
+        - d.documentId as 'Document Id', 
+        - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version', d.title  as 'Title',   
+        - case when d.fileName is not null and d.fileName <> '' then
+        -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+        - when dr.document is not null and dr.document <> '' then 
+        -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+        -   else '' end as 'URL',
+        - d.description as 'Description',
+        - e.comments as 'Changes'
+        - from queues q
+        - join documents d on d.documentId = q.containerId
+        - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+        - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+        - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+        - join events e on e.eventId = q.eventId
+        - join userInfo u on u.userId = e.userId
+        - where q.step = 'Create/Revise Document' and da.userId = '{_userId}'
+        - group by q.containerId
+        - order by q.eventId
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('#stepFormSubmitButton').val('Create New');
+          - });
+        fieldset
+          legend Instructions
+          li Click 'Create New' to create a new document.
+          li Enter the Document Id to revise one.
+          li Only the author may revise a document.
+        vertical
+          text recId
+            screenLabel~ Document Id
+            validate~ select 1 from containers where '{recId}' = '' or containerId = '{recId}'
+              errorMessage~ This Document Id was not found in the database. 
+            validate~ select 1 from documents d
+              - inner join documentAssignments da on da.documentId = d.documentId
+              - where d.documentId = '{recId}' and da.assignmentType = 'author' and da.userId = '{_userId}'
+              - union all select 1 from userInfo u where '{recId}' = ''
+              - limit 1
+              errorMessage~ You are not authorized to revise this document.
+            validate~ ! select 1 from queues q
+              - inner join documentVersions dv on q.containerId = dv.documentVersionId
+              - where q.step <> 'Document Listing' and dv.documentId = '{recId}' 
+              errorMessage~ This Document Id is already in the revision process.
+            required~ false
+        
+        table
+          class= stdTableSort
+          sqlQuery~ select 
+            - d.documentId as 'Document Id', 
+            - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version', d.title  as 'Title',   
+            - case when d.fileName is not null and d.fileName <> '' then
+            -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            - d.description as 'Description',
+            - e.comments as 'Changes'
+            - from queues q
+            - join documents d on d.documentId = q.containerId
+            - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+            - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+            - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+            - join events e on e.eventId = q.eventId
+            - join userInfo u on u.userId = e.userId
+            - where q.step = 'Create/Revise Document' and da.userId = '{_userId}'
+            - group by q.containerId
+            - order by q.eventId
+      form
+        include userAccountInfo
+        formQuery~ select d.documentId, case when '{_recId}' = '' then 'true' else 'false' end as 'new', 
+          - d.title, substring_index(d.currentVersionId, '-', -1) + 1 as 'version', d.description,
+          - d.revFrequency, d.groupId, e.comments as 'changes',
+          - da1.userId as 'author', group_concat(da2.userId SEPARATOR ',') as 'reviewers', 
+          - group_concat(da3.userId SEPARATOR ',') as 'approvers'
+          - from queues q
+          - join documents d on d.documentId = q.containerId
+          - join events e on e.eventId = q.eventId
+          - join documentAssignments da1 on d.documentId = da1.documentId and da1.assignmentType = 'author'
+          - join documentAssignments da2 on d.documentId = da2.documentId and da2.assignmentType = 'review'
+          - join documentAssignments da3 on d.documentId = da3.documentId and da3.assignmentType = 'approve'
+          - where q.step = 'Create/Revise Document' and d.documentId = '{_recId}'
+          - group by d.documentId
+          - union all select '' as 'documentId', case when '{_recId}' = '' then 'true' else 'false' end as 'new',
+          - '' as 'title', '1' as 'version', '' as 'description', '12' as 'revFrequency', '' as 'groupId', 'NEW DOCUMENT' as 'changes',
+          - '{_userId}' as 'author', '' as 'reviewers', '' as 'approvers'
+          - from dual 
+          - limit 1
+        
+        script
+          - $(document).ready(function(){
+          -   var reviewers = $('#reviewers').val();
+          -   var NewDocCheck = $("#newDocStatus").val();
+          -   if(NewDocCheck=="true")
+          -   {
+          -      $("#docVersion").each(function() {
+          -        $(this).removeAttr("readonly");
+          -        $(this).attr("type", "number");
+          -        $(this).attr("step", "1");
+          -        $(this).attr("min", "1");
+          -      });
+          -   }   
+          -   $.each(reviewers.split(','), function(i,e){
+          -       $("#review option[value='" + e + "']").prop('selected', true);
+          -   });
+          -   var approvers = $('#approvers').val();
+          -   $.each(approvers.split(','), function(i,e){
+          -       $("#approve option[value='" + e + "']").prop('selected', true);
+          -   });
+          -   $("#stepFormSubmitButton").replaceWith('<input onfocus="select()" type="button" value="Submit" name="Submit" class="button" id="stepFormSubmitButton" tabindex="9999">');
+          -   $("#stepFormSubmitButton").click(function(){
+          -     $(this).attr("disabled", true);
+          -     $(this).val("Working...");
+          -     var isNew = $("#newDocStatus").val();
+          -     if(isNew=="true")
+          -     {
+          -       $.getJSON('/uniflow?callback=?&stepName=GetNextDocId',{},
+          -         function(data,status) {
+          -           var docId = data[0].documentId;
+          -           $("#documentId").val(docId);
+          -           if($("#documentId").val())
+          -           {
+          -             $("form[name='stepForm']").submit();
+          -           } else {
+          -             alert("Error Retrieving New Document Id!");
+          -           }
+          -       });
+          -     } else {
+          -       $("form[name='stepForm']").submit();
+          -     } 
+          -   });
+          - });
+        
+        hidden new
+          value= {_:new}
+          id= newDocStatus
+        hidden reviewers
+          id= reviewers
+          value= {_:reviewers}
+        hidden approvers
+          id= approvers
+          value= {_:approvers}
+        vertical2
+          passiveContainer Document Id
+            id= documentId
+            containerType~ Document
+            value= {_:documentId}
+            class= readonly
+            readonly=
+            deleteQueue~ Create/Revise Document
+            validate~ select 1 from documents d
+              - inner join documentAssignments da on da.documentId = d.documentId
+              - where d.documentId = '{Document Id}' and da.assignmentType = 'author' and da.userId = '{_userId}'
+              - union all select 1 from userInfo u where '{new}' = 'true'
+              - limit 1
+              errorMessage~ You are not authorized to revise this document.
+            validate~ ! select 1 from queues q
+              - inner join documentVersions dv on q.containerId = dv.documentVersionId
+              - where q.step <> 'Document Listing' and dv.documentId = '{Document Id}' 
+              errorMessage~ This Document Id is already in the revision process.
+          text Title
+            xxsize= 66
+            value= {_:title}
+            required~ true
+          uniflow.document.documentContainer Version
+            value= {_:version}
+            id= docVersion
+            style= background: transparent; border: none;
+            readonly=
+            new~ true
+            containerType~ Document Version
+            insertQueue~ Draft Document
+            required~ true
+          select Revision Frequency
+            value= {_:revFrequency}
+            option 1 year
+              value= 12
+            option 6 months
+              value= 6
+            option 3 months
+              value= 3
+          container Document Group
+            acceptQueue~ any
+            required~ true
+            asSelect~ true
+            sqlQuery~ select g.description, g.groupId from groups g order by g.groupId
+            value= {_:groupId}
+            validate~ select g.groupId from groups g join containers c on g.groupId = c.containerId
+              + where g.groupId = '{Document Group}'
+              errorMessage~ This group has not been created as a container in the database.
+          select Author
+            option
+            sqlQuery~ select name, userId from userInfo 
+              - where active = 'true' and accessLevel >= 10 order by name
+            value= {_:author}
+            required~ true
+          select review
+            id= review
+            screenLabel~ Users to Review
+            multiple=
+            size= 7
+            sqlQuery~ select name, userId from userInfo 
+              - where active = 'true' and accessLevel >= 10 order by name
+            required~ true
+          select approve
+            id= approve
+            screenLabel~ Users to Approve
+            multiple=
+            size= 7
+            sqlQuery~ select name, userId from userInfo 
+              - where active = 'true' and accessLevel >= 10 order by name
+            required~ true
+          textArea Description
+            required~ false
+            value= {_:description}
+          span
+          textArea Changes
+            required~ true
+            value= {_:changes}
+            rows= 5
+            cols= 60
+
+      ifCondition~ {new}
+        advanced~
+        equals~ true
+        sqlPreparedStatement insert into documents (documentId, eventId) 
+          - values (?, ?)
+          string {Document Id}
+          long {_eventId}
+        sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+          - values (?, ?, ?, ?, ?)
+          string {Document Id}
+          string self
+          string Document 
+          string {Document Id}
+          long {_eventId}
+
+      sqlPreparedStatement insert into documentVersions (documentVersionId, documentId, title, description, groupId, revFrequency,
+        - changes, eventId, lastUpdateEventId)
+        - values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        string {Version}
+        string {Document Id}
+        string {Title}
+        string {Description}
+        string {Document Group}
+        string {Revision Frequency}
+        string {Changes}
+        long {_eventId}
+        long {_eventId}
+
+      sqlPreparedStatement insert into documentRecords (documentVersionId, eventId, lastUpdateEventId) 
+        - values (?, ?, ?)
+        string {Version}
+        long {_eventId}
+        long {_eventId}
+      
+      ifCondition~ {new}
+        advanced~
+        equals~ false
+        ## Copy the existing file or web document over to the new version
+        forEach select d.documentId, d.groupId, concat('{_configPath}public/',d.fileName) as 'versionFilePathAndName', 
+          ## Formats to {path to doc}/{Document Id}.{correct extension}
+          - concat('{_configPath}public/documentVersions/',d.groupId,'/') as 'newFilePath',
+          - concat('{Version}{_eventId}.',substring_index(d.fileName, '.', -1)) as 'newFileName'
+          - from documents d
+          - where d.documentId = '{Document Id}' and d.fileName is not null and d.fileName <> ''
+          jython
+            import shutil
+            import os
+            if not os.path.exists('{_:newFilePath}'):
+              os.mkdir('{_:newFilePath}')
+            shutil.copy('{_:versionFilePathAndName}', '{_:newFilePath}/{_:newFileName}')
+        
+          sqlPreparedStatement update documentVersions
+            - set fileName = ?
+            - where documentVersionId = ?
+            string documentVersions/{_:groupId}/{_:newFileName}
+            string {Version}
+        
+        ## Copy web document to new version
+        sqlPreparedStatement update documentRecords dr1
+          - left join documents d on d.documentId = ?
+          - left join documentRecords dr2 on dr2.documentVersionId = d.currentVersionId
+          - set dr1.document = dr2.document
+          - where dr1.documentVersionId = ?
+          string {Document Id}
+          string {Version}
+
+      sqlPreparedStatement delete from documentAssignments where documentId = ?
+        string {Document Id}
+      
+      sqlPreparedStatement insert into documentAssignments (documentId, assignmentType, userId, eventId)
+        - values (?, ?, ?, ?)
+        string {Document Id}
+        string author 
+        string {Author}
+        long {_eventId}
+      forEachSelectedOption review
+        sqlPreparedStatement insert into documentAssignments (documentId, assignmentType, userId, eventId)
+          - values (?, ?, ?, ?)
+          string {Document Id}
+          string review 
+          string {_resultSet:review}
+          long {_eventId}
+      forEachSelectedOption approve
+        sqlPreparedStatement insert into documentAssignments (documentId, assignmentType, userId, eventId)
+          - values (?, ?, ?, ?)
+          string {Document Id}
+          string approve 
+          string {_resultSet:approve}
+          long {_eventId}
+      
+      sqlPreparedStatement insert into documentVersionAssignments (documentVersionId, assignmentType, userId, eventId)
+        - values (?, 'author', ?, ?)
+        string {Version}
+        string {Author}
+        long {_eventId}
+      forEachSelectedOption review
+        sqlPreparedStatement insert into documentVersionAssignments (documentVersionId, assignmentType, userId, eventId)
+          - values (?, 'review', ?, ?)
+          string {Version}
+          string {_resultSet:review}
+          long {_eventId}
+      forEachSelectedOption approve
+        sqlPreparedStatement insert into documentVersionAssignments (documentVersionId, assignmentType, userId, eventId)
+          - values (?, 'approve', ?, ?)
+          string {Version}
+          string {_resultSet:approve}
+          long {_eventId}
+
+      xfer self
+        from Document Id
+        to Version
+
+    step Draft Document
+      queueQuery select q.containerId 'Document Version Id', d.documentId as 'Document Id',
+        - case when dv.fileName is not null and dv.fileName <> '' then
+        -   concat('<a href=''',dv.fileName,''' target=''document''>',d.documentId,'</a>')
+        - when dr.document is not null and dr.document <> '' then 
+        -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+        -   else '' end as 'URL',
+        + dv.changes 'Changes',
+        + dv.fileName 'File Name', 
+        + DATE_FORMAT(e2.eventDate, '%Y-%c-%d') 'Creation Date', u.name 'Author'
+        + from queues q
+        + join documentVersions dv on dv.documentVersionId = q.containerId
+        + join documents d on dv.documentId = d.documentId
+        + join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+        + left join events e on e.eventId = dv.groupManagerApprovalEventId
+        + join events e2 on e2.eventId = dv.eventId
+        + join documentAssignments da on da.documentId = d.documentId and da.assignmentType = 'author'
+        + join userInfo u on u.userId = da.userId
+        + where q.step = 'Draft Document' and da.userId = '{_userId}'
+        + order by dv.eventId
+      form
+        include userAccountInfo
+        fieldset
+          legend Instructions
+          li Only the author may draft a document.
+          
+        vertical
+          container recId
+            screenLabel~ Document Version Id
+            validate~ select 1 from documentVersions dv
+              - inner join documentVersionAssignments da on da.documentVersionId = dv.documentVersionId
+              - where dv.documentVersionId = '{Document Version Id}' and da.assignmentType = 'author' and da.userId = '{_userId}'
+              errorMessage~ You are not authorized to revise this document.
+        
+        table
+          sqlQuery~ select q.containerId 'Document Version Id', d.documentId as 'Document Id',
+            - case when dv.fileName is not null and dv.fileName <> '' then
+            -   concat('<a href=''',dv.fileName,''' target=''document''>',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            + dv.changes 'Changes',
+            + dv.fileName 'File Name', 
+            + DATE_FORMAT(e2.eventDate, '%Y-%c-%d') 'Creation Date', u.name 'Author'
+            + from queues q
+            + join documentVersions dv on dv.documentVersionId = q.containerId
+            + join documents d on dv.documentId = d.documentId
+            + join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+            + left join events e on e.eventId = dv.groupManagerApprovalEventId
+            + join events e2 on e2.eventId = dv.eventId
+            + join documentAssignments da on da.documentId = d.documentId and da.assignmentType = 'author'
+            + join userInfo u on u.userId = da.userId
+            + where q.step = 'Draft Document' and da.userId = '{_userId}'
+            + order by dv.eventId
+          
+      form
+        include userAccountInfo
+        
+        formQuery~ select case when dv.fileName is not null and dv.fileName <> '' then 'file'
+          - when dr.document is not null and dr.document <> '' then 'web'
+          - else '' end as 'docType'
+          - from documentVersions dv
+          - inner join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+          - where dv.documentVersionId = '{_recId}'
+        
+        formQuery~ select dv.documentId, dv.documentVersionId, dv.title, dv.description,
+          - dv.groupId, g.description as 'group', u.name as 'author', dv.changes, dr.document as 'existingHtmlText',
+          - case when '{_:docType}' = 'file' then dv.fileName else '' end as 'fileLink'
+          - from documentVersions dv
+          - inner join documentVersionAssignments a on a.documentVersionId = dv.documentVersionId and a.assignmentType = 'author'
+          - inner join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+          - inner join userInfo u on u.userId = a.userId
+          - inner join groups g on g.groupId = dv.groupId
+          - where dv.documentVersionId = '{_recId}'
+          
+        fieldset
+          legend Instructions
+          li Upload a file or edit the HTML document.
+          li If the document is ready to send to review, mark "Send to Review Document."
+          li If switching the document from Web Document to File or File to Web Document, mark "Change Document Type."
+        
+        script
+          - $(document).ready(function(){
+          -   var existLink = $("#currentFile").val();
+          -   if(existLink)
+          -   {
+          -     $('#docLink').attr('href', $("#currentFile").val());
+          -     $('#docLink').html($("#docVersion").val());
+          -   } else {
+          -     $("#docLink").remove();
+          -   }
+          - });
+          - function saveFileName(){
+          -   var fileName = $('#File').val();
+          -
+          -   fileName = fileName.split('\\');
+          -   fileName = fileName[fileName.length-1];
+          -   $('#fileName').val(fileName);
+          - }
+        
+        hidden recId
+          value= {_recId}
+        hidden groupId
+          value= {_:groupId}
+        hidden fileName
+          id= fileName
+        hidden currentFile
+          id= currentFile
+          value= {_:fileLink}
+        hidden htmlText
+          value=          
+        hidden currDocType
+          value= {_:docType}
+        vertical2
+          container Document Id
+            class= readonly
+            readonly=
+            acceptQueue~ any
+            value= {_:documentId}
+          container Version
+            id= docVersion
+            class= readonly
+            readonly=
+            value= {_:documentVersionId}
+            containerType~ Document Version
+            if~ {review}
+              advanced~ 
+              equals~ true
+              insertQueue~ Review Document
+              deleteQueue~ Draft Document
+            required~ true
+          text Title
+            value= {_:title}
+            required~ true
+          container Document Group
+            acceptQueue~ any
+            required~ true
+            asSelect~ true
+            sqlQuery~ select g.description, g.groupId from groups g order by g.groupId
+            value= {_:group}
+            validate~ select g.groupId from groups g join containers c on g.groupId = c.containerId
+              + where g.groupId = '{Document Group}'
+              errorMessage~ This group has not been created as a container in the database.
+          text Description
+            value= {_:description}
+            required~ true
+          comments Comments
+            rows= 5
+            cols= 60
+          checkbox review
+            screenLabel~ Send to Review Document
+          output Existing File
+            a Document Link
+              id= docLink
+              href= 
+              target= document
+          div
+            style= display: none;
+            checkbox changeDocument
+              screenLabel~ Change Document Type
+              validate~ select 1 from dual where 
+                ## No document type defined yet
+                - '{currDocType}' = ''
+                ## If Document type is changed
+                - or ( '{changeDocument}' = 'true' and (
+                -   '{currDocType}' = 'file' and '{htmlText}' <> ''
+                -   or '{currDocType}' = 'web' and '{fileName}' <> ''
+                - ) )
+                ## If Document type is not changed
+                - or ( '{changeDocument}' = 'false' and (
+                -   '{currDocType}' = 'file' and '{fileName}' <> ''
+                -   or '{currDocType}' = 'web' and '{htmlText}' <> ''
+                - ) )
+                errorMessage~ Mark this to change the document type.
+
+        vertical
+          textArea Changes
+            required~ true
+            rows= 5
+            cols= 60
+            value= {_:changes}
+        fieldset
+          legend Document Version History
+            onclick= $('#history').toggle();
+          table
+            style= display: none;
+            id= history
+            sqlQuery~ select e.step as 'Step', ah.decision as 'Decision', u.name as 'User', e.eventDate as 'Date', 
+              - e.comments as 'Comments'
+              - from containerHistory h
+              - inner join events e on e.eventId = h.eventId
+              - inner join userInfo u on u.userId = e.userId
+              - left join documentVersionAssignmentsHistory ah on ah.lastUpdateEventId = h.eventId
+              - where h.containerId = '{_recId}'
+              - order by e.eventDate desc
+        fieldset
+          style= border-color:red;
+          legend Upload Document
+            class= legend
+            style= color:red;border-color:red;
+          vertical
+            file File
+              screenlabel~ New File
+              id= File
+              onChange= saveFileName()
+              validate~ select 1 from dual where ('{htmlText}' = '' and '{fileName}' <> '')
+                - or ('{htmlText}' <> '' and '{fileName}' = '') 
+                - or ('{htmlText}' <> '' and '{fileName}' <> '' and '{changeDocument}' = 'true') 
+                errorMessage~ A file or document text must be defined, never both.
+              required~ false
+              destinationFolderName~ documentVersions/{groupId}
+              destinationFilePrefix~ {Version}000000
+
+      sqlPreparedStatement update documentRecords set document = ?, lastUpdateEventId = ?
+        - where documentVersionId = ?
+        string {htmlText}
+        long {_eventId}
+        string {Version}
+      sqlPreparedStatement insert into documentRecordsHistory (documentVersionId, document, eventId, lastUpdateEventId)
+        - select documentVersionId, document, eventId, lastUpdateEventId 
+        - from documentRecords where documentVersionId = ? and lastUpdateEventId = ? 
+        string {Version}
+        long {_eventId} 
+      sqlPreparedStatement update documentVersions set fileName = case when ? <> '' then ? else '' end,
+        - changes = ?, lastUpdateEventId = ?, title = ?, description = ?, groupId = ? 
+        - where documentVersionId = ?
+        string {File}
+        string documentVersions/{groupId}/{File}
+        string {Changes}
+        long {_eventId}
+        string {Title}
+        string {Description}
+        string {Document Group}
+        string {Version}
+
+      ## If the document had been reviewed and marked incomplete, the decision needs to be cleared to move onto review again
+      sqlPreparedStatement update documentVersionAssignments set decision = null, lastUpdateEventId = ?
+        - where documentVersionId = ? and ? = 'true'
+        long {_eventId}
+        string {Version}
+        string {review}
+
+      sqlPreparedStatement insert into documentVersionAssignmentsHistory 
+        - (documentVersionId, assignmentType, userId, decision, eventId, lastUpdateEventId)
+        - select documentVersionId, assignmentType, userId, decision, eventId, lastUpdateEventId
+        - from documentVersionAssignments where lastUpdateEventId = ?
+        long {_eventId}
+        
+      notification Document Ready for Review
+        conditionQuery select documentId from documents where documentId = '{Document Id}' and '{review}' = 'true'
+        emailListQuery select u.email, 'userId', a.userId
+          - from documentAssignments a
+          - inner join userInfo u on u.userId = a.userId
+          - where a.documentId = '{Document Id}' and a.assignmentType = 'review'
+        subject Document {1} Ready For Review
+        message 
+          html
+            p A new document version for document {1} passed the step <b>Draft Document</b> at {0}.  <br><br>Please go to <b>Review Document</b> to review this document.
+      
+    step Review Document
+      queueQuery select q.containerId 'Document Version Id', d.documentId as 'Document Id',
+        - case when dv.fileName is not null and dv.fileName <> '' then
+        -   concat('<a href=''',dv.fileName,''' target=''document''>',d.documentId,'</a>')
+        - when dr.document is not null and dr.document <> '' then 
+        -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+        -   else '' end as 'URL',
+        + dv.changes 'Changes',
+        + dv.fileName 'File Name', 
+        + e2.eventDate 'Creation Date', e2.userId 'Created By'
+        + from queues q
+        + join documentVersions dv on dv.documentVersionId = q.containerId
+        + join documents d on dv.documentId = d.documentId
+        + join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+        + join events e2 on e2.eventId = dv.eventId
+        + join documentVersionAssignments da on da.documentVersionId = dv.documentVersionId
+        +   and da.assignmentType = 'review' and da.decision is null
+        + where q.step = 'Review Document' and da.userId = '{_userId}'
+        + group by q.containerId
+        + order by dv.eventId
+        
+      form
+        include userAccountInfo
+        fieldset
+          legend Instructions
+          li Only the documents you are authorized to review will show up on this list.
+          
+        vertical
+          container recId
+            screenLabel~ Document Version Id
+            validate~ select 1 from documentVersions dv
+              - inner join documentAssignments da on da.documentId = dv.documentId
+              - where dv.documentVersionId = '{recId}' and da.assignmentType = 'review' and da.userId = '{_userId}'
+              errorMessage~ You are not authorized to review this document.
+        
+        table
+          sqlQuery~ select q.containerId 'Document Version Id', d.documentId as 'Document Id',
+            - case when dv.fileName is not null and dv.fileName <> '' then
+            -   concat('<a href=''',dv.fileName,''' target=''document''>',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            + dv.changes 'Changes',
+            + dv.fileName 'File Name', 
+            + e2.eventDate 'Creation Date', e2.userId 'Created By'
+            + from queues q
+            + join documentVersions dv on dv.documentVersionId = q.containerId
+            + join documents d on dv.documentId = d.documentId
+            + join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+            + join events e2 on e2.eventId = dv.eventId
+            + join documentVersionAssignments da on da.documentVersionId = dv.documentVersionId
+            +   and da.assignmentType = 'review' and da.decision is null
+            + where q.step = 'Review Document' and da.userId = '{_userId}'
+            + group by q.containerId
+            + order by dv.eventId
+          
+      form
+        autocomplete= off
+        include userAccountInfo
+        formQuery~ select dv.documentId, dv.documentVersionId, dv.title, dv.description,
+          - dv.groupId, g.description as 'group', u.name as 'author', dv.changes, dr.document as 'existingHtmlText',
+          - case when dv.fileName is not null and dv.fileName <> '' then
+          -   concat('<a href=''',dv.fileName,''' target=''document''>',dv.documentVersionId,'</a>')
+          #'''
+          - else '' end as 'fileLink'
+          - from documentVersions dv
+          - inner join documentVersionAssignments a on a.documentVersionId = dv.documentVersionId and a.assignmentType = 'author'
+          - inner join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+          - inner join userInfo u on u.userId = a.userId
+          - inner join groups g on g.groupId = dv.groupId
+          - where dv.documentVersionId = '{_recId}'
+          
+        fieldset
+          legend Instructions
+          li Review the document and upload or edit any changes made, if necessary.
+          li Determine whether the document is complete or incomplete with "Review" and include your password.
+          li If the document is marked incomplete, explain why in the comments box.
+          li Incomplete documents are moved to Draft Document.
+        
+        script
+          - $(document).ready(function(){
+          -   if($('#existingFile').html() == ''){
+          -     $('#File').parent().parent().hide();
+          -   } else{
+          -     $('#htmlText_frame').hide();
+          -   }
+          - });
+        
+        hidden recId
+          value= {_recId}
+        hidden groupId
+          value= {_:groupId}
+        vertical2
+          container Document Id
+            class= readonly
+            readonly=
+            acceptQueue~ any
+            value= {_:documentId}
+          container Version
+            class= readonly
+            readonly=
+            value= {_:documentVersionId}
+            containerType~ Document Version
+            required~ true
+            if~ {Review}
+              advanced~
+              equals~ Incomplete
+              insertQueue~ Draft Document
+              deleteQueue~ Review Document
+              else~
+                ## If all reviewers have marked it complete, move to Approve Document. Otherwise stay on step.
+                if~ 
+                  advanced~ 
+                  not~
+                    sqlPreparedQuery~ SELECT 1 FROM documentVersionAssignments 
+                      - WHERE documentVersionId = ? AND assignmentType = 'review' AND userId <> ?
+                      - AND (decision = 'Incomplete' OR decision IS NULL)
+                      string {Version}
+                      string {_userId}
+                  insertQueue~ Approve Document
+                  deleteQueue~ Review Document
+          output Title
+            value= {_:title}
+          output Document Group
+            value= {_:group}
+          output Description
+            value= {_:description}
+          output Existing File
+            id= existingFile
+            value= {_:fileLink}
+          output Changes
+            value= {_:changes}
+        br
+        fieldset
+          legend Document Version History
+            onclick= $('#history').toggle();
+          table
+            style= display: none;
+            id= history
+            sqlQuery~ select e.step as 'Step', ah.decision as 'Decision', u.name as 'User', e.eventDate as 'Date', 
+              - e.comments as 'Comments'
+              - from containerHistory h
+              - inner join events e on e.eventId = h.eventId
+              - inner join userInfo u on u.userId = e.userId
+              - left join documentVersionAssignmentsHistory ah on ah.lastUpdateEventId = h.eventId
+              - where h.containerId = '{_recId}'
+              - order by e.eventDate desc      
+        vertical
+          select Review
+            option 
+            option Incomplete
+            option Complete
+            required~ true
+          password_input Password for Signature
+            validate~ select u.userId from userInfo u 
+              + inner join documentVersionAssignments a on a.userId = u.userId
+              + where a.documentVersionId = '{Version}' and a.userId = '{_userId}' and a.assignmentType = 'review'
+              + and u.password = '{Password for Signature}'
+              errorMessage~ Password is not correct for review.
+          comments Comments
+            rows= 5
+            cols= 60
+            validate~ select 1 from dual where '{Review}' <> 'Incomplete' or
+              - ( '{Review}' = 'Incomplete' and '{Comments}' <> '' )
+              errorMessage~ Please explain why the review was marked as incomplete.
+          file File
+            screenlabel~ New File
+            id= File
+            required~ false
+            destinationFolderName~ documentVersions/{groupId}
+            destinationFilePrefix~ {Version}000000
+        htmlTextArea htmlText
+          style= display: none;
+          name= htmlText
+          id= htmlText
+          required~ false
+          value= {_:existingHtmlText}
+        iframe
+          id= htmlText_frame
+          src= fckeditor/editor/fckeditor.html?InstanceName=htmlText
+          Toolbar= UNIFlow
+          width= 700
+          height= 400
+          frameborder= no
+          scrolling= no
+        br
+      
+      sqlPreparedStatement update documentVersionAssignments set decision = ?, lastUpdateEventId = ?
+        - where assignmentType = 'review' and userId = ? and documentVersionId = ?
+        string {Review}
+        long {_eventId}
+        string {_userId}
+        string {Version}
+
+      sqlPreparedStatement insert into documentVersionAssignmentsHistory 
+        - (documentVersionId, assignmentType, userId, decision, eventId, lastUpdateEventId)
+        - select documentVersionId, assignmentType, userId, decision, eventId, lastUpdateEventId
+        - from documentVersionAssignments where lastUpdateEventId = ?
+        long {_eventId} 
+
+      sqlPreparedStatement update documentRecords set document = ?, lastUpdateEventId = ?
+        - where documentVersionId = ? and ? <> ''
+        string {htmlText}
+        long {_eventId} 
+        string {Version}
+        string {htmlText}
+
+      sqlPreparedStatement insert into documentRecordsHistory (documentVersionId, document, eventId, lastUpdateEventId)
+        - select documentVersionId, document, eventId, lastUpdateEventId 
+        - from documentRecords where documentVersionId = ? and lastUpdateEventId = ? 
+        string {Version}
+        long {_eventId}
+      sqlPreparedStatement update documentVersions set fileName = ?, lastUpdateEventId = ?
+        - where documentVersionId = ? and ? <> ''
+        string documentVersions/{groupId}/{File}
+        long {_eventId} 
+        string {Version}
+        string {File}
+      
+      ## If all reviewers have marked it complete, send a notification to approve the document.
+      notification Document Ready for Approval
+        conditionQuery select dv.documentId 
+          - from documentVersions dv
+          - left join documentVersionAssignments a 
+          -   on a.documentVersionId = dv.documentVersionId and a.assignmentType = 'review'
+          -   and (a.decision = 'Incomplete' or a.decision is null)
+          - where dv.documentVersionId = '{Version}'
+          ## Need to not have any rows match up in table a (want all decisions complete)
+          - and a.userId is null
+          - limit 1
+        emailListQuery select u.email, 'userId', a.userId
+          - from documentVersionAssignments a
+          - inner join userInfo u on u.userId = a.userId
+          - where a.documentVersionId = '{Version}' and a.assignmentType = 'approve'
+        subject Document {1} Ready For Approval
+        message 
+          html
+            p A new document version for document {1} passed the step <b>Review Document</b> at {0}.  <br><br>Please go to <b>Approve Document</b> to approve this document.
+      
+      ## If the current reviewer marked it incomplete, send a notification to the author about the document.
+      notification Document Needs Further Review
+        conditionQuery select dv.documentId, '{Comments}'
+          - from documentVersions dv
+          - inner join documentVersionAssignments a 
+          -   on a.documentVersionId = dv.documentVersionId and a.assignmentType = 'review'
+          -   and a.decision = 'Incomplete'
+          - where dv.documentVersionId = '{Version}'
+        emailListQuery select u.email, 'userId', a.userId
+          - from documentVersionAssignments a
+          - inner join userInfo u on u.userId = a.userId
+          - where a.documentVersionId = '{Version}' and a.assignmentType = 'author'
+        subject Document {1} Needs Further Review
+        message 
+          html
+            p Document {1} has been reviewed from <b>Review Document</b> and marked incomplete at {0}.<br><br><b>Comments: </b>{2}  <br><br>Please go to <b>Draft Document</b> to review and fix this document.
+    
+    step Approve Document
+      queueQuery select q.containerId 'Document Version Id', d.documentId as 'Document Id',
+        - case when dv.fileName is not null and dv.fileName <> '' then
+        -   concat('<a href=''',dv.fileName,''' target=''document''>',d.documentId,'</a>')
+        - when dr.document is not null and dr.document <> '' then 
+        -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+        -   else '' end as 'URL',
+        + dv.changes 'Changes',
+        + dv.fileName 'File Name', 
+        + e2.eventDate 'Creation Date', e2.userId 'Created By'
+        + from queues q
+        + join documentVersions dv on dv.documentVersionId = q.containerId
+        + join documents d on dv.documentId = d.documentId
+        + join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+        + join events e2 on e2.eventId = dv.eventId
+        + join documentVersionAssignments da on da.documentVersionId = dv.documentVersionId
+        +   and da.assignmentType = 'approve' and da.decision is null
+        + where q.step = 'Approve Document' and da.userId = '{_userId}'
+        + group by q.containerId
+        + order by dv.eventId
+      form
+        include userAccountInfo
+        fieldset
+          legend Instructions
+          li Only the documents you are authorized to approve will show up on this list.
+        
+        vertical
+          container recId
+            screenLabel~ Document Version Id
+            validate~ select 1 from documentVersions dv
+              - inner join documentAssignments da on da.documentId = dv.documentId
+              - where dv.documentVersionId = '{recId}' and da.assignmentType = 'approve' and da.userId = '{_userId}'
+              errorMessage~ You are not authorized to approve this document.
+        
+        table
+          sqlQuery~ select q.containerId 'Document Version Id', d.documentId as 'Document Id',
+            - case when dv.fileName is not null and dv.fileName <> '' then
+            -   concat('<a href=''',dv.fileName,''' target=''document''>',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            + dv.changes 'Changes',
+            + dv.fileName 'File Name', 
+            + e2.eventDate 'Creation Date', e2.userId 'Created By'
+            + from queues q
+            + join documentVersions dv on dv.documentVersionId = q.containerId
+            + join documents d on dv.documentId = d.documentId
+            + join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+            + join events e2 on e2.eventId = dv.eventId
+            + join documentVersionAssignments da on da.documentVersionId = dv.documentVersionId
+            +   and da.assignmentType = 'approve' and da.decision is null
+            + where q.step = 'Approve Document' and da.userId = '{_userId}'
+            + group by q.containerId
+            + order by dv.eventId
+          
+      form
+        autocomplete= off
+        include userAccountInfo
+        formQuery~ select dv.documentId, dv.documentVersionId, dv.title, dv.description,
+          - dv.groupId, g.description as 'group', u.name as 'author', dv.changes,
+          - case when dv.fileName is not null and dv.fileName <> '' then
+          -   concat('<a href=''',dv.fileName,''' target=''document''>',dv.documentId,' File</a>')
+          - when dr.document is not null and dr.document <> '' then 
+          -   concat('<a class=''webdocLink'' href=''#',dv.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',dv.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+          -   else '' end as 'URL',
+          - DATEDIFF(DATE_ADD(NOW(), INTERVAL dv.revFrequency MONTH), NOW()) as 'daysUntilNextReview'
+          - from documentVersions dv
+          - inner join documentVersionAssignments a on a.documentVersionId = dv.documentVersionId and a.assignmentType = 'author'
+          - inner join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+          - inner join userInfo u on u.userId = a.userId
+          - inner join groups g on g.groupId = dv.groupId
+          - where dv.documentVersionId = '{_recId}'
+          
+        fieldset
+          legend Instructions
+          li Determine whether the document is complete or incomplete with "Approve" and include your password.
+          li If the document is marked incomplete, explain why in the comments box.
+          li Incomplete documents are moved to Draft Document.
+        
+        hidden recId
+          value= {_recId}
+        hidden groupId
+          value= {_:groupId}
+        hidden daysUntilNextReview
+          value= {_:daysUntilNextReview}
+        vertical2
+          container Document Id
+            class= readonly
+            acceptQueue~ any
+            value= {_:documentId}
+            ## If all approvers have marked it complete and it's not already on Document Listing, move to Document Listing.
+            if~ {Approve}
+              advanced~
+              equals~ 'Complete'
+              if~ 
+                advanced~
+                not~
+                  sqlPreparedQuery~ SELECT 1 FROM documentVersionAssignments 
+                    - WHERE documentVersionId = ? AND assignmentType = 'approve' 
+                    - AND userId <> ? AND (decision = 'Incomplete' OR decision IS NULL)
+                    string {Version}
+                    string {_userId}
+                if~ 
+                  advanced~
+                  not~
+                    sqlPreparedQuery~ SELECT 1 FROM queues WHERE step = 'Document Listing' AND containerId = ?
+                      string {Document Id}
+                  insertQueue~ Document Listing
+                afterCalendarDays~ {daysUntilNextReview}
+                  insertQueue~ Pending Review Documents
+          container Version
+            class= readonly
+            readonly=
+            value= {_:documentVersionId}
+            containerType~ Document Version
+            required~ true
+            if~ {Approve}
+              advanced~
+              equals~ Incomplete
+              insertQueue~ Draft Document
+              deleteQueue~ Approve Document
+              else~
+                ## If all approvers have marked it complete, delete from queue.
+                if~ 
+                  advanced~
+                  not~
+                    sqlPreparedQuery~ SELECT 1 FROM documentVersionAssignments 
+                      - WHERE documentVersionId = ? AND assignmentType = 'approve' 
+                      - AND userId <> ? AND (decision = 'Incomplete' OR decision IS NULL)
+                      string {Version}
+                      string {_userId}
+                  deleteQueue~ Approve Document
+          output Title
+            value= {_:title}
+          output Document Group
+            value= {_:group}
+          output Description
+            value= {_:description}
+          output Changes
+            value= {_:changes}
+        simpleTable
+          tr
+            td Document Link
+              class= label
+            td
+              span {_:URL}
+        br
+        fieldset
+          legend Document Version History
+            onclick= $('#history').toggle();
+          table
+            style= display: none;
+            id= history
+            sqlQuery~ select e.step as 'Step', ah.decision as 'Decision', u.name as 'User', e.eventDate as 'Date', 
+              - e.comments as 'Comments'
+              - from containerHistory h
+              - inner join events e on e.eventId = h.eventId
+              - inner join userInfo u on u.userId = e.userId
+              - left join documentVersionAssignmentsHistory ah on ah.lastUpdateEventId = h.eventId
+              - where h.containerId = '{_recId}'
+              - order by e.eventDate desc             
+        vertical
+          select Approve
+            option 
+            option Incomplete
+            option Complete
+            required~ true
+          password_input Password for Signature
+            validate~ select u.userId from userInfo u 
+              + inner join documentVersionAssignments a on a.userId = u.userId
+              + where a.documentVersionId = '{Version}' and a.userId = '{_userId}' and a.assignmentType = 'approve'
+              + and u.password = '{Password for Signature}'
+              errorMessage~ Password is not correct for approval.
+          comments Comments
+            rows= 5
+            cols= 60
+            validate~ select 1 from dual where '{Approve}' <> 'Incomplete' or
+              - ( '{Approve}' = 'Incomplete' and '{Comments}' <> '' )
+              errorMessage~ Please explain why the approval was marked as incomplete.
+      
+      sqlPreparedStatement update documentVersionAssignments set decision = ?, lastUpdateEventId = ?
+        - where assignmentType = 'approve' and userId = ? and documentVersionId = ?
+        string {Approve}
+        long {_eventId}
+        string {_userId}
+        string {Version}
+      sqlPreparedStatement insert into documentVersionAssignmentsHistory 
+        - (documentVersionId, assignmentType, userId, decision, eventId, lastUpdateEventId)
+        - select documentVersionId, assignmentType, userId, decision, eventId, lastUpdateEventId
+        - from documentVersionAssignments where lastUpdateEventId = ?
+        long {_eventId} 
+      sqlPreparedStatement update documentVersions set groupManagerApprovalEventId = ?
+        - where documentVersionId = ?
+        long {_eventId}
+        string {Version}
+        
+      ## If all approvers have marked it complete (and this is a file version), copy the file to the documents folder,
+      ## if this is a file and not a web document.
+      ifCondition 
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1 FROM documentVersionAssignments 
+            - WHERE documentVersionId = ? AND assignmentType = 'approve' 
+            - AND (decision = 'Incomplete' OR decision IS NULL)
+            string {Version}
+        forEach select dv.documentId, dv.groupId, concat('{_configPath}public/',dv.fileName) as 'versionFilePathAndName', 
+          ## Formats to {path to doc}/{Document Id}.{correct extension}
+          - concat('{_configPath}public/documentVersions/',dv.groupId,'/') as 'newFilePath',
+          - concat(dv.documentId,'.',substring_index(dv.fileName, '.', -1)) as 'newFileName'
+          - from documentVersions dv
+          - where dv.documentVersionId = '{Version}' and dv.fileName is not null and dv.fileName <> ''
+          jython
+            import shutil
+            import os
+            if not os.path.exists('{_:newFilePath}'):
+              os.mkdir('{_:newFilePath}')
+            shutil.copy('{_:versionFilePathAndName}', '{_:newFilePath}/{_:newFileName}')
+        
+        ## Update documents table with correct data
+          sqlPreparedStatement update documents d
+            - set d.fileName = ?
+            - where d.documentId = ?
+            string documents/{_:groupId}/{_:newFileName}
+            string {_:documentId}
+        
+        sqlPreparedStatement update documents d
+          - inner join documentVersions dv on d.documentId = dv.documentId and dv.documentVersionId = ?
+          - set d.title = dv.title, d.description = dv.description, d.groupId = dv.groupId,
+          - d.currentVersionId = dv.documentVersionId, d.revFrequency = dv.revFrequency
+          - where d.documentId = ?
+          string {Version}
+          string {Document Id}
+      
+      ## If the current approver marked it incomplete, send a notification to the author about the document.
+      notification Document Needs Further Review
+        conditionQuery select dv.documentId, '{Comments}'
+          - from documentVersions dv
+          - inner join documentVersionAssignments a 
+          -   on a.documentVersionId = dv.documentVersionId and a.assignmentType = 'approve'
+          -   and a.decision = 'Incomplete'
+          - where dv.documentVersionId = '{Version}'
+        emailListQuery select u.email, 'userId', a.userId
+          - from documentVersionAssignments a
+          - inner join userInfo u on u.userId = a.userId
+          - where a.documentVersionId = '{Version}' and a.assignmentType = 'author'
+        subject Document {1} Needs Further Review
+        message 
+          html
+            p Document {1} has been reviewed from <b>Approve Document</b> and marked incomplete at {0}.<br><br><b>Comments: </b>{2}  <br><br>Please go to <b>Draft Document</b> to review and fix this document.
+    
+    step Pending Review Documents
+      queueQuery select 
+        - d.documentId as 'Document Id', 
+        - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version', d.title  as 'Title',   
+        - case when d.fileName is not null and d.fileName <> '' then
+        -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+        - when dr.document is not null and dr.document <> '' then 
+        -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+        -   else '' end as 'URL',
+        - d.description as 'Description',
+        - group_concat(distinct u.name SEPARATOR '; ') as 'Review Requested By',
+        - group_concat(distinct DATE_FORMAT(e.eventDate, '%Y-%c-%d') SEPARATOR '; ') as 'Date Review Requested',
+        - group_concat(distinct e.comments SEPARATOR '; ') as 'Reason for Review'
+        - from queues q
+        - join documents d on d.documentId = q.containerId
+        - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+        - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+        - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+        - join events e on e.eventId = q.eventId
+        - join userInfo u on u.userId = e.userId
+        - where q.step = 'Pending Review Documents' and da.userId = '{_userId}'
+        - group by q.containerId
+        - order by q.eventId
+      form
+        include userAccountInfo
+        fieldset
+          legend Instructions
+          li Documents appear on this queue once the review date has passed or when a change is requested from Document Listing.
+          li Only the documents you are the author of will show up on this list.
+        
+        vertical
+          container recId
+            screenLabel~ Document Version Id
+            validate~ select 1 from documentVersions dv
+              - inner join documentAssignments da on da.documentId = dv.documentId
+              - where dv.documentVersionId = '{recId}' and da.assignmentType = 'author' and da.userId = '{_userId}'
+              errorMessage~ You are not the author for this document.
+        
+        table
+          class= stdTableSort
+          sqlQuery~ select 
+            - d.documentId as 'Document Id', 
+            - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version', d.title  as 'Title',   
+            - case when d.fileName is not null and d.fileName <> '' then
+            -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            - d.description as 'Description',
+            - group_concat(distinct u.name SEPARATOR '; ') as 'Review Requested By',
+            - group_concat(distinct DATE_FORMAT(e.eventDate, '%Y-%c-%d') SEPARATOR '; ') as 'Date Review Requested',
+            - group_concat(distinct e.comments SEPARATOR '; ') as 'Reason for Review'
+            - from queues q
+            - join documents d on d.documentId = q.containerId
+            - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+            - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+            - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+            - join events e on e.eventId = q.eventId
+            - join userInfo u on u.userId = e.userId
+            - where q.step = 'Pending Review Documents' and da.userId = '{_userId}'
+            - group by q.containerId
+            - order by q.eventId
+          
+      form
+        autocomplete= off
+        include userAccountInfo
+        formQuery~ select d.documentId, d.currentVersionId, d.title, d.description,
+          - d.groupId, g.description as 'group', u.name as 'author', e.comments as 'changes',
+          - case when d.fileName is not null and d.fileName <> '' then
+          -   concat('<a href=''',d.fileName,''' target=''document''>',d.documentId,' File</a>')
+          - when dr.document is not null and dr.document <> '' then 
+          -   concat('<a class=''webdocLink'' href=''#',d.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',d.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+          -   else '' end as 'URL'
+          - from queues q
+          - inner join documents d on d.documentId = q.containerId
+          - inner join documentAssignments a on a.documentId = d.documentId and a.assignmentType = 'author'
+          - inner join documentRecords dr on dr.documentVersionId = d.currentVersionId
+          - inner join userInfo u on u.userId = a.userId
+          - inner join groups g on g.groupId = d.groupId
+          - inner join events e on e.eventId = q.eventId
+          - where q.step = 'Pending Review Documents' and q.containerId = '{_recId}'
+          
+        fieldset
+          legend Instructions
+          li Determine whether the document is acceptable or needs revision with "Review" and include your password.
+          li If the document is marked needs review, explain why in the comments box.
+          li Documents needing review are moved to Create/Revise Document.
+        
+        hidden recId
+          value= {_recId}
+        hidden groupId
+          value= {_:groupId}
+        vertical2
+          container Document Id
+            class= readonly
+            readonly=
+            value= {_:documentId}
+            deleteQueue~ Pending Review Documents
+            if~ {Review} 
+              advanced~
+              equals~ Needs Revision
+              insertQueue~ Create/Revise Document
+          container Version
+            class= readonly
+            readonly=
+            acceptQueue~ any
+            value= {_:currentVersionId}
+            containerType~ Document Version
+            required~ true
+          output Title
+            value= {_:title}
+          output Document Group
+            value= {_:group}
+          output Description
+            value= {_:description}
+          output Changes Requested
+            value= {_:changes}
+        simpleTable
+          tr
+            td Document Link
+              class= label
+            td
+              span {_:URL}
+        vertical
+          select Review
+            option 
+            option Acceptable
+            option Needs Revision
+            required~ true
+          password_input Password for Signature
+            validate~ select u.userId from userInfo u 
+              + inner join documentAssignments a on a.userId = u.userId
+              + where a.documentId = '{Document Id}' and a.userId = '{_userId}' and a.assignmentType = 'author'
+              + and u.password = '{Password for Signature}'
+              errorMessage~ Password is not correct for authorship.
+          comments Comments
+            rows= 5
+            cols= 60
+            validate~ select 1 from dual where '{Review}' <> 'Needs Revision' or
+              - ( '{Review}' = 'Needs Revision' and '{Comments}' <> '' )
+              errorMessage~ Please explain why the document needs revision.
+    
+    step Document Details
+      queueSelectRecId
+      form
+        include userAccountInfo
+        vertical
+          container recId
+            acceptQueue~ any
+            screenLabel~ Document Id or Document Version Id
+        
+        table
+          class= stdTableSort
+          id= tAllGroups
+          sqlQuery~ select 
+            - g.description as 'Group', d.documentId as 'Document Id', 
+            - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version', 
+            - concat('<b>',case when q.step is null then 'INACTIVE' else 'ACTIVE' end,'</b>') as 'Active', 
+            - d.title  as 'Title',   
+            - case when d.fileName is not null and d.fileName <> '' then
+            -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+            - when dr.document is not null and dr.document <> '' then 
+            -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+            -   else '' end as 'URL',
+            - d.description as 'Description',
+            - u1.name as 'Author',
+            - DATE_FORMAT(e.eventDate, '%Y-%c-%d') as 'Last Approval Date'
+            - from documents d
+            - left join queues q on q.containerId = d.documentId and q.step = 'Document Listing'
+            - join groups g on g.groupId = d.groupId
+            - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+            - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+            - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+            - join events e on e.eventId = dv.groupManagerApprovalEventId
+            - join userInfo u1 on u1.userId = da.userId
+            - group by d.documentId
+            - order by Active, d.groupId, d.documentId
+      
+      form
+        include userAccountInfo
+        ## Either a documentId or documentVersionId can be entered
+        formQuery~ select dv.documentId 
+          - from documentVersions dv 
+          - where dv.documentId = '{_recId}' or dv.documentVersionId = '{_recId}'
+          - limit 1
+          
+        formQuery~ select d.documentId, d.currentVersionId, d.title, d.description,
+          - d.groupId, g.description as 'group', u.name as 'author', concat(d.revFrequency, ' months') as 'revFrequency',
+          - DATE_FORMAT(DATE_ADD(e.eventDate, INTERVAL d.revFrequency MONTH), '%Y-%c-%d') as 'nextReviewDue',
+          - case when dv.fileName is not null and dv.fileName <> '' then
+          -   concat('<a href=''',dv.fileName,''' target=''document''>',dv.documentId,' File</a>')
+          - when dr.document is not null and dr.document <> '' then 
+          -   concat('<a class=''webdocLink'' href=''#',dv.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',dv.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+          -   else '' end as 'URL',
+          - case when dv.groupManagerApprovalEventId is null then 'This document has not yet been approved!!!'
+          -   when q.step is null then 'This document has been marked as inactive!!!' 
+          -   else '' end as 'activeMessage'
+          - from documents d
+          - left join documentVersions dv on dv.documentVersionId = d.currentVersionId
+          - left join documentAssignments a on a.documentId = d.documentId and a.assignmentType = 'author'
+          - left join documentRecords dr on dr.documentVersionId = d.currentVersionId
+          - left join userInfo u on u.userId = a.userId
+          - left join groups g on g.groupId = d.groupId
+          - left join events e on e.eventId = dv.groupManagerApprovalEventId
+          - left join queues q on q.containerId = d.documentId and q.step = 'Document Listing'
+          - where d.documentId = '{_:documentId}'
+        
+        hidden recId
+          value= {_recId}
+        hidden groupId
+          value= {_:groupId}
+        span {_:activeMessage}
+          style= color: red; font-weight: bold;
+        fieldset
+          legend Document Information
+          vertical2
+            output Document Id
+              value= {_:documentId}
+            output Current Version
+              value= {_:currentVersionId}
+            output Title
+              value= {_:title}
+            output Document Group
+              value= {_:group}
+            output Revision Frequency
+              value= {_:revFrequency}
+            output Next Review Due
+              value= {_:nextReviewDue}
+          vertical
+            output Description
+              value= {_:description}
+          simpleTable
+            tr
+              td Document Link
+                class= label
+              td
+                span {_:URL}
+        
+        fieldset
+          legend Document Assignments
+          vertical
+            output Author
+              value= {_:author}
+          table
+            style= float: left; width: 100px;
+            sqlQuery~ select u.name as 'Users to Review'
+              - from documentAssignments da
+              - inner join userInfo u on u.userId = da.userId
+              - where da.documentId = '{_:documentId}' and da.assignmentType = 'review'
+          table
+            style= float: left; width: 100px;
+            sqlQuery~ select u.name as 'Users to Approve'
+              - from documentAssignments da
+              - inner join userInfo u on u.userId = da.userId
+              - where da.documentId = '{_:documentId}' and da.assignmentType = 'approve'
+        fieldset
+          legend Document History
+          table
+            sqlQuery~ select dv.documentVersionId as 'Document Version Id', 
+              - case when dv.fileName is not null and dv.fileName <> '' then
+              -   concat('<a href=''',dv.fileName,''' target=''document''>',dv.documentId,' File</a>')
+              - when dr.document is not null and dr.document <> '' then 
+              -   concat('<a class=''webdocLink'' href=''#',dv.documentId,'''>WEB DOC</a><div class=''webdoc'' id=''',dv.documentId,'''><div><a class=''webdocClose'' href=''#''>X</a>',dr.document,'</div></div>')
+              -   else '' end as 'URL', dv.changes as 'Changes', 
+              - DATE_FORMAT(e.eventDate, '%Y-%c-%d') as 'Approval Date', u1.name as 'Author', 
+              - group_concat(u2.name SEPARATOR ', ') as 'Reviewers', group_concat(u3.name SEPARATOR ', ') as 'Approvers' 
+              - from documentVersions dv
+              - inner join documentRecords dr on dr.documentVersionId = dv.documentVersionId
+              - left join events e on e.eventId = dv.groupManagerApprovalEventId
+              - inner join documentVersionAssignments a1 on a1.documentVersionId = dv.documentVersionId and a1.assignmentType = 'author'
+              - inner join userInfo u1 on u1.userId = a1.userId
+              - inner join documentVersionAssignments a2 on a2.documentVersionId = dv.documentVersionId and a2.assignmentType = 'review'
+              - inner join userInfo u2 on u2.userId = a2.userId
+              - inner join documentVersionAssignments a3 on a3.documentVersionId = dv.documentVersionId and a3.assignmentType = 'approve'
+              - inner join userInfo u3 on u3.userId = a3.userId
+              - where dv.documentId = '{_:documentId}'
+              - group by dv.documentVersionId
+              - order by dv.groupManagerApprovalEventId desc
+
+    stepGroup Competency
+
+    step Assign Document
+      form 
+        formQuery~ select curDate() as "today"
+
+        vertical
+          select documentId 
+            screenLabel~ Document ID 
+            option
+            sqlQuery~ select documentId as 'DocumentId'
+              - from documents
+      form 
+        vertical 
+          text documentId
+            value= {documentId}
+            screenLabel~ Document ID
+            readonly=
+          number interval
+            screenLabel~ Competency Interval (in Days) 
+        table
+          sqlQuery~ 
+            - select '' as 'Assign'
+            - , u.name as 'Employee Name'
+            - , u.userId as 'User Id'
+            - , da.intervalNumber as 'Competency Interval (in Days)'
+            - from userInfo u
+            - left join documentUserAssignments da 
+            - on u.userId = da.userId and da.documentId = '{documentId}'
+          columnSpecs~ employees
+            column 1
+              inputType checkbox 
+            column 3
+              inputType text 
+                readonly= 
+
+      forRows employees
+        ifCondition {_columnInput_employees:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement 
+            - update documentUserAssignments 
+            - set intervalNumber = ?
+            - , eventId = ? where documentId = ? and userId = ?
+            int {interval}
+            long {_eventId}
+            string {documentId}
+            string {_columnInput_employees:3}
+          sqlPreparedStatement
+            - insert into documentUserAssignments (documentId, userId, activity, intervalNumber, eventId)
+            - select ?, ?, 'Read', ?, ?
+            - from dual
+            - where not exists (select 1 from documentUserAssignments where documentId = ? and userId = ?)
+            string {documentId}
+            string {_columnInput_employees:3}
+            int {interval}
+            long {_eventId}
+            string {documentId}
+            string {_columnInput_employees:3}
+
+      forEach select distinct d.Id, d.documentId as 'DocumentId', d.userId as 'User', ui.name as 'Name', ui.email as 'Email'
+        - , do.fileName as 'filePath'
+        - from documentUserAssignments d
+        - inner join userInfo ui
+        - on ui.userId = d.userId
+        - inner join documents do 
+        - on d.documentId = do.documentId
+        - where d.eventId = {_eventId}
+        - and (ui.email is not null or ui.email <> '')
+        notification documentAssignmentNotification
+          conditionQuery select distinct '{_:DocumentId}', '{_:Email}', '{_:Name}', '{_:filePath}'
+            - from notifications n 
+            - where n.notificationId = 'documentAssignmentNotification'
+            - and n.userId = '{_:User}'
+          emailAddressColumn 2
+            recipientIdColumn 3
+          subject {1} - Document Assignment
+          message
+            html
+              body
+                p The following document has been assigned to you and is ready for review: <b> {1} </b>.
+
+    step Acknowledge Document
+      form 
+        script
+          - $(document).ready(function() {
+          -   $('.hide').parent().addClass('hide');
+          -   $('th:contains("hidden")').addClass('hide');
+          -   $('.hide').hide();
+          - });
+        vertical
+          table 
+            sqlQuery~ 
+              - select distinct '' as 'Completed'
+              - , du.documentId as 'Document Id'
+              - , d.currentVersionId as 'Current Version'
+              - , DATE_FORMAT(case when e.eventDate is null then curDate()
+              -                     else DATE_ADD(e.eventDate, INTERVAL du.intervalNumber DAY) end, "%m/%d/%Y") as 'Due Date'
+              - , du.id as 'hidden'
+              - from documentUserAssignments du
+              - inner join documents d 
+              - on du.documentId = d.documentId
+              - left join events e 
+              - on du.lastActivityEventId = e.eventId
+              - where du.userId = '{_userId}'
+              - and du.active = 1
+            columnSpecs~ documents
+              column 1
+                inputType checkbox 
+              column 2
+                inputType text 
+                  readonly= 
+              column 3
+                inputType text 
+                  readonly=
+              column 4
+                inputType text 
+                  readonly=
+              column 5
+                inputType hidden 
+                  readonly=
+                  class= hide
+
+      forRows documents
+        ifCondition {_columnInput_documents:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement 
+            - insert into documentUserHistory (documentId, documentVersionId, userId, userAssignmentId, eventId)
+            - values (?, ?, ?, ?, ?)
+            string {_columnInput_documents:2}
+            string {_columnInput_documents:3}
+            string {_userId}
+            string {_columnInput_documents:5}
+            long {_eventId}
+          sqlPreparedStatement  
+            - update documentUserAssignments 
+            - set lastActivityEventId = ?
+            - where documentId = ? and userId = ?
+            long {_eventId}
+            string {_columnInput_documents:2}
+            string {_userId}
+
+    step Competency Status
+      form 
+        vertical
+          select documentId 
+            screenLabel~ Document ID 
+            option
+            sqlQuery~ select documentId as 'DocumentId'
+              - from documents
+      form 
+        vertical 
+          text documentId
+            screenLabel~ Document ID
+            value= {documentId}
+            readonly=
+        table
+          sqlQuery~ 
+            - select distinct
+            - ui.name as 'Name'
+            - , du.documentId as 'Document Id'
+            - , d.title as 'Document Title'
+            - , DATE_FORMAT(case when e.eventDate is null then curDate()
+            -                     else DATE_ADD(e.eventDate, INTERVAL du.intervalNumber DAY) end, "%m/%d/%Y") as 'Due Date'
+            - from documentUserAssignments du
+            - inner join documents d 
+            - on du.documentId = d.documentId
+            - inner join userInfo ui 
+            - on ui.userId = du.userId
+            - left join events e 
+            - on du.lastActivityEventId = e.eventId
+            - where du.documentId = '{documentId}'
+            - and du.active = 1
+            - group by ui.name
+            - order by 4
+    
+    stepGroup Documents Ajax Servers
+    
+    step Document Listing Server
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlQuery~ select d.title  as 'Title',   
+          - case when d.fileName is not null and d.fileName <> '' then
+          -   concat('<a href="',d.fileName,'" target="document">',d.documentId,'</a>')
+          - when dr.document is not null and dr.document <> '' then 
+          -   concat('<a class="webdocLink" href="#',d.documentId,'">WEB DOC</a><div class="webdoc" id="',d.documentId,'"><div><a class="webdocClose" href="#">X</a>',dr.document,'</div></div>')
+          -   else '' end as 'URL',
+          - d.description as 'Description',
+          - d.documentId as 'Document Id', 
+          - concat(concat('<font color="red">', d.currentVersionId), '</font>') as 'Current Version',
+          - u1.name as 'Author',
+          - DATE_FORMAT(e.eventDate, '%Y-%c-%d') as 'Last Approval Date',
+          - '' as 'Request Change', '' as 'Mark Obsolete',
+          - da.userId as 'authorId', '{_userId}' as 'userId'
+          - from queues q
+          - join documents d on d.documentId = q.containerId
+          - join documentAssignments da on d.documentId = da.documentId and da.assignmentType = 'author'
+          - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+          - join documentVersions dv on d.currentVersionId = dv.documentVersionId
+          - join events e on e.eventId = dv.groupManagerApprovalEventId
+          - join userInfo u1 on u1.userId = da.userId
+          - where q.step = 'Document Listing' and d.groupId = '{groupId}'
+          - group by d.documentId
+          - order by d.groupId, d.documentId
+        
+        columnSpecs~ t{groupId}
+          allowChangeRecordIds
+          column 4
+            inputType container
+              class= readonly documentId
+              readonly=
+          column 8
+            inputType checkbox
+              onclick= requestChange($(this));
+          column 9
+            inputType checkbox
+              onclick= markObsolete($(this));
+          column 10
+            inputType text
+              class= hidden
+              readonly=
+          column 11
+            inputType text
+              class= hidden
+              readonly=
+    
+    step Web Document Server
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select dr.document from documents d 
+          - join documentRecords dr on d.currentVersionId = dr.documentVersionId
+          - where d.documentId = '{documentId}'
+    step GetNextDocId
+      class uniflow.AjaxJSONObjects
+      table
+        sqlQuery~ select concat('DC0','{_getNextSequence:documentId}') as 'documentId' from dual limit 1
+    
+          

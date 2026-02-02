@@ -1,0 +1,209 @@
+config
+  steps
+    stepGroup instrumentConnectivityAjax
+
+    step Ajax Post Send to DI
+      form
+        vertical
+          container groupContainerId
+            value= {groupContainerId}
+            acceptQueue~ any
+          text thisStep
+            value= {thisStep}
+
+
+      sqlPreparedStatement
+        - DELETE FROM queues
+        - WHERE containerId = ?
+        - AND step = ?
+        string {groupContainerId}
+        string {thisStep}
+
+      sqlPreparedStatement
+        - INSERT INTO queues (containerId, step, eventId)
+        - VALUES (?,?,?)
+        string {groupContainerId}
+        string {thisStep} - HOLD
+        long {_eventId}
+
+      forEach SELECT runId, currentContainerId
+        - FROM specimenRuns
+        - WHERE currentParentId = ?
+        - AND completedEventId IS NULL
+        - UNION
+        - SELECT controlRunId, currentContainerId
+        - FROM controlRuns
+        - WHERE currentParentId = ?
+        - AND completedEventId IS NULL
+        string {groupContainerId}
+        string {groupContainerId}
+
+        sqlPreparedStatement
+          - INSERT INTO containerHistory (containerId, eventId)
+          - VALUES  (?, ?),
+          -         (?, ?)
+          string {_:runId}
+          long {_eventId}
+          string {_:currentContainerId}
+          long {_eventid}
+
+        ### DI Driver pick up step.
+        sqlPreparedStatement
+          - INSERT INTO queues (containerId, step, eventId)
+          - VALUES (?,'Run Available',?)
+          string {_:runId}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO queues (containerId, step, eventId)
+          - VALUES (?,'Run Available for Testing',?)
+          string {_:runId}
+          long {_eventId}
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1 FROM containerProperties
+              - WHERE containerId = ?
+              - AND property = 'Current DI Step'
+              string {_:runId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - VALUES (?,'Current DI Step', ?, ?)
+            string {_:runId}
+            string {thisStep}
+            long {_eventId}
+
+
+    stepGroup instrumentConnectivityHiddenSteps
+    step View Sent Data
+      form
+
+        script
+          src= js/analysis/viewSentData.js
+        script
+          src= js/analysis/toFromDI.js
+
+        configurePreparedQuery~
+          - SELECT 'NO' AS "allowSend"
+          - FROM dual
+          - WHERE '{thisStep2}' LIKE '% - HOLD'
+          - UNION
+          - SELECT 'YES'
+
+        hidden thisStep
+          id= thisStep
+          value= {thisStep2}
+        hidden _recId
+          id= groupContainerId
+          value= {_recId}
+
+        div
+          id= printThis
+
+          br
+          h3 Container Information
+          table
+            class= stdTable
+            id= groupingContainerInfo
+            sqlPreparedQuery~
+              - SELECT
+              -   q.containerId AS "{groupingContainerLabel}",
+              -   cp.value AS "Category",
+              -   cp2.value AS "Priority",
+              -   DATE(e.eventDate) AS "Queued Date",
+              -   u.name AS "Queued By",
+              -   '', ''
+              - FROM queues q
+              - LEFT JOIN containerProperties cp
+              -   ON q.containerId = cp.containerId
+              -   AND cp.property = 'Container Category'
+              - LEFT JOIN containerProperties cp2
+              -   ON q.containerId = cp2.containerId
+              -   AND cp2.property = 'Container Priority'
+              - INNER JOIN events e
+              -   ON q.eventId = e.eventId
+              - INNER JOIN userInfo u
+              -   ON e.userId = u.userId
+              - WHERE q.step = ?
+              -   AND q.containerId = ?
+              - ORDER BY e.eventId
+              string {thisStep2}
+              string {_recId}
+
+          br
+          h3 Configured Data
+          table
+            class= stdTable
+            id= sentData
+            sqlPreparedQuery~
+              - SELECT
+              -   sr.currentContainerId AS "Container ID",
+              -   sr.runId AS "Run ID",
+              -   sr.currentParentPosition AS "Position",
+              -   c.content AS "Order ID",
+              -   GROUP_CONCAT( CONCAT(IFNULL(adef.resultCode, 'no result code configured'), ': ', adef.value) ORDER BY adef.resultCode SEPARATOR '<br />') AS "Data Ordered"
+              - FROM specimenRuns sr
+              - INNER JOIN contents c
+              -   ON sr.currentContainerId = c.containerId
+              - INNER JOIN specimenMethods sm 
+              -   ON sm.id = sr.specimenMethodsId
+              - INNER JOIN analysisMethods am
+              -   ON REPLACE(?, ' - HOLD', '') = am.analysisStepName
+              - INNER JOIN analysisMethodVersions aver
+              -   ON am.id = aver.analysisMethodsId
+              - INNER JOIN analysisDataDefinition adef
+              -   ON adef.analysisMethodVersionsId = aver.id
+              - INNER JOIN analysisDefinitionPanels adp
+              -   ON adp.definitionId = adef.id 
+              -   AND adp.panelCode = sm.panelCode
+              - WHERE sr.currentParentId = ?
+              -   AND c.contentType = 'requestId'
+              -   AND aver.active = 1
+              - GROUP BY sr.runId
+              - UNION
+              - SELECT
+              -   cr.currentContainerId AS "Container ID",
+              -   cr.controlRunId AS "Run ID",
+              -   cr.currentParentPosition AS "Position",
+              -   'Control' AS "Order ID",
+              -   GROUP_CONCAT( CONCAT(IFNULL(adef.resultCode, 'no result code configured'), ': ', adef.value) ORDER BY adef.resultCode SEPARATOR '<br />') AS "Data Ordered"
+              - FROM controlRuns cr
+              - INNER JOIN analysisMethods am
+              -   ON REPLACE(?, ' - HOLD', '') = am.analysisStepName
+              - INNER JOIN analysisMethodVersions aver
+              -   ON am.id = aver.analysisMethodsId
+              - INNER JOIN analysisDataDefinition adef
+              -   ON adef.analysisMethodVersionsId = aver.id
+              - WHERE cr.currentParentId = ?
+              -   AND aver.active = 1
+              - GROUP BY cr.controlRunId
+              string {thisStep2}
+              string {_recId}
+              string {thisStep2}
+              string {_recId}
+
+        br
+
+        simpleTable
+          tr
+            td
+              button Return to List
+                id= returnToList
+            td
+              button Download Data
+                id= downloadData
+            td
+              button Print Screen
+                id= printScreen
+            td
+              configureIf~ {_:allowSend} 
+                advanced~ 
+                equals~ YES
+              button Submit to DI
+                id= sendToDI
+
+
+      nextStep {thisStep}
+        formNumber 0

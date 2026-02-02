@@ -1,0 +1,519 @@
+config
+  includes
+
+    includeable resourcesComponent
+      hidden resourcesIncludedSetting
+        value= {_includeParm:includeResources}
+        id= resourcesIncludedSetting
+      div 
+        configureIf~ {_includeParm:includeResources} 
+          advanced~
+          equals~ Yes
+
+        script
+          src= js/components/resources.js
+        script
+          src= js/components/masterMixes.js
+        script
+          src= js/components/preparedContainerQC.js
+          
+        formPreparedQuery~
+          - SELECT
+          -   id AS "stepId",
+          -   'Tray' AS "mapType"
+          - FROM trayMapStepAssignments
+          - WHERE step = ?
+          - UNION
+          - SELECT
+          -   id AS "stepId",
+          -   'Transfer' AS "mapType"
+          - FROM transferMapStepAssignments
+          - WHERE step = ?
+          -   AND displayOrder = ?
+          allowEmptyResults~
+          string {_step}
+          string {_step}
+          string {_includeParm:currentLoop}
+
+          
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden includeResources
+          value= {includeResources}
+          id= includeResources
+        hidden masterMix
+          value= {masterMix}
+          id= masterMixId
+        hidden trayOrTransfer
+          id= trayOrTransfer
+          value= {trayOrTransfer}
+        hidden trayMap
+          id= trayMap
+          value= {trayMap}
+        hidden transferMap
+          id= transferMap
+          value= {transferMap}
+
+        div
+          id= typeError
+          title= Resource Type Error
+        div
+          id= qualError
+          title= Qualification Error
+        div
+          id= expError
+          title= Expiration Date Error
+        div
+          id= dneError
+          title= Does Not Exist Error
+        div
+          id= requiredError
+          title= Missing Resources Error
+        div
+          id= preparedContainerError
+
+        div
+          class= hiddenOnLoad
+          table
+            id= wellLayoutTable
+            sqlPreparedQuery~
+              - SELECT
+              -   tmma.well,
+              -   tmma.mmId,
+              -   mm.name,
+              -   '' AS "hasSample"
+              - FROM trayMapMMAssignments tmma
+              -   INNER JOIN masterMixes mm ON tmma.mmId = mm.id
+              - WHERE ? = 'Tray'
+              -   AND ? = tmma.trayMapStepId
+              - UNION
+              - SELECT
+              -   tmma.destinationAttribute,
+              -   tmma.mmId,
+              -   mm.name,
+              -   '' AS "hasSample"
+              - FROM transferMapMMAssignments tmma
+              -   INNER JOIN masterMixes mm ON tmma.mmId = mm.id
+              - WHERE ? = 'Transfer'
+              -   AND ? = tmma.transferMapStepId
+              string {_:mapType}
+              string {_:stepId}
+              string {_:mapType}
+              string {_:stepId}
+            columnSpecs~ wellLayoutTable
+              column 1
+                inputType text
+                  class= tableWell
+              column 2
+                inputType text
+                  class= tableMmId
+              column 3
+                inputType text
+                  class= tableMmName
+              column 4
+                inputType text
+                  class= tableHasSample
+
+        div
+          class= hiddenOnLoad
+          table
+            id= masterMixComponents
+            sqlPreparedQuery~
+              - SELECT
+              -   tmma.mmId,
+              -   mmc.reagentType,
+              -   mmc.amount,
+              -   mm.overagePercentage,
+              -   ii.units,
+              -   ii.inventoryType
+              - FROM trayMapMMAssignments tmma
+              -   INNER JOIN masterMixes mm ON tmma.mmId = mm.id
+              -   INNER JOIN masterMixComponents mmc ON tmma.mmId = mmc.mmId
+              -   INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+              - WHERE ? = 'Tray'
+              -   AND ? = tmma.trayMapStepId
+              - UNION
+              - SELECT
+              -   tmma.mmId,
+              -   mmc.reagentType,
+              -   mmc.amount,
+              -   mm.overagePercentage,
+              -   ii.units,
+              -   ii.inventoryType
+              - FROM transferMapMMAssignments tmma
+              -   INNER JOIN masterMixes mm ON tmma.mmId = mm.id
+              -   INNER JOIN masterMixComponents mmc ON tmma.mmId = mmc.mmId
+              -   INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+              - WHERE ? = 'Transfer'
+              -   AND ? = tmma.transferMapStepId
+              string {_:mapType}
+              string {_:stepId}
+              string {_:mapType}
+              string {_:stepId}
+            columnSpecs~ masterMixComponents
+              column 1
+                inputType text
+                  class= tableMasterMixId
+              column 2
+                inputType text
+                  class= masterMixReagentType
+              column 3
+                inputType text
+                  class= masterMixSingleVolumeType
+              column 4
+                inputType text
+                  class= masterMixOveragePercentage
+              column 5
+                inputType text
+                  class= masterMixUnits
+              column 6
+                inputType text
+                  class= masterMixInventoryType
+
+
+
+
+        fieldset
+          legend Resources
+            class= resourcesToggle
+
+          div
+            id= accordion
+            h3 REAGENTS
+            div
+              table
+                id= reagentResources
+                class= resourceTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   u.inventoryItem AS "Reagent",
+                  -   '' AS "Barcode",
+                  -   u.amount AS "Amount per Sample",
+                  -   '0.00' AS "Total Amount",
+                  -   u.units AS "Units"
+                  - FROM inventoryUsage u
+                  -   INNER JOIN inventoryItems i ON u.inventoryItem = i.inventoryItem
+                  - WHERE u.step = ?
+                  -   AND (i.inventoryType = 'Received Reagent' OR i.inventoryType = 'Prepared Reagent')
+                  - UNION
+                  - (SELECT '', '', '0.0', '0.0', ''
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -   SELECT 1 
+                  -   FROM inventoryUsage iu 
+                  -     INNER JOIN inventoryItems ii ON iu.inventoryItem = ii.inventoryItem
+                  -   WHERE iu.step = ? AND (ii.inventoryType = 'Received Reagent' OR ii.inventoryType = 'Prepared Reagent')))
+                  string {_step}
+                  string {_step}
+                columnSpecs~ reagentResources
+                  allowChangedRecordIds
+                  column 1
+                    inputType text
+                      class= type reagentType resourceType
+                      readonly=
+                      tabIndex= 99
+                  column 2
+                    inputType resource
+                      class= resource barcodeBackground reagentResource reagentBarcode required
+                      required~ false
+                      data-parsley-required= true
+                      qualifyResource~ Reagent QC
+                      tabIndex= 1
+                      validate~
+                        - ! SELECT 1
+                        - FROM reagents
+                        - WHERE reagentId = ?
+                        -   AND reagentType <> ?
+                        -   AND ? <> ''
+                        string {_columnInput:2}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                        errorMessage~ This reagent does not match the Reagent Type! Check again.
+                      sqlPreparedStatement~
+                        - UPDATE inventoryItems SET
+                        -   quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - WHERE inventoryItem = ?
+                        -   AND ? <> ''
+                        float {_columnInput:4}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                      sqlPreparedStatement~
+                        - UPDATE reagents SET
+                        -   quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - WHERE reagentId = ?
+                        -   AND ? <> ''
+                        float {_columnInput:4}
+                        string {_columnInput:2}
+                        string {_columnInput:2}
+                  column 3
+                    inputType text
+                      class= text sampleAmount
+                      tabIndex= 2
+                  column 4
+                    inputType number
+                      class= text totalAmount
+                      tabIndex= 2
+                  column 5
+                    inputType text
+                      class= text units
+                      tabIndex= 2
+
+            h3 CONTROLS
+            div
+              table
+                id= controlResources
+                class= resourceTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   u.inventoryItem AS "Control",
+                  -   '' AS "Barcode",
+                  -   u.amount AS "Amount per Sample",
+                  -   '0.0' AS "Total Amount",
+                  -   u.units AS "Units"
+                  - FROM inventoryUsage u
+                  -   INNER JOIN inventoryItems i ON u.inventoryItem = i.inventoryItem
+                  - WHERE u.step = ?
+                  -   AND (i.inventoryType = 'Received Control' or i.inventoryType = 'Prepared Control')
+                  - UNION 
+                  - (SELECT '', '', '0.0', '0.0', ''
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -   SELECT 1 
+                  -   FROM inventoryUsage iu 
+                  -     INNER JOIN inventoryItems ii ON iu.inventoryItem = ii.inventoryItem
+                  -   WHERE iu.step = ? AND (ii.inventoryType = 'Received Control' OR ii.inventoryType = 'Prepared Control')))
+                  string {_step}
+                  string {_step}
+                columnSpecs~ controlResources
+                  allowChangedRecordIds
+                  column 1
+                    inputType text
+                      class= type  controlNameForLot resourceType
+                      readonly=
+                      tabIndex= 99
+                  column 2
+                    inputType resource
+                      class= resource controlForLot barcodeBackground controlBarcode required
+                      required~ false
+                      data-parsley-required= true
+                      qualifyResource~ Control QC
+                      tabIndex= 1
+                      validate~
+                        - ! SELECT 1
+                        - FROM controls
+                        - WHERE controlId = ?
+                        -   AND controlType <> ?
+                        -   AND ? <> ''
+                        string {_columnInput:2}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                        errorMessage~ This control does not match the Control Type! Check again.
+                      sqlPreparedStatement~
+                        - UPDATE inventoryItems SET
+                        -   quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - WHERE inventoryItem = ?
+                        -   AND ? <> ''
+                        float {_columnInput:4}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                      sqlPreparedStatement~
+                        - UPDATE controls SET
+                        -   quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - WHERE controlId = ?
+                        -   AND ? <> ''
+                        float {_columnInput:4}
+                        string {_columnInput:2}
+                        string {_columnInput:2}
+                  column 3
+                    inputType text
+                      class= text amount sampleAmount
+                      tabIndex= 2
+                  column 4
+                    inputType text
+                      class= text totalAmount
+                      tabIndex= 2
+                  column 5
+                    inputType text
+                      class= text units
+                      tabIndex= 2
+
+            h3 CONSUMABLES
+            div
+              table
+                id= consumableResources
+                class= resourceTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   u.inventoryItem AS "Consumable",
+                  -   '' AS "Barcode",
+                  -   u.amount AS "Amount",
+                  -   u.units AS "Units"
+                  - FROM inventoryUsage u
+                  -   INNER JOIN inventoryItems i ON u.inventoryItem = i.inventoryItem
+                  - WHERE u.step = ?
+                  -   AND i.inventoryType = 'Received Consumable'
+                  - UNION 
+                  - (SELECT '', '', 0.0, ''
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -   SELECT 1 
+                  -   FROM inventoryUsage iu 
+                  -     INNER JOIN inventoryItems ii ON iu.inventoryItem = ii.inventoryItem
+                  -   WHERE iu.step = ? AND (ii.inventoryType = 'Received Consumable')))
+                  string {_step}
+                  string {_step}
+                columnSpecs~ consumables
+                  allowChangedRecordIds
+                  column 1
+                    inputType text
+                      class= type text resourceType
+                      readonly=
+                      tabIndex= 3
+                  column 2
+                    inputType resource
+                      class= resource barcodeBackground consumableBarcode required
+                      required~ false
+                      data-parsley-required= true
+                      tabIndex= 1
+                      sqlPreparedStatement~ update inventoryItems
+                        - set quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - where inventoryItem = ?
+                        - and ? <> ''
+                        float {_columnInput:3}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                      sqlPreparedStatement~ update consumables
+                        - set quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - where consumableId = ?
+                        - and ? <> ''
+                        float {_columnInput:3}
+                        string {_columnInput:2}
+                        string {_columnInput:2}
+                      validate~
+                        - ! SELECT 1
+                        - FROM consumables
+                        - WHERE consumableId = ?
+                        -   AND consumableType <> ?
+                        -   AND ? <> ''
+                        string {_columnInput:2}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                        errorMessage~ This consumable does not match the Consumable Type! Check again.
+                  column 3
+                    inputType text
+                      class= text amount
+                      tabIndex= 2
+                  column 4
+                    inputType text
+                      class= text units
+                      tabIndex= 2
+
+            h3 INSTRUMENTS
+            div
+              table
+                id= instrumentResources
+                class= resourceTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   u.inventoryItem AS "Instrument",
+                  -   '' AS "Barcode"
+                  - FROM inventoryUsage u
+                  - WHERE u.step = ?
+                  -   AND u.inventoryItem IN (select DISTINCT instrumentType from instruments)
+                  - UNION 
+                  - (SELECT '', ''
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -   SELECT 1 
+                  -   FROM inventoryUsage iu 
+                  -   WHERE iu.step = ? AND (iu.inventoryItem IN (select DISTINCT instrumentType from instruments))))
+                  string {_step}
+                  string {_step}
+                columnSpecs~ instruments
+                  allowChangedRecordIds
+                  column 1
+                    inputType text
+                      class= type text resourceType
+                      readonly=
+                      tabIndex= 99
+                  column 2
+                    inputType resource
+                      class= resource barcodeBackground instrumentBarcode required
+                      required~ false
+                      data-parsley-required= true
+                      tabIndex= 1
+                      validate~
+                        - ! SELECT 1
+                        - FROM instruments
+                        - WHERE instrumentId = ?
+                        -   AND status <> 'In Service'
+                        -   AND ? <> ''
+                        string {_columnInput:2}
+                        string {_columnInput:2}
+                        errorMessage~ THIS INSTRUMENT IS NOT IN SERVICE.  YOU CAN PUT IT BACK IN SERVICE WITH THE CHANGE INSTRUMENT STATUS STEP.
+                      validate~
+                        - ! SELECT 1
+                        - FROM instruments
+                        - WHERE instrumentId = ?
+                        -   AND instrumentType <> ?
+                        -   AND ? <> ''
+                        string {_columnInput:2}
+                        string {_columnInput:1}
+                        string {_columnInput:2}
+                        errorMessage~ This instrument does not match the Instrument Type! Check again.
+
+            h3 PREPARED CONTAINERS
+            div
+              table
+                id= preparedConsumableResources
+                class= resourceTable stdTable
+                sqlPreparedQuery~
+                  - SELECT
+                  -   u.inventoryItem AS "Consumable",
+                  -   0 AS "Amount"
+                  - FROM inventoryUsage u
+                  -   INNER JOIN inventoryItems i ON u.inventoryItem = i.inventoryItem
+                  - WHERE u.step = ?
+                  -   AND i.inventoryType = 'Prepared Consumable'
+                  - UNION 
+                  - (SELECT '', 0
+                  - FROM dual
+                  - WHERE NOT EXISTS (
+                  -   SELECT 1 
+                  -   FROM inventoryUsage iu 
+                  -     INNER JOIN inventoryItems ii ON iu.inventoryItem = ii.inventoryItem
+                  -   WHERE iu.step = ? AND (ii.inventoryType = 'Prepared Consumable')))
+                  string {_step}
+                  string {_step}
+                columnSpecs~ preparedConsumableResources
+                  allowChangedRecordIds
+                  column 1
+                    inputType text
+                      class= type text resourceType preparedConsumable
+                      readonly=
+                      tabIndex= 3
+                      sqlPreparedStatement~ update inventoryItems
+                        - set quantity = quantity - CAST(? AS DECIMAL(10,2))
+                        - where inventoryItem = ?
+                        float {_columnInput:2}
+                        string {_columnInput:1}
+                  column 2
+                    inputType text
+                      class= text amount
+                      tabIndex= 2
+
+          div
+            id= masterMixAdditional
+            div
+              id= masterMixInstructionsDiv
+              class= hiddenOnLoad masterMixInstructions
+              h3 MASTER MIX INSTRUCTIONS
+
+          div
+            class= hiddenOnLoad
+            id= masterMixChangeDiv
+            span Master Mix amounts have changed. Check the Master Mix instructions for updated amounts.
+
+
+

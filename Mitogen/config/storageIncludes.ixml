@@ -1,0 +1,95 @@
+config
+  includes
+    includeable storageBoxLayoutAndProcessing
+
+      {_includeParm:boxType} coordinateBox
+        label~ Box Layout
+        cols {_includeParm:noCols}
+        rows {_includeParm:noRows}
+
+        sqlPreparedQuery~ SELECT location, content
+          - FROM storage WHERE storageContainerId = ?
+          string {_includeParm:boxId}
+
+        inputType container
+          class= storeInBox_position barcodeBackground
+          acceptQueue~ any
+          required~ false
+          # sqlPreparedStatement~ insert into queues (containerId, step, eventId)
+          #   - VALUES ('{_thisInput}','testingThings2', {_eventId})
+          # validate~ SELECT 1 FROM DUAL
+          #   - WHERE (? <> ''  AND EXISTS ( SELECT 1
+          #   -               FROM containers c
+          #   -               INNER JOIN validValues v
+          #   -               ON c.containerType = v.value
+          #   -               WHERE c.containerId = ?
+          #   -               AND v.setName = 'Allowed Container Types for Box Storage'))
+          #   - OR ? = ''
+          #   string {_thisInput}
+          #   string {_thisInput}
+          #   string {_thisInput}
+          #   errorMessage~ This container type cannot be stored in a box.
+          validate~ SELECT 1 FROM dual
+            - WHERE NOT EXISTS (SELECT 1
+            -                   FROM storage
+            -                   WHERE storageContainerId = ?
+            -                   AND location = ?
+            -                   AND content <> ?)
+            - OR ? = ''
+            string {_includeParm:boxId}
+            string {_thisInputAttribute}
+            string {_thisInput}
+            string {_thisInput}
+            errorMessage~ This position is already occupied by another sample. Please use the remove from storage task to empty it, or else choose another storage location.
+          validate~ ! SELECT 1
+            - FROM storage
+            - WHERE content = ?
+            - AND location <> ?
+            - AND storageContainerId <> ?
+            string {_thisInput}
+            string {_thisInputAttribute}
+            string {_includeParm:boxId}
+            errorMessage~ This item is already stored in a previous storage location. Please remove from original storage location before trying to store in new one.
+          if~
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1
+                -   FROM containers
+                -   WHERE containerId = ?
+                string {_includeParm:boxId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containers (containerId, containerType, eventId)
+              - SELECT ?, 'Storage Box', ? FROM dual WHERE NOT EXISTS (SELECT 1 FROM containers WHERE ? = containerId)
+              string {_includeParm:boxId}
+              long {_eventId}
+              string {_includeParm:boxId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_includeParm:boxId}
+              long {_eventId}
+
+          if~
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1
+                -   FROM storage
+                -   WHERE storageContainerId = ?
+                -   AND location = ?
+                -   AND content = ?
+                string {_includeParm:boxId}
+                string {_thisInputAttribute}
+                string {_thisInput}
+            sqlPreparedStatement~
+              - INSERT INTO storage (storageContainerId, location, contentType, content, eventId)
+              - SELECT ?, ?, containerType, containerId, ?
+              - FROM containers
+              - WHERE containerId = ?
+              string {_includeParm:boxId}
+              string {_thisInputAttribute}
+              long {_eventId}
+              string {_thisInput}
+            deleteQueue~ {_step}
+            deleteQueue~ Store

@@ -1,0 +1,12 @@
+
+/* Accordion CSS */
+
+.ui-accordion-header:hover {
+  background-color: #ccc;
+}
+
+.ui-accordion-content {
+  background-color: #f2f4f9 !important;
+  overflow: auto;
+  outline: none;
+}

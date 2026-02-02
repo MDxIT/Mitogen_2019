@@ -1,0 +1,662 @@
+<wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://www.geneinsight.com/fast/api/v1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="QueryService" targetNamespace="http://www.geneinsight.com/fast/api/v1">
+<wsdl:types>
+<xs:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://www.geneinsight.com/fast/api/v1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" elementFormDefault="unqualified" targetNamespace="http://www.geneinsight.com/fast/api/v1" version="1.0">
+<xs:element name="filterAnnotatedSampleDataVariants" type="tns:filterAnnotatedSampleDataVariants"/>
+<xs:element name="filterAnnotatedSampleDataVariantsResponse" type="tns:filterAnnotatedSampleDataVariantsResponse"/>
+<xs:element name="filterAnnotationDataVariants" type="tns:filterAnnotationDataVariants"/>
+<xs:element name="filterAnnotationDataVariantsResponse" type="tns:filterAnnotationDataVariantsResponse"/>
+<xs:element name="filterSampleDataVariants" type="tns:filterSampleDataVariants"/>
+<xs:element name="filterSampleDataVariantsResponse" type="tns:filterSampleDataVariantsResponse"/>
+<xs:element name="getAnnotationDataVariantByLocus" type="tns:getAnnotationDataVariantByLocus"/>
+<xs:element name="getAnnotationDataVariantByLocusResponse" type="tns:getAnnotationDataVariantByLocusResponse"/>
+<xs:element name="getAnnotationDataVariantByRelated" type="tns:getAnnotationDataVariantByRelated"/>
+<xs:element name="getAnnotationDataVariantByRelatedResponse" type="tns:getAnnotationDataVariantByRelatedResponse"/>
+<xs:element name="getFilter" type="tns:getFilter"/>
+<xs:element name="getFilterResponse" type="tns:getFilterResponse"/>
+<xs:element name="getSavedFilter" type="tns:getSavedFilter"/>
+<xs:element name="getSavedFilterResponse" type="tns:getSavedFilterResponse"/>
+<xs:element name="queryAnnotatedSampleDataVariants" type="tns:queryAnnotatedSampleDataVariants"/>
+<xs:element name="queryAnnotatedSampleDataVariantsResponse" type="tns:queryAnnotatedSampleDataVariantsResponse"/>
+<xs:element name="queryAnnotationDataVariants" type="tns:queryAnnotationDataVariants"/>
+<xs:element name="queryAnnotationDataVariantsResponse" type="tns:queryAnnotationDataVariantsResponse"/>
+<xs:element name="querySampleDataVariants" type="tns:querySampleDataVariants"/>
+<xs:element name="querySampleDataVariantsResponse" type="tns:querySampleDataVariantsResponse"/>
+<xs:complexType name="getSavedFilter">
+<xs:sequence>
+<xs:element minOccurs="0" name="savedFilterName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getSavedFilterResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="tns:filter"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filter">
+<xs:sequence>
+<xs:element minOccurs="0" name="nodes">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="node" type="tns:filterNode"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterNode">
+<xs:sequence>
+<xs:element minOccurs="0" name="type" type="tns:type"/>
+<xs:element minOccurs="0" name="childNodes">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="childNode" type="tns:filterNode"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element name="exclude" type="xs:boolean"/>
+<xs:element minOccurs="0" name="regionSetNames">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="regionSetName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="genomicRegions">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="genomicRegion" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="presentSampleDataLabels">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleDataLabel" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="absentSampleDataLabels">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleDataLabel" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="unknownSampleDataLabels">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleDataLabel" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="annotationName" type="xs:string"/>
+<xs:element minOccurs="0" name="sourceName" type="xs:string"/>
+<xs:element minOccurs="0" name="valueValidity" type="tns:validity"/>
+<xs:element minOccurs="0" name="timestampRanges">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="range" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="valueMatches">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="match" type="tns:filterNodeAnnotationFieldValueMatch"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterNodeAnnotationFieldValueMatch">
+<xs:sequence>
+<xs:element minOccurs="0" name="fieldName" type="xs:string"/>
+<xs:element minOccurs="0" name="valueMatches">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="valueMatch" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterAnnotatedSampleDataVariants">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="filter" type="tns:filter"/>
+<xs:element name="firstResult" type="xs:int"/>
+<xs:element name="maxResults" type="xs:int"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterAnnotatedSampleDataVariantsResponse">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="return" type="tns:annotatedSampleDataSequenceVariant"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="annotatedSampleDataSequenceVariant">
+<xs:complexContent>
+<xs:extension base="tns:sequenceVariant">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotationRecords">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="annotationRecord" type="tns:annotatedSampleDataAnnotationRecord"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="tags">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="tag" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="labStatuses">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="labStatus" type="tns:sampleDataLabStatus"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="sampleDataPresences">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleDataPresence" type="tns:sampleDataPresence"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="regions">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="region" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:extension>
+</xs:complexContent>
+</xs:complexType>
+<xs:complexType abstract="true" name="sequenceVariant">
+<xs:sequence>
+<xs:element minOccurs="0" name="loci">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="locus" type="tns:variantLocus"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element name="hasAlignmentError" type="xs:boolean"/>
+<xs:element minOccurs="0" name="alignmentError" type="xs:string"/>
+<xs:element minOccurs="0" name="comments">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="comment" type="tns:comment"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="annotatedSampleDataAnnotationRecord">
+<xs:complexContent>
+<xs:extension base="tns:annotationRecord">
+<xs:sequence>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+</xs:sequence>
+</xs:extension>
+</xs:complexContent>
+</xs:complexType>
+<xs:complexType name="annotationRecord">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotationName" type="xs:string"/>
+<xs:element minOccurs="0" name="sourceName" type="xs:string"/>
+<xs:element minOccurs="0" name="sourceVersion" type="xs:string"/>
+<xs:element minOccurs="0" name="valueTimestamp" type="xs:dateTime"/>
+<xs:element name="hasValidationError" type="xs:boolean"/>
+<xs:element minOccurs="0" name="validationError" type="xs:string"/>
+<xs:element minOccurs="0" name="geneSymbol" type="xs:string"/>
+<xs:element minOccurs="0" name="geneIds">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="geneId" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="transcriptName" type="xs:string"/>
+<xs:element minOccurs="0" name="transcriptIds">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="transcriptId" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="fieldValues">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="fieldValue" type="tns:annotationFieldValue"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="annotationFieldValue">
+<xs:sequence>
+<xs:element name="fieldIndex" type="xs:int"/>
+<xs:element minOccurs="0" name="fieldName" type="xs:string"/>
+<xs:element minOccurs="0" name="dataType" type="tns:dataType"/>
+<xs:element minOccurs="0" name="fieldValue" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="sampleDataLabStatus">
+<xs:sequence>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="labStatus" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="sampleDataPresence">
+<xs:sequence>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="presence" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="variantLocus">
+<xs:sequence>
+<xs:element minOccurs="0" name="build" type="xs:string"/>
+<xs:element minOccurs="0" name="chr" type="xs:string"/>
+<xs:element name="start" type="xs:int"/>
+<xs:element name="end" type="xs:int"/>
+<xs:element minOccurs="0" name="ref" type="xs:string"/>
+<xs:element minOccurs="0" name="alt" type="xs:string"/>
+<xs:element minOccurs="0" name="upstr" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="comment">
+<xs:sequence>
+<xs:element minOccurs="0" name="commentText" type="xs:string"/>
+<xs:element minOccurs="0" name="commentAuthorName" type="xs:string"/>
+<xs:element minOccurs="0" name="commentAuthorId" type="xs:string"/>
+<xs:element minOccurs="0" name="commentTimeStamp" type="xs:dateTime"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="querySampleDataVariants">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="esSearchJSON" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="querySampleDataVariantsResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getFilter">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getFilterResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="tns:filter"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="queryAnnotationDataVariants">
+<xs:sequence>
+<xs:element minOccurs="0" name="esSearchJSON" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="queryAnnotationDataVariantsResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterAnnotationDataVariants">
+<xs:sequence>
+<xs:element minOccurs="0" name="filter" type="tns:filter"/>
+<xs:element name="firstResult" type="xs:int"/>
+<xs:element name="maxResults" type="xs:int"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterAnnotationDataVariantsResponse">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="return" type="tns:annotationDataSequenceVariant"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="annotationDataSequenceVariant">
+<xs:complexContent>
+<xs:extension base="tns:sequenceVariant">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotationRecords">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="annotationRecord" type="tns:annotationRecord"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="relatedIdentifiers">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="related" type="tns:annotationDataSequenceVariantRelatedIdentifier"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+</xs:sequence>
+</xs:extension>
+</xs:complexContent>
+</xs:complexType>
+<xs:complexType name="annotationDataSequenceVariantRelatedIdentifier">
+<xs:sequence>
+<xs:element minOccurs="0" name="system" type="xs:string"/>
+<xs:element minOccurs="0" name="identifier" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterSampleDataVariants">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="filter" type="tns:filter"/>
+<xs:element name="firstResult" type="xs:int"/>
+<xs:element name="maxResults" type="xs:int"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="filterSampleDataVariantsResponse">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="return" type="tns:sampleDataSequenceVariant"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="sampleDataSequenceVariant">
+<xs:complexContent>
+<xs:extension base="tns:sequenceVariant">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotationRecords">
+<xs:complexType>
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="annotationRecord" type="tns:annotationRecord"/>
+</xs:sequence>
+</xs:complexType>
+</xs:element>
+<xs:element minOccurs="0" name="labStatus" type="xs:string"/>
+</xs:sequence>
+</xs:extension>
+</xs:complexContent>
+</xs:complexType>
+<xs:complexType name="getAnnotationDataVariantByLocus">
+<xs:sequence>
+<xs:element minOccurs="0" name="variantLocus" type="tns:variantLocus"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getAnnotationDataVariantByLocusResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="tns:annotationDataSequenceVariant"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getAnnotationDataVariantByRelated">
+<xs:sequence>
+<xs:element minOccurs="0" name="system" type="xs:string"/>
+<xs:element minOccurs="0" name="identifier" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getAnnotationDataVariantByRelatedResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="tns:annotationDataSequenceVariant"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="queryAnnotatedSampleDataVariants">
+<xs:sequence>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="esSearchJSON" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="queryAnnotatedSampleDataVariantsResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:simpleType name="type">
+<xs:restriction base="xs:string">
+<xs:enumeration value="REGION"/>
+<xs:enumeration value="SAMPLE_DATA"/>
+<xs:enumeration value="ANNOTATION"/>
+</xs:restriction>
+</xs:simpleType>
+<xs:simpleType name="validity">
+<xs:restriction base="xs:string">
+<xs:enumeration value="ANY"/>
+<xs:enumeration value="NOT_VALIDATED"/>
+<xs:enumeration value="VALID"/>
+<xs:enumeration value="NOT_VALID"/>
+</xs:restriction>
+</xs:simpleType>
+<xs:simpleType name="dataType">
+<xs:restriction base="xs:string">
+<xs:enumeration value="STRING"/>
+<xs:enumeration value="NUMBER"/>
+<xs:enumeration value="BOOLEAN"/>
+<xs:enumeration value="DATE"/>
+<xs:enumeration value="TEXT"/>
+</xs:restriction>
+</xs:simpleType>
+</xs:schema>
+</wsdl:types>
+<wsdl:message name="getAnnotationDataVariantByRelated">
+<wsdl:part element="tns:getAnnotationDataVariantByRelated" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="filterAnnotatedSampleDataVariantsResponse">
+<wsdl:part element="tns:filterAnnotatedSampleDataVariantsResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="filterSampleDataVariantsResponse">
+<wsdl:part element="tns:filterSampleDataVariantsResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="queryAnnotatedSampleDataVariantsResponse">
+<wsdl:part element="tns:queryAnnotatedSampleDataVariantsResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getFilter">
+<wsdl:part element="tns:getFilter" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="filterAnnotationDataVariantsResponse">
+<wsdl:part element="tns:filterAnnotationDataVariantsResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="queryAnnotatedSampleDataVariants">
+<wsdl:part element="tns:queryAnnotatedSampleDataVariants" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="queryAnnotationDataVariants">
+<wsdl:part element="tns:queryAnnotationDataVariants" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getAnnotationDataVariantByLocusResponse">
+<wsdl:part element="tns:getAnnotationDataVariantByLocusResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="filterAnnotatedSampleDataVariants">
+<wsdl:part element="tns:filterAnnotatedSampleDataVariants" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getSavedFilterResponse">
+<wsdl:part element="tns:getSavedFilterResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getAnnotationDataVariantByLocus">
+<wsdl:part element="tns:getAnnotationDataVariantByLocus" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getAnnotationDataVariantByRelatedResponse">
+<wsdl:part element="tns:getAnnotationDataVariantByRelatedResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="queryAnnotationDataVariantsResponse">
+<wsdl:part element="tns:queryAnnotationDataVariantsResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="querySampleDataVariantsResponse">
+<wsdl:part element="tns:querySampleDataVariantsResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="filterAnnotationDataVariants">
+<wsdl:part element="tns:filterAnnotationDataVariants" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="filterSampleDataVariants">
+<wsdl:part element="tns:filterSampleDataVariants" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getFilterResponse">
+<wsdl:part element="tns:getFilterResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getSavedFilter">
+<wsdl:part element="tns:getSavedFilter" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="querySampleDataVariants">
+<wsdl:part element="tns:querySampleDataVariants" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:portType name="Query">
+<wsdl:operation name="getSavedFilter">
+<wsdl:input message="tns:getSavedFilter" name="getSavedFilter"></wsdl:input>
+<wsdl:output message="tns:getSavedFilterResponse" name="getSavedFilterResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="filterAnnotatedSampleDataVariants">
+<wsdl:input message="tns:filterAnnotatedSampleDataVariants" name="filterAnnotatedSampleDataVariants"></wsdl:input>
+<wsdl:output message="tns:filterAnnotatedSampleDataVariantsResponse" name="filterAnnotatedSampleDataVariantsResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="querySampleDataVariants">
+<wsdl:input message="tns:querySampleDataVariants" name="querySampleDataVariants"></wsdl:input>
+<wsdl:output message="tns:querySampleDataVariantsResponse" name="querySampleDataVariantsResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getFilter">
+<wsdl:input message="tns:getFilter" name="getFilter"></wsdl:input>
+<wsdl:output message="tns:getFilterResponse" name="getFilterResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="queryAnnotationDataVariants">
+<wsdl:input message="tns:queryAnnotationDataVariants" name="queryAnnotationDataVariants"></wsdl:input>
+<wsdl:output message="tns:queryAnnotationDataVariantsResponse" name="queryAnnotationDataVariantsResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="filterAnnotationDataVariants">
+<wsdl:input message="tns:filterAnnotationDataVariants" name="filterAnnotationDataVariants"></wsdl:input>
+<wsdl:output message="tns:filterAnnotationDataVariantsResponse" name="filterAnnotationDataVariantsResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="filterSampleDataVariants">
+<wsdl:input message="tns:filterSampleDataVariants" name="filterSampleDataVariants"></wsdl:input>
+<wsdl:output message="tns:filterSampleDataVariantsResponse" name="filterSampleDataVariantsResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getAnnotationDataVariantByLocus">
+<wsdl:input message="tns:getAnnotationDataVariantByLocus" name="getAnnotationDataVariantByLocus"></wsdl:input>
+<wsdl:output message="tns:getAnnotationDataVariantByLocusResponse" name="getAnnotationDataVariantByLocusResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getAnnotationDataVariantByRelated">
+<wsdl:input message="tns:getAnnotationDataVariantByRelated" name="getAnnotationDataVariantByRelated"></wsdl:input>
+<wsdl:output message="tns:getAnnotationDataVariantByRelatedResponse" name="getAnnotationDataVariantByRelatedResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="queryAnnotatedSampleDataVariants">
+<wsdl:input message="tns:queryAnnotatedSampleDataVariants" name="queryAnnotatedSampleDataVariants"></wsdl:input>
+<wsdl:output message="tns:queryAnnotatedSampleDataVariantsResponse" name="queryAnnotatedSampleDataVariantsResponse"></wsdl:output>
+</wsdl:operation>
+</wsdl:portType>
+<wsdl:binding name="QueryServiceSoapBinding" type="tns:Query">
+<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+<wsdl:operation name="getSavedFilter">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="getSavedFilter">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="getSavedFilterResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="filterAnnotatedSampleDataVariants">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="filterAnnotatedSampleDataVariants">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="filterAnnotatedSampleDataVariantsResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="querySampleDataVariants">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="querySampleDataVariants">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="querySampleDataVariantsResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getFilter">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="getFilter">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="getFilterResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="queryAnnotationDataVariants">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="queryAnnotationDataVariants">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="queryAnnotationDataVariantsResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="filterAnnotationDataVariants">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="filterAnnotationDataVariants">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="filterAnnotationDataVariantsResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="filterSampleDataVariants">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="filterSampleDataVariants">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="filterSampleDataVariantsResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getAnnotationDataVariantByLocus">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="getAnnotationDataVariantByLocus">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="getAnnotationDataVariantByLocusResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getAnnotationDataVariantByRelated">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="getAnnotationDataVariantByRelated">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="getAnnotationDataVariantByRelatedResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="queryAnnotatedSampleDataVariants">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="queryAnnotatedSampleDataVariants">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="queryAnnotatedSampleDataVariantsResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+</wsdl:binding>
+<wsdl:service name="QueryService">
+<wsdl:port binding="tns:QueryServiceSoapBinding" name="QueryPort">
+<soap:address location="https://chw-fast-test.geneinsight.com/fast/api/v1/ws/QueryService"/>
+</wsdl:port>
+</wsdl:service>
+<wsp:Policy wsu:Id="UsernameUnsecureTransportPolicy">
+<wsp:ExactlyOne>
+<wsp:All>
+<sp:SupportingTokens xmlns:sp="http://docs.oasis-open.org/ws-sx/ws-securitypolicy/200702">
+<wsp:Policy>
+<sp:UsernameToken sp:IncludeToken="http://docs.oasis-open.org/ws-sx/ws-securitypolicy/200702/IncludeToken/AlwaysToRecipient">
+<wsp:Policy>
+<sp:WssUsernameToken10/>
+</wsp:Policy>
+</sp:UsernameToken>
+</wsp:Policy>
+</sp:SupportingTokens>
+</wsp:All>
+</wsp:ExactlyOne>
+</wsp:Policy>
+</wsdl:definitions>

@@ -1,0 +1,152 @@
+    step [$$STEP_NAME$$]
+      jsScripts
+        src js/FISHUploadImages.js
+      form
+        include stepInstructions
+        include fishForm0
+          parameter~ nameOfStep
+            value= {_step}
+
+      form
+        ENCTYPE= multipart/form-data
+        data-parsley-validate= true
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   currentContainerId as 'specimen'
+          - FROM specimenRuns s
+          -   INNER JOIN queues q on s.runId = q.containerId
+          - WHERE runId = ?
+          string {_recId}
+
+        hidden _recId
+          value= {_recId}
+        hidden runId
+          id= runId
+          value= {_recId}
+        hidden specimenId
+          value= {_:specimen}
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Upload Images for: {_:specimen}
+
+          div
+            class= horizontalFlex
+            div
+              class= verticalFlex
+              label Probe:
+              select selectedProbe
+                id= selectedProbe
+                data-parsley-required= true
+                option
+                class= required
+                sqlPreparedQuery~
+                  - SELECT DISTINCT
+                  -   probeName
+                  - FROM fishCaseResults
+                  - WHERE runId = ?
+                  - ORDER BY probeName
+                  string {_recId}
+
+              label Slide Name & Cell Label:
+              select slideNameSlideLabel
+                id= slideNameSlideLabel
+                data-parsley-required= true
+                option
+                class= required
+
+              label Files
+              files fishImageFile
+                required~ false
+                screenLabel~
+                destinationFolderName~ images/FISHImages/{_eventId}
+                multiple=
+                containerId~ {specimenId}
+                fileType~ FISH IMAGES
+
+          div
+            label Select before clicking Submit to add more images to this sample.
+            vertical
+              checkbox keepOnQueue
+                id= keepOnQueue
+                value= true
+                screenLabel~
+          br
+
+      ifCondition {selectedProbe}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - UPDATE specimenRuns
+          - SET lastUpdatedEventId = ?
+          - WHERE runId = ?
+          long {_eventId}
+          string {runId}
+
+        sqlPreparedStatement
+          - INSERT INTO containerHistory(containerId,eventId)
+          - VALUES(?,?)
+          string {runId}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO fishImages(fishCaseResultsId,fileName,location,eventId)
+          - SELECT ?,fileName,location,eventId
+          - FROM containerFiles
+          - WHERE containerId = ?
+          - AND fileType = ?
+          - AND eventId = ?
+          string {slideNameSlideLabel}
+          string {specimenId}
+          string FISH IMAGES
+          long {_eventId}
+
+        forEach SELECT fileName FROM fishImages WHERE eventId = ?
+          long {_eventId}
+
+          validateSql SELECT 1 FROM fishImages WHERE SUBSTRING_INDEX(?, ".", -1) IN ('png', 'jpg') AND eventId = ?
+            string {_:fileName}
+            long {_eventId}
+            errorMessage This is the incorrect file type. Please attach a .png or .jpg file.
+
+        sqlPreparedStatement DELETE FROM containerFiles WHERE eventId = ?
+          long {_eventId}
+
+      ifCondition {keepOnQueue}
+        advanced~
+        equals~ false
+        include routeContainer
+          parameter~ processContainerId
+            value= {runId}
+          parameter~ result
+            value=
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= [$$NEXT_STEP$$]
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= run
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+      setFormQueryResult
+        sqlPreparedQuery
+          -  SELECT
+          -   CASE
+          -     WHEN ? = 'true' THEN 1
+          -     ELSE 0
+          -   END AS "formNumber"
+          string {keepOnQueue}
+
+      nextStep {_step}
+        formNumber {_:formNumber}
+        recId {runId}
+

@@ -1,0 +1,738 @@
+    step [$$STEP_NAME$$]
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/nextStepPopup.js
+        src js/exceptionHandling.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link /css/exceptionHandling.css
+
+      form
+        data-parsley-validate=
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= hiddenSelects
+
+          select hiddenProtocolSelected
+            id= protocolSelected
+            screenLabel~ Protocol
+            option
+            sqlPreparedQuery~ SELECT pl.protocolName, pl.protocolName FROM protocolLibrary pl
+
+          select
+            id= hiddenActionOptionsSamples
+            setName~ exceptionHandling
+            required~ false
+
+          select
+            id= hiddenActionOptionsGroup
+            setName~ exceptionHandlingGroup
+            required~ false
+
+
+        div
+          id= errorBox
+        div
+          id= modal
+
+        ## table to display specimens
+        div
+          id= table_filters
+          class= horizontalFlex table_filters
+          div
+            class= horizontalFlex
+            label Panel
+              for= panelFilter
+            select panelFilter
+              placeholder= Filter
+              id= panelFilter
+              class= panelFilter newFilter
+              option
+              required~ false
+
+          div
+            class= horizontalFlex
+            label Step Queued From
+              for= stepQueuedFromFilter
+            select stepQueuedFromFilter
+              placeholder= Filter
+              id= stepQueuedFromFilter
+              class= stepQueuedFromFilter newFilter
+              option
+              required~ false
+
+        hidden exceptionHandlingTableCheckAllAction
+          id= exceptionHandlingTableCheckAllAction
+
+        fieldSet
+          table
+            id= exceptionHandlingTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS '<input type="checkbox" class="exceptionHandlingTableCheckAll" value="false" tabindex="1"> Select All',
+              -   CONCAT('<span style=display:none; class= queuedContainerId >',runId,'</span>' '<a href="/uniflow?lastForm=Y&stepName={_step}&recId=',runId,'" class= containerId >',currentContainerId,'</a>' ) AS 'Specimen ID',
+              -   CONCAT('<span class="panels">',GROUP_CONCAT(DISTINCT p.name),'</span>') AS "Panel(s)",
+              -   CONCAT('<span class="stepQueuedFrom">',ifNull(e.step,''),'</span>') AS 'Step Queued From',
+              -   '' AS 'Action',
+              -   '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+              -   '' AS 'Comment',
+              -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+              -   "run" AS "Hidden"
+              - FROM queues q
+              -   INNER JOIN events e on q.eventId = e.eventId
+              -   INNER JOIN specimenRuns sr ON q.containerId = sr.runId
+              -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+              -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.Id
+              -   INNER JOIN containers c ON q.containerId = c.containerId
+              -   LEFT JOIN panels p ON sm.panelCode = p.panelCode
+              -   LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+              - WHERE q.step = ?
+              - GROUP BY q.containerId
+              string {_step}
+            columnSpecs~ exceptionHandlingTable
+              allowChangedRecordIds
+              column 1
+                data-orderable= false
+                inputType checkbox
+                  class= eHIncludeCkbx
+              column 5
+                inputType select
+                  class= selectAction
+                  setName~ exceptionHandling
+                  required~ false
+              column 7
+                inputType textArea
+                  class= enteredComment
+              column 9
+                inputType text
+                  class= hideColumn handlingType
+
+
+        ## table to display groupingContainers
+        div
+          id= table_filtersGrpContainers
+          class= horizontalFlex table_filters
+          div
+            class= horizontalFlex
+            label Step Queued From
+              for= stepQueuedFromFilterGrpContainer
+            select stepQueuedFromFilterGrpContainer
+              placeholder= Filter
+              id= stepQueuedFromFilterGrpContainer
+              class= stepQueuedFromFilterGrpContainer newFilter
+              option
+              required~ false
+
+        hidden exceptionHandlingTableGrpContainerCheckAllAction
+          id= exceptionHandlingTableGrpContainerCheckAllAction
+
+        fieldSet
+          table
+            id= exceptionHandlingTableGrpContainer
+            sqlPreparedQuery~
+              -  SELECT
+              -     '' AS '<input type="checkbox" class="exceptionHandlingTableGrpContainerCheckAll" value="false" tabindex="1"> Select All',
+              -     CONCAT('<span style=display:none; class= queuedContainerId >',q.containerId,'</span>' '<a href="/uniflow?lastForm=Y&stepName={_step}&recId=',q.containerId,'" class= containerId >',CASE WHEN co.containerType = 'poolRunId' THEN pr.currentContainerId ELSE q.containerId END,'</a>' ) AS 'Grouping Container ID',
+              -     ifNULL(vv.displayValue,'') AS 'Priority',
+              -     CONCAT('<span class="stepQueuedFromGrpContainer">',ifNull(e.step,''),'</span>') AS 'Step Queued From',
+              -     '' AS 'Action',
+              -     '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+              -     '' AS 'Comment',
+              -     GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+              -     "group" AS "Hidden",
+              -     co.containerType AS 'Hidden',
+              -     CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END AS 'Hidden'
+              # -     CONCAT('<span class="poolRunParentId">',CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END,'</span>') AS 'Hidden'
+              -   FROM queues q
+              -     INNER JOIN events e on q.eventId = e.eventId
+              -     INNER JOIN contents c ON q.containerId = c.containerId
+              -     INNER JOIN containers co ON. q.containerId = co.containerId
+              -     LEFT JOIN containerProperties cp ON q.containerId = cp.containerId
+              -       AND cp.property = 'Container Priority'
+              -     LEFT JOIN validValues vv ON cp.value = vv.value
+              -       AND vv.setName = 'priority'
+              -     LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+              -     LEFT JOIN poolRuns pr ON q.containerId = pr.poolRunId
+              -     LEFT JOIN poolRuns pr2 ON pr.currentContainerId = pr2.currentParentId
+              -   WHERE q.step = ?
+              -     AND co.containerType <> 'runId'
+              -     AND co.containerType <> 'specimenId'
+              -   GROUP BY q.containerId
+              string {_step}
+            columnSpecs~ exceptionHandlingTable
+              allowChangedRecordIds
+              column 1
+                data-orderable= false
+                inputType checkbox
+                  class= eHIncludeCkbx
+              column 5
+                inputType select
+                  class= selectAction
+                  setName~ exceptionHandlingGroup
+                  required~ false
+              column 7
+                inputType textArea
+                  class= enteredComment
+              column 9
+                inputType text
+                  class= hideColumn handlingType
+              column 10
+                inputType text
+                  class= hideColumn
+              column 11
+                inputType text
+                  class= hideColumn poolRunParentId
+
+                ### submit button will need to be a post
+
+
+        button Submit
+          id= submitbutton
+      form
+        data-parsley-validate=
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT
+          -   CASE
+          -     WHEN containerType = 'runId' THEN 'specimenId'
+          -     WHEN containerType = 'poolRunId' THEN 'poolTube'
+          -     ELSE 'groupingContainer' END AS 'containerType'
+          - FROM containers
+          -  WHERE containerId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   currentContainerId
+          - FROM specimenRuns
+          - WHERE runId = ?
+          string {_recId}
+          allowEmptyResults~
+
+
+        configurePreparedQuery~
+          -  SELECT
+          -    patientId,
+          -   c1.content AS 'requestId'
+          -  FROM contents c
+          -  INNER JOIN contents c1 ON c.containerId = c1.containerId
+          -     AND c1.contentType = 'requestId'
+          -  INNER JOIN requestForms rf ON c1.content = rf.requestId
+          -  WHERE c.content = ?
+          -   AND c.attribute = 'run'
+          string {_recId}
+          allowEmptyResults~
+
+        hidden recId
+          id= queuedContainerId
+          value= {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= hiddenSelects
+
+          select hiddenProtocolSelected
+            id= protocolSelected
+            screenLabel~ Protocol
+            option
+            required~ false
+            sqlPreparedQuery~ SELECT pl.protocolName, pl.protocolName FROM protocolLibrary pl
+
+          select
+            id= hiddenActionOptionsSamples
+            setName~ exceptionHandling
+            required~ false
+
+          select
+            id= hiddenActionOptionsGroup
+            setName~ exceptionHandlingGroup
+            required~ false
+
+
+        div
+          id= errorBox
+        div
+          id= modal
+
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= verticalFlex
+          div
+            class= horizontalFlex
+            include orderCardFull
+              parameter~ requestId
+                value= {_:requestId}
+            include halfPatientCard
+              parameter~ patientId
+                value= {_:patientId}
+          div
+            include runCard
+              parameter~ runId
+                value= {_recId}
+
+        div
+          class= expand
+          span <i class="far fa-plus-square"></i> Expand All
+            class= expandAll
+          span &nbsp &nbsp &nbsp
+          span <i class="far fa-minus-square"></i> Collapse All
+            class= collapseAll
+        br
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= pageSection
+          div
+            class= sectionTitle
+            span Specimen Details
+          div
+            class= sectionContent verticalFlex
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   e.userId AS "Queued By",
+                -   DATE(e.eventDate) AS "Queued On",
+                -   e.step AS "Queued From",
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+                - FROM queues q
+                -   INNER JOIN events e ON q.eventId = e.eventId
+                -   LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+                - WHERE q.containerId = ?
+                -   AND q.step = ?
+                string {_recId}
+                string {_step}
+              columnSpecs~ specimenDetails
+                allowChangedRecordIds
+                column 2
+                  formatDate~
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= pageSection
+          div
+            class= sectionTitle
+            span Retest Options
+          div
+            class= sectionContent verticalFlex
+            span Selected Specimen
+            table
+              id= individualSpecimenAction
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   '' AS 'Select',
+                -   CONCAT('<span style=display:none; class= queuedContainerId >',sr.runId,'</span>' '<span class="containerId">',sr.currentContainerId,'</span>') AS 'Specimen ID',
+                -   DATE(rs.receivedDate) AS 'Date Received',
+                -   rs.specimenType AS 'Specimen Type',
+                -   rs.specimenCondition AS 'Received Condition',
+                -   '' AS 'Action',
+                -   '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -   '' AS 'Comment',
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -   "run" AS "Hidden"
+                -  FROM contents c
+                -   INNER JOIN contents c1 ON c.containerId = c1.containerId AND c1.contentType = 'requestId'
+                -   INNER JOIN specimenRuns sr ON c.containerId = sr.currentContainerId
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -   LEFT JOIN containerNotes cn ON sr.runId = cn.containerId
+                -  WHERE c.content = ?
+                -   AND c.contentType = 'runId'
+                -  GROUP BY c.content
+                string {_recId}
+              columnSpecs~ individualSpecimenAction
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    class= eHIncludeCkbx
+                column 3
+                  formatDate~
+                column 6
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandling
+                    required~ false
+                column 8
+                  inputType textArea
+                    class= enteredComment
+                column 10
+                  inputType text
+                    class= hideColumn handlingType
+          br
+          div
+            class= sectionContent verticalFlex
+            span Linked Specimen - Action Available
+            table
+              id= associatedSpecimenActionAvailable
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   '' AS 'Select',
+                -   CONCAT('<span style=display:none; class= queuedContainerId >',sr.runId,'</span>' '<span class="containerId">',c2.containerId,'</span>') AS 'Specimen ID',
+                -   DATE(rs.receivedDate) AS 'Date Received',
+                -   rs.specimenType AS 'Specimen Type',
+                -   rs.specimenCondition AS 'Received Condition',
+                -   '' AS 'Action',
+                -   '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -   '' AS 'Comment',
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -   "run" AS "Hidden"
+                -  FROM contents c
+                -   INNER JOIN contents c1 ON c.containerId = c1.containerId AND c1.contentType = 'requestId'
+                -   INNER JOIN contents c2 ON c1.content = c2.content AND c2.contentType = 'requestId'
+                -   INNER JOIN specimenRuns sr ON c2.containerId = sr.currentContainerId
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -   LEFT JOIN containerNotes cn ON sr.runId = cn.containerId
+                -  WHERE c.content = ?
+                -    AND c.contentType = 'runId'
+                -    AND sr.runId <>  ?
+                -    AND sm.status = 'Complete'
+                -    AND completedResult NOT IN ('Discarded','Storage','fail')
+                - GROUP BY c2.containerId
+                string {_recId}
+                string {_recId}
+              columnSpecs~ associatedSpecimenActionAvailable
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    class= selectedLinkedSpecimens eHIncludeCkbx
+                column 3
+                  formatDate~
+                column 6
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandling
+                    required~ false
+                column 8
+                  inputType textArea
+                    class= enteredComment
+                column 10
+                  inputType text
+                    class= hideColumn handlingType
+
+          br
+          div
+            class= sectionContent verticalFlex
+            span Linked Specimens - Action Not Available
+            table
+              id= associatedSpecimensActionNotAvailable
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   c2.containerId AS 'Specimen ID',
+                -   DATE(rs.receivedDate) AS 'Date Received',
+                -   rs.specimenType AS 'Specimen Type',
+                -   rs.specimenCondition AS 'Received Condition',
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History'
+                -  FROM contents c
+                -   INNER JOIN contents c1 ON c.containerId = c1.containerId AND c1.contentType = 'requestId'
+                -   INNER JOIN contents c2 ON c1.content = c2.content AND c2.contentType = 'requestId'
+                -   INNER JOIN specimenRuns sr ON c2.containerId = sr.currentContainerId
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -   LEFT JOIN containerNotes cn ON sr.runId = cn.containerId
+                -  WHERE c.content = ?
+                -   AND c.contentType = 'runId'
+                -   AND sr.runId <>  ?
+                -   AND sm.status = 'In Process'
+                -  GROUP BY c2.containerId
+                string {_recId}
+                string {_recId}
+
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ specimenId
+          class= pageSection
+          div
+            class= sectionTitle
+            span Processing History
+          div
+            class= sectionContent  verticalFlex
+            include AuditTrail
+              parameter~ specimenId
+                value= {_:currentContainerId}
+
+        ## Grouping Containers
+
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ groupingContainer
+            or~
+              equals~ poolTube
+          class= pageSection
+          div
+            class= sectionTitle
+            span Grouping Container Details
+          div
+            class= sectionContent verticalFlex
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   e.userId AS "Queued By",
+                -   DATE(e.eventDate) AS "Queued On",
+                -   e.step AS "Queued From",
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+                - FROM queues q
+                -   INNER JOIN events e ON q.eventId = e.eventId
+                -   LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+                - WHERE q.containerId = ?
+                -   AND q.step = ?
+                string {_recId}
+                string {_step}
+              columnSpecs~ specimenDetails
+                allowChangedRecordIds
+                column 2
+                  formatDate~
+        div
+          configureIf~ {_:containerType}
+            advanced~
+            equals~ groupingContainer
+            or~
+              equals~ poolTube
+          class= pageSection
+          div
+            class= sectionTitle
+            span Retest Options
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+            class= sectionContent verticalFlex
+            span Associated Specimens
+            table
+              id= associatedSpecimens
+              sqlPreparedQuery~
+                - SELECT
+                -   sr.currentContainerId AS 'Specimen ID',
+                -   rs.requestId AS 'Order ID',
+                -   rf.mrn AS 'MRN',
+                -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS 'Patient Name',
+                -   DATE(dob) AS 'DOB',
+                -   rs.specimenType AS 'Specimen Type',
+                -   GROUP_CONCAT(DISTINCT p.name) AS "Panel(s)"
+                -  FROM specimenRuns sr
+                -   INNER JOIN contents c ON sr.currentContainerId = c.containerId AND c.contentType = 'specimenId'
+                -   INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -   INNER JOIN requestSpecimens rs ON c.content = rs.specimenId
+                -   INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+                -   INNER JOIN patients pa ON rs.patientId = pa.patientId
+                -   LEFT JOIN panels p ON sm.panelCode = p.panelCode
+                -  WHERE sr.currentParentId = ?
+                -  GROUP BY sr.currentContainerId
+                -  UNION ALL
+                -  SELECT
+                -    pr.currentContainerId AS 'Specimen ID',
+                -    '' AS 'Order ID',
+                -    '' AS 'MRN',
+                -    '' AS 'Patient Name',
+                -    '' AS 'DOB',
+                -    '' AS 'Specimen Type',
+                -    '' AS "Panel(s)"
+                -  FROM poolRuns pr
+                -   INNER JOIN contents c ON pr.currentContainerId = c.content  AND c.contentType = 'poolTubeId'
+                -  WHERE pr.currentParentId = ?
+                -  GROUP BY pr.currentContainerId
+                string {_recId}
+                string {_recId}
+              columnSpecs~ associatedSpecimens
+                allowChangedRecordIds
+                column 5
+                  formatDate~
+
+          br
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+            class= sectionContent verticalFlex
+            span Associated Controls
+            table
+              id= associatedSpecimens
+              sqlPreparedQuery~
+                - SELECT
+                -   ifnull(cr.currentParentPosition, '') AS "Order",
+                -   cr.currentContainerId AS "Tube ID",
+                -   c.controlType AS "Control Type",
+                -   cr.controlId AS "Control ID",
+                -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "Comment History"
+                - FROM controlRuns cr
+                -   INNER JOIN controls c ON cr.controlId = c.controlId
+                -   LEFT JOIN containerNotes cn ON cn.containerId = cr.controlRunId
+                - WHERE cr.currentParentId = ?
+                - GROUP BY cr.controlRunId
+                string {_recId}
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ poolTube
+            class= sectionContent verticalFlex
+            span Specimens In Pool Tube
+            table
+              id= poolSpecimens
+              sqlPreparedQuery~
+                - SELECT
+                -   c.content AS 'Specimen ID',
+                -   rs.requestId AS 'Order ID',
+                -   rf.mrn AS 'MRN',
+                -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS 'Patient Name',
+                -   DATE(dob) AS 'DOB',
+                -   rs.specimenType AS 'Specimen Type',
+                -   GROUP_CONCAT(DISTINCT p.name) AS "Panel(s)"
+                - FROM contents c
+                -  INNER JOIN contents c1 ON c1.containerId = c.content AND c1.contentType = 'requestId'
+                -  INNER JOIN specimenRuns sr ON c1.containerId = sr.currentContainerId
+                -  INNER JOIN specimenMethods sm ON sr.specimenMethodsId = sm.id
+                -  INNER JOIN requestSpecimens rs ON sm.requestSpecimensId = rs.id
+                -  INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+                -  INNER JOIN patients pa ON rs.patientId = pa.patientId
+                -  LEFT JOIN panels p ON sm.panelCode = p.panelCode
+                - WHERE c.containerId = ?
+                - GROUP BY c.content
+                string {_recId}
+              columnSpecs~ associatedSpecimens
+                allowChangedRecordIds
+                column 5
+                  formatDate~
+
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+              or~
+                equals~ poolTube
+            class= sectionContent verticalFlex
+            span Selected Grouping Container
+            table
+              id= selectedGroupingContainerAction
+              sqlPreparedQuery~
+                -  SELECT
+                -     '' AS 'Select',
+                -     CONCAT('<span style=display:none; class= queuedContainerId >',q.containerId,'</span>' '<span class="containerId">',CASE WHEN co.containerType = 'poolRunId' THEN pr.currentContainerId ELSE q.containerId END,'</span>') AS 'Grouping Container ID',
+                -     ifNULL(vv.displayValue,'') AS 'Priority',
+                -     '' AS 'Action',
+                -     '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -     '' AS 'Comment',
+                -     GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -     "group" AS "Hidden",
+                -     co.containerType AS 'Hidden',
+                -     CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END AS 'Hidden'
+
+                # -     CONCAT('<span class="poolRunParentId">',CASE WHEN co.containerType = 'poolRunId' THEN ifNull(pr2.currentParentId,'') ELSE '' END,'</span>') AS 'Hidden'
+                -   FROM queues q
+                -     INNER JOIN events e on q.eventId = e.eventId
+                -     INNER JOIN contents c ON q.containerId = c.containerId
+                -     INNER JOIN containers co ON. q.containerId = co.containerId
+                -     LEFT JOIN containerProperties cp ON q.containerId = cp.containerId
+                -       AND cp.property = 'Container Priority'
+                -     LEFT JOIN validValues vv ON cp.value = vv.value
+                -       AND vv.setName = 'priority'
+                -     LEFT JOIN containerNotes cn ON q.containerId = cn.containerId
+                -     LEFT JOIN poolRuns pr ON q.containerId = pr.poolRunId
+                -     LEFT JOIN poolRuns pr2 ON pr.currentContainerId = pr2.currentParentId
+                -   WHERE q.step = ?
+                -     AND q.containerId = ?
+                -   GROUP BY q.containerId
+                string {_step}
+                string {_recId}
+              columnSpecs~ selectedGroupingContainerAction
+                allowChangedRecordIds
+                column 1
+                  data-orderable= false
+                  inputType checkbox
+                    class= eHIncludeCkbx groupingContainerCheckbox
+                column 4
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandlingGroup
+                    required~ false
+                column 6
+                  inputType textArea
+                    class= enteredComment
+                column 8
+                  inputType text
+                    class= hideColumn handlingType
+                column 9
+                  inputType text
+                    class= hideColumn
+                column 10
+                  inputType text
+                    class= hideColumn poolRunParentId
+
+
+          div
+            configureIf~ {_:containerType}
+              advanced~
+              equals~ groupingContainer
+            class= sectionContent verticalFlex
+            span Parent of Selected Grouping Container
+            table
+              id= selectedGroupingContainerParent
+              sqlPreparedQuery~
+                - SELECT *
+                -   FROM (
+                -         SELECT DISTINCT
+                -           '' AS 'Select',
+                -           CONCAT('<span style=display:none; class= queuedContainerId >',sr1.currentParentId,'</span><span class="containerId parentGroupingContainer">',sr2.currentParentId,'</span>') AS 'Parent Grouping Container',
+                -           ifNULL(vv.displayValue,'') AS 'Priority',
+                -           '' AS 'Action',
+                -           '<span class="nextStepSpan"></span><div class="nextStep"><i class="fa fa-edit fa-fw" aria-hidden="true" ></i></span></div>' AS 'Next Step',
+                -           '' AS 'Comment',
+                -           GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY cn.eventId ASC SEPARATOR '<br><br>') AS 'Comment History',
+                -           "groupParent" AS "Hidden"
+                -        FROM specimenRunsHistory  sr1
+                -           INNER JOIN specimenRunsHistory sr2 ON sr1.parentWorkflowSpecimenRunId = sr2.id
+                -           LEFT JOIN containerProperties cp ON sr2.currentParentId = cp.containerId AND cp.property = 'Container Priority'
+                -           LEFT JOIN validValues vv ON cp.value = vv.value AND vv.setName = 'priority'
+                -           LEFT JOIN containerNotes cn ON sr2.currentParentId = cn.containerId
+                -        WHERE sr1.currentParentId = ?
+                -         AND sr1.currentParentId <> sr2.currentParentId
+                -         AND sr2.currentParentId IS NOT NULL
+                -       GROUP BY sr2.currentParentId
+                -         ORDER BY sr1.eventId DESC
+                -   ) a
+                - LIMIT 1
+                string {_recId}
+              columnSpecs~ selectedGroupingContainerParent
+                allowChangedRecordIds
+                column 1
+                  data-orderable= false
+                  inputType checkbox
+                    class= eHIncludeCkbx queuedParentVal groupingContainerCheckbox
+                column 4
+                  inputType select
+                    class= selectAction
+                    setName~ exceptionHandlingParentGroup
+                    required~ false
+                column 6
+                  inputType textArea
+                    class= enteredComment
+                column 8
+                  inputType text
+                    class= hideColumn handlingType
+
+
+
+        br
+
+        button Submit
+          id= submitbutton
+
+
+
+

@@ -1,0 +1,1053 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+
+    stepGroup Vendors
+    step Vendor
+      queueSelectRecId
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          - function searchVendors(displayAll) {
+          -   if(!displayAll) displayAll = 'false';
+          -   $('#vendorCandidates').hide();
+          -   $('#vendorCandidates').load('/uniflow', {stepName: 'Ajax Admin Vendor Search Server',
+          -     vendorName: $('#vendorName').val(),
+          #-     physicianLastName: $('#physicianLastName').val(),
+          #-     physicianFirstName: $('#physicianFirstName').val(),
+          -     phoneNumber: $('#phoneNumber').val(),
+          -     displayAll: displayAll
+          -   }, function(){
+          -     stdTableSort("#vendorCandidates table");
+          -     $('#vendorCandidates').show();
+          -   });
+          - }
+          -
+          - $(document).ready(function(){
+          -    $('#stepFormSubmitButton').val('Create New');
+          - });
+
+        style
+          - #lookupVendor td {padding-right: 15px;};
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li Click 'Create New' to create a new record.
+              li Enter search criteria and press tab or enter to filter records.
+              li Click 'Display All' to see all records.
+              li Click on the record link to view or modify record.
+          text _dummy
+            screenLabel~
+            style= display:none;
+            value= -1
+
+        vertical
+          id= lookupVendor
+          fieldSet
+            style= border-color:red;
+            legend Find Vendor
+              style= font-weight:bold;
+            div
+              simpleTable
+                tr
+                  td Vendor Name
+                  td Phone Number
+                tr
+                  td
+                    text vendorName
+                      style= width:100px
+                      id= vendorName
+                      onchange= javascript:return searchVendors();
+                  td
+                    text phoneNumber
+                      style= width:90px
+                      id= phoneNumber
+                      title= 123-456-7890
+                      onchange= javascript:return searchVendors();
+                  td
+                    button Display All
+                      value= Display All
+                      onclick= javascript:return searchVendors('true');
+            div
+              id= vendorCandidates
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          - function showAddressFields() {
+          -  if ($('#cid').val() == '-1') {
+          -    $('#contact').show();
+          -  } else {
+          -    $('#contact').hide();
+          -  }
+          - }
+        script
+          - $(document).ready(function(){
+          -    showAddressFields();
+          - }); //End of Document Ready!!
+        formQuery~
+          -   (select entityId,firstName as 'name' from entities where entityId = '{_recId}')
+          - union distinct
+          -   (select '-1' as 'entityId','' as 'name' from dual limit 1)
+        formQuery~
+          - (select a.address1,a.address2,a.city,a.state,a.postalCode as 'zip',a.country as 'country'
+          -   from entityAddresses a
+          -   WHERE a.entityId='{_recId}'
+          -   and a.type = 'Primary')
+          - union distinct
+          - (select '' as 'address1','' as 'address2','' as 'city','' as 'state','' as 'zip','' as 'countryCode'
+          -     from dual limit 1)
+        formQuery~
+          - (select p.number 'phone1'
+          -   from entityPhones p
+          -   WHERE p.entityId='{_recId}'
+          -   and p.type = 'Primary')
+          - union distinct
+          -   (select '' as 'phone1'
+          -     from dual limit 1)
+        formQuery~
+          - (select p.number 'phone2'
+          -   from entityPhones p
+          -   WHERE p.entityId='{_recId}'
+          -   and p.type = 'Secondary')
+          - union distinct
+          -   (select '' as 'phone2'
+          -     from dual limit 1)
+        formQuery~
+          - (select p.number 'fax1'
+          -   from entityPhones p
+          -   WHERE p.entityId='{_recId}'
+          -   and p.type = 'Primary Fax')
+          - union distinct
+          -   (select '' as 'fax1'
+          -     from dual limit 1)
+        formQuery~
+          - (select p.number 'fax2'
+          -   from entityPhones p
+          -   WHERE p.entityId='{_recId}'
+          -   and p.type = 'Secondary Fax')
+          - union distinct
+          -   (select '' as 'fax2'
+          -     from dual limit 1)
+        formQuery~
+          - (select em.email 'email1'
+          -   from entityEmails em
+          -   WHERE em.entityId='{_recId}'
+          -   and em.type = 'Primary')
+          - union distinct
+          -   (select '' as 'email1'
+          -     from dual limit 1)
+        formQuery~
+          - (select em.email 'email2'
+          -   from entityEmails em
+          -   WHERE em.entityId='{_recId}'
+          -   and em.type = 'Secondary')
+          - union distinct
+          -   (select '' as 'email2'
+          -     from dual limit 1)
+        vertical
+          text Id
+            id= cid
+            screenLabel~
+            value= {_:entityId}
+            style= display: none;
+          text name
+            screenLabel~ Name
+            value= {_:name}
+            style= width:200px;
+            required~ true
+        div
+          vertical
+          fieldset
+            style= width:600px;
+            legend New Vendor Information
+              title= Click to expand
+              onClick= $('#contact').toggle();
+              style= font-weight:bold;
+                - color:blue;
+            div
+              id= contact
+              vertical2
+                text address1
+                  screenLabel~ Address 1
+                  value= {_:address1}
+                span
+                text address2
+                  screenLabel~ Address 2
+                  value= {_:address2}
+                span
+                text city
+                  screenLabel~ City
+                  value= {_:city}
+                span
+                text state
+                  screenLabel~ State
+                  value= {_:state}
+                span
+                text zip
+                  screenLabel~ Zip
+                  value= {_:zip}
+                span
+                text countryCode
+                  screenLabel~ Country
+                  value= {_:country}
+                span
+                select addressType
+                  required~ false
+                  value= Primary
+                  style= display:none;
+                  screenLabel~
+                span
+                text email1
+                  screenLabel~ Primary Email
+                  value= {_:email1}
+                text email2
+                  screenLabel~ Secondary Email
+                  value= {_:email2}
+                text phone1
+                  screenLabel~ Primary Phone
+                  value= {_:phone1}
+                text phone2
+                  screenLabel~ Secondary Phone
+                  value= {_:phone2}
+                text fax1
+                  screenLabel~ Primary Fax
+                  value= {_:fax1}
+                text fax2
+                  screenLabel~ Secondary Fax
+                  value= {_:fax2}
+        vertical
+        fieldset
+          legend Current Address(es)
+            title= Click to expand
+            onClick= $('#address').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= address
+            table
+              class= stdTableSort
+              style= width:300px
+              sqlQuery~ SELECT
+                - a.address1 'Address1',a.address2 'Address2',a.city 'City',a.state 'State',a.postalCode 'Zip',a.country 'Country'
+                - from entityAddresses a
+                - WHERE a.entityId= '{_:entityId}'
+        fieldset
+          legend Phone(s)
+            title= Click to expand
+            onClick= $('#phones').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= phones
+            table
+              class= stdTableSort
+              sqlQuery~ select p.number 'Phone',p.type 'Type',p.eventId
+                - from entityPhones p
+                - where p.entityId= '{_:entityId}'
+                - order by p.type
+        fieldset
+          legend Email(s)
+            title= Click to expand
+            onClick= $('#emails').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= emails
+            table
+              class= stdTableSort
+              sqlQuery~ select e.email 'Email',e.type 'Type',e.eventId
+                - from entityEmails e
+                - where e.entityId= '{_:entityId}'
+                - order by e.type
+        fieldset
+          legend Vendor Contacts
+            title= Click to expand
+            onClick= $('#people').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= people
+            table
+              class= stdTableSort
+              sqlQuery~ select concat('<a class="tableLink" href="/uniflow?lastForm=Y&stepName=',p.entityType,'s&recId=',p.entityId,'">',p.entityId,'</a>') 'Employee Id'
+                - ,p.firstName 'First',p.lastName 'Last'
+                - ,p.entityType 'Position'
+                - from entities p
+                - inner join contents c on c.containerId = p.entityId
+                - where c.content = '{_:entityId}' and c.containerId <> c.content
+        fieldset
+          legend Items Supplied by This Vendor
+            title= Click to expand
+            onClick= $('#items').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= items
+            table
+              class= stdTableSort
+              sqlQuery~
+                - select 'Remove'
+                - ,iv.itemId 'Item Id'
+                - ,description 'Description'
+                - ,vendorItemId 'Manufacturer #'
+                - ,orderLeadTime 'Lead Time'
+                - ,iv.status 'Vendor Status'
+                - ,i.status 'Production Status'
+                + from inventoryVendors iv
+                + join inventory i on i.itemId = iv.itemId
+                + where vendorId = '{_:entityId}'
+                + order by Description
+              recIdURLSpecs~ Items Supplied
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    title= Check this box if the item is no longer to be ordered from this vendor.
+                column 2
+                  inputType text
+                    readonly=
+                    class= readonly
+                    title= Production part number.
+                column 4
+                  inputType text
+                    title= The vendor's part number.
+                column 5
+                  inputType number
+                    title= The number of days from the date ordered until the item is received.
+                column 6
+                  inputType select
+                    setName~ vendorInventoryStatus
+                    title= SETNAME:vendorInventoryStatus
+                    title= The suppllier's status for this item.
+              sql~ update inventoryVendors set vendorItemId = '{_columnInput:4}',
+                + orderLeadTime = '{_columnInput:5}'
+                - ,status = '{_columnInput:6}'
+                + where itemId = '{_columnInput:2}'
+                + and vendorId = '{Id}'
+              sql~ delete from inventoryVendors
+                + where '{_columnInput:1}' = 'true'
+                + and itemId = '{_columnInput:2}'
+                + and vendorId = '{Id}'
+        fieldset
+          legend Outstanding Orders
+            title= Click to expand
+            onClick= $('#outstanding').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= outstanding
+            table
+              class= stdTableSort
+              sqlQuery~ select io.lotId 'Lot Id',io.itemId 'Item Id'
+                + ,description 'Description'
+                + ,vendorItemId 'Mfn Part #'
+                + ,quantity 'Quantity'
+                + ,io.status 'Status'
+                + ,name 'Ordered By', eventDate 'On'
+                + from inventoryOrders io
+                + join inventoryVendors iv on iv.vendorId = io.vendorId
+                + join inventory i on i.itemId = io.itemId
+                + join events e on e.eventId = io.eventId
+                + join userInfo u on u.userId = e.userId
+                + where io.vendorId = '{_:entityId}'
+                + and (io.receivedEventId is null and io.status != 'Cancelled')
+                + and iv.itemId = io.itemId
+        fieldset
+          legend Reciently Received Orders
+            title= Click to expand
+            onClick= $('#received').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= received
+            table
+              class= stdTableSort
+              sqlQuery~ select io.itemId 'Item Id'
+                + ,description 'Description'
+                + ,vendorItemId 'Mfn Part #'
+                + ,quantity 'Quantity Ordered'
+                + ,quantityReceived 'Quantity Received'
+                + ,'' as 'Quantity Remaining'
+                + ,itemCost + taxCost + shippingCost + otherCosts as 'Total Cost'
+                + ,(itemCost + taxCost + shippingCost + otherCosts)/quantityReceived as 'Cost/item'
+                + ,io.status 'Status'
+                + ,name 'Ordered By'
+                + ,eventDate 'On'
+                + from inventoryOrders io
+                + join inventoryVendors iv on iv.vendorId = io.vendorId
+                + join inventory i on i.itemId = io.itemId
+                + join events e on e.eventId = io.eventId
+                + join userInfo u on u.userId = e.userId
+                + where io.vendorId = '{_:entityId}'
+                + and io.receivedEventId > 0
+                + order by io.eventId
+        fieldset
+          legend Add to Items Supplied by This Vendor
+            title= Click to expand
+            onClick= $('#add').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= add
+            table
+              class= stdTableSort
+              sqlQuery~ select 'Add',itemId 'Item Id',description 'Description',
+                + case when eventId > 0  then '' else '' end as 'Mfn Part #',
+                + case when eventId > 0 then 999 else 999 end as 'Lead Time',
+                + case when eventId > 0 then '' else '' end as 'Vendor Status',
+                + status 'Production Status'
+                + from inventory i
+                + where itemId not in (select itemId from inventoryVendors where vendorId = '{_resultSet:entityId}')
+                + order by Description
+              recIdURLSpecs~ Vendors
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    title= Check this box if the item is to ordered from this vendor.
+                column 2
+                  inputType text
+                    readonly=
+                    class= readonly
+                    title= Production part number.
+                column 4
+                  inputType text
+                    title= The vendor's part number.
+                column 5
+                  inputType text
+                    value= 999
+                    title= The number of days from the date ordered until the item is received.
+                column 6
+                  inputType select
+                    setName~ vendorInventoryStatus
+                    title=SETNAME:vendorInventoryStatus
+                    title= The suppllier's status for this item.
+                column 7
+                  inputType text
+                    readonly=
+                    class= readonly
+                    title= Is this item currently being used for production?
+              sql~ insert into inventoryVendors (itemId,vendorId,vendorItemId,orderLeadTime,status,eventId)
+                + (select '{_columnInput:2}','{Id}','{_columnInput:4}','{_columnInput:5}','{_columnInput:6}',{_eventId}
+                + from dual where '{_columnInput:1}' = 'true')
+
+      ### if new record then create all needed records in the database
+      ifCondition {Id}
+        advanced~
+        equals~ -1
+        setFormQueryResult
+          sqlQuery select 'V{_getNextSequence:vendorId}' as 'containerId' from dual
+        sqlPreparedStatement
+          - INSERT INTO entities (entityId, entityType, status, eventId)
+          - VALUES (?, 'vendor', 'active', ?)
+          string {_:containerId}
+          long {_eventId}
+        sqlPreparedStatement
+          - INSERT INTO containers (containerId, containerType, eventId)
+          - VALUES (?, 'vendor', ?)
+          string {_:containerId}
+          long {_eventId}
+        sqlPreparedStatement
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, 'self', 'vendor', ?, ?)
+          string {_:containerId}
+          string {_:containerId}
+          long {_eventId}
+
+        ### now set the '-1' vendorId in all referenced records to the new vendorId
+        sqlPreparedStatement
+          - UPDATE inventoryVendors SET
+          - vendorId = ?
+          - WHERE vendorId = '-1'
+          - AND eventId = ?
+          string {_:containerId}
+          long {_eventId}
+        else
+          ### if not new record then get the Id to be used for other processing
+          setFormQueryResult
+            sqlQuery select '{Id}' as 'containerId' from dual
+
+      ### now do all of the other processing
+      ### entity
+      sqlPreparedStatement
+        - UPDATE entities SET
+        - firstName = ?
+        - WHERE entityId = ?
+        string {name}
+        string {_:containerId}
+
+      ### address
+      sqlPreparedStatement
+        - DELETE FROM entityAddresses
+        - WHERE entityId = ?
+        - AND type = ?
+        string {_:containerId}
+        string {addressType}
+      sqlPreparedStatement
+        - INSERT INTO entityAddresses (entityId, address1, address2, city, state, postalCode, country, type, eventId)
+        - SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {address1}
+        string {address2}
+        string {city}
+        string {state}
+        string {zip}
+        string {countryCode}
+        string {addressType}
+        long {eventId}
+        string {address1}
+
+      ### phone
+      sqlPreparedStatement
+        - DELETE FROM entityPhones
+        - WHERE entityId = ?
+        string {_:containerId}
+      sqlPreparedStatement
+        - INSERT INTO entityPhones (entityId, number, type, eventId)
+        - SELECT ?, ?, 'Primary', ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {phone1}
+        long {_eventId}
+        string {phone1}
+      sqlPreparedStatement
+        - INSERT INTO entityPhones (entityId, number, type, eventId)
+        - SELECT ?, ?, 'Secondary', ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {phone2}
+        long {_eventId}
+        string {phone2}
+
+      ### fax
+      sqlPreparedStatement
+        - INSERT INTO entityPhones (entityId, number, type, eventId)
+        - SELECT ?, ?, 'Primary Fax', ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {fax1}
+        long {_eventId}
+        string {fax1}
+      sqlPreparedStatement
+        - INSERT INTO entityPhones (entityId, number, type, eventId)
+        - SELECT ?, ?, 'Secondary Fax', ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {fax2}
+        long {_eventId}
+        string {fax2}
+
+      ### email
+      sqlPreparedStatement
+        - DELETE FROM entityEmails
+        - WHERE entityId = ?
+        string {_:containerId}
+      sqlPreparedStatement
+        - INSERT INTO entityEmails (entityId, type, email, eventId)
+        - SELECT ?, 'Primary', ?, ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {email1}
+        long {_eventId}
+        string {email1}
+      sqlPreparedStatement
+        - INSERT INTO entityEmails (entityId, type, email, eventId)
+        - SELECT ?, 'Secondary', ?, ?
+        - FROM dual
+        - WHERE length(?) > 0
+        string {_:containerId}
+        string {email2}
+        long {_eventId}
+        string {email2}
+
+
+    step List Vendors
+      form
+        include userAccountInfo
+        include stepInstructions
+        table
+          class= stdTableSort
+          sqlQuery~
+            - select e.entityId 'Vendor Id'
+            - ,e.firstName 'Name'
+            - ,number 'Phone'
+            - ,email 'Email'
+            - from entities e
+            - join entityPhones ep
+            -   on ep.entityId = e.entityId
+            -   and ep.type = 'Primary'
+            - join entityEmails em
+            -   on em.entityId = e.entityId
+            -   and em.type = 'Primary'
+            - where e.entityType = 'Vendor'
+            - order by e.firstName
+
+
+    step Contacts
+      queueSelectRecId
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          - function searchContacts(displayAll) {
+          -   if(!displayAll) displayAll = 'false';
+          -   $('#contacts').hide();
+          -   $('#contacts').load('/uniflow', {stepName: 'Ajax Admin Contact Search Server',
+          -     contactLastName: $('#contactLastName').val(),
+          -     contactFirstName: $('#contactFirstName').val(),
+          -     vendorName: $('#vendorName').val(),
+          -     displayAll: displayAll
+          -   }, function(){
+          -     stdTableSort("#contacts table");
+          -     $('#contacts').show();
+          -   });
+          - }
+          -
+          - $(document).ready(function(){
+          -    $('#stepFormSubmitButton').val('Create New');
+          - });
+
+        style
+          - #lookupContact td {padding-right: 15px;}
+
+        vertical
+          fieldset
+            legend Explanation
+              class= legend
+            vertical
+              li Click 'Create New' to create a new record.
+              li Enter search criteria and press tab or enter to filter records.
+              li Click 'Display All' to see all records.
+              li Click on the record link to view or modify record.
+          text _dummy
+            screenLabel~
+            style= display:none;
+            value= -1
+
+        vertical
+          id= lookupContact
+          fieldSet
+            style= border-color:red;
+            legend Find Contact
+              style= font-weight:bold;
+            div
+              simpleTable
+                tr
+                  td Contact Last
+                  td Contact First
+                  td Vendor Name
+                tr
+                  td
+                    text contactLastName
+                      style= width:100px
+                      id= contactLastName
+                      onchange= javascript:return searchContacts();
+                  td
+                    text contactFirstName
+                      style= width:100px
+                      id= contactFirstName
+                      onchange= javascript:return searchContacts();
+                  td
+                    text vendorName
+                      style= width:100px
+                      id= vendorName
+                      onchange= javascript:return searchContacts();
+                  td
+                    button Display All
+                      value= Display All
+                      onclick= javascript:return searchContacts('true');
+            div
+              id= contacts
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          - $(document).ready(function(){
+          -   //select multiple vendors
+          -   var vendorIds = $('#selectedVendorIds').val().split(',');
+          -   console.log($('#practiceId').val());
+          -   $('#vendorId').val(vendorIds);
+          -   console.log($('#vendorId').val());
+          - });
+
+        formQuery~
+          - (SELECT
+          -   p.entityType as 'type'
+          -   ,p.entityId,p.firstName,p.middleName,p.lastName
+          -   from entities p
+          -   WHERE p.entityId='{_recId}')
+          - union distinct
+          -   (select
+          -   'Contact' as 'type'
+          -   ,'-1' as 'entityId'
+          -   ,'' as 'firstName','' as 'middleName','' as 'lastName'
+          -     from dual limit 1)
+        formQuery~
+          - (select ifnull(group_concat(content), '') as 'vendorIds',
+          - ifnull(group_concat(concat("'",content,"'")), '\'\'') as 'VendorIdsQuoted'
+          - from contents
+          - where containerId = '{_recId}' and contentType = 'Contact')
+          - union distinct
+          -   (select '' as 'vendorIds', '\'\'' as 'VendorIdsQuoted'
+          -     from dual limit 1)
+        formQuery~
+          - (select p.number 'phone1'
+          -   from entityPhones p
+          -   WHERE p.entityId='{_recId}'
+          -   and p.type = 'Primary')
+          - union distinct
+          -   (select '' as 'phone1'
+          -     from dual limit 1)
+        formQuery~
+          - (select p.number 'phone2'
+          -   from entityPhones p
+          -   WHERE p.entityId='{_recId}'
+          -   and p.type = 'Secondary')
+          - union distinct
+          -   (select '' as 'phone2'
+          -     from dual limit 1)
+        formQuery~
+          - (select em.email 'email1'
+          -   from entityEmails em
+          -   WHERE em.entityId='{_recId}'
+          -   and em.type = 'Primary')
+          - union distinct
+          -   (select '' as 'email1'
+          -     from dual limit 1)
+        formQuery~
+          - (select em.email 'email2'
+          -   from entityEmails em
+          -   WHERE em.entityId='{_recId}'
+          -   and em.type = 'Secondary')
+          - union distinct
+          -   (select '' as 'email2'
+          -     from dual limit 1)
+
+        hidden selectedVendorIds
+          id= selectedVendorIds
+          value= {_:vendorIds}
+
+        vertical
+          text Id
+            id= contactId
+            style= display:none;
+            screenLabel~
+            value= {_:entityId}
+          text firstName
+            screenLabel~ First Name
+            required~ true
+            value= {_:firstName}
+          text middleName
+            screenLabel~ Middle
+            value= {_:middleName}
+          text lastName
+            screenLabel~ Last Name
+            value= {_:lastName}
+          select vendorId
+            id= vendorId
+            screenLabel~ Vendors
+            multiple=
+            size= 7
+            sqlQuery~ select concat(pr.firstName, ' (', ifnull(a.city, ''), ', ', ifnull(a.state, ''), ')'), pr.entityId
+              - from entities pr
+              - left join entityAddresses a on a.entityId = pr.entityId
+              - where pr.entityType = 'vendor'
+              - and pr.entityId IN ({_:vendorIdsQuoted})
+              - order by firstName
+            sqlQuery~ select concat(pr.firstName, ' (', ifnull(a.city, ''), ', ', ifnull(a.state, ''), ')'), pr.entityId
+              - from entities pr
+              - left join entityAddresses a on a.entityId = pr.entityId
+              - where pr.entityType = 'vendor'
+              - and pr.entityId NOT IN ({_:vendorIdsQuoted})
+              - order by firstName
+          comments Comments
+        div
+          vertical
+          fieldset
+            style= width:400px;
+            legend New Contact Information
+              title= Click to expand
+              onClick= $('#contact').toggle();
+              style= font-weight:bold;
+                - color:blue;
+            div
+              id= contact
+              vertical2
+                text email1
+                  screenLabel~ Primary Email
+                  value= {_:email1}
+                text email2
+                  screenLabel~ Secondary Email
+                  value= {_:email2}
+                text phone1
+                  screenLabel~ Primary Phone
+                  value= {_:phone1}
+                text phone2
+                  screenLabel~ Secondary Phone
+                  value= {_:phone2}
+        fieldset
+          legend Phone(s)
+            title= Click to expand
+            onClick= $('#phones').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= phones
+            table
+              class= stdTableSort
+              sqlQuery~ select p.number 'Phone',p.type 'Type',p.eventId
+                - from entityPhones p
+                - where p.entityId= '{_:entityId}'
+                - order by p.type
+        fieldset
+          legend Email(s)
+            title= Click to expand
+            onClick= $('#emails').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= emails
+            table
+              class= stdTableSort
+              sqlQuery~ select e.email 'Email',e.type 'Type',e.eventId
+                - from entityEmails e
+                - where e.entityId= '{_:entityId}'
+                - order by e.type
+        fieldset
+          legend Current Vendors
+            title= Click to expand
+            onClick= $('#vendor').toggle();
+            style= font-weight:bold;
+              - color:blue;
+          div
+            id= vendor
+            table
+              class= stdTableSort
+              sqlQuery~
+                - SELECT
+                - et.entityId as 'Vendor Id'
+                - ,et.firstName as 'Vendor Name'
+                - ,concat(ifnull(ad.city, ''), ', ', ifnull(ad.state, '')) as 'Location'
+                - ,ifnull(group_concat(e.email), '') as 'Email'
+                - , ifnull(group_concat(ph.number), '') as 'Phone'
+                - ,ifnull(group_concat(f.number), '') as 'Fax'
+                - from contents c
+                - inner join entities et on c.content = et.entityId
+                -   and et.entityType = 'vendor'
+                - left join entityAddresses ad on ad.entityId = et.entityId
+                - left join entityEmails e on e.entityId = et.entityId
+                - left join entityPhones ph on ph.entityId = et.entityId and ph.type = 'Primary'
+                - left join entityPhones f on f.entityId = et.entityId and f.type = 'Fax'
+                - WHERE c.containerId='{_:entityId}' and c.contentType = 'vendor'
+                - GROUP BY et.entityId
+
+      ### if new record then create all needed records in the database
+      ifCondition {Id}
+        advanced~
+        equals~ -1
+        setFormQueryResult
+          sqlQuery select 'VC{_getNextSequence:contactId}' as 'containerId' from dual
+        sqlPreparedStatement
+          - INSERT INTO entities (entityId, entityType, status, eventId)
+          - values (?, 'contact', 'active', ?)
+          string {_:containerId}
+          long {_eventId}
+        sqlPreparedStatement
+          - INSERT INTO containers (containerId, containerType, eventId)
+          - VALUES (?, 'contact', ?)
+          string {_:containerId}
+          long {_eventId}
+        sqlPreparedStatement
+          - INSERT INTO containers (containerId, containerType, eventId)
+          - VALUES (?, 'contact', ?)
+          string {_:containerId}
+          long {_eventId}
+        sqlPreparedStatement
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, 'self', 'contact', ?, ?)
+          string {_:containerId}
+          string {_:containerId}
+          long {_eventId}
+        else
+          ### if not new record then get the Id to be used for other processing
+          setFormQueryResult
+            sqlQuery select '{Id}' as 'containerId' from dual
+
+      ### now do the rest of the processing
+      ### entities
+      sqlPreparedStatement
+        - UPDATE entities SET
+        - firstName = ?
+        - , middleName = ?
+        - , lastName = ?
+        - WHERE entityId = ?
+        string {firstName}
+        string {middleName}
+        string {lastName}
+        string {_:containerId}
+
+      ### assign the contact to the vendor
+      ifCondition {vendorId}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - DELETE FROM contents
+          - WHERE containerId = ?
+          - AND contentType = 'vendor'
+          string {_:containerId}
+        forEachSelectedOption vendorId
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES (?, 'self', 'vendor', ?, ?)
+            string {_:containerId}
+            string {_:vendorId}
+            long {_eventId}
+
+      ### phone
+      sql
+        - delete from entityPhones
+        - where entityId = '{_resultSet:containerId}'
+      sql
+        - insert into entityPhones (entityId,number,type,eventId)
+        - select '{_resultSet:containerId}','{phone1}','Primary',{_eventId}
+        - from dual
+        - WHERE length('{phone1}') > 0
+      sql
+        - insert into entityPhones (entityId,number,type,eventId)
+        - select '{_resultSet:containerId}','{phone2}','Secondary',{_eventId}
+        - from dual
+        - WHERE length('{phone2}') > 0
+
+      ### email
+      sql
+        - delete from entityEmails
+        - where entityId = '{_resultSet:containerId}'
+
+      sql
+        - insert into entityEmails (entityId,type,email,eventId)
+        - select '{_resultSet:containerId}','Primary','{email1}',{_eventId}
+        - from dual
+        - where length('{email1}') > 0
+      sql
+        - insert into entityEmails (entityId,type,email,eventId)
+        - select '{_resultSet:containerId}','Secondary','{email2}',{_eventId}
+        - from dual
+        - where length('{email2}') > 0
+
+
+    step List Contacts
+      form
+        include userAccountInfo
+        include stepInstructions
+        table
+          class= stdTableSort
+          sqlQuery~
+            - select e.entityId 'Contact Id'
+            - ,concat(e.firstName,' ',e.lastName) as 'Name'
+            - ,number 'Phone'
+            - ,email 'Email'
+            - from entities e
+            - left join entityPhones ep
+            -   on ep.entityId = e.entityId
+            -   and ep.type = 'Primary'
+            - left join entityEmails em
+            -   on em.entityId = e.entityId
+            -   and em.type = 'Primary'
+            - where e.entityType = 'Contact'
+            - order by Name
+
+
+#############################################################################
+    stepGroup Ajax Vendor Routines
+    step Ajax Admin Vendor Search Server
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlQuery~
+          - select
+          - case when (length('{vendorName}') > 0 and a.firstName = '{vendorName}') then 50 else 0 end +
+          - case when (length('{vendorName}') > 0 and a.firstName like '%{vendorName}%') then 10 else 0 end +
+          - case when (length('{phoneNumber}') > 0 and ph.number like ('%{phoneNumber}%')) then 10 else 0 end +
+          - case when (length('{phoneNumber}') > 0 and ph.number = ('{phoneNumber}')) then 30 else 0 end
+          - as 'score'
+          - ,a.entityId as 'Vendor Id'
+          - ,a.firstName as 'Vendor'
+          - ,ifnull(group_concat(distinct ph.number), '') as 'Phone Number(s)'
+          - ,ifnull(group_concat(distinct em.email), '') as 'Email(s)'
+          - from entities a
+          - left join entityPhones ph on ph.entityId = a.entityId and ph.type = 'primary'
+          - left join entityEmails em on em.entityId = a.entityId and em.type = 'primary'
+          - where
+          -   (a.entityType = 'vendor' and '{displayAll}' = 'true')
+          -   or (
+          -     (length('{vendorName}') > 0 and a.firstName like '%{vendorName}%')
+          -     or (length('{phoneNumber}') > 0 and ph.number like ('%{phoneNumber}%'))
+          -     and a.entityType = 'vendor'
+          -   )
+          - group by a.entityId
+          - order by score desc, a.firstName asc
+
+
+    step Ajax Admin Contact Search Server
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlQuery~
+          - select
+          - case when (length('{contactFirstName}') > 0 and a.firstName = '{contactFirstName}' and a.entityType = 'contact') then 10 else 0 end +
+          - case when (length('{contactFirstName}') > 0 and a.firstName like '%{contactFirstName}%' and a.entityType = 'contact') then 10 else 0 end +
+          - case when (length('{contactLastName}') > 0 and a.lastName = '{contactLastName}' and a.entityType = 'contact') then 13 else 0 end +
+          - case when (length('{contactLastName}') > 0 and a.lastName like '%{contactLastName}%' and a.entityType = 'contact') then 13 else 0 end +
+          - case when (length('{vendorName}') > 0 and a.firstName = '{vendorName}' and a.entityType = 'vendor') then 13 else 0 end +
+          - case when (length('{vendorName}') > 0 and a.firstName like '%{vendorName}%' and a.entityType = 'vendor') then 13 else 0 end
+          - as 'score'
+          - ,case
+          -   when a.entityType = 'contact' then a.entityId else ''
+          -   end as 'Contact Id'
+          - ,case
+          -   when a.entityType = 'contact' then concat(a.firstName, ' ', ifnull(a.lastName, ''))  else ''
+          -   end as 'Contact'
+          - ,case
+          -   when a.entityType = 'vendor' then a.entityId else ''
+          -   end as 'Vendor Id'
+          - ,case
+          -   when a.entityType = 'vendor' then concat(a.firstName, ' ', ifnull(a.lastName, ''))  else ''
+          -   end as 'Vendor'
+          - ,ifnull(group_concat(distinct ph.number), '') as 'Phone Number(s)'
+          - ,ifnull(group_concat(distinct em.email), '') as 'Email(s)'
+          - from entities a
+          - left join entityPhones ph on ph.entityId = a.entityId and ph.type = 'primary'
+          - left join entityEmails em on em.entityId = a.entityId and em.type = 'primary'
+          - where
+          -   ((a.entityType = 'contact' or a.entityType = 'vendor') and '{displayAll}' = 'true')
+          -   or (
+          -     length('{vendorName}') > 0 and a.firstName like '%{vendorName}%'
+          -     and
+          -     a.entityType = 'vendor'
+          -   )
+          -   or (
+          -     (length('{contactLastName}') > 0 and a.lastName like '%{contactLastName}%')
+          -     or (length('{contactFirstName}') > 0 and a.firstName like '%{contactFirstName}%')
+          -     and
+          -     a.entityType = 'contact'
+          -   )
+          - group by a.entityId
+          - order by score desc, a.firstName, a.lastName asc
+

@@ -1,0 +1,20 @@
+config
+  recordEventFirst true
+
+  documentsFolderName documents
+  documentVersionsFolderName documentVersions
+
+  uniflowURL http://localhost/uniflow
+  host localhost
+    port 2525
+    username uniflow
+    password uniflow12
+  notificationFromEmailAddress uniflowsend@uniconnect.com
+
+  maxSessionInactiveMinutes 30
+
+  recordAttemptedPassword false
+  #passwordExpirationPeriodDays 30
+
+  createDemoTables
+  #maxFailedLogins 6

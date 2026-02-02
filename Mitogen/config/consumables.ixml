@@ -1,0 +1,1461 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+
+    stepGroup Consumables
+
+    step List Consumables Inventory
+      form
+
+        script
+          src= js/resources/viewInventory.js
+
+        formPreparedQuery~
+          - SELECT COUNT(consumableId) AS "received"
+          - FROM consumables c
+          - INNER JOIN inventoryItems ii on c.consumableType = ii.inventoryItem
+          - WHERE DATE(receiveDate) = DATE(now())
+          - AND ii.inventoryType = 'Received Consumable'
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT COUNT(consumableId) AS "Current"
+          - FROM consumables
+          - WHERE status <> 'Disposed'
+          allowEmptyResults~
+
+        formQuery~ SELECT COUNT(consumableId) AS "InUse"
+          - FROM consumables
+          - WHERE status = 'In Use'
+          allowEmptyResults~
+
+        formQuery~
+          - SELECT COUNT(rh.containerId) AS "ConsumablesHistory"
+          - FROM consumables c
+          - INNER JOIN resourceHistory rh
+          -    ON c.consumableId = rh.containerId
+          - INNER JOIN events e
+          -     ON e.eventId = rh.eventId
+          - AND e.eventDate BETWEEN DATE(DATE_SUB(NOW(), INTERVAL 30 DAY)) AND DATE(NOW())
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden currentDate
+          id= currentDate
+          value= {_currentDate}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Status Report
+          div
+            class= sectionContent horizontalFlex-spaceevenly
+            div
+              id= consumablesInUse
+              class= inventoryStatBlock verticalFlex-center
+              span In Use
+                class= statusLabel
+              span {_resultSet:InUse}
+                class= statusCount
+            div
+              id= consumablesUsed30d
+              class= inventoryStatBlock verticalFlex-center
+              span Recently Used
+                class= statusLabel
+              span {_resultSet:ConsumablesHistory}
+                class= statusCount
+            div
+              id= consumablesReceivedToday
+              class= inventoryStatBlock verticalFlex-center
+              span Received Today
+                class= statusLabel
+              span {_resultSet:received}
+                class= statusCount
+
+        div
+          id= statusTable
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Details
+          div
+            class= sectionContent
+            div
+              id= lists
+
+              ul
+                li
+                  a Search Inventory
+                    href= #searchList
+                li
+                  a Current Inventory
+                    href= #currentList
+                li
+                  a Consumable History
+                    href= #historyList
+                li
+                  a Recently Disposed
+                    href= #disposedList
+
+              div
+                id= searchList
+                vertical2
+                  select Consumable Type
+                    id= searchByConsumableType_value
+                    sqlQuery~ select distinct consumableType from consumables order by consumableType asc
+                  button
+                    class= button
+                    id= searchByConsumableType
+                    name= Search
+                    value= Search
+                  text PO Number
+                    id= searchConsumablesByPO_value
+                  button
+                    class= button
+                    id= searchConsumablesByPO
+                    name= Search
+                    value= Search
+                  text Catalog Number
+                    id= searchConsumablesByCatalogNo_value
+                  button
+                    class= button
+                    id= searchConsumablesByCatalogNo
+                    name= Search
+                    value= Search
+                vertical
+                  div
+                    id= searchByConsumableType_div
+                  div
+                    id= searchConsumablesByPO_div
+                  div
+                    id= searchConsumablesByCatalogNo_div
+              div
+                id= currentList
+                span Total Current Consumables: {_resultSet:Current}
+                table
+                  class= formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   CASE WHEN DATE(expirationDate) <= DATE(now()) THEN CONCAT("<span style=color:red>", consumableId, "</span>")
+                    -              ELSE consumableId END AS "ID",
+                    -   consumableType AS "Consumable",
+                    -   status AS "Status",
+                    -   DATE(expirationDate) AS "Expiration Date"
+                    - FROM consumables
+                    - WHERE status <> 'Disposed'
+                    - ORDER BY status, consumableType, consumableId
+                  columnSpecs~ currentListTable
+                    column 4
+                      inputType date
+                        readonly=
+                        formatDate~
+                        class= expireDate
+                        convert~ false
+
+              div
+                id= historyList
+                table
+                  caption Last 200 Historical Records
+                  class= formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   CASE WHEN DATE(expirationDate) <= DATE(now()) THEN CONCAT("<span style=color:red>", consumableId, "</span>")
+                    -              ELSE consumableId END AS "Lookup Consumable Id",
+                    -   consumableType AS "Type",
+                    -   catalogNo AS "Catalog Number",
+                    -   CONCAT(quantity + IFNULL(unitOfMeasure, '')) AS "Quantity",
+                    -   lotNumber AS "Lot Number",
+                    -   v.vendor AS "Vendor",
+                    -   projectType AS "Project",
+                    -   costPerUnit AS "Cost Per Unit",
+                    -   poNumber AS "PO Number",
+                    -   DATE(receiveDate) AS "Date Received",
+                    -   DATE(expirationDate) AS "Expiration Date",
+                    -   status AS "Status"
+                    - FROM consumablesHistory ch
+                    - LEFT JOIN vendors v on ch.vendor = v.vendorId
+                    - ORDER BY ch.eventId DESC
+                    - LIMIT 200
+                  columnSpecs~ historyListTable
+                    column 11
+                      inputType date
+                        readonly=
+                        formatDate~
+                        class= expireDate
+                        convert~ false
+
+
+              div
+                id= disposedList
+                table
+                  class= formatDateTable
+                  caption Last 200 Disposed Consumables
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   CASE WHEN DATE(expirationDate) <= DATE(now()) THEN CONCAT("<span style=color:red>", consumableId, "</span>")
+                    -              ELSE consumableId END AS "Consumable Id",
+                    -   consumableType AS "Type",
+                    -   v.vendor AS "Vendor",
+                    -   lotNumber AS "Lot Number",
+                    -   status AS "Status",
+                    -   DATE(expirationDate) AS "Expiration Date"
+                    - FROM consumablesHistory ch
+                    - LEFT JOIN vendors v ON ch.vendor = v.vendorId
+                    - WHERE status = 'Disposed'
+                    - ORDER BY ch.eventId DESC
+                    - LIMIT 200
+                  columnSpecs~ disposedListTable
+                    column 6
+                      inputType date
+                        readonly=
+                        formatDate~
+                        class= expireDate
+                        convert~ false
+
+##############################################################################################################################################
+    step Create Consumables Type
+      form
+        include stepInstructions
+        data-parsley-validate=
+        fieldset
+          legend  Instructions
+          ol
+            li Enter a consumable type that will be expected in inventory.
+            li The reagent can be <i>received</i> from a vendor or <i>prepared as a container</i> in-house.
+            li This step will not allow duplicate consumable names.
+            li Required fields must be filled to submit.
+            li Units selected should be the units the item will be tracked in throughout the system.
+            li All fields can be edited in <a href=/uniflow?stepName=Edit+Inventory+Items>Edit Inventory Items</a> under the Consumables tab.
+        hr
+        vertical
+          text Consumable Name
+            size= 50
+            validate~ select 1 from dual where '{_thisInput}' <> ''
+              errorMessage~ A non-empty value is required for Consumable Name
+            validate~ ! SELECT value
+              - FROM validValues
+              - WHERE (setName = 'Received Consumable' OR setName = 'Prepared Consumable')
+              - AND value = '{Consumable Name}'
+              errorMessage~ This Consumable Name already exists. Enter a unique name.e
+              required~ true
+            class= required
+          select Consumable Type
+            option
+            option Received Consumable
+            option Prepared Consumable
+            required~ true
+            class= required
+          text Catalog Number
+          select Vendor
+            option
+            sqlPreparedQuery~
+              - SELECt vendor, vendorId
+              - FROM vendors
+              - ORDER BY vendor
+            class= required
+            required~ true
+          number quantity
+            screenLabel~ Current Quantity
+            value= 0.00
+            data-parsley-type= number
+            min~ 0
+          number Threshold
+            screenLabel~ Threshold
+            placeholder= 0.00
+            data-parsley-type= number
+            min~ 0
+          select units
+            screenLabel~ Units
+            class= required
+            option
+            setName~ inventoryUnits
+            title= inventoryUnits
+
+      ifCondition {Consumable Name}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement INSERT INTO validValues (setName, displayValue, value, displayOrder, eventId)
+          - VALUES (?, ?, ?, 1, ?)
+          string {Consumable Type}
+          string {Consumable Name}
+          string {Consumable Name}
+          long {_eventId}
+
+        sqlPreparedStatement INSERT INTO inventoryItems (inventoryItem, inventoryType, catalogNumber, vendor, quantity, units, threshold, thresholdUnits, eventId)
+          - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          string {Consumable Name}
+          string {Consumable Type}
+          string {Catalog Number}
+          string {Vendor}
+          float {quantity}
+          string {units}
+          string {Threshold}
+          string {units}
+          long {_eventId}
+
+#########################################################################################################################################################################################################################
+    step Receive Consumables
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        script
+          src= js/resources/consumablesReceiving.js
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        fieldset
+          legend Instructions
+          ol
+            li Enter the information for the consumables.
+            li Scan the corresponding barcodes.
+            li Use the copy checkbox to copy information down to the next row.
+            li Fill out all fields outlined in red.
+
+        table
+          id= receiveMe
+          sqlQuery~ select
+            - '' AS "Copy",
+            - '' AS "Barcode",
+            - '' AS "Cat#",
+            - '' AS "Item",
+            - '' AS "Lot#",
+            - '0.00' AS "Qty",
+            - '' AS "units",
+            - DATE(now()) AS "Received",
+            - DATE(DATE_ADD(now(), INTERVAL 1 YEAR)) AS "Exp Date",
+            -  '' AS "Vendor",
+            - '0.00' AS "Cost/Unit"
+            #- '' as 'Category'
+            - FROM numbers
+            - LIMIT 15
+          columnSpecs~ receiveConsumables
+            allowChangedRecordIds
+            column 1
+              inputType checkbox
+                class= copyCheckbox
+                tabIndex= 3
+            column 2
+              inputType container
+                class= barcodeBackground
+                new~ true
+                tabIndex= 1
+                containerType~ Consumable
+                required~ false
+            column 3
+              inputType text
+                class= catNo
+                tabIndex= 2
+            column 4
+              inputType select
+                class= item required
+                sqlPreparedQuery~
+                  - SELECT inventoryItem
+                  - FROM inventoryItems
+                  - WHERE inventoryType = 'Received Consumable'
+                  - ORDER BY inventoryItem
+                tabIndex= 2
+                class= required
+            column 5
+              inputType text
+                class= lot
+                size= 6
+                tabIndex= 2
+                style= border-color:red;
+            column 6
+              inputType number
+                class= qty
+                size= 5
+                tabIndex= 2
+                style= border-color:red;
+                min~ 0
+                data-parsley-type= number
+            column 7
+              inputType text
+                class= units
+                size= 8
+                readonly=
+                style= border:none; background:transparent;
+                tabIndex= 2
+            column 8
+              inputType date
+                convert~ false
+                class= dateRec datePicker
+                tabIndex= 2
+            column 9
+              inputType date
+                class= expDate datePicker
+                convert~ false
+                tabIndex= 2
+                style= border-color:red;
+            column 10
+              inputType select
+                class= vendor
+                tabIndex= 2
+                sqlQuery~ select vendor, vendorId from vendors order by vendor
+            column 11
+              inputType number
+                size= 4
+                class= cost
+                tabIndex= 2
+                data-parsley-type= number
+                min~ 0
+
+      forRows receiveConsumables
+        ifCondition {_columnInput_receiveConsumables:2}
+          advanced~
+          not~
+            isBlank~
+          validateSql select 1 from dual where '{_columnInput_receiveConsumables:4}' <> ''
+            errorMessage Select an Item Type to submit the consumable(s)
+          validateSql select 1 from dual where '{_columnInput_receiveConsumables:5}' <> ''
+            errorMessage Enter a lot number to submit the consumable(s)
+          validateSql select 1 from dual where '{_columnInput_receiveConsumables:9}' <> ''
+            errorMessage Enter a valid expiration date to submit the consumable(s)
+          validate~ select 1 from dual where '{_thisInput}' >= '{_currentDateFormatted}'
+            errorMessage~ '{_thisInput}' must be greater than or equal to  '{_currentDateFormatted}'
+
+          #Containers
+          sqlPreparedStatement
+            - UPDATE containers
+            - SET containerType = 'Consumable'
+            - , expirationDate = ?
+            - WHERE containerId = ?
+            string {_columnInput_receiveConsumables:9}
+            string {_columnInput_receiveConsumables:2}
+          #reagents
+          sqlPreparedStatement
+            - INSERT INTO consumables
+            - (consumableId,
+            - consumableType,
+            - catalogNo,
+            - quantity,
+            - unitOfMeasure,
+            - lotNumber,
+            - vendor,
+            - costPerUnit,
+            - receiveDate,
+            - expirationDate,
+            - status,
+            - eventId)
+            - VALUES (
+            - ?
+            - , ?
+            - , ?
+            - , ?
+            - , ?
+            - , ?
+            - , ?
+            - , ?
+            - , ?
+            - , ?
+            - , 'In Use'
+            - , ?)
+            string {_columnInput_receiveConsumables:2}
+            string {_columnInput_receiveConsumables:4}
+            string {_columnInput_receiveConsumables:3}
+            float {_columnInput_receiveConsumables:6}
+            string {_columnInput_receiveConsumables:7}
+            string {_columnInput_receiveConsumables:5}
+            string {_columnInput_receiveConsumables:10}
+            float {_columnInput_receiveConsumables:11}
+            string {_columnInput_receiveConsumables:8}
+            string {_columnInput_receiveConsumables:9}
+            long {_eventId}
+          ## update the quantities for items received, both barcoded items and line items
+          sqlPreparedStatement
+            - UPDATE inventoryItems
+            - SET quantity = (quantity + ?)
+            - WHERE catalogNumber = ?
+            - AND inventoryItem = ?
+            float {_columnInput_receiveConsumables:6}
+            string {_columnInput_receiveConsumables:3}
+            string {_columnInput_receiveConsumables:4}
+
+#############################################################################################################################################################################################################
+    step Prepare Container
+      form
+        include stepInstructions
+        data-parsley-validate=
+        fieldSet
+          legend Instructions
+          ol
+            li Select a consumable container type to prepare.
+            li Enter how many of the containers will be prepared.
+        vertical
+          select consumableType
+            id= consumableType
+            class= required
+            screenLabel~ Prepared Container Type
+            required~ true
+            data-parsley-required= true
+            option
+            sqlPreparedQuery~
+              - SELECT
+              -   inventoryItem
+              - FROM inventoryItems
+              - WHERE inventoryType = 'Prepared Consumable'
+              - ORDER BY inventoryItem
+          number containerCount
+            id= containerCount
+            class= required
+            screenLabel~ Number to Prepare
+            required~ true
+            data-parsley-required= true
+            data-parsley-type= integer
+            min= 1
+            data-parsley-min= 1
+            validate~ SELECT 1 FROM dual WHERE ? > 0
+              string {_thisInput}
+              errorMessage~ This number must be greater than 0.
+            validate~ SELECT 1 FROM dual WHERE ceil(?) = ?
+              string {_thisInput}
+              string {_thisInput}
+              errorMessage~ This number must be an integer.
+
+      form
+        include stepInstructions
+        data-parsley-validate=
+
+        script
+          src= js/components/resources.js
+        script
+          src= js/resources/prepareConsumable.js
+
+        formPreparedQuery~
+          - SELECT DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY) AS "expirationDate"
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden consumableType
+          id= consumableType
+          value= {consumableType}
+
+        hidden containerCount
+          id= countainerCounter
+          value= {containerCount}
+
+        div
+          id= typeError
+          title= Resource Type Error
+        div
+          id= qualError
+          title= Qualification Error
+        div
+          id= expError
+          title= Expiration Date Error
+        div
+          id= dneError
+          title= Does Not Exist Error
+        div
+          id= requiredError
+          title= Missing Resources Error
+
+        fieldset
+          legend Reagents
+
+          table
+            id= reagentsTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Delete",
+              -   '' AS "Type",
+              -   '' AS "Reagent",
+              -   '' AS "Amount",
+              -   '' AS "Units"
+              - FROM dual
+            columnSpecs~ reagentsTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType select
+                  class=  resourceSelect type reagentType resourceType
+                  sqlQuery~
+                    - SELECT DISTINCT inventoryItem
+                    - FROM inventoryItems
+                    - WHERE inventoryType IN ('Received Reagent', 'Prepared Reagent')
+                    - ORDER BY inventoryItem
+              column 3
+                inputType resource
+                  class= reagentBarcode barcodeBackground resource duplicateCheckInput
+                  acceptQueue~ any
+                  qualifyResource~ Reagent QC
+                  required~ false
+              column 4
+                inputType text
+                  class= amount
+                  size= 4
+              column 5
+                inputType text
+                  class= units
+                  readonly=
+          vertical2
+            button addReagentRow
+              id= reagents
+              value= Add New
+            button deleteSelectedReagents
+              id= deleteSelectedReagents
+              value= Delete Selected Reagents
+
+        fieldset
+          legend Controls
+
+          table
+            id= controlsTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Delete",
+              -   '' AS "Type",
+              -   '' AS "Control",
+              -   '' AS "Amount",
+              -   '' AS "Units"
+              - FROM dual
+            columnSpecs~ controlsTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType select
+                  class=  resourceSelect type controlType resourceType
+                  sqlQuery~
+                    - SELECT DISTINCT inventoryItem
+                    - FROM inventoryItems
+                    - WHERE inventoryType IN ('Received Control', 'Prepared Control')
+                    - ORDER BY inventoryItem
+              column 3
+                inputType resource
+                  class= controlBarcode barcodeBackground resource duplicateCheckInput
+                  acceptQueue~ any
+                  qualifyResource~ Control QC
+                  required~ false
+              column 4
+                inputType text
+                  class= amount
+                  size= 4
+              column 5
+                inputType text
+                  class= units
+                  readonly=
+          vertical2
+            button addControlRow
+              id= controls
+              value= Add New
+            button deleteSelectedControls
+              id= deleteSelectedControls
+              value= Delete Selected Controls
+
+        fieldset
+          legend Barcodes
+          topVertical
+            date expirationDate
+              id= expirationDate
+              class= datePicker
+              convert~ false
+              value= {_:expirationDate}
+              screenLabel~ Expiration Date
+              validate~ select 1 from dual where ? >= ?
+                string {expirationDate}
+                string {_currentDate}
+                errorMessage~ The expiration date must be in the future.
+          vertical2
+            button generateIds
+              id= generateIds
+              value= Generate Ids
+              screenLabel~
+          printerControls
+            defaultPrinter~
+            defaultDocument~
+            variables~
+          div
+            id= printAllDiv
+
+          table
+            id= containerTable
+            sqlPreparedQuery~
+              - SELECT
+              -   no AS "",
+              -   '' AS "Barcode",
+              -   'Print' AS "Print"
+              - FROM numbers
+              - LIMIT {containerCount}
+            columnSpecs~ containerTable
+              allowChangedRecordIds
+              column 2
+                inputType container
+                  class= newContainer required printRowContainer barcodeBackground duplicateCheckInput
+                  data-parsley-required= true
+                  new~ true
+                  containerType~ Consumable
+              column 3
+                inputType hidden
+                  class= printButton
+
+      forRows containerTable
+        ### Setting vendor to 0 for Prepared Consumables
+          # No QC properties for prepared containers currently
+        sqlPreparedStatement
+          - INSERT INTO consumables (consumableId, consumableType, quantity, vendor, expirationDate, status, eventId)
+          - VALUES (?, ?, 1, 0, ?, 'In Use', ?)
+          string {_columnInput_containerTable:2}
+          string {consumableType}
+          string {expirationDate}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - UPDATE containers SET
+          -   expirationDate = ?
+          - WHERE containerId = ?
+          string {expirationDate}
+          string {_columnInput_containerTable:2}
+
+      ### UPDATING REAGENT QUANTITIES
+      forRows reagentsTable
+        ifCondition {_columnInput_reagentsTable:3}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - UPDATE reagents SET
+            -   quantity = (quantity - (? * ?))
+            - WHERE reagentId = ?
+            float {_columnInput_reagentsTable:4}
+            float {containerCount}
+            string {_columnInput_reagentsTable:2}
+
+          sqlPreparedStatement~
+            - UPDATE inventoryItems SET
+            -   quantity = quantity - CAST((? * ?) AS DECIMAL(10,2))
+            - WHERE inventoryItem = ?
+            float {_columnInput_reagentsTable:4}
+            float {containerCount}
+            string {_columnInput_reagentsTable:2}
+
+          sqlPreparedStatement
+            - UPDATE inventoryItems i
+            -   INNER JOIN (
+            -               SELECT
+            -                 sum(r1.quantity) AS "totalQuantity",
+            -                 r1.reagentType
+            -               FROM reagents r1
+            -                 INNER JOIN reagents r2 ON r1.reagentType = r2.reagentType
+            -               WHERE r2.reagentId = ?
+            -                 AND r1.status <> 'Disposed'
+            -               GROUP BY r1.reagentType
+            -              ) q ON i.inventoryItem = q.reagentType
+            - SET i.quantity = totalQuantity;
+            string {_columnInput_reagentsTable:2}
+          ### ADDING COMPONENTS
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT c.containerId, 'Component',  'Component', ?, ?
+            - FROM containers c
+            - WHERE c.eventId = ?
+            -   AND c.containerType = 'Consumable'
+            string {_columnInput_reagentsTable:3}
+            long {_eventId}
+            long {_eventId}
+
+      ### UPDATING CONTROL QUANTITIES
+      forRows controlsTable
+        ifCondition {_columnInput_controlsTable:3}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - UPDATE controls SET
+            -   quantity = (quantity - (? * ?))
+            - WHERE controlId = ?
+            float {_columnInput_controlsTable:4}
+            float {containerCount}
+            string {_columnInput_controlsTable:3}
+
+          sqlPreparedStatement~
+            - UPDATE inventoryItems SET
+            -   quantity = quantity - CAST((? * ?) AS DECIMAL(10,2))
+            - WHERE inventoryItem = ?
+            float {_columnInput_controlsTable:4}
+            float {containerCount}
+            string {_columnInput_controlsTable:2}
+
+          sqlPreparedStatement
+            - UPDATE inventoryItems i
+            -   INNER JOIN (
+            -               SELECT
+            -                 sum(r1.quantity) AS "totalQuantity",
+            -                 r1.reagentType
+            -               FROM reagents r1
+            -                 INNER JOIN reagents r2 ON r1.reagentType = r2.reagentType
+            -               WHERE r2.reagentId = ?
+            -                 AND r1.status <> 'Disposed'
+            -               GROUP BY r1.reagentType
+            -              ) q ON i.inventoryItem = q.reagentType
+            - SET i.quantity = totalQuantity;
+            string {_columnInput_controlsTable:2}
+
+          ### ADDING COMPONENTS
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT c.containerId, 'Component',  'Component', ?, ?
+            - FROM containers c
+            - WHERE c.eventId = ?
+            -   AND c.containerType = 'Consumable'
+            string {_columnInput_controlsTable:3}
+            long {_eventId}
+            long {_eventId}
+
+      sqlPreparedStatement~
+        - UPDATE inventoryItems SET
+        -   quantity = (quantity + ?)
+        - WHERE inventoryItem = ?
+        -   AND inventoryType = 'Prepared Consumable'
+        float {containerCount}
+        string {consumableType}
+
+#############################################################################################################################################################################################################
+    step Dispose Consumables
+      queueSelectRecId
+      jsScripts
+        src js/resources/disposeConsumables.js
+      form
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden dateLongFormat
+          id= dateLongFormat
+          value= {_dateLongFormat}
+        fieldset
+          legend Instructions
+          ol
+            li Scan or select the consumable(s) that have been or are ready to be disposed.
+            li This will update the status of the consumable(s) in the system to <i>Disposed</i> and will no longer be counted as active inventory.
+        hr
+        vertical
+          text Dispose
+            class= barcodeBackground
+            screenLabel~ Scan Consumable to Dispose:
+            required~ false
+            validate~ ! select 1 from consumablesHistory where consumableId = '{_thisInput}' and status = 'Disposed'
+              errorMessage~ This consumable has already been disposed.
+            validate~ select 1 from containers where containerId = '{_thisInput}' and containerType = 'Consumable' OR '{_thisInput}' = ''
+              errorMessage~ This is not a known consumable.
+
+        hr
+        div
+          class= tabs
+          ul
+            li
+              a Select Consumable To Dispose
+                href= #toDispose
+            li
+              a !!! View Recently Disposed by {_userId}
+                href= #recentlyDisposed
+          div
+            id= toDispose
+            table
+              class= stdTableBasic
+              sqlQuery~
+                - SELECT
+                -   '' AS "Dispose",
+                -   c.consumableId AS "ConsumableId",
+                -   c.consumableType AS "Type",
+                -   c.expirationDate AS "Exp Date",
+                -   c.quantity AS "Qty Left",
+                -   c.unitOfMeasure AS "Units",
+                -   c.status AS "Status"
+                - FROM consumables c
+                - INNER JOIN containers co
+                -   ON c.consumableId = co.containerId
+                - WHERE c.status IN ('In Use', 'Pending QC', 'Failed')
+                -   AND co.containerType = 'Consumable'
+                - ORDER BY c.receiveDate desc
+              columnSpecs~ dispose
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                column 2
+                  inputType text
+                    readonly=
+                    ### did this because the step will not allow user to submit a container that's expired...
+                column 3
+                  inputType select
+                    readonly=
+                column 4
+                  formatDate~
+                  convertDateTime~ false
+                column 5
+                  inputType text
+                    size= 4
+                    readonly=
+          div
+            id= recentlyDisposed
+            table
+              class= stdTableBasic
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   ch.containerId AS "Consumable ID",
+                -   e.userId AS "Disposed By",
+                -   e.eventDate AS "Time",
+                -   e.comments AS "Comments"
+                - FROM containerHistory ch
+                - INNER JOIN events e
+                -   ON ch.eventId = e.eventId
+                - WHERE e.step = ?
+                -   AND e.userId = ?
+                -   AND e.eventDate > DATE_SUB(now(), INTERVAL 2 DAY)
+                string {_step}
+                string {_userId}
+              columnSpecs~ disposedRecently
+                allowChangedRecordIds
+                column 3
+                  formatDateTime~
+          vertical
+            comments Comments
+
+
+
+
+
+      forRows dispose
+        ifCondition {_columnInput_dispose:1}
+          advanced~
+          equals~ true
+
+          sqlPreparedStatement
+            - UPDATE consumables
+            - SET status = 'Disposed'
+            - WHERE consumableId = ?
+            string {_columnInput_dispose:2}
+
+          sqlPreparedStatement
+            - DELETE from consumables
+            - WHERE consumableId = ?
+            string {_columnInput_dispose:2}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_dispose:2}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - UPDATE inventoryItems
+            - SET quantity = (quantity - ?)
+            - WHERE inventoryItem = ?
+            -   AND ? >= 0
+            float {_columnInput_dispose:5}
+            string {_columnInput_dispose:3}
+            float {_columnInput_dispose:5}
+
+      ifCondition {Dispose}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - INSERT INTO containerHistory (containerId, eventId)
+          - VALUES (?,?)
+          string {Dispose}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - UPDATE consumables
+          - SET status = 'Disposed'
+          - WHERE consumableId = ?
+          string {Dispose}
+        ### UPDATE CONSUMABLES AND TRIGGER FIRES TO INSERT UPDATED ROW INTO HISTORY TABLE, THEN DELETE FROM CONSUMABLES
+        sqlPreparedStatement
+          - DELETE FROM consumables
+          - WHERE consumableId = ?
+          string {Dispose}
+
+#############################################################################################################################################
+    step Lookup Consumable
+      form
+        include stepInstructions
+        vertical
+          container _recId
+            screenLabel~ Consumable ID
+            recordContainerHistory~ false
+            containerType~ Consumable
+            acceptQueue~ any
+            validate~ SELECT 1
+              - FROM consumables
+              - WHERE consumableId = ?
+              string {_thisInput}
+              errorMessage~ This item is not an active consumable and cannot be viewed.
+
+      form
+        include stepInstructions
+        formPreparedQuery~
+          - (SELECT
+          -   consumableId,
+          -   consumableType,
+          -   catalogNo,
+          -   quantity,
+          -   unitOfMeasure,
+          -   expirationDate,
+          -   receiveDate,
+          -   lotNumber,
+          -   v.vendor,
+          -   projectType,
+          -   costPerUnit,
+          -   poNumber,
+          -   status
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE consumableId = ?)
+          - UNION
+          - (SELECT
+          -   consumableId,
+          -   consumableType,
+          -   catalogNo,
+          -   quantity,
+          -   unitOfMeasure,
+          -   expirationDate,
+          -   receiveDate,
+          -   lotNumber,
+          -   v.vendor,
+          -   projectType,
+          -   costPerUnit,
+          -   poNumber,
+          -   status
+          - FROM consumablesHistory ch
+          - LEFT JOIN vendors v ON ch.vendor = v.vendorId
+          - WHERE consumableId = ?
+          - ORDER BY ch.eventId desc )
+          - LIMIT 1
+          string {_recId}
+          string {_recId}
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden dateLongFormat
+          id= dateLongFormat
+          value= {_dateLongFormat}
+
+        formQuery~ expirationDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        formQuery~ receiveDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:receiveDate}
+
+        h3 !!! Consumable Report for {_:consumableId}
+
+        hr
+
+        h3 Consumable Information
+        vertical2
+          vertical
+            span <b>Consumable Type:</b> {_resultSet:consumableType}
+            span <b>Catalog Number:</b> {_resultSet:catalogNo}
+            span <b>Quantity:</b> {_resultSet:quantity}
+            span <b>Units:</b> {_resultSet:unitOfMeasure}
+            span <b>Expiration Date:</b> {_resultSet:expirationDate}
+            span <b>Received Date:</b> {_resultSet:receiveDate}
+          vertical
+            span <b>Lot Number:</b> {_resultSet:lotNumber}
+            span <b>Vendor:</b> {_resultSet:vendor}
+            span <b>Project:</b> {_resultSet:projectType}
+            span <b>Cost Per Unit:</b> {_resultSet:costPerUnit}
+            span <b>PO Number:</b> {_resultSet:poNumber}
+            span <b>Status:</b> {_resultSet:status}
+
+        h3 Consumable History
+        vertical
+          table
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   ch.containerId AS "Consumable",
+              -   e.step AS "Step",
+              -   e.eventDate AS "Date",
+              -   e.userId AS "User"
+              - FROM containerHistory ch
+              - INNER JOIN events e
+              - ON ch.eventId = e.eventId
+              - WHERE ch.containerId = ?
+              - ORDER BY e.eventDate
+              string {_resultSet:consumableId}
+
+            columnSpecs~ usageHistory
+              column 3
+                inputType datetime
+                  readonly=
+
+
+        h3 Consumable Information History
+        vertical
+          table
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   consumableId AS "Id",
+              -   consumableType AS "Type",
+              -   catalogNo AS "Cat#",
+              -   CONCAT(quantity, ' ', IFNULL(unitOfMeasure, '')) AS "Qty",
+              -   lotNumber AS "Lot",
+              -   v.vendor AS "Vendor",
+              -   projectType AS "Project",
+              -   costPerUnit AS "$",
+              -   poNumber AS "PO",
+              -   expirationDate AS "ExpDate",
+              -   receiveDate AS "RecDate",
+              -   status AS "Status"
+              - FROM consumablesHistory ch
+              - LEFT JOIN vendors v on ch.vendor = v.vendorId
+              - WHERE consumableId = ?
+              string {_resultSet:consumableId}
+
+            columnSpecs~ infoHistory
+              column 10
+                formatDate~
+                convertDateTime~ false
+              column 11
+                formatDate~
+                convertDateTime~ false
+
+##############################################################################################################################################
+    step Edit Consumable
+      form
+        include stepInstructions
+        vertical
+          container _recId
+            screenLabel~ Consumable ID
+            recordContainerHistory~ false
+            containerType~ Consumable
+            acceptQueue~ any
+            validate~ SELECT 1
+              - FROM consumables
+              - WHERE consumableId = ?
+              string {_thisInput}
+              errorMessage~ This item is not an active consumable and cannot be viewed.
+        hr
+        vertical
+          table
+            class= stdTableBasic
+            sqlPreparedQuery~
+              - SELECT
+              -   consumableId AS 'Consumable ID',
+              -   consumableType AS 'Type',
+              -   catalogNo AS 'Cat No.',
+              -   quantity AS 'Qty',
+              -   unitOfMeasure AS 'Units',
+              -   expirationDate AS 'Expiration',
+              -   receiveDate AS 'Received',
+              -   lotNumber AS 'Lot#',
+              -   v.vendor AS 'Vendor',
+              -   status AS 'Status'
+              - FROM consumables c
+              - LEFT JOIN vendors v on c.vendor = v.vendorId
+              - ORDER BY receiveDate
+            columnSpecs~ received
+              column 6
+                formatDate~
+                convertDateTime~ false
+              column 7
+                formatDate~
+                convertDateTime~ false
+
+      form
+        include stepInstructions
+        data-parsley-validate=
+        formPreparedQuery~
+          - SELECT
+          -   consumableId,
+          -   consumableType,
+          -   catalogNo,
+          -   quantity,
+          -   unitOfMeasure,
+          -   expirationDate,
+          -   receiveDate,
+          -   lotNumber,
+          -   v.vendor,
+          -   costPerUnit,
+          -   status
+          - FROM consumables c
+          - LEFT JOIN vendors v ON c.vendor = v.vendorId
+          - WHERE consumableId = ?
+          string {_recId}
+          allowEmptyResults~
+
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        formQuery~ receiveDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:receiveDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+
+
+        vertical
+
+          container consumableId
+            acceptQueue~ any
+            screenLabel~ Consumable Id
+            value= {_resultSet:consumableId}
+            readonly=
+          select consumableType
+            screenLabel~ Consumable Type
+            sqlQuery~
+              - SELECT inventoryItem
+              - FROM inventoryItems
+              - WHERE inventoryType = 'Consumable'
+              - ORDER BY inventoryItem
+            value= {_resultSet:consumableType}
+          text catalogNumber
+            value= {_resultSet:catalogNo}
+            screenLabel~ Catalog Number
+          text quantity
+            value= {_resultSet:quantity}
+            screenLabel~ Quantity
+            size= 4
+          select Units
+            sqlQuery~
+              - SELECT displayValue
+              - FROM validValues
+              - WHERE setName = 'inventoryUnits'
+            title= inventoryUnits
+            value= {_resultSet:unitOfMeasure}
+          date expDate
+            convert~ false
+            screenLabel~ Exp Date
+            value= {_resultSet:formattedExpDate}
+            class= datePicker required
+            data-parsley-required= true
+          date recDate
+            convert~ false
+            screenLabel~ Received Date
+            value= {_resultSet:receiveDate}
+            class= datePicker required
+            data-parsley-required= true
+          text lotNumber
+            screenLabel~ Lot Number
+            value= {_resultSet:lotNumber}
+          select vendor
+            screenLabel~ Vendor
+            sqlQuery~
+              - SELECT vendor, vendorId
+              - FROM vendors
+              - ORDER BY vendor
+            value= {_resultSet:vendor}
+          text costPerUnit
+            screenLabel~ Cost Per Unit
+            value= {_resultSet:costPerUnit}
+          select status
+            screenLabel~ Status
+            value= {_resultSet:status}
+            option In Use
+
+
+      sqlPreparedStatement
+        - UPDATE consumables
+        - SET consumableType= ?
+        - , catalogNo = ?
+        - , quantity = ?
+        - , unitOfMeasure = ?
+        - , expirationDate = ?
+        - , receiveDate = ?
+        - , lotNumber = ?
+        - , vendor = ?
+        - , costPerUnit = case ? when '' then 0 else ? end
+        - , status = ?
+        - WHERE consumableId = ?
+        string {consumableType}
+        string {catalogNumber}
+        float {quantity}
+        string {Units}
+        string {expDate}
+        string {recDate}
+        string {lotNumber}
+        string {vendor}
+        float {costPerUnit}
+        float {costPerUnit}
+        string {status}
+        string {consumableId}
+
+###################################################################################################################################################
+    step View Consumable Associations
+      form
+        include stepInstructions
+        include userAccountInfo
+        vertical
+          container consumableId
+            screenLabel~ Consumable ID
+            containerType~ Consumable
+            acceptQueue~ any
+            validate~ SELECT 1
+              - FROM consumables
+              - WHERE consumableId = ?
+              string {_thisInput}
+              errorMessage~ This item is not an active consumable and cannot be viewed.
+      form
+        include userAccountInfo
+        formPreparedQuery~
+          - SELECT
+          -   consumableType
+          -
+          - FROM consumables
+          - WHERE consumableId = ?
+          string {consumableId}
+
+        h3 !!! Below are all containers, reagents, instruments, and other consumables
+          - that were submitted together with - {consumableId} ({_resultSet:consumableType}).
+
+        h3 Containers
+        vertical
+          table
+            caption CONTAINER ASSOCIATIONS
+            sqlPreparedQuery~
+              - SELECT
+              -   ch.containerId AS "Container Id",
+              -   co.containerType AS "Container Type",
+              -   e.Step,
+              -   e.eventDate AS "Event Date",
+              -   e.userId AS "User Id"
+              - FROM resourceHistory rh
+              - INNER JOIN containerHistory ch
+              -   ON rh.eventId = ch.eventId
+              - INNER JOIN containers co
+              -   ON ch.containerId = co.containerId
+              - INNER JOIN events e
+              -   ON ch.eventId = e.eventId
+              - where rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {consumableId}
+            columnSpecs~ containers
+              column 4
+                inputType datetime
+                  readonly=
+
+        h3 Other Resources
+        vertical
+          table
+            caption OTHER CONSUMABLES
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId AS "Consumable Id",
+              -   c.consumableType AS "Type",
+              -   e.Step,
+              -   e.eventDate AS "Event Date",
+              -   e.userId AS "User Id"
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2
+              -   ON rh.eventId = rh2.eventId
+              - INNER JOIN consumables c
+              -   ON rh2.containerid = c.consumableId
+              - INNER JOIN events e
+              -   ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {consumableId}
+            columnSpecs~ consumablesOther
+              column 4
+                inputType datetime
+                  readonly=
+
+          table
+            caption REAGENTS
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId AS "Reagent Id",
+              -   r.reagentType AS "Type",
+              -   e.Step,
+              -   e.eventDate AS "Event Date",
+              -   e.userId AS "User Id"
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2
+              -   ON rh.eventId = rh2.eventId
+              - INNER JOIN reagents r
+              -   ON rh2.containerid = r.reagentId
+              - INNER JOIN events e
+              -   ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {consumableId}
+            columnSpecs~ reagents
+              column 4
+                inputType datetime
+                  readonly=
+
+          table
+            caption CONTROLS
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId AS "Reagent Id",
+              -   r.controlType AS "Type",
+              -   e.Step,
+              -   e.eventDate AS "Event Date",
+              -   e.userId AS "User Id"
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2
+              -   ON rh.eventId = rh2.eventId
+              - INNER JOIN controls r
+              -   ON rh2.containerid = r.controlId
+              - INNER JOIN events e
+              -   ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {consumableId}
+            columnSpecs~ controls
+              column 4
+                inputType datetime
+                  readonly=
+
+          table
+            caption INSTRUMENTS
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId AS "Instrument Id",
+              -   i.instrumentType AS "Type",
+              -   e.Step,
+              -   e.eventDate AS "Event Date",
+              -   e.userId AS "User Id"
+              - FROM resourceHistory rh
+              - INNER JOIN resourceHistory rh2
+              -   ON rh.eventId = rh2.eventId
+              - INNER JOIN instruments i
+              -   ON rh2.containerid = i.instrumentId
+              - INNER JOIN events e
+              -   ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {consumableId}
+            columnSpecs~ instruments
+              column 4
+                inputType datetime
+                  readonly=
+
+

@@ -1,0 +1,283 @@
+    step [$$STEP_NAME$$]
+      allowDuplicateContainerIds true
+      form
+        ENCTYPE= multipart/form-data
+        script
+          src= js/components/container.js
+        script
+          src= js/components/printBarcode.js
+        script
+          src= js/tasks/mergeBatch.js
+        script
+          src= js/tasks/batchingUtils.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "generateSequence",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'false'
+          -     ELSE 'true'
+          -   END AS "batchAsSelect",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "newContainer",
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '0'
+          -     ELSE ?
+          -   END AS "minSamples",
+          -   CASE ?
+          -     WHEN 'Not Applicable' THEN '5000'
+          -     ELSE ?
+          -   END AS "maxSamples"
+          string [$$Generate_Batch_ID$$]
+          string [$$Generate_Batch_ID$$]
+          string [$$Generate_Batch_ID$$]
+          string [$$Min_Number_Of_Samples$$]
+          string [$$Min_Number_Of_Samples$$]
+          string [$$Max_Number_Of_Samples$$]
+          string [$$Max_Number_Of_Samples$$]
+
+
+        hidden batchGeneration
+          id= batchGeneration
+          value= [$$Generate_Batch_ID$$]
+
+        hidden sampleCounter
+          id= sampleCounter
+          value= [$$Sample_Counter$$]
+
+        div
+          id= sampleCounterDiv
+          vertical
+            text sampleListCounter
+              id= sampleListCounter
+              screenLabel~ Sample Count
+              readonly=
+
+        vertical2
+          text sampleMin
+            size= 4
+            screenLabel~ Batch Minimum:
+            id= sampleMin
+            value= {_:minSamples}
+          text sampleMax
+            size= 4
+            screenLabel~ Batch Maximum:
+            id= sampleMax
+            value= {_:maxSamples}
+
+        br
+        hr
+
+        table
+          id= mergeBatch
+          class= stdTableBasic
+          sqlPreparedQuery~
+            - SELECT
+            -   '' AS "SELECT",
+            -   q.containerId AS "[$$Batch_Screen_Label$$]",
+            -   IFNULL(cp.value, '') AS "[$$Batch_Screen_Label$$] Type",
+            -   IFNULL(vV.displayValue, '') AS "[$$Batch_Screen_Label$$] Priority",
+            -   DATE(e.eventDate) AS "Queued Date",
+            -   e.userId AS "Queued By",
+            -   (COUNT(DISTINCT sr.currentContainerId) + COUNT(DISTINCT cr.currentContainerId)) AS "Count"
+            - FROM queues q
+            -   INNER JOIN events e
+            -     ON e.eventId = q.eventId
+            -   INNER JOIN contents c
+            -     ON q.containerId = c.containerId
+            -   INNER JOIN specimenRuns sr
+            -     ON q.containerId = sr.currentParentId
+            -   LEFT JOIN controlRuns cr
+            -     ON sr.currentParentId = cr.currentParentId
+            -   LEFT JOIN containerProperties cp
+            -     ON q.containerId = cp.containerId
+            -     AND cp.property = 'Container Category'
+            -   LEFT JOIN containerProperties cp2
+            -     ON q.containerId = cp2.containerId
+            -     AND cp2.property = 'Container Priority'
+            -   LEFT JOIN validValues vV
+            -     ON vV.setName = 'priority'
+            -     AND vV.value = cp2.value
+            - WHERE q.step = ?
+            -   AND c.attribute <> 'self'
+            - GROUP BY q.containerId
+            string [$$STEP_NAME$$]
+          columnSpecs~ mergeBatch
+            allowChangedRecordIds
+            column 1
+              inputType checkbox
+                class= selectBatch
+            column 2
+              inputType container
+                readonly=
+                class= batchId
+                new~ false
+                recordContainerHistory~ false
+                if~ {_columnInput:1}
+                  advanced~
+                  equals~ true
+                  sqlPreparedStatement~
+                    - INSERT INTO containerHistory (containerId, eventId)
+                    - VALUES ( ?, ? )
+                    string {_columnInput:2}
+                    long {_eventId}
+                  sqlPreparedStatement~
+                    - DELETE FROM queues
+                    - WHERE containerId = ?
+                    -   AND step = ?
+                    string {_columnInput:2}
+                    string [$$STEP_NAME$$]
+            column 7
+              inputType number
+                readonly=
+                class= count
+
+        br
+        hr
+
+
+        printerControls
+          configureIf~ [$$Print_Batch_Barcode$$]
+            advanced~
+            equals~ Yes
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        vertical
+
+          include containerComponent
+
+            #### DEVELOPER CONFIGURATIONS
+            parameter~ containerName
+              value= destinationBatchId
+            parameter~ containerScreenLabel
+              value= [$$Batch_Screen_Label$$]
+            parameter~ containerReadonly
+              value= false
+            parameter~ containerNew
+              value= {_:newContainer}
+            parameter~ containerAsSelect
+              value= {_:batchAsSelect}
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= batchId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value= destinationContainer
+            parameter~ containerValue
+              value=
+            parameter~ useThisSequence
+              value= batchId
+
+            #### BUILD SHEET CONFIGURATIONS
+            parameter~ containerCommentsInclude
+              value= [$$Destination_Batch_Comments$$]
+            parameter~ containerActionInclude
+              value= [$$Destination_Batch_Action$$]
+            parameter~ containerGenerateFromSequence
+              value= [$$Generate_Batch_ID$$]
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= [$$Print_Batch_Barcode$$]
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ groupingContainerRunCount
+              value= No
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+
+
+      forRows mergeBatch
+        ifCondition {_columnInput_mergeBatch:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT
+            -   ?,
+            -   co.attribute,
+            -   co.contentType,
+            -   co.content,
+            -   ?
+            - FROM contents co
+            - WHERE co.containerId = ?
+            -   AND co.containerId <> ?
+            string {destinationBatchId}
+            long {_eventId}
+            string {_columnInput_mergeBatch:2}
+            string {destinationBatchId}
+
+        ## update specimenRuns currentParentId ##
+
+          sqlPreparedStatement~
+            - UPDATE specimenRuns sr
+            - SET sr.currentParentId = ?,
+            -   sr. lastUpdatedEventId = ?
+            - WHERE sr.currentParentId = ?
+            string {destinationBatchId}
+            long {_eventId}
+            string {_columnInput_mergeBatch:2}
+
+          forEach SELECT runId
+            - FROM specimenRuns
+            - WHERE currentParentId = ?
+            string {destinationBatchId}
+
+            sqlPreparedStatement~
+              - INSERT INTO containerHistory (containerId, eventId)
+              - VALUES (?, ?)
+              string {_:runId}
+              long {_eventId}
+
+        ## update controlRuns currentParentId ##
+
+          sqlPreparedStatement~
+            - UPDATE controlRuns cr
+            - SET cr.currentParentId = ?,
+            -   cr. lastUpdatedEventId = ?
+            - WHERE cr.currentParentId = ?
+            string {destinationBatchId}
+            long {_eventId}
+            string {_columnInput_mergeBatch:2}
+
+
+      # OUT CONTAINER ROUTING, APPLIES NEXT STEP DEFAULT
+          include routeContainer
+            parameter~ routingDirection
+              value= OUT
+            parameter~ routingType
+              value= group
+            parameter~ processContainerId
+              value= {destinationBatchId}
+            parameter~ result
+              value= {destinationBatchId_Action}
+            parameter~ deleteFromStep
+              value= [$$STEP_NAME$$]
+            parameter~ defaultNextStep
+              value= [$$NEXT_STEP$$]
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_step}
+
+
+
+
+
+

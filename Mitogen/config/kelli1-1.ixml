@@ -1,0 +1,281 @@
+config
+  steps
+    stepGroup Plasma Collection
+    step Collect Blood Tubes
+      jsScripts
+        src js/myJsFile.js
+      form
+        formQuery~ SELECT userId as "TestingUserId" FROM userInfo WHERE userId = '{_userId}'
+        #include allAboutMe
+        vertical
+          container Test Tube
+            new~ true
+            required~ true
+            containerType~ testTubeId
+            addContent~
+            insertQueue~ Blood Tube Transfer
+            screenLabel~ Test Tube Kelli
+            value= BT{_getNextSequence:bloodTube}
+
+          select mySelectList
+            setName~ Color
+
+          comments Comments
+
+
+      sql INSERT INTO containerProperties(containerId, property, value, eventId)
+        #- VALUES(?,?,?,?)
+        - VALUES ('{Test Tube}','Color', '{mySelectList}', {_eventId})
+
+
+    step Blood Tube Transfer
+      form
+        vertical
+          table
+            sqlQuery~ SELECT q.containerId as "BloodTubeId"
+              - , e.userId
+              - , e.eventDate
+              - FROM queues q
+              - INNER JOIN events e on q.eventId = e.eventId
+              - WHERE q.step = '{_step}'
+      form
+        vertical
+          container bloodTube
+            screenLabel~ Blood Tube
+            new~ false
+            required~ true
+            deleteQueue~ {_step}
+            value= {_recId}
+            readonly=
+
+          container aliquotTube
+            new~ true
+            required~ true
+            addContent~
+            containerType~ aliquotTubeId
+            insertQueue~ Aliquot Again
+            placeholder= AL####
+            validate~ ! SELECT 1 FROM dual WHERE '{aliquotTube}' = "AT33333"
+              errorMessage~ Error Message
+
+      xfer duplicate
+        from bloodTube
+        to aliquotTube
+
+    step  Aliquot Again
+      form
+        vertical
+          container aliquotTube
+            new~ false
+            required~ true
+            #insertQueue~ Create Plate
+            #
+          table
+            sqlQuery~ SELECT '' AS "Aliquot ID"
+              - , '' AS "Volume"
+              - , '' AS "Units"
+              - FROM numbers
+              - LIMIT 3
+            columnSpecs~ aliquotAgainTable
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  new~ true
+                  required~ true
+                  addContent~
+                  containerType~ aliquotTubeId
+                  insertQueue~ Create Plate
+              column 2
+                inputType text
+                  size= 4
+                  placeholder= 0.0
+              column 3
+                inputType select
+                  option mL
+                  option uL
+
+      forRows aliquotAgainTable
+        sql INSERT INTO containerProperties (containerId, property, value, eventId)
+          - VALUES ('{_columnInput_aliquotAgainTable:1}', 'volume','{_columnInput_aliquotAgainTable:2}',{_eventId} )
+
+    step Create Plate
+      form
+        vertical
+          container extractionPlate
+            screenLabel~ Extraction Plate
+            insertQueue~ Analyze Plate
+            addContent~
+            new~ true
+            required~ true
+
+          plate Samples
+            rows 8
+            cols 12
+            transferContentsInto extractionPlate
+            inputType container
+              deleteQueue~ {_step}
+              required~ false
+            tablndexColumnMajor true
+
+      allowDuplicateContainerIds true
+
+      # forEach SELECT content as "SampleId" FROM contents WHERE containerId = '{extractionPlate}' and contentType = 'aliquotTubeId'
+      #   sql INSERT INTO containerProperties (containerId, property, value, unitOfMeasure, eventId)
+      #     - VALUES ('{_:SampleId}', 'volume','10', 'uL',{_eventId} )
+
+
+    step Analyze Plate
+      form
+        vertical
+          table
+            sqlQuery~
+              - SELECT q.containerId as "AnalyzePlateId"
+              - , e.userId
+              - , e.eventDate
+              - FROM queues q
+              - INNER JOIN events e ON q.eventId = e.eventId
+              - WHERE q.step = '{_step}'
+      form
+        hidden _recId
+          value= {_recId}
+        vertical
+          container plateId
+            screenLabel~ Extraction Plate
+            value= {_recId}
+            required~ true
+            new~ false
+            deleteQueue~ {_step}
+            insertQueue~ Report Plate
+
+          files
+            destinationFilePrefix~ TestFile_{_eventId}
+            destinationFolderName~ ../private/documents
+
+
+    step Report Plate
+      jsScripts
+        src js/training.js
+      form
+        vertical
+          table
+            sqlQuery~
+              - SELECT q.containerId as "ReportPlateId"
+              - , e.userId
+              - , e.eventDate
+              - FROM queues q
+              - INNER JOIN events e ON q.eventId = e.eventId
+              - WHERE q.step = '{_step}'
+      form
+        hidden _recId
+          id= hiddenContainerId
+          value= {_recId}
+        vertical
+          formQuery~ SELECT c.containerId as "plate"
+            - , c.containerType
+            - FROM containers c
+            - WHERE c.containerId = '{_recId}'
+
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Plate Report
+              div
+                class= horizontalFlex-center
+                h4 !!! {_:plate} - {_:containerType}
+
+              div
+                class= verticalFlex
+                table
+                  caption Plate Contents
+                  sqlQuery~
+                    - SELECT c.containerId AS "Plate"
+                    - , c.attribute AS "Well"
+                    - , c.content AS "Sample"
+                    - , e.userId
+                    - , e.eventDate
+                    - FROM contents c
+                    - INNER JOIN events e ON c.eventId = e.eventId
+                    - WHERE c.containerId = '{_recId}'
+                label Plate Status
+                text Plate Status
+                  id= plateStatus
+
+                button Get Ajax Table
+                  id= getTable
+                br
+                div
+                  id= myTable
+                br
+
+                button Get Ajax JSON
+                  id= getJSON
+                br
+                div
+                  id=myJSON
+                br
+
+                button Ajax POST
+                  id= postData
+                br
+                div
+                  id=postStatus
+                br
+
+    step Test Output Table
+      form
+        text Test
+      outputTable private/documents/Test_{_eventId}.txt
+        makeDirs
+        delimiter |
+        sqlQuery~
+          - SELECT c.containerId, c.attribute, c.contentType, c.content, c.eventId
+          - FROM contents c
+          - WHERE c.containerId = 'REPORT-R35'
+
+    stepGroup Kelli Hidden Steps
+    step Ajax Get JSON Example
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT ch.containerId
+          - , e.step
+          - , e.userId
+          - , e.eventDate
+          - , e.comments
+          -  FROM containerHistory ch
+          - INNER JOIN events e on ch.eventId = e.eventId
+          - WHERE ch.containerId = ?
+          string {containerId}
+
+    step Ajax Get Table Example
+      class uniflow.AjaxQuery
+      table
+        caption Container History
+        sqlPreparedQuery~
+          - SELECT ch.containerId
+          - , e.step
+          - , e.userId
+          - , e.eventDate
+          - , e.comments
+          -  FROM containerHistory ch
+          - INNER JOIN events e on ch.eventId = e.eventId
+          - WHERE ch.containerId = ?
+          string {containerId}
+
+    step Ajax Post Example
+      form
+        text myPlate
+        text myStatus
+      sqlPreparedStatement
+        - INSERT INTO containerProperties (containerId, property, value, eventId)
+        - VALUES (?,?,?,?)
+        string {myPlate}
+        string Plate Status
+        string {myStatus}
+        long {_eventId}
+
+
+
+
+

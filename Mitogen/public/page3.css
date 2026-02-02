@@ -1,0 +1,1570 @@
+@import url('https://fonts.googleapis.com/css?family=Raleway:300,400,500,700,900|Roboto:300,400,500,700,900|Montserrat:300,400,500,700,900&display=swap');
+
+body {
+  background: #ffffff;
+  font-family: Roboto, Leto, sans-serif;
+  font-weight: 400;
+  font-size:14px;
+  padding: 0;
+  margin: 0;
+}
+
+/**** D3 *****/
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: steelblue;
+}
+.bar:hover {
+  fill: orangered ;
+}
+.d3-tip {
+  line-height: 1;
+  font-weight: 400;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 10px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Style northward tooltips differently */
+.d3-tip.n:after {
+  margin: -1px 0 0 0;
+  top: 100%;
+  left: 0;
+}
+
+.x.axis path {
+  display: none;
+}
+.chart div {
+  font-size: 10px;
+  background-color: #eeeeee;
+  text-align: right;
+  padding: 3px;
+  margin: 1px;
+  color: white;
+}
+.chart2 div {
+  font-size: 10px;
+  background-color: steelblue;
+  text-align: right;
+  padding: 3px;
+  margin: 1px;
+  color: white;
+}
+.chart2 rect {
+  fill: steelblue;
+}
+
+.chart2 text {
+  fill: black;
+  font-size: 10px;
+  text-anchor: end;
+}
+
+.arc path {
+  stroke: #fff;
+}
+
+.link {
+  fill: none;
+  stroke: #000;
+}
+
+.node {
+  stroke: #000;
+  color: black;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+
+.node circle {
+  cursor: pointer;
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+.node text {
+  font-size: 14px;
+  color: black;
+
+}
+
+path.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+
+.gridCell {
+    width: 65px;
+    background: transparent;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+html, body {
+  font-family: Roboto, Leto, sans-serif;
+  font-size:14px;
+  color: #212121;
+  padding: 0;
+  margin: 0;
+}
+
+/******* LEFT NAVIGATION CSS*****/
+.menuLinks {
+  display:block;
+  position:fixed;
+  top:40px;
+  left:0px;
+  width:219px;
+  height: 100%;
+  padding: 25px 0 25px 10px;
+
+  font-family: Roboto, Leto, sans-serif;
+  font-size: 15px;
+  background-color: #ffffff;
+  border-right: 1px solid #eaeaea;
+  border-top: none;
+  z-index: 2;
+  -webkit-box-shadow: 3px 0px 13px -3px rgba(0,0,0,0.35);
+  -moz-box-shadow: 3px 0px 13px -3px rgba(0,0,0,0.35);
+  box-shadow: 3px 0px 13px -3px rgba(0,0,0,0.35);
+  overflow: auto;
+}
+/*.queueCountTd {
+    padding-right: 0px;
+    background: #96D61C;
+    border-radius: 12px;
+    padding: 0 5px;
+}*/
+.queueCount span {
+  display: block;
+  font-size: 12px;
+  color: #ffffff;
+  background: #e79d35;
+  text-align: center;
+  padding: 0 3px;
+}
+#menuLinks table {margin-bottom: 85px}
+#menuLinks a {color:#212121; font-size:.8em; text-decoration:none; text-transform: none;}
+#menuLinks a:hover {color:#41434f; font-size:.8em; text-decoration:none;}
+/*#menuLinks a.queueCount {color: #ffffff;}*/
+#menuLinks td {height:14px; font-weight:400; color:#41434f; margin-top:10px;}
+#menuLinks tr {height:4px;}
+#menuLinks td.queueGroupTd {
+    color: #818181 !important;
+    font-weight: 400;
+    font-size: 14px !important;
+    padding-bottom: 8px;
+    padding-top: 24px;
+}
+
+#menuLinks > table > tbody > tr:nth-child(1) > td.queueGroupTd {
+    padding-top: 0px;
+}
+
+/* STEP CONTENT */
+#mainDiv, .mainFormDiv, .formDiv {background-color:transparent;}
+.step-div {
+  position:absolute;
+  top: 55px;
+  left: 245px;
+  width: auto;
+  min-width: 76%;
+  background-color: #fff;
+  padding: 20px 30px;
+  margin-bottom: 50px;
+}
+
+#loginDiv {
+  background-color: transparent;
+  -webkit-box-shadow: none;
+  -moz-box-shadow: none;
+  box-shadow: none;
+}
+
+#loginDiv input[type=submit] {
+    color: #1F2025 !important;
+    background-color: #97D700;
+    width: 260px;
+}
+.stepName {
+  font-size: 21px;
+  padding: 0;
+  margin: 0;
+  font-weight: normal;
+  color: #1F2025;
+
+}
+.formDiv {
+  display:block;
+  margin:27px 0px 20px 0;
+  background: transparent !important;
+  /* padding:30px;
+  background:#fff;
+  font-family:"Helvetica Neue", sans-serif;
+  border: 1px solid rgba(0,0,0,.29);
+  -webkit-box-shadow: 0 0 .625em .07em rgba(0,0,0,.05);
+  box-shadow: 0 0 .625em .07em rgba(0,0,0,.05);
+  -webkit-border-radius: .625em;
+  border-radius: .625em; */
+}
+.queueStep {
+  font-size:14px;
+  margin-left:10px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.clearfix {
+  visibility: hidden;
+  display: block;
+  font-size: 0;
+  content: " ";
+  clear: both;
+  height: 0;
+}
+
+
+div.item-left {
+  font-weight: bold;
+  float: left;
+  width: 80px;
+}
+div.item-right {
+  float: left;
+}
+
+h3 {
+  color: #818181;
+  font-size: 16px;
+  font-weight: normal;
+}
+/* login */
+form.login {
+  background-repeat: no-repeat;
+  background-image: url(images/sunquest-mitogen-stacked-dark-text.svg);
+  background-size: 236px 86px;
+  padding: 146px 0 16px 40px;
+  background-position: 130px 24px;
+}
+form.login input[type="text"],
+form.login input[type="password"] {
+  width: 250px;
+}
+
+fieldset.login {
+  /*background: #fff;
+  padding: 40px 45px 35px 0;
+  -webkit-border-radius: 2px;
+  -moz-border-radius: 2px;
+  border-radius: 2px;
+  -webkit-box-shadow: 0px 5px 3px 0px rgba(50, 50, 50, 0.35);
+  -moz-box-shadow:    0px 5px 3px 0px rgba(50, 50, 50, 0.35);
+  box-shadow:         0px 5px 3px 0px rgba(50, 50, 50, 0.35);*/
+}
+div#loginDiv {
+  left: 0;
+}
+
+div#loginFormDiv {
+
+}
+
+#loginDiv .mainDiv {
+    position: relative;
+}
+
+#loginFormDiv {
+    position: absolute;
+    margin: 0 0 0 -12%;
+    top: 50%;
+    left: 50%;
+    width: 490px;
+}
+
+/* #loginDiv > .item-left.login {
+  text-align: right;
+  margin-right: 14px;
+  color: #757575;
+  font-weight: 400;
+  width: 105px;
+}
+#loginDiv > .item-right > input[type="select"] {
+  background: #ebebeb;
+}
+#loginDiv > .item-right > input[type="submit"] {
+  margin-left: 40px;
+}
+ */
+
+#forgotPasswordLink {
+  cursor: pointer;
+}
+
+form.systemException {
+  width: 700px;
+}
+form.systemException h3 {
+  margin: 0;
+  margin-bottom: 1.5em;
+}
+form.systemException input[type="text"] {
+  width: 100%;
+  background: transparent;
+  border: none;
+}
+#messageContent div {
+  margin-top: 1em;
+}
+#messageContent textarea {
+  width: 100%;
+  height: 100px;
+}
+
+/* Standard table style */
+table.stdTable {
+  border-collapse: collapse;
+  caption-side: top;
+  color: #42444f;
+  text-align: left;
+  background-color:white;
+  border-spacing: 1px;
+}
+
+table thead th {
+  background-color: transparent;
+  padding: 15px 8px;
+  color: #1F2025;
+}
+
+table.stdTable tbody tr {
+  border-top: 1px solid black;
+}
+
+table.stdTable tbody tr.r0 {
+  background-color:#ffffff;
+  border: solid 1px #eaeaea;
+}
+
+table.stdTable tbody tr.r1 {
+  background-color: #f1f1f1;
+  border: solid 1px #eaeaea;
+}
+
+table.stdTable td {
+  padding: .5em .8em;
+  white-space: nowrap;
+}
+
+table tbody td a {
+  color: #1e88e5;
+  text-decoration: none;
+  font-weight: 400;
+}
+
+div .stdTable tr.thRow,
+div .stdTable tr th {
+  background: #fff !important;
+  border-bottom: 2px solid #42444f!important;
+}
+
+/* Standard plate and grid style
+This is the selector to use for the rendering
+of the UNIFlow plate and grid tags
+div table.stdTable
+ */
+div table.stdTable {
+  background-color: transparent;
+  margin-bottom: 1em;
+}
+
+div table.stdTable tr {
+  border: none;
+}
+div table.stdTable tr:last-child td {
+  border-bottom: none;
+}
+div table.stdTable tbody th {
+  text-align: center;
+  padding: .5em;
+}
+
+div table.stdTable tbody td
+{
+  padding: 10px;
+  border-right: 0px solid grey;
+  border-bottom: 0px solid grey;
+}
+#mine > table:nth-child(1) > tbody > tr > td:nth-child(2) > fieldset > table > tbody > tr > td:nth-child(2) > div > div:nth-child(1) > table > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr > td:first-child {
+  font-weight: bold;
+  border: none;
+  text-align: right;
+}
+#mine > table:nth-child(1) > tbody > tr > td:nth-child(2) > fieldset > table > tbody > tr > td:nth-child(2) > div > div:nth-child(1) > table > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr > td {
+  background-color: #fff;
+}
+div table.stdTable tbody td:last-child {
+  border-right: none;
+}
+
+/*** LAYOUT CLASSES ****/
+.horizontalFlex{
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+ }
+ .horizontalFlex-spacearound {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-around;
+ }
+ .horizontalFlex-spacearound-centered {
+  display: flex;
+  align-content: center;
+  justify-content: space-around;
+ }
+  .horizontalFlex-flexend {
+  display: flex;
+  align-content: flex-end;
+  justify-content: flex-end;
+ }
+  .horizontalFlex-center {
+  display: flex;
+  align-content: flex-start;
+  justify-content: center;
+ }
+  .horizontalFlex-spacebetween {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-between;
+ }
+  .horizontalFlex-spaceevenly {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-evenly;
+ }
+ .horizontalFlex-leftpadded {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-left: 30px;
+ }
+ .verticalFlex {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 30px;
+ }
+ .verticalFlex-stretch {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 30px;
+    align-content: stretch;
+ }
+ .verticalFlex-center {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 10px;
+    align-content: stretch;
+ }
+.noPadding{
+    padding: 0px;
+}
+.pageSection{
+  border: 1px solid #cdcdcd;
+  border-radius: 10px;
+  width: 100%;
+}
+.sectionTitle{
+  padding: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  color: #2b2b2b;
+  text-transform: uppercase;
+  border-bottom: 1px solid #cdcdcd;
+  cursor: pointer;
+}
+
+.sectionContent {
+  padding: 15px;
+}
+ .verticalFlex input[type=text]{
+     width: 200px;
+     height: 36px;
+     border-radius: 10px;
+     border: 1px solid rgba(25, 25, 25, 0.32);
+     margin-bottom: 10px;
+     padding-left: 15px;
+     font-family: 'Roboto', sans-serif;
+ }
+ .verticalFlex textArea{
+     width: 200px;
+     height: 120px;
+     border-radius: 10px;
+     border: 1px solid rgba(25, 25, 25, 0.32);
+     margin-bottom: 10px;
+     padding-left: 15px;
+     font-family: 'Roboto', sans-serif;
+ }
+ .verticalFlex  label{
+    font-size: 12px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 400;
+    color: #2b2b2b;
+    margin-left: 8px;
+    background-color: #ffffff;
+    margin-bottom: -5px;
+    z-index: 100;
+    padding: 0px 5px 0px 5px;
+ }
+ .verticalFlex .checkboxLabel {
+    font-size: 16px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 400;
+    color: #2b2b2b;
+    margin-left: 0px;
+    background-color: #ffffff;
+    margin-bottom: 0px;
+    z-index: 100;
+    padding: 0px !important;
+ }
+ .verticalFlex select {
+     width: 217px;
+     height: 40px;
+     border: 1px solid #B5B5B5;
+     border-radius: 10px !important;
+     margin-bottom: 10px;
+     background: transparent;
+     padding-left: 15px;
+     font-size: 12px;
+     font-family: 'Roboto', sans-serif;
+ }
+
+  .verticalFlex select[multiple]{
+     width: 217px;
+     height: 130px;
+     border: 1px solid #B5B5B5;
+     border-radius: 10px !important;
+     margin-bottom: 10px;
+     background: transparent;
+     padding-left: 15px;
+     overflow-y: auto;
+     font-family: 'Roboto', sans-serif;
+ }
+
+
+/*******HORIZONTAL MENU ON TOP OF PAGE *******/
+/*** see superfish.css for more menu options**************/
+#topNavigationBar {
+  height:40px;
+  width:100%;
+  padding:0;
+  position: fixed;
+  z-index:1030;
+  font-size:17px;
+  background: #2B2B2B;
+  -webkit-box-shadow: 0px 3px 5px 0px rgba(50, 50, 50, 0.45);
+  -moz-box-shadow:    0px 3px 5px 0px rgba(50, 50, 50, 0.45);
+  box-shadow:         0px 3px 5px 0px rgba(50, 50, 50, 0.45);
+}
+#topNavigationLogo {
+  position:absolute;
+  top:0px;
+  left:0px;
+  display: inline-block;
+  width:271px;
+  float: left;
+  z-index: 1200;
+}
+#topNavigationLogo a {
+  display: block;
+}
+img.topLogo {
+    width: 160px;
+    margin-left: 20px;
+    margin-top: 15px;
+}
+#topNavigationMenu {
+  position:absolute;
+  top:0px;
+  margin-left: 260px;
+  margin-right: 128px;
+  height:50px;
+  width: 100%;
+  display: inline-block;
+  z-index:10;
+  background-color:transparent;
+}
+
+#logoutMenu {
+  margin-top: 10px;
+  margin-left: 80px;
+}
+
+#uniflowImage {
+position:absolute;
+top:55px;
+left:1350px;
+}
+
+.default-cursor {
+  cursor: default;
+}
+
+.default-none {
+  display: none;
+}
+
+span.user-icon {
+  display: inline-block;
+  /* <div>Icons made by <a href="http://www.freepik.com" title="Freepik">Freepik</a> from <a href="http://www.flaticon.com" title="Flaticon">www.flaticon.com</a> is licensed by <a href="http://creativecommons.org/licenses/by/3.0/" title="Creative Commons BY 3.0" target="_blank">CC 3.0 BY</a></div> */
+  background-image: url("../images/man-user.png");
+  background-repeat: no-repeat;
+  background-size: 20px;
+  padding-left: 30px;
+}
+
+/****** uniflow errors*******/
+.error {color:#D60000; font-family: Roboto, Leto, sans-serif; font-size:14px;}
+#errorId { font-size: 14px; display: block;}
+
+/*Buttons Style Start*/
+input[type=submit],input[type=button], a.button,table input[type="button"] {
+  font-size: 14px !important;
+  border: none;
+  padding: 5px 12px;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-border-radius: 10px;
+  -moz-border-radius: 10px;
+  border-radius: 10px;
+}
+/*Primary Buttons*/
+#stepFormSubmitButton,input[type=submit],#sendEmail{
+  color: #fff !important;
+  background-color: #1976D2;
+  -webkit-box-shadow: 0px 2px 2px 0px rgba(50, 50, 50, 0.2);
+  -moz-box-shadow:    0px 2px 2px 0px rgba(50, 50, 50, 0.2);
+  box-shadow:         0px 2px 2px 0px rgba(50, 50, 50, 0.2);
+}
+
+#stepFormSubmitButton:hover,input[type=submit]:hover,#sendEmail:hover {
+  background-color: #1E88E5;
+}
+#stepFormSubmitButton:active,input[type=submit]:active,#sendEmail:active {
+  background-color: #1976D2;
+}
+
+form input[type=submit]:last-child{
+    margin-top: 10px;
+}
+
+/* Secondary buttons */
+input[type=button], a.button,table input[type="button"]{
+  background-color: #ffffff;
+  color: #1E88E5 !important;
+  margin-left: 20px;
+  text-decoration: none;
+  border: 1px solid #1E88E5;
+}
+input[type=button]:hover, a.button:hover,table input[type="button"]:hover  {
+  background-color: #f8f8f8;
+}
+input[type=button]:active, a.button:active,table input[type="button"]:active {
+  background-color: #f8f8f8;
+}
+@-moz-document url-prefix() {
+input[type=submit],input[type=button], a.button,table input[type="button"] {
+     padding: 4px 17px;
+  }
+}
+#clearPatient{
+  margin-left: 0;
+}
+
+
+/*Buttons Style End*/
+/*************************/
+
+/* legend and fieldset*/
+
+legend, .legend {
+    font-size: 18px;
+    font-weight: 400;
+    background-color: #FFF;
+    color: #1976D2;
+    border: #97d600 solid 0px;
+    border-bottom: 0px solid #d7d7d7;
+    padding: 3px 10px;
+    border-radius: 0;
+    white-space: nowrap;
+    font-weight: normal !important;
+}
+
+legend [style] {
+  border-bottom: 1px solid #d7d7d7 !important;
+}
+
+fieldset {
+    border: 1px solid #eaeaea;
+    margin-bottom: 55px;
+    clear: both;
+    background: #ffffff;
+    box-shadow: 0px 3px 6px 0px rgba(0,0,0,0.12);
+}
+
+fieldset fieldset {
+   box-shadow: none;
+}
+
+fieldset fieldset legend {
+   color: #818181;
+}
+.dashBlock {
+  text-align: center;
+  margin-bottom: 8px;
+  padding: 5px;
+  cursor: pointer;
+}
+.instLabel,
+.statusLabel
+{
+  background-color: #2b2b2b;
+  color: #ffffff;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: normal;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  width:100%;
+  padding: 5px;
+}
+.instLabel:hover {
+  text-decoration: underline;
+}
+.instCount,
+.statusCount
+{
+    padding: 0 3px 3px 3px;
+    color: #3faaea;
+    font-weight: 900;
+    font-size: 20px;
+}
+.pathBlock {
+  text-align:left;
+  font-size:1.3em;
+  width:auto;
+  min-height: 46px;
+  background: #ffffff;
+  background: -moz-radial-gradient(center, ellipse cover,  #ffffff 0%, #f6f6f6 47%, #ededed 100%); /* FF3.6+ */
+  background: -webkit-gradient(radial, center center, 0px, center center, 100%, color-stop(0%,#ffffff), color-stop(47%,#f6f6f6), color-stop(100%,#ededed)); /* Chrome,Safari4+ */
+  background: -webkit-radial-gradient(center, ellipse cover,  #ffffff 0%,#f6f6f6 47%,#ededed 100%); /* Chrome10+,Safari5.1+ */
+  background: -o-radial-gradient(center, ellipse cover,  #ffffff 0%,#f6f6f6 47%,#ededed 100%); /* Opera 12+ */
+  background: -ms-radial-gradient(center, ellipse cover,  #ffffff 0%,#f6f6f6 47%,#ededed 100%); /* IE10+ */
+  background: radial-gradient(ellipse at center,  #ffffff 0%,#f6f6f6 47%,#ededed 100%); /* W3C */
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#ededed',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+  border: 1px solid #4E6697;
+  -moz-border-radius: 15px;
+  -webkit-border-radius: 15px;
+  -khtml-border-radius: 15px;
+  border-radius: 2px;
+  margin-bottom: 15px;
+  margin-right: 10px;
+  padding:10px;
+  -webkit-box-shadow: 2px 2px 6px 0px rgba(50, 50, 50, 0.75);
+  -moz-box-shadow:    2px 2px 6px 0px rgba(50, 50, 50, 0.75);
+  box-shadow:         2px 2px 6px 0px rgba(50, 50, 50, 0.75);
+}
+
+.dashLegend {
+  font-size: 9px;
+  background-color: #FFF;
+  color: #2F446F;
+  border: #4E6697 solid 1px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  text-transform: uppercase;
+
+}
+
+a.ui-button, .custom-combobox-toggle {
+  height: 27px;
+  border-radius: 0px 10px 10px 0px;
+  margin-top: 0px;
+  margin-left: -30px;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.combobox{
+     width: 217px !important;
+     height: 25px;
+     border: 1px solid #B5B5B5;
+     border-radius: 10px !important;
+     margin-bottom: 10px;
+     background: transparent;
+     font-size: 14px;
+     font-family: 'Roboto', sans-serif;
+     padding-left: 15px;
+}
+
+/** Project Mgmt -> Milestones**/
+#existingProgressWrapper .ui-widget-content {background: #55B0B8 !important}
+#tabs-nohdr {
+    padding: 0px;
+    background: none;
+    border-width: 0px;
+}
+#tabs-nohdr .ui-tabs-nav {
+    padding-left: 0px;
+    background: transparent;
+    border-width: 0px 0px 1px 0px;
+    -moz-border-radius: 0px;
+    -webkit-border-radius: 0px;
+    border-radius: 0px;
+}
+#tabs-nohdr .ui-tabs-panel {
+    background: #ffffff;
+    border-width: 0px 1px 1px 1px;
+}
+
+.resourceButton {
+    padding: 7px 17px;
+    font-size: 16px;
+    text-transform: uppercase;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+    -webkit-box-shadow: 0px 2px 2px 0px rgba(50, 50, 50, 0.2);
+    -moz-box-shadow: 0px 2px 2px 0px rgba(50, 50, 50, 0.2);
+    box-shadow: 0px 2px 2px 0px rgba(50, 50, 50, 0.2);
+    background: #ebebeb;
+    color: #1b93c3;
+    border: none;
+    width: 81px;
+    cursor: pointer;
+}
+.resourceButton:hover {
+    background: #dddfe3;
+}
+.resourceButton:active {
+    background: #d5d5d9;
+}
+.labviewBox {
+  margin:.5em;
+  float:left;
+  text-decoration:none;
+  color:#000;
+  background-color:#fff;
+  display:block;
+  height:13em;
+  width:13em;
+  padding-left:.5em; padding-right:.5em; padding-bottom:.5em;
+   -webkit-box-shadow: 2px 2px 12px 0px rgba(50, 50, 50, 0.6);
+   -moz-box-shadow: 2px 2px 12px 0px rgba(50, 50, 50, 0.6);
+   box-shadow: 2px 2px 12px 0px rgba(50, 50, 50, 0.6);
+}
+
+.labviewBox h4,
+.dashBlock h4 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.instructionsTable {
+  margin:0px;
+  padding:0px;
+  width:100%;
+  border:0px solid #ffffff;
+
+}.instructionsTable table{
+  border-collapse: collapse;
+  border-spacing: 0;
+  width:100%;
+  height:100%;
+  margin:0px;padding:0px;
+}
+.instructionsTable tr:nth-child(odd) { background-color:#ffffff; }
+.instructionsTable tr:nth-child(even) { background-color:#ffffff; }
+.instructionsTable td{
+  vertical-align:top;
+  text-align:left;
+  padding:8px;
+  font-size:12px;
+  font-family: Roboto, Leto, sans-serif;
+  font-weight:300;
+  color:#000000;
+}
+.instuctionsTable thead {
+    display:none;
+}
+
+.leveyHeader {
+    position: relative;
+    float: left;
+    background-color: #48a5ff;
+    margin-top: 2px;
+    padding-right: 20px;
+    padding-left: 20px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    border-radius: 0px;
+    width: 850px;
+    text-align: left;
+    color: #ffffff;
+    font-family: Roboto, Leto, sans-serif;
+    display: block;
+}
+
+hr {
+    border: 0;
+    height: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+select {
+font-family: inherit;
+font-size: 14px;
+height: auto;
+/* padding-left: 10px; /* If label is on the left */
+/* padding-top: 10px; /* If label is on the top */
+border: 1px solid #dee0e3;
+-webkit-border-radius: 2px;
+-moz-border-radius: 2px;
+border-radius: 2px;
+}
+select[multiple] {
+    height: inherit;
+}
+
+label,
+td.label,
+.newLabel,
+.groupLabel {
+  color: #41434f;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: left;
+  /*padding-right: 12px;*/
+  vertical-align: top;
+  padding-top: 3px;
+}
+
+/*fieldset li,
+fieldset table {
+  margin-left: 24px;
+}*/
+
+#Resources .dashBlock fieldset table,
+#reagents > table,
+#controls > table,
+#consumables > table,
+#instruments > table {
+    margin-left: 0 !important;
+}
+
+#taskOptionDiv .dt-center {
+  white-space: nowrap;
+}
+/* OVERRIDES */
+#mine div div:nth-child(1)[style] {
+  width: auto !important;
+  border-right: 0px solid #ddd !important;
+}
+#mine > table:nth-child(1) > tbody > tr > td:nth-child(2) > fieldset > table > tbody > tr > td:nth-child(2) > div > div:nth-child(3) {
+  border-left: 0px solid #fff !important;
+}
+h2 {
+  font-size: 16px;
+}
+h4 {
+  color: #9e9e9e;
+  font-size: 24px;
+  font-weight: 400;
+}
+div.dashBlock[style] {
+  width: 120px !important;
+  border: 1px solid #ddd !important;
+  -webkit-border-radius: 2px !important;
+  -moz-border-radius: 2px !important;
+  border-radius: 2px !important;
+}
+#mainDiv > div > form > fieldset:nth-child(7) > table > tbody > tr:nth-child(1) > td:nth-child(2) > div[style] {
+  width:237px !important;
+}
+#stepFormSubmitButton{
+  position:static !important;
+}
+input[type=text], input[type=password], input[type=email], input[type=search]{
+    font-family: inherit;
+    font-size: 12px;
+    height: 25px;
+    padding-left: 10px;
+    border: 1px solid #dee0e3;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+}
+
+    input[type=text]:focus,
+    input[type=password]:focus,
+    input[type=email]:focus,
+    input[type=search]:focus{
+        outline-color: #4d90fe;
+    }
+#loginDiv > .item-left{
+    font-size:16px;
+    padding-top: 5px;
+}
+#forgotPasswordLink{
+    font-size: 14px;
+}
+input[type=checkbox] {
+    border: 1px solid #dee0e3;
+    height: 16px;
+    width: 16px;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    border-radius: 2px;
+    vertical-align: middle;
+}
+td input[type=checkbox] {
+    height: auto !important;
+    width: 0 5px !important;
+    margin: 0 !important;
+}
+#receiveSamples_filter,
+#selectMethods_filter,
+#specimenDetails_filter {
+    float: left;
+    text-align: left;
+}
+
+#myTable_length{
+  margin-bottom: 12px;
+  margin-right: 24px;
+}
+#myTable_wrapper > div.dt-buttons > a{
+  margin-right: 6px;
+}
+caption {
+    font-weight: 600;
+    margin: 6px;
+    font-size: 12px;
+}
+#requestInfo {
+  float: left;
+  clear: both;
+}
+#stepFormSubmitButton {
+    float: left;
+    clear: left;
+}
+.ui-dialog {
+  -webkit-box-shadow: 0px 9px 9px 0px rgba(50, 50, 50, 0.35);
+  -moz-box-shadow:    0px 9px 9px 0px rgba(50, 50, 50, 0.35);
+  box-shadow:         0px 9px 9px 0px rgba(50, 50, 50, 0.35);
+}
+.tableLink,
+.ui-widget-content a {
+    color: #1897f6 !important;
+}
+.tableLink:hover,
+.ui-widget-content a:hover {
+    text-decoration: underline;
+}
+td input[type=text],
+td select {
+  font-size: 14px;
+}
+
+td input[type=text] {
+  /*height: auto !important;*/
+  /*padding: 0 0 0 5px;*/
+  background: #fff no-repeat 95% 7px;
+}
+
+td input[readonly] {
+  border: 0px solid #dee0e3;
+  background-color: transparent;
+}
+
+.batchSampleTable_commentHistory {
+  resize: none;
+  border: none;
+  background-color: transparent;
+  overflow: auto;
+}
+
+#specimenId {
+    background-repeat: no-repeat;
+    background-position: 135px center;
+}
+
+.ui-widget input, .ui-widget select, .ui-widget textarea, .ui-widget button {
+  font-family: Roboto, Leto, sans-serif !important;
+  font-size: 14px !important;
+}
+
+.custom-combobox table tbody td {
+  font-size: 14px !important;
+}
+
+/*#mainDiv > div > form > table:nth-child(5) > tbody > tr:nth-child(1) > td:nth-child(2) > input,
+#mainDiv > div > form > table:nth-child(5) > tbody > tr:nth-child(2) > td:nth-child(2) > input {
+    border: none !important;
+    background: #ebebeb !important;
+    font-family: Roboto, Leto, sans-serif !important;
+    font-size: 18px !important;
+    color: #6cc4e7 !important;
+    padding: 15px !important;
+}*/
+
+#mine > table:nth-child(1) > tbody > tr > td:nth-child(2) > fieldset > table > tbody > tr > td:nth-child(2) > div > div:nth-child(3) {
+  width: auto !important
+}
+
+/*Overiding Required Fields Inline Styles*/
+#test[style],
+#mainDiv > div > form > table:nth-child(12) > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr:nth-child(1) > td:nth-child(2) > fieldset > table:nth-child(7) > tbody > tr:nth-child(1) > td:nth-child(2) > input[style],
+#formId > table:nth-child(12) > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr:nth-child(1) > td:nth-child(2) > fieldset > table:nth-child(8) > tbody > tr:nth-child(1) > td:nth-child(2) > input[style].date,
+input#organizationId_field,
+#mainDiv > div > form > table:nth-child(12) > tbody > tr:nth-child(1) > td:nth-child(2) > input[name="sampleVolume"],
+#mainDiv > div > form > table:nth-child(12) > tbody > tr:nth-child(2) > td:nth-child(2) > input[name="specimenId"],
+#mainDiv textarea#comment.textArea {
+    border-color: #dee0e3 !important;
+    border-left: 3px solid #f44336 !important;
+}
+
+.required {
+    border-color: #dee0e3 !important;
+    border-left: 3px solid #f44336 !important;
+}
+.hiddenOnLoad{
+   display:none;
+  }
+input#undefined_field,
+input#organizationId_field,
+input#insuranceCarrier_field {
+  padding-left: 10px;
+  border: 1px solid #dee0e3;
+  -webkit-border-radius: 2px;
+  -moz-border-radius: 2px;
+  border-radius: 2px;
+}
+input#undefined_field~a,
+input#organizationId_field~a,
+input#insuranceCarrier_field~a {
+      outline-color: transparent;
+      margin-left: -32px;
+      background: #fff !important;
+      -webkit-border-radius: 0;
+      -moz-border-radius: 0;
+      border-radius: 0;
+      -webkit-box-shadow: 0 0 0 0 rgba(50, 50, 50, 0.2);
+      -moz-box-shadow: 0 0 0 0 rgba(50, 50, 50, 0.2);
+      box-shadow: 0 0 0 0 rgba(50, 50, 50, 0.2);
+}
+
+#people input#undefined_field~a {
+    position: absolute;
+    margin-top: 9px;
+}
+
+input#undefined_field~a>span:first-child,
+input#organizationId_field~a>span:first-child,
+input#insuranceCarrier_field~a>span:first-child{
+      background-color: #fff !important;
+}
+
+.inventoryStatBlock {
+  min-width: 100px;
+  width: auto;
+  height: 55px;
+  border-radius:5px;
+  border:1px solid #2b2b2b;
+  padding: 0px 5px 5px 5px;
+  vertical-align: middle;
+  text-align: center;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+#mainDiv > div > form > table:nth-child(9) > tbody > tr > td:nth-child(2) > span[style],
+#mainDiv > div > form > table:nth-child(13) > tbody > tr > td:nth-child(2) > span[style]{
+    font-size: 1em !important;
+    margin-bottom: 24px;
+    display: block;
+}
+
+
+/* Page Specific Styling */
+.bigColumnDiv {
+  white-space: nowrap;
+  margin-left: 198px;
+  margin-top: 45px;
+}
+.bigColumnDiv table {
+  display: block;
+}
+.bigColumnDiv .columnDiv {
+  display: inline-block;
+}
+.bigColumnDiv .stdTable input[style],
+.bigRowDiv .rowDix td input[style],
+.plateDiv .stdTable input[style] {
+  width: 100px !important;
+}
+.bigColumnDiv .columnDiv td.label {
+    display: block;
+    float: left;
+    top: -23px;
+    left: 68px;
+    position: relative;
+}
+.bigColumnDiv .columnDiv input[type=text] {
+    width: 100px !important;
+    margin: 0px !important;
+}
+.bigRowDiv {
+  float: left;
+  margin-top: 83px;
+}
+.bigRowDiv .rowDiv {
+  margin-bottom: 43px;
+}
+.plateDiv {
+  margin-left: 215px;
+}
+.plateDiv table.stdTable tbody td {
+  padding: 2.5px 9px 4px 9px;
+  height: 66px;
+}
+.plateDiv table.stdTable tbody td:nth-child(n) {
+    vertical-align: top;
+    padding-top: 8px;
+    font-weight: 600;
+}
+
+.plateDiv table.stdTable tbody td span {
+  font-size: 11px;
+  padding-left: 12px;
+}
+
+div#dialogPrintBarcode div.item-left {
+  width: 105px;
+}
+
+input#bcType {
+  width: 100px;
+}
+
+div#welcomeDiv div {
+  width: 400px;
+  float: left;
+  padding: 15px;
+  margin-left: 1em;
+}
+
+/*Login page styles*/
+body[onload]>div.navigationBar~div.step-div {
+    background: none;
+    padding: 0;
+    min-width: 0;
+    left: 255px;
+    top: 45px;
+    box-shadow: 0 0 0 0;
+    background: transparent;
+}
+
+#tableA > tbody > tr > td:nth-child(1) > input {
+    border: 0px !important;
+}
+form[action="/uniflow?stepName=Receive Individual Sample"] table:nth-child(10) > tbody > tr:nth-child(5) > td:nth-child(2) > table {
+    margin-left: -7px;
+}
+
+input[readonly] {
+    height: auto;
+    padding-left: 0;
+    border: 0;
+    -webkit-border-radius: 0;
+    -moz-border-radius: 0;
+    border-radius: 0;
+    background-color: inherit;
+}
+#phoneAndEmail > div{
+  width:auto !important;
+}
+
+#masterMixDivParent {
+  margin-top: 24px;
+}
+
+.barcodeBackground {
+  background-image: url(images/barcodebkg.jpg) !important;
+  background-position-y: 0px !important;
+  height: 100%;
+  background-repeat: no-repeat;
+}
+
+/* The switch - the box around the slider */
+.toggleCheckboxSwitch {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 21px;
+}
+
+/* Hide default HTML checkbox */
+.toggleCheckboxSwitch input {
+  display:none;
+}
+
+/* The slider */
+.toggleSwitchSlider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.width300px {
+  width:300px;
+}
+
+.toggleSwitchSlider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 4px;
+  bottom: 3px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .toggleSwitchSlider {
+  background-color: #1c94c4;
+}
+
+input:focus + .toggleSwitchSlider {
+  box-shadow: 0 0 1px #1c94c4;
+}
+
+input:checked + .toggleSwitchSlider:before {
+  -webkit-transform: translateX(17px);
+  -ms-transform: translateX(17px);
+  transform: translateX(17px);
+}
+
+/* Rounded sliders */
+.toggleSwitchSlider.round {
+  border-radius: 34px;
+}
+
+.toggleSwitchSlider.round:before {
+  border-radius: 50%;
+}
+
+
+.big-div{
+  position:absolute;
+  left:0;
+  top:0;
+  right:0;
+  bottom:25px;
+  overflow-y:auto;
+}
+
+.version-div {
+    position: absolute;
+    bottom: 7px;
+    font-size: 11px;
+    margin-left: 265px;
+    color: #9b9b9b;
+}
+
+.containerComponent_section_float {
+  float:left;
+}
+
+.containerComponent_section {
+  width:300px;
+}
+.clearFloat {
+  clear:both;
+}
+
+.smallNumberInput {
+  width: 3.5em;
+}
+
+.smallWarning {
+  font-size: 0.8em;
+  color: gray;
+}
+
+
+.commentHistoryTableDiv {
+  width: max-content;
+
+}
+
+.commentHistoryTable {
+  max-width: 800px;
+}
+
+.commentHistoryTable td {
+  padding: 6px;
+}
+
+/*ANALYSIS INTERPRETATION CLASSES*/
+
+.analysisPass {
+  border: 2px solid green !important;
+}
+.analysisFail {
+  border: 2px solid red !important;
+}
+.analysisWarning {
+  border: 2px solid orange !important;
+}
+.analysisAlert {
+  border: 2px solid yellow !important;
+}
+.analysisIgnore {
+  border: 2px solid gray !important;
+  background-color: #dddddd;
+}
+/*END ANALYSIS INTERPRETATION CLASSES*/
+
+.interpretationChangeWarning {
+  color:red;
+  font-size:smaller;
+}
+
+.cherryPickDone {
+  background-color: #cdcdcd !important;
+}
+
+td.cherryPickCurrentWell {
+  border: solid 1px #1976d2 !important;
+  background-color: #72cbfa;
+}
+
+td.cherryPickCurrentRow {
+  border-top: solid 1px #1976d2;
+  border-bottom: solid 1px #1976d2 !important;
+  background-color: #72cbfa;
+}
+
+
+td.cherryPickCurrentRowFirst {
+  border-left: solid 1px #1976d2;
+}
+
+td:last-child.cherryPickCurrentRowLast {
+  border-right: solid 1px #1976d2 !important;
+}
+
+
+
+/*SITE CONFIGURATION CLASSES*/
+
+
+.currentLogoStyle {
+  width: 25%;
+}
+
+/*END SITE CONFIGURATION CLASSES*/
+
+.addendumBox {
+  border: solid 1px #dee0e3;
+  min-height: 100px;
+}
+.assayWordingRefBox {
+  border: solid 1px #dee0e3;
+  min-height: 100px;
+}
+
+.backgroundColorRed {
+  background-color: red;
+}
+
+.backgroundColorPaleGreen {
+  background-color: paleGreen;
+}
+
+
+
+/*fixedColumn CLASSES*/
+.DTFC_LeftBodyLiner {
+  overflow-x: hidden;
+}
+/*END fixedColumn CLASSES*/
+
+
+/*reporting niceEdit boxes*/
+.modTextBox {
+  border: solid 1px #dee0e3;
+  min-height: 100px;
+}
+/*END reporting niceEdit boxes*/
+
+.thumbnail {
+  width: 100px;
+  height: 100px;
+}
+
+.reportPreview {
+  position: absolute;
+  left: -200px;
+  top: 0px;
+}

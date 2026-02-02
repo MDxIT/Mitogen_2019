@@ -1,0 +1,1604 @@
+config
+  steps
+
+    stepGroup Orders
+
+    step Order Entry
+
+      form
+        include stepInstructions
+
+        vertical
+          select workflow
+            screenLabel~ Select Workflow
+            setName~ workflows
+
+      nextStep Order Form
+        formNumber 0
+        _recId
+        parameter nextStepInstance
+          value New
+        parameter nextStepWorkflow
+          value {workflow}
+
+    step Order Review
+      form
+        include stepInstructions
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+        script
+          src=  js/orderEntry/orderReview.js
+
+        configurePreparedQuery~
+          - SELECT
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'requestId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_requestId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalRequestId', fis.showField, NULL)) AS 'show_externalRequestId',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalRequestId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_externalRequestId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalOrderId', fis.showField, NULL)) AS 'show_externalOrderId',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalOrderId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_externalOrderId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'encounterNumber', fis.showField, NULL)) AS 'show_encounterNumber',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'encounterNumber', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_encounterNumber',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'physicianSiteId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_physicianSiteId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'physicianId', fis.showField, NULL)) AS 'show_physicianId',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'physicianId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_physicianId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderInfoReceivedDate', fis.showField, NULL)) AS 'show_receivedDate',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderInfoReceivedDate', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_receivedDate',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'priority', fis.showField, NULL)) AS 'show_priority',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'priority', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_priority',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderComment', fis.showField, NULL)) AS 'show_orderComment',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderComment', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_orderComment',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'mrn', fis.showField, NULL)) AS 'show_mrn',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'mrn', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_mrn',
+
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'dob', fis.showField, NULL)) AS 'show_dob',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'dob', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_dob',
+
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'department', fis.showField, NULL)) AS 'show_department',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'department', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_department',
+
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'location', fis.showField, NULL)) AS 'show_location',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'location', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_location'
+
+          - FROM formInputSettings fis
+          - INNER JOIN formDefinition fd
+          -   ON fd.id = fis.formDefinitionId
+          - INNER JOIN formConfigurableParts fp
+          -   ON fp.id = fis.formConfigurablePartsId
+          - WHERE
+          -   fd.formType = 'Accessioning'
+          -   AND fd.instance = 'New'
+
+
+        configurePreparedQuery~
+          - SELECT
+          -   CONCAT('CONCAT(''<a href=/uniflow?lastForm=Y&stepName=Order+Form&recId='',rf.requestId, ''&nextStepInstance=QC>'', rf.requestId,''</a>'') AS "{_:screenLabel_requestId}"',
+          -           ', os1.siteId AS "{_:screenLabel_department}"',
+          -           ', os2.siteId AS "{_:screenLabel_location}"',
+          -           CASE '{_:show_externalRequestId}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.externalRequestId AS "{_:screenLabel_externalRequestId}"'
+          -             END,
+          -           CASE '{_:show_externalOrderId}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.externalOrderId AS "{_:screenLabel_externalOrderId}"'
+          -             END,
+          -           CASE '{_:show_encounterNumber}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.encounterNumber AS "{_:screenLabel_encounterNumber}"'
+          -             END,
+          -           ', CONCAT(IFNULL(pa.lastName, ''''), CASE IFNULL(pa.firstName, '''') WHEN '''' THEN '''' ELSE '', '' END, IFNULL(pa.firstName, ''''), '' '', IFNULL(pa.middleName, '''')) AS "Patient"',
+          -           CASE '{_:show_dob}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', pa.dob AS "{_:screenLabel_dob}"'
+          -             END,
+          -           CASE '{_:show_mrn}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.mrn AS "{_:screenLabel_mrn}"'
+          -             END,
+          -           ', GROUP_CONCAT(DISTINCT p.name) AS "Panel(s)"',
+          -           CASE '{_:show_priority}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', vv.displayValue AS "{_:screenLabel_priority}"'
+          -             END,
+          -           CASE '{_:show_receivedDate}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.receivedDate AS "{_:screenLabel_receivedDate}"'
+          -             END,
+          -           CASE '{_:show_orderComment}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', cn.note AS "{_:screenLabel_orderComment}"'
+          -             END,
+          -           ', os.name AS "{_:screenLabel_physicianSiteId}"',
+          -           ', CONCAT(IFNULL(ph.last_Name, '' ''), CASE IFNULL(ph.first_Name, '''') WHEN '''' THEN '''' ELSE '', '' END, IFNULL(ph.first_Name, '''')) AS "{_:screenLabel_physicianId}"'
+
+          -   ) AS "selectColumns"
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          id= table_filters
+          class= horizontalFlex
+          div
+            configureIf~
+              advanced~
+              sqlPreparedQuery~ select 1 from dual where ? LIKE '%true%'
+                string {_:show_department}
+            class= horizontalFlex
+            label Department
+              for= deptFilter
+            select deptFilter
+              id= deptFilter
+              class= department
+              option
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -  os.name, os.siteId
+                - FROM queues q
+                - INNER JOIN requestForms rf
+                -      ON rf.requestId = q.containerId
+                - INNER JOIN organizationSites os
+                -      ON os.siteId = rf.departmentId
+                - WHERE q.step = ?
+                - ORDER BY os.name
+                string {_step}
+          div
+            configureIf~
+              advanced~
+              sqlPreparedQuery~ select 1 from dual where ? LIKE '%true%'
+                string {_:show_location}
+            class= horizontalFlex
+            label Location
+              for= locationFilter
+            select locationFilter
+              id= locationFilter
+              class= location
+              option
+
+
+        div
+          class= pageSection
+          table
+            id= orderReviewTable
+            sqlPreparedQuery~
+              - SELECT
+              -   {_:selectColumns}
+              - FROM queues q
+              - INNER JOIN requestForms rf
+              -   ON q.containerId = rf.requestId
+              - LEFT JOIN reqPanels rp
+              -   ON rf.requestId = rp.requestId
+              - LEFT JOIN panels p
+              -   ON rp.panelCode = p.panelCode
+              - LEFT JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - LEFT JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - LEFT JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - LEFT JOIN organizationSites os1
+              -   ON os1.siteId = rf.departmentId
+              - LEFT JOIN organizationSites os2
+              -   ON os2.siteId = rf.locationId
+              - LEFT JOIN containerNotes cn
+              -   ON rf.requestId = cn.containerId
+              -   AND (cn.noteType = 'Order Entry Comment'
+              -     OR cn.noteType = 'HL7 Order Comment')
+              - LEFT JOIN validValues vv
+              -   ON rf.priority = vv.value
+              -   AND vv.setName = 'priority'
+              - WHERE q.step = ?
+              - GROUP BY rf.requestId
+              - ORDER BY rf.priority
+              string {_step}
+
+
+
+
+
+
+
+
+    step Edit Order
+
+
+      form
+        include stepInstructions
+
+        link
+          rel= stylesheet
+          href= css/configuration/orderEntry_forms.css
+
+        hidden instance
+          value= Edit
+          id= instance
+
+        include orderEntry_orderSearchByPatient
+          parameter~ instance
+            value= Edit
+
+
+      nextStep Order Form
+        formNumber 0
+        _recId {_recId}
+        parameter nextStepInstance
+          value Edit
+        parameter nextStepWorkflow
+          value
+
+
+
+    step View Order
+
+
+      form
+        include stepInstructions
+
+        link
+          rel= stylesheet
+          href= css/configuration/orderEntry_forms.css
+
+        hidden instance
+          value= View
+          id= instance
+
+        include orderEntry_orderSearchByPatient
+          parameter~ instance
+            value= View
+
+
+      nextStep Order Form
+        formNumber 0
+        _recId {_recId}
+        parameter nextStepInstance
+          value View
+        parameter nextStepWorkflow
+          value
+
+
+
+    step Specimen Receiving
+
+      form
+        include stepInstructions
+        link
+          rel=  stylesheet
+          href= css/orderEntry/tableFilters.css
+        script
+          src=  js/orderEntry/orderReview.js
+
+
+        configurePreparedQuery~
+          - SELECT
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'requestId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_requestId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalRequestId', fis.showField, NULL)) AS 'show_externalRequestId',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalRequestId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_externalRequestId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'encounterNumber', fis.showField, NULL)) AS 'show_encounterNumber',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'encounterNumber', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_encounterNumber',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalOrderId', fis.showField, NULL)) AS 'show_externalOrderId',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'externalOrderId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_externalOrderId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'physicianSiteId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_physicianSiteId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'physicianId', fis.showField, NULL)) AS 'show_physicianId',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'physicianId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_physicianId',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderInfoReceivedDate', fis.showField, NULL)) AS 'show_receivedDate',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderInfoReceivedDate', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_receivedDate',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'priority', fis.showField, NULL)) AS 'show_priority',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'priority', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_priority',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderComment', fis.showField, NULL)) AS 'show_orderComment',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'orderComment', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_orderComment',
+          -
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'mrn', fis.showField, NULL)) AS 'show_mrn',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'mrn', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_mrn',
+
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'dob', fis.showField, NULL)) AS 'show_dob',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'dob', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_dob',
+
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'department', fis.showField, NULL)) AS 'show_department',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'department', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_department',
+
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'location', fis.showField, NULL)) AS 'show_location',
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'location', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_location'
+
+          - FROM formInputSettings fis
+          - INNER JOIN formDefinition fd
+          -   ON fd.id = fis.formDefinitionId
+          - INNER JOIN formConfigurableParts fp
+          -   ON fp.id = fis.formConfigurablePartsId
+          - WHERE
+          -   fd.formType = 'Accessioning'
+          -   AND fd.instance = 'QC'
+
+
+        configurePreparedQuery~
+          - SELECT
+          -   CONCAT('CONCAT(''<a href=/uniflow?lastForm=Y&stepName=Specimen+Receiving&recId='',rf.requestId, ''>'', rf.requestId,''</a>'') AS "{_:screenLabel_requestId}"',
+          -           ', os1.siteId AS "{_:screenLabel_department}"',
+          -           ', os2.siteId AS "{_:screenLabel_location}"',
+          -           CASE '{_:show_externalRequestId}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.externalRequestId AS "{_:screenLabel_externalRequestId}"'
+          -             END,
+          -           CASE '{_:show_priority}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', vv.displayValue AS "{_:screenLabel_priority}"'
+          -             END,
+          -           ', CONCAT(IFNULL(pa.lastName, ''''), CASE IFNULL(pa.firstName, '''') WHEN '''' THEN '''' ELSE '', '' END, IFNULL(pa.firstName, ''''), '' '', IFNULL(pa.middleName, '''')) AS "Patient"',
+          # -           CASE '{_:show_dob}'
+          # -             WHEN 'false' THEN ''
+          # -             ELSE ', pa.dob AS "{_:screenLabel_dob}"'
+          # -             END,
+          -           CASE '{_:show_mrn}'
+          -             WHEN 'false' THEN ''
+          -             ELSE ', rf.mrn AS "{_:screenLabel_mrn}"'
+          -             END,
+          -           ', rf.Type as "Order Form Type"',
+          -           ', GROUP_CONCAT(DISTINCT p.name) AS "Panel(s)"'
+          # -           CASE '{_:show_receivedDate}'
+          # -             WHEN 'false' THEN ''
+          # -             ELSE ', rf.receivedDate AS "{_:screenLabel_receivedDate}"'
+          # -             END,
+
+          # -           CASE '{_:show_orderComment}'
+          # -             WHEN 'false' THEN ''
+          # -             ELSE ', cn.note AS "{_:screenLabel_orderComment}"'
+          # -             END,
+
+
+          # -           ', os.name AS "{_:screenLabel_physicianSiteId}"',
+          # -           ', CONCAT(IFNULL(pa.lastName, ''''), CASE IFNULL(pa.firstName, '''') WHEN '''' THEN '''' ELSE '', '' END, IFNULL(pa.firstName, '''')) AS "{_:screenLabel_physicianId}"'
+
+          -   ) AS "selectColumns"
+
+        div
+          id= table_filters
+          class= horizontalFlex
+          div
+            configureIf~
+              advanced~
+              sqlPreparedQuery~ select 1 from dual where ? LIKE '%true%'
+                string {_:show_department}
+            class= horizontalFlex
+            label Department
+              for= deptFilter
+            select deptFilter
+              id= deptFilter
+              class= department
+              option
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   os.name,
+                -   os.siteId
+                - FROM queues q
+                - INNER JOIN requestForms rf
+                -      ON rf.requestId = q.containerId
+                - INNER JOIN organizationSites os
+                -     ON os.siteId = rf.departmentId
+                - WHERE q.step = ?
+                - ORDER BY os.name
+                string {_step}
+          div
+            configureIf~
+              advanced~
+              sqlPreparedQuery~ select 1 from dual where ? LIKE '%true%'
+                string {_:show_location}
+            class= horizontalFlex
+            label Location
+              for= locationFilter
+            select locationFilter
+              id= locationFilter
+              class= location
+              option
+
+        div
+          class= pageSection
+          table
+            id= orderReviewTable
+            sqlPreparedQuery~
+              - SELECT
+              -   {_:selectColumns}
+              - FROM queues q
+              - INNER JOIN requestForms rf
+              -   ON q.containerId = rf.requestId
+              - LEFT JOIN reqPanels rp
+              -   ON rf.requestId = rp.requestId
+              - LEFT JOIN panels p
+              -   ON rp.panelCode = p.panelCode
+              - LEFT JOIN patients pa
+              -   ON rf.patientId = pa.patientId
+              - LEFT JOIN organizationSites os
+              -   ON rf.physicianSiteId = os.siteId
+              - LEFT JOIN physicians ph
+              -   ON rf.physicianId = ph.physicianId
+              - LEFT JOIN organizationSites os1
+              -   ON os1.siteId = rf.departmentId
+              - LEFT JOIN organizationSites os2
+              -   ON os2.siteId = rf.locationId
+              - LEFT JOIN containerNotes cn
+              -   ON rf.requestId = cn.containerId
+              -   AND (cn.noteType = 'Order Entry Comment'
+              -     OR cn.noteType = 'HL7 Order Comment')
+              - LEFT JOIN validValues vv
+              -   ON rf.priority = vv.value
+              -   AND vv.setName = 'priority'
+              - WHERE q.step = ?
+              - GROUP BY rf.requestId
+              - ORDER BY rf.priority
+              string {_step}
+
+      form
+        include stepInstructions
+        link
+          rel=  stylesheet
+          href= css/orderEntry/specimenReceiving.css
+          #1
+
+
+        data-parsley-validate=
+
+        formQuery~ SELECT DATE(NOW()) AS "today"
+
+        configurePreparedQuery~
+          - SELECT
+          -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'requestId', fis.screenLabel, NULL) SEPARATOR '<br />') AS 'screenLabel_requestId'
+
+          - FROM formInputSettings fis
+          - INNER JOIN formDefinition fd
+          -   ON fd.id = fis.formDefinitionId
+          - INNER JOIN formConfigurableParts fp
+          -   ON fp.id = fis.formConfigurablePartsId
+          - WHERE
+          -   fd.formType = 'Accessioning'
+          -   AND fd.instance = 'QC'
+
+        script
+          src= js/orderEntry/userDefined.js
+        script
+          src= js/processFormSettingsConfigs.js
+
+        script
+          src= js/orderEntry/receiving.js
+
+        script
+          src= js/orderEntry/submit.js
+        script
+          src=  js/orderEntry/patientOrderHistory.js
+
+        vertical2
+
+          container _recId
+            id= requestId
+            value= {_recId}
+            acceptQueue~ any
+            screenLabel~ !!! {_:screenLabel_requestId}
+            readonly=
+
+          button viewReq
+            value= View Order
+            id= viewOrder
+
+
+        configurePreparedQuery~ select patientId, requestId
+          - from requestForms
+          - where requestId = ?
+          string {_recId}
+
+
+        configurePreparedQuery~ select type as "workflow", 'Accessioning' as 'formType', 'QC' as 'instance', '{_recId}' as 'requestId'
+          - from requestForms
+          - where requestId = ?
+          string {_recId}
+
+        configurePreparedQuery~ SELECT
+          - CASE WHEN rf.addTest = 1 THEN 'true'
+          -   ELSE 'false'
+          - END as "addNewTest",
+          - rs.specimenId AS "addNewTestSpecimen"
+          - FROM requestForms rf
+          - INNER JOIN requestSpecimens rs
+          -   ON rs.requestId = rf.requestId
+          - WHERE rf.requestId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden patientId
+          id= hdnPatientId
+          value= {_:patientId}
+
+        hidden instance
+          id= instance
+          value= {_:instance}
+
+        hidden workflow
+          id= workflow
+          value= {_:workflow}
+
+        hidden formType
+          id= formType
+          value= {_:formType}
+
+        hidden section
+          class= panel
+          section= specimenInfo
+
+        hidden addNewTest
+          value= {_:addNewTest}
+          class= addNewTest
+
+        hidden addNewTestSpecimen
+          value= {_:addNewTestSpecimen}
+          class= addNewTestSpecimen
+
+        configurePreparedQuery~ select id as "formDefinitionId"
+          - from formDefinition
+          - where instance = 'View'
+          - and workflow = ?
+          - and formType = 'Accessioning'
+          string {_:workflow}
+
+        configurePreparedQuery~
+          - SELECT 'true' AS "isReceiving"
+          - FROM dual
+          - WHERE '{_step}' = 'Specimen Receiving'
+          - UNION
+          - SELECT 'false'
+
+        formOutputJython~
+          import com.uniconnect.uniflow as uniflow
+          from patientOrderHistory import PatientOrderHistory
+
+          patOrdHist = ''
+          poh = PatientOrderHistory(switchboard)
+          patOrdHist = poh.getPatientOrderHistory('{_:patientId}','{_recId}')
+
+        textArea patOrdHist
+          class= hidden
+          id= patOrdHist
+          value= {_j:patOrdHist}
+
+        include fullPatientCard
+          parameter~ patientId
+            value= {_:patientId}
+
+        fieldSet
+          legend Patient Order History
+          class= patientOrderHistory
+          id= patientOrderHistory
+
+        include orderEntry_panels
+          parameter~ workflow
+            value= {_:workflow}
+          parameter~ request
+            value= {_:requestId}
+
+        include orderEntry_specimenInfo
+          parameter~ workflow
+            value= {_:workflow}
+          parameter~ request
+            value= {_:requestId}
+
+        include orderEntry_userDefined_table
+          parameter~ section
+            value= specimenInfo
+          parameter~ fcpFormType
+            value= Receiving
+          parameter~ instance
+            value= Receiving
+
+      allowDuplicateContainerIds true
+
+      setFormQueryResult requestId
+        value= {_recId}
+      setFormQueryResult patientId
+        value= {patientId}
+
+
+      include orderEntry_panels_SQL
+
+      include orderEntry_receivedSpecimens_SQL
+
+      include orderEntry_orderedSpecimens_SQL
+
+      include orderEntry_userDefined_tableProcessing
+        parameter~ section
+          value= specimenInfo
+
+
+      # include orderEntry_orderedSpecimensSendTo_STRATA
+
+      allowDuplicateContainerIds true
+
+      # DEQUEUE ORDER WHEN ALL TESTS HAVE BEEN STARTED WITH A RUN
+      include orderEntry_dequeueOrders
+
+      ifCondition~
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1 FROM queues WHERE containerId = ? AND (step = "Specimen Receiving")
+            string {_:requestId}
+
+        ifCondition~ {instance}
+          advanced~
+          equals~ Receiving
+          or~
+            equals~ QC
+
+          include orderEntry_createReports
+
+
+###############################################################################################################################
+    step Add Test
+
+      form
+        include stepInstructions
+
+        topVertical
+          container sampleId
+            acceptQueue~ any
+            screenLabel~ Enter Specimen ID
+            required~ true
+            class= required
+            validate~ SELECT 1
+              - FROM containers
+              - WHERE containerId = ?
+              -   AND containerType = 'specimenId'
+              string {sampleId}
+              errorMessage~ You must enter a valid specimen ID
+
+      form
+
+        script
+          src= js/orderEntry/addTest.js
+
+        # script
+        #   src= js/orderEntry/submit.js
+
+        topVertical
+          container sampleId
+            acceptQueue~ any
+            value= {sampleId}
+            readonly= true
+            screenLabel~ Specimen ID:
+
+        br
+
+          table
+            id= orderTable
+            sqlPreparedQuery
+              - SELECT '' AS 'Select',
+              -   CONCAT('<a href="/uniflow?lastForm=Y&stepName=Order+Form&recId=',rf.requestId,'&nextStepInstance=View">',rf.requestId,'</a>')AS 'Request Id',
+              -   rf.type AS 'Workflow',
+              -   rf.status AS 'Order Status',
+              -   rf.requestId AS 'hiddenColumn'
+              - FROM contents c
+              - INNER JOIN requestForms rf
+              -   ON rf.requestId = c.content
+              - WHERE c.containerId = ?
+              -   AND c.contentType = 'requestId'
+              string {sampleId}
+            columnSpecs~ orderList
+              allowChangedRecordIds true
+              column 1
+                inputType checkbox
+                  class= selectOrder
+              column 3
+                inputType select
+                  setName~ workflows
+                  class= required
+                  required~
+              column 5
+                inputType text
+                  class= hideColumn
+                  readonly=
+
+      forRows orderList
+        ifCondition {_columnInput_orderList:1}
+          advanced~
+          equals~ true
+          setFormQueryResult
+            sqlPreparedQuery SELECT ? AS 'selectedRequestId',
+              - ? AS 'orderWorkflow'
+              string {_columnInput_orderList:5}
+              string {_columnInput_orderList:3}
+
+      setFormQueryResult
+        sqlQuery CALL sp_getNextSequence('requestId','requestId')
+
+      sqlPreparedStatement
+        - INSERT INTO containers
+        - (
+        -   containerId,
+        -   containerType,
+        -   priority,
+        -   eventId
+        - )
+        - SELECT ?,
+        -   containerType,
+        -   priority,
+        -   ?
+        - FROM containers
+        - WHERE containerId = ?
+        string {_:requestId}
+        long {_eventId}
+        string {_:selectedRequestId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory
+        - (
+        -   containerId,
+        -   eventId
+        - )
+        - VALUES
+        - (
+        -   ?,
+        -   ?
+        - )
+        string {_:requestId}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO requestForms
+        - (
+        -   requestId, placerOrderId, sendingApp, sendingFacility, patientId,
+        -   physicianId, physicianSiteId, type, mrn, mrnType,
+        -   mrnFacility, locationId, departmentId, consent, consentBy,
+        -   consenteePatientRelationship, clinicalTrial, workersComp, patientSignature,
+        -   patientSignatureDate, physicianSignature, physicianSignatureDate, physicianComment, priority,
+        -   eventId, receivedDate, externalRequestId, externalSystem, accountNumber, encounterNumber, status, statusEventId,
+        -   addTest, addTestParentRequestId
+        - )
+        - SELECT
+        -   ?, placerOrderId, sendingApp, sendingFacility, patientId,
+        -   physicianId, physicianSiteId, ?, mrn, mrnType,
+        -   mrnFacility, locationId, departmentId, consent, consentBy,
+        -   consenteePatientRelationship, clinicalTrial, workersComp, patientSignature,
+        -   patientSignatureDate, physicianSignature, physicianSignatureDate, physicianComment, priority,
+        -   ?, receivedDate, externalRequestId, externalSystem, accountNumber, encounterNumber, 'In Lab', statusEventId,
+        -   ?, ?
+        - FROM requestForms
+        - WHERE requestId = ?
+        string {_:requestId}
+        string {_:orderWorkflow}
+        long {_eventId}
+        int 1
+        string {_:selectedRequestId}
+        string {_:selectedRequestId}
+
+      sqlPreparedStatement~
+        - INSERT INTO clinicalInformation (
+        -   requestId, ageAtInitialPresentation, geneticCounselor, clinicalNotes, clinicalHistory,
+        -   dateOfLastPSA, lastPSA, percentFreePSA,
+        -   dateOfLastDRE, lastDREResults,
+        -   biopsyHistoryNumber, biopsyHistoryOther, histopathologyFindings,
+        -   lastMenstrualCycle, pregnant, pregnantComments, lastPregnancy, miscarriages, miscarriagesComments, hysterectomy, hysterectomyComments, thyroidIssues, thyroidIssuesComments,
+        -   babyIdentifyingNumber, birthWeight, birthTime, placeOfBirth, locationOfSampling, referringDoctor, repeatSample, privatePublicPatient, prePostTransfusion,
+        -   ambiguousGenitalia, ambiguousGenitaliaComments, clinicalHistoryOfMother, motherFullName, dateOfFirstMilk, timeOfFirstMilk, feedingHistory, familyHistoryCF, familyHistoryCFComments, meconiumIleus, meconiumIleusComments,
+        -   donorOrRecipient, transfusionHistory, bloodType,
+        -   transfusionTransplantHistory, eventId)
+        - SELECT
+        -   ?, ageAtInitialPresentation, geneticCounselor, clinicalNotes, clinicalHistory,
+        -   dateOfLastPSA, lastPSA, percentFreePSA,
+        -   dateOfLastDRE, lastDREResults,
+        -   biopsyHistoryNumber, biopsyHistoryOther, histopathologyFindings,
+        -   lastMenstrualCycle, pregnant, pregnantComments, lastPregnancy, miscarriages, miscarriagesComments, hysterectomy, hysterectomyComments, thyroidIssues, thyroidIssuesComments,
+        -   babyIdentifyingNumber, birthWeight, birthTime, placeOfBirth, locationOfSampling, referringDoctor, repeatSample, privatePublicPatient, prePostTransfusion,
+        -   ambiguousGenitalia, ambiguousGenitaliaComments, clinicalHistoryOfMother, motherFullName, dateOfFirstMilk, timeOfFirstMilk, feedingHistory, familyHistoryCF, familyHistoryCFComments, meconiumIleus, meconiumIleusComments,
+        -   donorOrRecipient, transfusionHistory, bloodType,
+        -   transfusionTransplantHistory, ?
+        - FROM clinicalInformation
+        - WHERE requestId = ?
+        string {_:requestId}
+        long {_eventId}
+        string {_:selectedRequestId}
+
+      sqlPreparedStatement~
+        - INSERT INTO clinicalInformationDrugs (requestId, type, drugId, eventId)
+        - SELECT ?,
+        -   type,
+        -   drugId,
+        -   ?
+        - FROM clinicalInformationDrugs
+        - WHERE requestId = ?
+        string {_:requestId}
+        long {_eventId}
+        string {_:selectedRequestId}
+
+      sqlPreparedStatement
+        - INSERT INTO reportDistribution (requestId, recipientId, distributionMethod, specialHandling, eventId)
+        - SELECT ?, recipientId, distributionMethod, specialHandling, ?
+        - FROM reportDistribution
+        - WHERE requestId = ?
+        string {_:requestId}
+        long {_eventId}
+        string {_:selectedRequestId}
+
+      sqlPreparedStatement
+        - INSERT INTO requestSpecimens
+        - (
+        -   requestId, patientId, expectedBarcode, externalIdentifier, specimenType,
+        -   specimenSource, collectionDate, collectionTime, specimenId, receivedDate, receivedTime,
+        -   specimenQuantity, specimenQuantityUnits, collectorName, specimenCondition,
+        -   status, statusEventId, eventId
+        - )
+        - SELECT
+        -   ?, patientId, expectedBarcode, externalIdentifier, specimenType,
+        -   specimenSource, collectionDate, collectionTime, specimenId, receivedDate, receivedTime,
+        -   specimenQuantity, specimenQuantityUnits, collectorName, specimenCondition,
+        -   'In Lab', ?, ?
+        - FROM requestSpecimens
+        - WHERE requestId = ?
+        -   AND specimenId = ?
+        string {_:requestId}
+        long {_eventId}
+        long {_eventId}
+        string {_:selectedRequestId}
+        string {sampleId}
+
+      sqlPreparedStatement
+        - INSERT INTO queues
+        - (
+        -   containerId,
+        -   step,
+        -   eventId
+        - )
+        - VALUES
+        - (
+        -   ?,
+        -   'Order Review',
+        -   ?
+        - )
+        string {_:requestId}
+        long {_eventId}
+
+      nextStep Order Form
+        formNumber 0
+        recId {_:requestId}
+        parameter nextStepInstance
+          value QC
+        parameter addTestRequestId
+          value {_:requestId}
+        parameter nextStepWorkflow
+          value {_:orderWorkflow}
+        parameter addTestSpecimenId
+          value {sampleId}
+
+
+
+
+################################################################################################################################
+    stepGroup hiddenOrderSteps
+
+
+
+    step Order Form
+
+      # cssLinks
+      #   link
+      #     rel= stylesheet
+      #     href= css/configuration/orderEntry_forms.css
+      #   link
+      #     rel= stylesheet
+      #     href= css/accordion.css
+
+      form
+        include stepInstructions
+
+        data-parsley-validate=
+
+        ### must be withing form becasue .css won't load above form for nextStep loading of form
+        link
+          rel= stylesheet
+          href= css/configuration/orderEntry_forms.css
+        link
+          rel= stylesheet
+          href= css/accordion.css
+
+
+        script
+          src= js/orderEntry/orderEntry_forms.js
+        script
+          src= js/orderEntry/userDefined.js
+        script
+          src= js/orderEntry/submit.js
+        script
+          src= js/orderEntry/orderEntryActions.js
+        script 
+          src= js/orderEntry/patientOrderHistory.js
+
+        configurePreparedQuery~ select patientId as patientId
+          - from requestForms
+          - where requestId = ?
+          string {_recId}
+          allowEmptyResults~
+          
+        hidden hdnPatientId
+          id= hdnPatientId
+          value= {_:patientId}
+
+        formOutputJython~
+          import com.uniconnect.uniflow as uniflow
+          from patientOrderHistory import PatientOrderHistory
+
+          instance ='{_:instance}'
+          patOrdHist = ''
+          poh = PatientOrderHistory(switchboard) 
+
+          if (instance == 'QC' or instance == 'Edit'):
+            patOrdHist = poh.getPatientOrderHistory('{_:patientId}','{_recId}')
+
+        textarea patOrdHist
+          class= hidden
+          id= patOrdHist
+          value= {_j:patOrdHist}
+
+        configurePreparedQuery~ SELECT case ? when 'null' then ? else ? end AS "instance", case ? when 'null' then ? else ? end as "workflow"
+          string {nextStepInstance}
+          string {instance}
+          string {nextStepInstance}
+          string {nextStepWorkflow}
+          string {workflow}
+          string {nextStepWorkflow}
+
+        configurePreparedQuery~ SELECT
+          - CASE ? WHEN 'null' THEN
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -       ELSE ?
+          -     END
+          - ELSE ?
+          - END AS "addNewTestRequestId"
+          string {addTestRequestId}
+          string {_recId}
+          string {requestId}
+          string {_recId}
+          string {addTestRequestId}
+
+
+        configurePreparedQuery~ SELECT
+          - CASE WHEN addTest = 1 THEN 'true'
+          -   ELSE 'false'
+          - END as "addNewTest"
+          - FROM requestForms
+          - WHERE requestId = ?
+          string {_:addNewTestRequestId}
+          allowEmptyResults~
+
+        configurePreparedQuery~ SELECT specimenId as "addNewTestSpecimen"
+          - FROM requestForms rf
+          - INNER JOIN requestSpecimens rs
+          -   ON rf.requestId = rs.requestId
+          - WHERE rf.requestId = ?
+          string {_:addNewTestRequestId}
+          allowEmptyResults~
+
+        configurePreparedQuery~ SELECT rd.status as "reportStatus"
+          - , rd.reportType as "reportType"
+          - FROM  requestForms rf
+          - INNER JOIN reportDetails rd
+          -   ON rf.ID = rd.requestFormsId
+          - WHERE rf.requestId = ?
+          string {_:addNewTestRequestId}
+          allowEmptyResults~
+
+
+        include orderEntry_head
+          parameter~ instance
+            value= {_:instance}
+
+        configurePreparedQuery~  CALL sp_getFormSectionViewSettings('Accessioning', ?)
+          int {_:formDefinitionId}
+
+        configurePreparedQuery~ SELECT {_:sectionSettings}
+
+        formPreparedQuery~ SELECT '{_currentDateFormatted}' AS 'todaysDate'
+
+        enctype= multipart/form-data
+        autocomplete= off
+
+        hidden instance
+          value= {_:instance}
+
+        hidden showField_orderInformation
+          value= {_:showField_orderInformation}
+
+        hidden showField_patientInformation
+          value= {_:showField_patientInformation}
+
+        hidden showField_specimenInfo
+          value= {_:showField_specimenInfo}
+
+        hidden showField_proband
+          value= {_:showField_proband}
+
+        hidden showField_reportDistribution
+          value= {_:showField_reportDistribution}
+
+        hidden showField_clinicalInformation
+          value= {_:showField_clinicalInformation}
+
+        hidden showField_billing
+          value= {_:showField_billing}
+
+        hidden showField_consentForm
+          value= {_:showField_consentForm}
+
+        hidden addNewTest
+          value= {_:addNewTest}
+          class= addNewTest
+
+        hidden addNewTestSpecimen
+          value= {_:addNewTestSpecimen}
+          class= addNewTestSpecimen
+
+
+        vertical2
+
+          simpleTable
+            class= formHeaderTable
+            tr
+              td Date
+                class= formHeaderLabels
+              td
+              td Workflow
+                class= formHeaderLabels
+              td
+              td Accessioner
+                class= formHeaderLabels
+            tr
+              td
+                class= formHeader
+                text headertodaysDate
+                  class= formHeaderInfo
+                  readonly=
+                  value= {_:todaysDate}
+
+              td
+                class= formSpacer
+
+              td
+                class= formHeader
+                text headerWorkflow
+                  class= formHeaderInfo
+                  readonly=
+                  value= {_:workflow}
+
+              td
+                class= formSpacer
+
+              td
+                class= formHeader
+                text headerAccessioner
+                  class= formHeaderInfo
+                  readonly=
+                  value= {_userId}
+              td
+                class= formSpacer
+        br
+        br
+        vertical2
+          simpleTable
+            class= formHeaderTable
+            tr
+              td
+                class= formButton
+                text buttonOpenAll
+                  class= formButtonLabel formViewAllButton
+                  value= Expand All
+                  readonly=
+        br
+        br
+
+        div
+          id= loadingProgress
+          img
+            src= images/loader.gif
+          span Loading...
+
+        div
+          id= accessioningAccordions
+          class= accordion hiddenOnLoad
+
+          h3 Order Information
+            configureIf~ {_:showField_orderInformation}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= orderInformation
+            configureIf~ {_:showField_orderInformation}
+              advanced~
+              equals~ true
+            class= panel testClass
+            include orderEntry_orderInformation
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= orderInformation
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+
+          h3 Patient Information
+            configureIf~ {_:showField_patientInformation}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= patientInformation
+            configureIf~ {_:showField_patientInformation}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_patientInformation
+            include orderEntry_userDefined_table
+              parameter~ section
+                value=  patientInformation
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+          h3 Patient Order History
+            configureIf~ {_:instance}
+              advanced~
+              equals~ QC
+              or~
+                equals~ Edit
+            class= accordionSection
+          div
+            configureIf~ {_:instance}
+              advanced~
+              equals~ QC
+              or~
+                equals~ Edit
+            section= patientOrderHistory
+            id= patientOrderHistory
+            class= panel
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+          h3 Clinical Information
+            configureIf~ {_:showField_clinicalInformation}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= clinicalInformation
+            configureIf~ {_:showField_clinicalInformation}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_clinicalInformation
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= clinicalInformation
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+          h3 Test Selection and Specimen Information
+            configureIf~ {_:showField_specimenInfo}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= specimenInfo
+            configureIf~ {_:showField_specimenInfo}
+              advanced~
+              equals~ true
+            id= specimenInfo
+            class= panel
+            include orderEntry_panels
+              parameter~ workflow
+                value= {_:workflow}
+              parameter~ request
+                value= {_:requestId}
+              parameter~ instance
+                value= {_:instance}
+
+            include orderEntry_specimenInfo
+              parameter~ workflow
+                value= {_:workflow}
+              parameter~ request
+                value= {_:requestId}
+
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= specimenInfo
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+          h3 Proband
+            configureIf~ {_:showField_proband}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= proband
+            configureIf~ {_:showField_proband}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_proband
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= proband
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+
+
+          h3 Report Distribution
+            configureIf~ {_:showField_reportDistribution}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= reportDistribution
+            configureIf~ {_:showField_reportDistribution}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_reportDistribution
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= reportDistribution
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+
+          h3 Billing
+            configureIf~ {_:showField_billing}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= billing
+            configureIf~ {_:showField_billing}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_billing
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= billing
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+
+          h3 Authorization/Consent
+            configureIf~ {_:showField_consentForm}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= consentForm
+            configureIf~ {_:showField_consentForm}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_consent
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= consentForm
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+
+
+          h3 File Upload
+            configureIf~{_:showField_fileUpload}
+              advanced~
+              equals~ true
+            class= accordionSection
+          div
+            section= fileUpload
+            configureIf~ {_:showField_fileUpload}
+              advanced~
+              equals~ true
+            class= panel
+            include orderEntry_fileUpload
+            include orderEntry_userDefined_table
+              parameter~ section
+                value= fileUpload
+              parameter~ fcpFormType
+                value= Accessioning
+              parameter~ instance
+                value= {_:instance}
+            text last
+              screenLabel~
+              class= lastOfAccordionSection
+        br
+        br
+        div
+          configureIf~ {_:instance}
+            advanced~
+            equals~ QC
+
+          div
+            id= actionToolTip
+            class= verticalFlex
+            label Action
+              for= orderFormRoutingOptions
+            select orderFormRoutingOptions
+              id= orderFormRoutingOptions
+              class= required
+              required~ true
+              option
+                configureIf~ {_:instance}
+                  advanced~
+                  equals~ Edit
+              option Approved
+                configureIf~ {_:instance}
+                  advanced~
+                  not~
+                    equals~ Edit
+                value= approve
+                title= Select Approved to route the order to the next step.
+              option Send to Contact Customer
+                value= contactCustomer
+                title= Select Send to Contact Customer to queue the order for the contact customer.
+              option Approve and Send to Contact Customer
+                configureIf~ {_:instance}
+                  advanced~
+                  not~
+                    equals~ Edit
+                value= approve contactCustomer
+                title= Select Approve and send to contact customer to do both at once.
+              option Cancel Order
+                value= cancel
+                title= Select Cancel Order to dequeue and cancel. You can then search for the canceled order on the Edit Order step or the View Order step if needed.
+              option Save
+                value= save
+                title= Select Save to save changes and leave the order in Order Review.
+
+        div
+          configureIf~ {_:instance}
+            advanced~
+            equals~ Edit
+
+          div
+            id= actionToolTip
+            class= verticalFlex
+            label Action
+              for= orderFormRoutingOptions
+            select orderFormRoutingOptions
+              id= orderFormRoutingOptions
+              class= required
+              required~ true
+              option
+                configureIf~ {_:instance}
+                  advanced~
+                  equals~ Edit
+              option Approved
+                configureIf~ {_:instance}
+                  advanced~
+                  not~
+                    equals~ Edit
+                value= approve
+                title= Select Approved to route the order to the next step.
+              option Send to Contact Customer
+                value= contactCustomer
+                title= Select Send to Contact Customer to queue the order for the contact customer.
+              option Approve and Send to Contact Customer
+                configureIf~ {_:instance}
+                  advanced~
+                  not~
+                    equals~ Edit
+                value= approve contactCustomer
+                title= Select Approve and send to contact customer to do both at once.
+              option Cancel Order
+                configureIf~ {_:reportType}
+                  advanced~
+                  equals~ new
+                  or~ 
+                    equals~ interim
+                  ignoreCase~
+                value= cancel
+                title= Select Cancel Order to dequeue and cancel. You can then search for the canceled order on the Edit Order step or the View Order step if needed.
+              option Reject
+                configureIf~ {_:reportType}
+                  advanced~
+                  equals~ new
+                  or~ 
+                    equals~ interim
+                  ignoreCase~
+                value= reject
+                title= Select reject to create a rejection report.
+              option Save
+                value= save
+                title= Select Save to save changes and leave the order in Order Review.
+        br
+        br
+
+      ifCondition {showField_orderInformation}
+        advanced~
+        equals~ true
+        include orderEntry_orderInformation_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= orderInformation
+
+      ifCondition {showField_patientInformation}
+        advanced~
+        equals~ true
+        include orderEntry_patientInformation_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= patientInformation
+
+
+      ifCondition {showField_specimenInfo}
+        advanced~
+        equals~ true
+        include orderEntry_panels_SQL
+        include orderEntry_receivedSpecimens_SQL
+        include orderEntry_orderedSpecimens_SQL
+
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= specimenInfo
+        # include orderEntry_orderedSpecimensSendTo_STRATA
+
+      ifCondition {showField_proband}
+        advanced~
+        equals~ true
+        include orderEntry_proband_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= proband
+
+      ifCondition {showField_reportDistribution}
+        advanced~
+        equals~ true
+        include orderEntry_reportDistribution_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= reportDistribution
+
+      ifCondition {showField_clinicalInformation}
+        advanced~
+        equals~ true
+        include orderEntry_clinicalInformation_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= clinicalInformation
+
+      ifCondition {showField_billing}
+        advanced~
+        equals~ true
+        include orderEntry_billing_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= billing
+
+      ifCondition {showField_consentForm}
+        advanced~
+        equals~ true
+        include orderEntry_consent_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= consentForm
+
+      ifCondition {showField_fileUpload}
+        advanced~
+        equals~ true
+        include orderEntry_fileUpload_SQL
+        include orderEntry_userDefined_tableProcessing
+          parameter~ section
+            value= fileUpload
+
+      include orderEntry_routing_SQL
+        parameter~ request
+          value= {_:requestId}
+        parameter~ instance
+          value= {instance}
+        parameter~ receiveAtQC
+          value= {receiveAtQC}
+        parameter~ orderFormRoutingOptions
+          value= {orderFormRoutingOptions}
+
+      ifCondition {instance}
+        advanced~
+        equals~ QC
+        ifCondition {orderFormRoutingOptions}
+          advanced~
+          equals~ approve
+          or~
+            equals~ approve contactCustomer
+          # DEQUEUE ORDER WHEN ALL TESTS HAVE BEEN STARTED WITH A RUN
+          include orderEntry_dequeueOrders
+      else
+        include orderEntry_dequeueOrders
+
+      ifCondition~
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1 FROM queues WHERE containerId = ? AND (step = "Specimen Receiving")
+            string {_:requestId}
+
+        ifCondition~ {instance}
+          advanced~
+          equals~ Receiving
+          or~
+            equals~ QC
+
+          include orderEntry_createReports
+
+
+      allowDuplicateContainerIds true
+
+      setFormQueryResult
+        sqlPreparedQuery SELECT CASE '{instance}'
+          - WHEN 'New' THEN 'Order Entry'
+          - WHEN 'QC' THEN 'Order Review'
+          - WHEN 'Edit' THEN 'Edit Order'
+          - WHEN 'View' THEN 'View Order'
+          - ELSE 'Order Entry'
+          - END AS "nextStep"
+
+      nextStep {_:nextStep}
+        formNumber 0
+
+

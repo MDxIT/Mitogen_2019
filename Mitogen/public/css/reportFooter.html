@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	
+<!-- 	<link rel="stylesheet" type="text/css" href="reportPDFPrint.css"> -->
+	
+	<script>
+	function substitute() {
+		var vars = {};
+		var x = window.location.search.substring(1).split('&');
+		for (var i in x) {
+			var z = x[i].split('=',2);
+			vars[z[0]] = unescape(z[1]);
+		}
+		
+		var subst = [
+			// Defaults
+			'page', 'frompage', 'topage', 'webpage', 
+			'section', 'subsection', 'date', 'isodate', 'time', 
+			'title', 'doctitle', 'sitepage', 'sitepages', 
+			// User
+			'patientName'
+		];
+		for (var i in subst) {
+			var y = document.getElementsByClassName(subst[i]);
+			var c = y.length;
+			for (var j = 0; j < c; ++j) {
+				y[j].textContent = vars[subst[i]];
+			}
+		}
+	}
+	</script>
+</head>
+<body onload="substitute();">
+	<div class="footer">
+		<div class="left_block" style= "float: left">
+			<p>
+				<span class="patientName"></span>
+				&nbsp;|&nbsp;
+				<span class="date">YYYY-MM-DD</span>
+			</p>
+		</div>
+		<div class="right_block" style= "float: right">
+			<p>Page <span class="page"></span> of <span class="topage"></span></p>
+		</div>
+	</div>
+</body>
+</html>

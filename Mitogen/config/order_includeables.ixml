@@ -1,0 +1,400 @@
+config
+  includes
+############  ORDER CARD  ############
+    includeable orderCardFull
+      ### PARAMETERS IN
+      ###   requestId -- the patientId needed to find the patient data
+      ### PARAMETERS OUT
+      ###   None
+      link
+        rel= stylesheet
+        href= css/fontawesome/css/all.min.css
+      link
+        rel= stylesheet
+        href= css/infoCard.css
+      script
+        src= js/fontawesome/js/all.min.js
+      script
+        src= js/card_utilities.js
+      script
+        src= js/orderCard.js
+        # orderCard
+
+      formPreparedQuery~
+        - SELECT
+        -   rf.requestId,
+        -   rf.type AS 'orderType',
+        -   rf.status,
+        -   IFNULL(rf.receivedDate, '') AS 'receivedDate',
+        -   IFNULL(os.name, 'Not Recorded') AS 'orderingClinic',
+        -   rf.externalRequestId AS 'externalId',
+        -   os1.name AS 'department',
+        -   os2.name AS 'location',
+        -   os.siteId,
+        -   IFNULL(rf.priority, '') AS 'priority',
+        -   u.name AS 'accessionerName',
+        -   p.patientId,
+        -   rf.id
+        -  FROM requestForms rf
+        -   LEFT JOIN requestSpecimens rs ON rf.requestId = rs.requestId
+        -   LEFT JOIN events e ON e.eventId = rs.eventId
+        -   LEFT JOIN userInfo u ON e.userId = u.userId
+        -   LEFT JOIN patients p ON rf.patientId = p.patientId
+        -   LEFT JOIN organizationSites os ON rf.physicianSiteId = os.siteId
+        -     AND os.isSystem IS NULL
+        -   LEFT JOIN organizationSites os1 ON rf.departmentId = os1.siteId
+        -     AND os1.isSystem IS NOT NULL
+        -   LEFT JOIN organizationSites os2 ON rf.locationId = os2.siteId
+        -     AND os2.isSystem IS NOT NULL
+        -  WHERE rf.requestId = ?
+        string {_includeParm:requestId}
+        allowEmptyResults~
+
+      # orderCard
+      formPreparedQuery~
+        -  SELECT CASE displayValue WHEN 'STAT' THEN CONCAT('<span class=stat>', displayValue, '</span>')
+        -     ELSE displayValue END AS 'specimenPriority'
+        -   FROM validValues
+        -   WHERE setName = 'priority'
+        -   AND value = ?
+        string {_:priority}
+        allowEmptyResults~
+
+      # orderCard
+      formPreparedQuery~
+        - SELECT
+        -  date(e.eventDate) AS 'reportedOn'
+        -  FROM reportDetails rd
+        -   INNER JOIN events e ON rd.statusEventId = e.eventId
+        -  WHERE rd.requestFormsId = ?
+        -  AND rd.status = 'Reported'
+        string {_:id}
+        allowEmptyResults~
+
+      formPreparedQuery~ SELECT ph.first_name as "PhyFirst"
+        - , ph.last_name AS "PhyLast"
+        - FROM requestForms rf
+        - INNER JOIN physicians ph ON rf.physicianId = ph.physicianId
+        - WHERE rf.requestId = ?
+        - ORDER BY rf.eventId DESC
+        - LIMIT 1
+        string {_includeParm:requestId}
+        allowEmptyResults~
+
+      configurePreparedQuery~
+        - SELECT
+        -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'location', fis.showField, NULL)) AS 'show_location',
+        -   GROUP_CONCAT(DISTINCT if(fp.inputName  = 'department', fis.showField, NULL)) AS 'show_department'
+        -   FROM formInputSettings fis
+        -   INNER JOIN formDefinition fd
+        -     ON fd.id = fis.formDefinitionId
+        -   INNER JOIN formConfigurableParts fp
+        -     ON fp.id = fis.formConfigurablePartsId
+        -   WHERE
+        -      fd.formType = 'Accessioning'
+        -     AND fd.instance = 'New'
+        -    AND fd.workflow = (SELECT type FROM requestForms WHERE requestId = ?)
+        string {_includeParm:requestId}
+
+
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+
+      hidden cardSiteId
+        id= cardSiteId
+        value= {_:siteId}
+
+      hidden requestId
+        id= requestId
+        value= {_:requestId}
+
+      hidden siteId
+        id= siteId
+        value= {_:siteId}
+
+      formQuery~ recDate
+        formatDate~
+        convertDateTime~ false
+        value= {_:receivedDate}
+
+      div
+        id= orderInfoDiv
+        class= infoCard orderCard
+        div
+          class= bannerTitle orderTitle
+          span Order
+        div
+          class= infoData
+          div
+            class= infoNameBlock
+            div
+              class= infoNameBanner orderInfo goToOrderForm
+              tabindex= 0
+              span <i class="fas fa-clipboard-list"></i>
+                class= clipboard-list
+              span {_:requestId}
+                id= cardRequestId
+            div
+              class= physicianBlock
+              span <i class="fas fa-stethoscope"></i>
+                class= stethoscope
+              span {_:PhyLast}, {_:PhyFirst}
+          div
+            class= infoBlocks
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Received Date
+                div
+                  class= blockData orderInfo
+                  span {_:recDate}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Priority
+                div
+                  class= blockData orderInfo
+                  span {_:specimenPriority}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Clinic &nbsp &nbsp <i class="fas fa-clinic-medical"></i>
+                    class= goToSites
+                  span &nbsp &nbsp <i class="fa fa-phone"></i>
+                    class= goToContactCustomer
+                div
+                  class= blockData orderInfo
+                  span {_:orderingClinic}
+
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Order Type
+                div
+                  class= blockData orderInfo
+                  span {_:orderType}
+            div
+              configureIf~ {_:show_department}
+                advanced~
+                equals~ true
+                or~ {_:show_location}
+                  equals~ true
+
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Department
+                div
+                  class= blockData orderInfo
+                  span {_:department}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Location
+                div
+                  class= blockData orderInfo
+                  span {_:location}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Order Status
+                div
+                  class= blockData orderInfo
+                  span {_:status}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span External ID &nbsp <i class="fas fa-info-circle"></i>
+                    title= This is the client's order number.
+                div
+                  class= blockData orderInfo
+                  span {_:externalId}
+
+############  SPECIMEN ORDER CARD  ############
+    includeable orderCardSpecimen
+      ### PARAMETERS IN
+      ###   specimenId
+      ### PARAMETERS OUT
+      ###   None
+      link
+        rel= stylesheet
+        href= css/infoCard.css
+      script
+        src= js/fontawesome/js/all.min.js
+      script
+        src= js/card_utilities.js
+      script
+        src= js/orderCard.js
+
+        formPreparedQuery~
+          - SELECT ifNULL(sm.status, 'unknown') as 'SpecimenStatus'
+          -   FROM requestSpecimens rs
+          -     LEFT JOIN specimenMethods sm on rs.id = sm.requestSpecimensId
+          -   WHERE rs.specimenId = ?
+          string {_includeParm:specimenId}
+          allowEmptyResults~
+
+      # orderCard
+      formPreparedQuery~
+        - SELECT
+        -   rs.requestId,
+        -   IFNULL(rs.collectionDate, '') AS 'collectionDate',
+        -   IFNULL(rs.collectionTime, '') AS 'collectionTime',
+        -   IFNULL(rs.receivedDate, '') AS 'receivedDate',
+        -   IFNULL(os.name, 'Not Recorded') AS 'orderingClinic',
+        -   os.siteId,
+        -   rs.externalIdentifier,
+        -   IFNULL(rf.priority, '') AS 'priority',
+        -   u.name AS 'accessionerName',
+        -   p.patientId,
+        -   rf.id
+        -  FROM requestSpecimens rs
+        -   INNER JOIN requestForms rf ON rf.requestId = rs.requestId
+        -   INNER JOIN events e ON e.eventId = rs.eventId
+        -   INNER JOIN userInfo u on e.userId = u.userId
+        -   INNER JOIN patients p ON rs.patientId = p.patientId
+        -   INNER JOIN organizationSites os ON rf.physicianSiteId = os.siteId
+        -  WHERE rs.specimenId = ?
+        string {_includeParm:specimenId}
+        allowEmptyResults~
+
+      formPreparedQuery~
+        -  SELECT CASE displayValue WHEN 'STAT' THEN CONCAT('<span class=stat>', displayValue, '</span>')
+        -     ELSE displayValue END AS 'specimenPriority'
+        -   FROM validValues
+        -   WHERE setName = 'priority'
+        -   AND value = ?
+        string {_:priority}
+        allowEmptyResults~
+
+      # orderCard
+      formPreparedQuery~
+        - SELECT
+        -  date(e.eventDate) as 'reportedOn'
+        -  FROM reportDetails rd
+        -   INNER JOIN events e ON rd.statusEventId = e.eventId
+        -  WHERE rd.requestFormsId = ?
+        - AND rd.status = 'Reported'
+        string {_:id}
+        allowEmptyResults~
+
+      hidden dateFormat
+        id= dateFormat
+        value= {_dateShortFormat}
+
+      hidden requestId
+        id= requestId
+        value= {_:requestId}
+
+      hidden siteId
+        id= siteId
+        value= {_:siteId}
+
+      formQuery~ recDate
+        formatDate~
+        convertDateTime~ false
+        value= {_:receivedDate}
+
+      formQuery~ repDate
+        formatDate~
+        convertDateTime~ false
+        value= {_:reportedOn}
+
+      formQuery~ collDate
+        formatDate~
+        convertDateTime~ false
+        value= {_:collectionDate}
+
+
+      div
+        id= orderInfoDiv
+        class= infoCard orderCard
+        div
+          class= bannerTitle orderTitle
+          span Order
+        div
+          class= infoData
+          div
+            class= infoNameBlock
+            div
+              class= infoNameBanner orderInfo
+              tabindex= 0
+              span <i class="fas fa-clipboard-list"></i>
+                class= clipboard-list
+              span {_includeParm:specimenId}
+                id= cardRequestId
+            div
+              class= physicianBlock
+              span STATUS:
+                class= blockLabel
+              span {_:SpecimenStatus}
+                class= orderInfo
+          div
+            class= infoBlocks
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Received Date
+                div
+                  class= blockData orderInfo
+                  span {_:recDate}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Priority
+                div
+                  class= blockData orderInfo
+                  span {_:specimenPriority}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Clinic &nbsp &nbsp <i class="fas fa-clinic-medical"></i>
+                    class= goToSites
+                  span &nbsp &nbsp <i class="fa fa-phone"></i>
+                    class= goToContactCustomer
+                div
+                  class= blockData orderInfo
+                  span {_:orderingClinic}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Collect Date
+                div
+                  class= blockData orderInfo
+                  span {_:collDate} {_:collectionTime}
+            div
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Reported On
+                div
+                  class= blockData orderInfo
+                  span {_:repDate}
+              div
+                class= dataBlock
+                div
+                  class= blockLabel
+                  span Accession # &nbsp <i class="fas fa-info-circle"></i>
+                    class= goToOrderForm
+                div
+                  class= blockData orderInfo
+                  span {_:requestId}

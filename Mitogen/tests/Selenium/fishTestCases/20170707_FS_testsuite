@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="https://frameshift.uniconnect.com/" />
+<title>New Test</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">New Test</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/uniflow?stepName=New%20Requisition</td>
+	<td></td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>link=New Requisition</td>
+	<td></td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=test</td>
+	<td>label=Cytogenetics</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>id=stepFormSubmitButton</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=firstName</td>
+	<td>Test</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=lastName</td>
+	<td>Patient</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=ssn</td>
+	<td>123-45-6789</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=dob</td>
+	<td>01/01/1987</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>name=newPatientGender</td>
+	<td>label=Male</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=ethnicity</td>
+	<td>label=Caucasian</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>name=faceSheet</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=address1</td>
+	<td>123 State Street</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=city</td>
+	<td>Kennesaw</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>name=state</td>
+	<td>label=GA</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=postalCode</td>
+	<td>32145</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=orgId</td>
+	<td>label=ABC Laboratory</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=phyId</td>
+	<td>label=Jen Johnson</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=receiveSamples_0_1</td>
+	<td>javascript{&quot;CBM_+&quot; + Math.floor(Math.random()*11111) ;}</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>name=receiveSamples_0_3</td>
+	<td>label=Urine</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=receiveSamples_0_4</td>
+	<td>07/05/2017</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>name=receiveSamples_0_5</td>
+	<td>03:05</td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>name=receiveSamples_0_6</td>
+	<td>label=pm</td>
+</tr>
+<tr>
+	<td>click</td>
+	<td>name=t2_0_1</td>
+	<td></td>
+</tr>
+<tr>
+	<td>select</td>
+	<td>id=billTo</td>
+	<td>label=Customer</td>
+</tr>
+<tr>
+	<td>clickAndWait</td>
+	<td>id=stepFormSubmitButton</td>
+	<td></td>
+</tr>
+</tbody></table>
+</body>
+</html>

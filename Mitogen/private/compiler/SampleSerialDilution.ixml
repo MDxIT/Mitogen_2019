@@ -1,0 +1,562 @@
+    step [$$STEP_NAME$$]
+      form
+        script
+          src= js/dateFormatting.js
+
+        include normalizationTemplateRequired
+          include stepInstructions
+          
+          hidden dateFormat
+            id= dateFormat
+            value= {_dateShortFormat}
+
+          topVertical
+            container sourceContainerId
+              class= required barcodeBackground
+              screenLabel~ Sample Id
+              new~ false
+              acceptQueue~ any
+              required~ true
+              data-parsely-required= true
+              validate~
+                - SELECT 1
+                - FROM specimenRuns sr
+                -   INNER JOIN queues q ON sr.runId = q.containerId
+                - WHERE ? = sr.currentContainerId
+                -   AND q.step = ?
+                string {sourceContainerId}
+                string [$$STEP_NAME$$]
+                errorMessage~ This sample is not on the queue.
+
+          br
+          table
+            id= splitSample_list
+            class= stdTableBasic dateFormat
+            sqlPreparedQuery~ SELECT
+              - DISTINCT
+              - COALESCE(sr.currentContainerId, q.containerId, '') AS "Sample Id",
+              - rf.requestId AS "Order Number",
+              - vV.displayValue AS "Order Priority",
+              - IFNULL(rf.mrn, '') AS "MRN",
+              - CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+              - CONCAT(s.storageContainerId, IF(s.location = 'storage', '', CONCAT(':', s.location))) AS "Storage Location",
+              - rs.specimenType AS "Specimen Type",
+              - GROUP_CONCAT(CONCAT(t.name, ' - ', m.name) SEPARATOR '<br />') AS "Test - Method",
+              - DATE(e.eventDate) AS "Queue Date",
+              - e.userId AS "Queued By"
+              - FROM queues q
+              - LEFT JOIN specimenRuns sr
+              -   ON q.containerId = sr.runid
+              - LEFT JOIN specimenMethods sm
+              -   ON sr.specimenMethodsId = sm.id
+              - LEFT JOIN requestSpecimens rs
+              -   ON sm.requestSpecimensId = rs.id OR q.containerId = rs.specimenId
+              - LEFT JOIN specimenMethods smSpecimen
+              -   ON smSpecimen.requestSpecimensId = rs.id
+              - INNER JOIN requestForms rf
+              -   ON rs.requestId = rf.requestId
+              - LEFT JOIN tests t
+              -   ON sm.testCode = t.testCode OR smSpecimen.testCode = t.testCode
+              - LEFT JOIN methods m
+              -   ON sm.methodCode = m.methodCode OR smSpecimen.methodCode = m.methodCode
+              - INNER JOIN events e
+              -   ON q.eventId = e.eventId
+              - LEFT JOIN validValues vV
+              -   ON vV.setName = 'priority' AND vV.value = rf.priority
+              - LEFT JOIN patients pa
+              -   ON pa.patientId = rf.patientId
+              -   AND rs.patientId = pa.patientId
+              - LEFT JOIN storage s
+              -   ON s.content = sr.currentContainerId
+              - WHERE q.step = ?
+              - GROUP BY q.containerId
+              string [$$STEP_NAME$$]
+
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+        script
+          src= js/tasks/dilutionCalc.js
+        script
+          src= js/tasks/serialDilution.js
+        script
+          src= js/components/container.js
+        script
+          src= js/components/printBarcode.js
+
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   runId
+          - FROM specimenRuns
+          - WHERE currentContainerId = ?
+          string {sourceContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -   containerType
+          - FROM containers
+          - WHERE containerId = ?
+          string {sourceContainerId}
+          allowEmptyResults~
+
+        # PARAMETERS FOR GENERATE NEW SEQUENCE
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "finalReadOnly",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'false'
+          -     ELSE 'true'
+          -   END AS "finalRequired",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'Yes'
+          -     ELSE 'No'
+          -   END AS "generateIntermediateSequences",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN CASE ?
+          -                                   WHEN 'Auto Generated' THEN 'No'
+          -                                   ELSE ?
+          -                                 END
+          -     ELSE ?
+          -   END AS "Generate_Sample_ID"
+          string [$$Generate_Sample_ID$$]
+          string [$$Generate_Sample_ID$$]
+          string [$$Generate_Intermediate_ID$$]
+          string [$$Generate_Sample_ID$$]
+          string [$$Generate_Intermediate_ID$$]
+          string [$$Generate_Sample_ID$$]
+          string [$$Generate_Sample_ID$$]
+
+        configurePreparedQuery~ SELECT CASE WHEN ? = 'Yes' THEN 'Print' ELSE '' END AS 'sampleList_print'
+          string [$$Print_Sample_Barcodes$$]
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Yes' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "intermediateContainerRequired"
+          string [$$Validate_Intermediate_ID$$]
+
+
+        configurePreparedQuery~
+          - SELECT
+          -   ? AS "defaultFinalConc",
+          -   ? AS "defaultMinFinalVol",
+          -   ? AS "minPipetteVol",
+          -   ? AS "maxContainerVol"
+          string [$$Default_Final_Conc$$]
+          string [$$Default_Min_Final_Vol$$]
+          string [$$Min_Pipette_Vol$$]
+          string [$$Max_Container_Vol$$]
+
+        configurePreparedQuery~
+          - SELECT ' printContainerBarcode ' AS "printIntermediateContainerBarcode"
+          - FROM dual
+          - WHERE ? = 'Yes'
+          string {_:generateIntermediateSequences}
+          allowEmptyResults~
+
+
+        # pull recorded concentration for sample
+        formPreparedQuery~
+          - SELECT
+          -   addef.loadDataAnalysisDataDefinitionId AS "analysisDataDefinitionId"
+          - FROM analysisMethods am
+          -   INNER JOIN analysisMethodVersions amv
+          -     ON am.id = amv.analysisMethodsId
+          -   INNER JOIN analysisDataDefinition addef
+          -     ON amv.id = addef.analysisMethodVersionsId
+          -     AND addef.definerType = 'loadData'
+          - WHERE am.analysisStepName = ?
+          -   AND amv.active = 1
+          string [$$STEP_NAME$$]
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   ROUND(ad.decimalResult, 4) AS "concentration"
+          - FROM specimenRuns sr
+          -   INNER JOIN analysisDataRuns adr
+          -     ON sr.id = adr.specimenRunsId
+          -   INNER JOIN analysisData ad
+          -     ON adr.id = ad.analysisDataRunsId
+          -     AND ad.analysisDataDefinitionId = ?
+          - WHERE sr.runId =?
+          int {_:analysisDataDefinitionId}
+          string {_:runId}
+
+
+        div
+          id= modal
+        hidden requireTransfer
+          value= No
+          id= requireTransfer
+        hidden runId
+          value= {_:runId}
+        hidden generateIntermediateSequences
+          id= generateIntermediateSequences
+          value= {_:generateIntermediateSequences}
+        div
+          class= additionalColumns
+          hidden print
+            id= serialDilutionPrintSampleBarcode
+            value= {_:sampleList_print}
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+
+        printerControls
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        include containerComponent
+
+          #### DEVELOPER CONFIGURATIONS
+          parameter~ containerName
+            value= sourceContainerId
+          parameter~ containerScreenLabel
+            value= Source Tube ID
+          parameter~ containerReadonly
+            value= true
+          parameter~ containerNew
+            value= false
+          parameter~ containerAsSelect
+            value= false
+          parameter~ acceptQueue
+            value= any
+          parameter~ containerType
+            value= {_:containerType}
+          parameter~ containerRequired
+            value= false
+          parameter~ containerAdditionalClasses
+            value=
+          parameter~ containerValue
+            value= {sourceContainerId}
+          parameter~ useThisSequence
+            value= batchId
+
+          #### BUILD SHEET CONFIGURATIONS
+          parameter~ containerCommentsInclude
+            value= [$$Sample_Comments$$]
+          parameter~ containerActionInclude
+            value= No
+          parameter~ containerGenerateFromSequence
+            value= No
+          parameter~ containerShowStorageLocation
+            value= No
+          parameter~ containerPrintBarcode
+            value= No
+          parameter~ containerCategoryInclude
+            value= Not Applicable
+          parameter~ groupingContainerRunCount
+            value= No
+          parameter~ includePriority
+            value= No
+          parameter~ containerFileUpload
+            value= No
+
+          #### PARAMETER DRIVEN ROUTING
+          parameter~ containerActionOptions
+            value= passfail
+
+        hr
+
+        div
+
+          vertical2
+            text initialConcentration
+              id= initialConcentration
+              class= initialInput required
+              required~ true
+              data-parsley-required= true
+              screenLabel~ Source Sample Concentration:
+              value= {_:concentration}
+            text initialVolume
+              id= initialVolume
+              class= initialInput required
+              required~ true
+              data-parsley-required= true
+              screenLabel~ Source Sample Volume:
+            text finalConcentration
+              id= finalConcentration
+              class= required finalConcentration
+              required~ true
+              data-parsely-required= true
+              screenLabel~ Target Concentration:
+              value= {_:defaultFinalConc}
+            text finalVolume
+              id= finalVolume
+              class= initialInput required finalVolume
+              required~ true
+              data-parsley-required= true
+              screenLabel~ Target Volume:
+              value= {_:defaultMinFinalVol}
+            text minVolume
+              id= minVolume
+              class= initialInput required
+              required~ true
+              data-parsely-required= true
+              screenLabel~ Minimum Pipette Volume:
+              value= {_:minPipetteVol}
+            text maxVolume
+              id= maxVolume
+              class= initialInput required
+              required~ true
+              data-parsely-required= true
+              screenLabel~ Maximum Destination Volume:
+              value= {_:maxContainerVol}
+
+        hr
+
+        div
+          table
+            id= dilutionTable
+            class= stdTable
+            sqlPreparedQuery~
+              - SELECT
+              -   ? AS "Starting Concentration",
+              -   '' AS "Sample Volume",
+              -   '' AS "Diluent Volume",
+              -   '' AS "Final Concentration",
+              -   '' AS "Container",
+              -   '' AS "Starting Volume",
+              -   '' AS "Final Volume"
+              string {_:concentration}
+            columnSpecs~ dilutionTable
+              column 1
+                inputType text
+                  class= initialConcentration
+                  readonly=
+                  size= 15
+              column 2
+                inputType text
+                  class= sampleVolume
+                  readonly=
+                  size= 15
+              column 3
+                inputType text
+                  class= diluentVolume
+                  readonly=
+                  size= 15
+              column 4
+                inputType text
+                  class= finalConcentration
+                  readonly=
+                  size= 15
+              column 5
+                inputType container
+                  class= barcodeBackground dilutionContainer
+                    configureIf~ {_:intermediateContainerRequired}
+                      advanced~
+                      equals~ false
+                  class= barcodeBackground dilutionContainer required
+                    configureIf~ {_:intermediateContainerRequired}
+                      advanced~
+                      equals~ true
+                  required~ {_:intermediateContainerRequired}
+                  data-parsley-required= {_:intermediateContainerRequired}
+                  new~ true
+                  addContent~
+                  containerType~ tubeId
+              column 6
+                inputType text
+                  class= initialVolume hideColumn
+                  readonly=
+                  size= 15
+              column 7
+                inputType text
+                  class= finalVolume hideColumn
+                  readonly=
+                  size= 15
+
+        hr
+        include containerComponent
+
+          #### DEVELOPER CONFIGURATIONS
+          parameter~ containerName
+            value= tubeId
+          parameter~ containerScreenLabel
+            value= Final Dilution Tube ID
+          parameter~ containerReadonly
+            value= {_:finalReadOnly}
+          parameter~ containerNew
+            value= false
+          parameter~ containerAsSelect
+            value= false
+          parameter~ acceptQueue
+            value= any
+          parameter~ containerType
+            value= tubeId
+          parameter~ containerRequired
+            value= {_:finalRequired}
+          parameter~ containerAdditionalClasses
+            value= destinationContainer
+          parameter~ containerValue
+            value=
+          parameter~ useThisSequence
+            value= tubeId
+
+          #### BUILD SHEET CONFIGURATIONS
+          parameter~ containerCommentsInclude
+            value= Yes
+          parameter~ containerActionInclude
+            value= No
+          parameter~ containerGenerateFromSequence
+            value= {_:Generate_Sample_ID}
+          parameter~ containerShowStorageLocation
+            value= No
+          parameter~ containerPrintBarcode
+            value= [$$Print_Sample_Barcodes$$]
+          parameter~ containerCategoryInclude
+            value= Not Applicable
+          parameter~ groupingContainerRunCount
+            value= No
+          parameter~ includePriority
+            value= No
+          parameter~ containerFileUpload
+            value= No
+
+          #### PARAMETER DRIVEN ROUTING
+          parameter~ containerActionOptions
+            value= passfail
+
+      allowDuplicateContainerIds true
+      sqlPreparedStatement
+        - UPDATE specimenRuns SET
+        -   currentContainerId = ?,
+        -   lastUpdatedEventId = ?
+        - WHERE runId = ?
+        string {tubeId}
+        long {_eventId}
+        string {runId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory (containerId, eventId)
+        - VALUES (?, ?)
+        string {runId}
+        long {_eventId}
+
+      # Route sourceContainerId
+      include routeContainer
+        parameter~ processContainerId
+          value= {sourceContainerId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value=
+        parameter~ routingDirection
+          value= IN
+        parameter~ routingType
+          value= sampleContainer
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+
+      # Route intermediate tubes
+      forRows dilutionTable
+        ifCondition~ {_columnInput_dilutionTable:5}
+          advanced~
+          not~
+            isBlank~
+
+          sqlPreparedStatement~
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - SELECT ?, 'Concentration', ?, ?
+            string {_columnInput_dilutionTable:5}
+            string {_columnInput_dilutionTable:4}
+            long {_eventId}
+
+          sqlPreparedStatement~
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - SELECT ?, 'Volume', ?, ?
+            string {_columnInput_dilutionTable:5}
+            string {_columnInput_dilutionTable:7}
+            long {_eventId}
+
+          sqlPreparedStatement~
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT ?, attribute, contentType, content, ?
+            - FROM contents
+            - WHERE containerId = ?
+            string {_columnInput_dilutionTable:5}
+            long {_eventId}
+            string {sourceContainerId}
+
+          ifCondition~ {_columnInput_dilutionTable:5}
+            advanced~
+            not~
+              equals~ {tubeId}
+
+            include routeContainer
+              parameter~ processContainerId
+                value= {_columnInput_dilutionTable:5}
+              parameter~ result
+                value=
+              parameter~ deleteFromStep
+                value=
+              parameter~ defaultNextStep
+                value=
+              parameter~ routingDirection
+                value= OUT
+              parameter~ routingType
+                value= sampleContainer
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}
+
+
+      # Route finalDestinationTube
+      include routeContainer
+        parameter~ processContainerId
+          value= {runId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= run
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+
+      ## Source container comments
+      include runComments
+        parameter~ containerName
+          value= sourceContainerId
+        parameter~ runId
+          value= {runId}
+
+      ## Destination container comments
+      include runComments
+        parameter~ containerName
+          value= tubeId
+        parameter~ runId
+          value= {runId}
+
+
+
+
+
+

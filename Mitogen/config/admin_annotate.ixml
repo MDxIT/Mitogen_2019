@@ -1,0 +1,300 @@
+config
+  steps
+
+
+    stepGroup Annotate
+
+    step Annotate Container
+      jsScripts
+        src js/dateFormatting.js
+      form
+        data-parsley-validate=
+
+        include userAccountInfo
+        include stepInstructions
+
+        topVertical
+          text _recId
+            screenLabel~ Container ID
+            data-parsley-required=
+            validate~ SELECT containerId FROM containers WHERE containerId = '{_recId}'
+              errorMessage~ This container Id does not exist.
+            keepValue~
+            value= {_recId}
+
+
+      form
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT
+          -   containerType AS "sourceType"
+          - FROM containers
+          - WHERE
+          -   containerId = '{_recId}'
+
+        formPreparedQuery~
+          - SELECT
+          -   poolRunId
+          - FROM poolRuns
+          - WHERE
+          -   currentContainerId = ?
+          string {_recId}
+          allowEmptyResults~
+
+        hidden _recId
+          value= {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden poolRunId
+          value= {_:poolRunId}
+
+        vertical
+          text currId
+            readonly=
+            value= {_recId}
+            screenLabel~ Container Id:
+
+        table
+          configureIf~ {_:sourceType}
+            advanced~
+            equals~ controlRunId
+            or~
+              equals~ controlTubeId
+          id= singlePtContTbl
+          class= dateFormat
+          sqlPreparedQuery~
+            - SELECT DISTINCT
+            -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+            -   CONCAT(IFNULL(os.siteId, ''), '-', IFNULL(rf.mrn, '')) AS "FacilityID-MRN",
+            -   IFNULL(DATE(pa.dob), '') AS "DOB",
+            -   t.name AS "Tests",
+            -   m.name AS "Methods",
+            -   sr.controlRunId AS "Current Runs",
+            -   IFNULL(CONCAT(sr.currentParentId, ' (Position: ', sr.currentParentPosition, ')'), 'N/A') AS "Current Parent",
+            -   IFNULL(q.step, 'Not Queued To Any Step') AS "Current Queue",
+            -   DATE(e.eventDate) AS "Queue Date",
+            -   e.userId AS "Queued By",
+            -   '' AS "Comments",
+            -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e1.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+            - FROM controlRuns sr
+            - LEFT JOIN contents c
+            -   ON sr.currentContainerId = c.content
+            -     AND c.attribute <> 'self'
+            - LEFT JOIN specimenControlLinkage scl
+            -   ON scl.controlRunId = sr.controlRunId
+            - LEFT JOIN specimenMethods sm
+            -   ON scl.specimenRunId = sm.id
+            - LEFT JOIN requestSpecimens rs
+            -   ON sm.requestSpecimensId = rs.id
+            - LEFT JOIN requestForms rf
+            -   ON rs.requestId = rf.requestId
+            - LEFT JOIN patients pa
+            -   ON pa.patientId = rf.patientId
+            -   AND rs.patientId = pa.patientId
+            - LEFT JOIN organizationSites os
+            -   ON os.siteId = rf.physicianSiteId
+            - LEFT JOIN tests t
+            -   ON sm.testCode = t.testCode
+            - LEFT JOIN methods m
+            -   ON sm.methodCode = m.methodCode
+            - LEFT JOIN containerNotes cn
+            -   ON cn.containerId = sr.controlRunId
+            -     OR cn.containerId = ?
+            -     OR cn.containerId = sr.currentParentId
+            - LEFT JOIN queues q
+            -   ON q.containerId = sr.controlRunId
+            -      OR q.containerId = sr.currentParentId
+            - LEFT JOIN events e
+            -   ON q.eventId = e.eventId
+            - LEFT JOIN events e1
+            -   ON cn.eventId = e1.eventId
+            - WHERE sr.currentContainerId = ? OR sr.controlRunId = ?
+            - GROUP BY sr.controlRunId
+            string {_recId}
+            string {_recId}
+            string {_recId}
+          columnSpecs~ singlePtContTbl
+            column 6
+              inputType text
+                readonly=
+            column 11
+              inputType textArea
+                class= annotationComment
+
+
+        table
+          configureIf~ {_:sourceType}
+            advanced~
+            not~
+              equals~ batchId
+              or~
+                equals~ poolTubeId
+              or~
+                equals~ trayId
+              or~
+                equals~ controlRunId
+              or~
+                equals~ controlTubeId
+          id= singlePtContTbl
+          class= dateFormat
+          sqlPreparedQuery~
+            - SELECT DISTINCT
+            -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+            -   CONCAT(IFNULL(os.siteId, ''), '-', IFNULL(rf.mrn, '')) AS "FacilityID-MRN",
+            -   IFNULL(DATE(pa.dob), '') AS "DOB",
+            -   t.name AS "Tests",
+            -   m.name AS "Methods",
+            -   sr.runId AS "Current Runs",
+            -   IFNULL(CONCAT(sr.currentParentId, ' (Position: ', sr.currentParentPosition, ')'), 'N/A') AS "Current Parent",
+            -   IFNULL(q.step, 'Not Queued To Any Step') AS "Current Queue",
+            -   DATE(e.eventDate) AS "Queue Date",
+            -   e.userId AS "Queued By",
+            -   '' AS "Comments",
+            -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e1.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+            - FROM specimenRuns sr
+            - LEFT JOIN contents c
+            -   ON sr.currentContainerId = c.content
+            -     AND c.attribute <> 'self'
+            - LEFT JOIN specimenRuns sr1
+            -   ON sr1.currentContainerId = sr.currentParentId
+            - LEFT JOIN specimenMethods sm
+            -   ON sr.specimenMethodsId = sm.id
+            - LEFT JOIN requestSpecimens rs
+            -   ON sm.requestSpecimensId = rs.id
+            - LEFT JOIN requestForms rf
+            -   ON rs.requestId = rf.requestId
+            - LEFT JOIN patients pa
+            -   ON pa.patientId = rf.patientId
+            -   AND rs.patientId = pa.patientId
+            - LEFT JOIN organizationSites os
+            -   ON os.siteId = rf.physicianSiteId
+            - LEFT JOIN tests t
+            -   ON sm.testCode = t.testCode
+            - LEFT JOIN methods m
+            -   ON sm.methodCode = m.methodCode
+            - LEFT JOIN containerNotes cn
+            -   ON cn.containerId = sr.runId
+            -     OR cn.containerId = ?
+            -     OR cn.containerId = sr.currentParentId
+            - LEFT JOIN queues q
+            -   ON q.containerId = sr.runId
+            -      OR q.containerId = sr.currentParentId
+            - LEFT JOIN events e
+            -   ON q.eventId = e.eventId
+            - LEFT JOIN events e1
+            -   ON cn.eventId = e1.eventId
+            - WHERE sr.currentContainerId = ? OR sr.runId = ?
+            - GROUP BY sr.runId
+            string {_recId}
+            string {_recId}
+            string {_recId}
+          columnSpecs~ singlePtContTbl
+            column 6
+              inputType text
+                readonly=
+            column 11
+              inputType textArea
+                class= annotationComment
+
+        table
+          configureIf~ {_:sourceType}
+            advanced~
+            equals~ batchId
+            or~
+              equals~ trayId
+            or~
+              contains~ pool
+          id= groupingContTbl
+          class= dateFormat
+          sqlPreparedQuery~
+            - SELECT
+            -   CASE con.containerType
+            -     WHEN 'batchId' THEN "Batch"
+            -     WHEN 'trayId' THEN "Tray"
+            -     WHEN 'poolTubeId' THEN "Pool Tube"
+            -   END AS "Container Type",
+            -   vV.displayValue AS "Container Priority",
+            -   IFNULL(q.step, 'Not Queued To Any Step') AS "Current Queue",
+            -   DATE(e.eventDate) AS "Queue Date",
+            -   e.userId AS "Queued By",
+            -   '' AS "Comments",
+            -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) ORDER BY e1.eventDate ASC SEPARATOR '<br><br>') AS "Comment History"
+            - FROM containers con
+            - LEFT JOIN containerProperties cp
+            -   ON cp.containerId = con.containerId AND cp.property = 'Container Priority'
+            - LEFT JOIN validValues vV
+            -   ON vV.setName = 'priority' AND vV.value = cp.value
+            - LEFT JOIN specimenRuns sr
+            -   ON sr.currentParentId = con.containerId
+            - LEFT JOIN poolRuns pr
+            -   ON pr.currentContainerId = con.containerId
+            - LEFT JOIN containerNotes cn
+            -   ON pr.currentContainerId = cn.containerId OR cn.containerId = con.containerId OR cn.containerId = pr.poolRunId
+            - LEFT JOIN queues q
+            -   ON q.containerId = con.containerId OR q.containerId = pr.poolRunId OR q.containerId = sr.runId
+            - LEFT JOIN events e
+            -   ON q.eventId = e.eventId
+            - LEFT JOIN events e1
+            -   ON cn.eventId = e1.eventId
+            - WHERE con.containerId = ?
+            string {_recId}
+          columnSpecs~ groupingContTbl
+            column 6
+              inputType textArea
+                class= annotationComment
+
+      ifCondition~ {_:sourceType}
+        advanced~
+        not~
+          equals~ batchId
+          or~
+            equals~ poolTubeId
+          or~
+            equals~ trayId
+
+        forRows singlePtContTbl
+          ifCondition {_columnInput_singlePtContTbl:11}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement INSERT INTO containerNotes
+              - (containerId, noteType, note, eventId)
+              - VALUES (?, 'comment', ?, ?)
+              string {_columnInput_singlePtContTbl:6}
+              string {_columnInput_singlePtContTbl:11}
+              long {_eventId}
+
+      ifCondition~ {_:sourceType}
+        advanced~
+        equals~ batchId
+        or~
+          equals~ trayId
+        forRows groupingContTbl
+          ifCondition {_columnInput_groupingContTbl:6}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement INSERT INTO containerNotes
+              - (containerId, noteType, note, eventId)
+              - VALUES (?, 'comment', ?, ?)
+              string {_recId}
+              string {_columnInput_groupingContTbl:6}
+              long {_eventId}
+
+      ifCondition~ {_:sourceType}
+        advanced~
+        equals~ poolTubeId
+        forRows groupingContTbl
+          ifCondition {_columnInput_groupingContTbl:6}
+            advanced~
+            not~
+              isBlank~
+            sqlPreparedStatement INSERT INTO containerNotes
+              - (containerId, noteType, note, eventId)
+              - VALUES (?, 'comment', ?, ?)
+              string {poolRunId}
+              string {_columnInput_groupingContTbl:6}
+              long {_eventId}

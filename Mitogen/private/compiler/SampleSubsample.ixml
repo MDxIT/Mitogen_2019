@@ -1,0 +1,683 @@
+    step [$$STEP_NAME$$]
+
+      cssLinks
+        link css/splitSamples/splitSamples.css
+        link css/fontawesome/css/all.min.css
+
+      jsScripts
+        src js/fontawesome/js/all.min.js
+
+      form
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        include split_sample_form0
+          parameter~ prioritySetName
+            value= priority
+
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+
+        script
+          src= js/components/container.js
+        script
+          src= js/splitSamples/splitSamples_form1.js
+
+        include stepInstructions
+
+        configurePreparedQuery~ SELECT CASE ? WHEN ''
+          - THEN ? ELSE ? END AS "specimenId"
+          string {_recId}
+          string {specimenId}
+          string {_recId}
+
+        configurePreparedQuery~
+          - SELECT containerType
+          - FROM containers
+          - WHERE containerId = ?
+          string {_:specimenId}
+
+        formPreparedQuery~ SELECT
+          - rf.requestId AS "requestId",
+          - rf.patientId,
+          - sr.runId AS "runId",
+          - sm.id AS "specimenMethodsId",
+          - sm.panelCode,
+          - sm.testCode,
+          - sm.methodCode,
+          - IFNULL(pa.firstName, '') AS "patientFirstName",
+          - IFNULL(pa.lastName, '') AS "patientLastName",
+          - IFNULL(DATE(pa.dob), '') AS "DOB",
+          - IFNULL(rf.mrn, '') AS 'requestMRN'
+          - FROM queues q
+          - INNER JOIN specimenRuns sr
+          -   ON q.containerId = sr.runId
+          - INNER JOIN specimenMethods sm
+          -   ON sr.specimenMethodsId = sm.id
+          - INNER JOIN requestSpecimens rs
+          -   ON sm.requestSpecimensId = rs.id
+          - INNER JOIN requestForms rf
+          -   ON rs.requestId = rf.requestId
+          - INNER JOIN patients pa
+          -   ON rf.patientId = pa.patientId
+          -   AND rs.patientId = pa.patientId
+          - WHERE sr.currentContainerId = ?
+          - AND q.step = ?
+          string {_:specimenId}
+          string {_step}
+
+        formQuery~ formattedDOB
+          formatDate~
+          convertDateTime~ false
+          value= {_:DOB}
+
+        formPreparedQuery~
+          - SELECT
+          -   value AS "quantity",
+          -   'Yes' AS "recordedQuantity"
+          - FROM containerProperties
+          - WHERE containerId = ? AND property = 'Sample Quantity'
+          allowEmptyResults~
+          emptyResultDefault~
+            recordedQuantity= No
+          string {_:specimenId}
+
+        formPreparedQuery~
+          - SELECT
+          -   value AS "units",
+          -   'Yes' AS "recordedUnits"
+          - FROM containerProperties
+          - WHERE containerId = ? AND property = 'Sample Quantity Units'
+          allowEmptyResults~
+          emptyResultDefault~
+            recordedUnits= No
+          string {_:specimenId}
+
+
+        hidden runId
+          value= {_:runId}
+
+        hidden specimenMethodsId
+          value= {_:specimenMethodsId}
+
+        hidden requestId
+          value= {_:requestId}
+
+        hidden recordedQuantity
+          value= {_:recordedQuantity}
+        hidden recordedUnits
+          value= {_:recordedUnits}
+
+        hidden minSamples
+          id= splitSample_minSamples
+          value= [$$Minimum_Subsamples$$]
+        hidden quantityRequired
+          id= quantityRequired
+          value= [$$Quantity_Required$$]
+        hidden unitsRequired
+          id= unitsRequired
+          value= [$$Units_Required$$]
+        hidden containerIdgen
+          value= [$$Generate_Sample_ID$$]
+          id= sampleIdGen
+
+        div
+          class= additionalColumns
+          hidden print
+            id= enablePrint
+            value= [$$Print_Sample_Barcodes$$]
+          hidden comments
+            id= enableComments
+            value= [$$Sample_Comments$$]
+          hidden testAndMethods
+            id= enableTestAndMethods
+            value= [$$EditTestAndMethods$$]
+          hidden parentTestAndMethods
+            id= enableParentTestAndMethods
+            value= [$$ShowParentTestAndMethods$$]
+
+        include runCard
+          parameter~ runId
+            value= {_:runId}
+        include halfPatientCard
+          parameter~ patientId
+            value= {_:patientId}
+        include orderCardHalf
+          parameter~ requestId
+            value= {_:requestId}
+        div
+          class= clearFloat
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+        printerControls
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        fieldset
+          legend Parent Sample
+          include containerComponent
+            parameter~ containerName
+              value= specimenId
+            parameter~ containerScreenLabel
+              value= Container Id
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= {_:containerType}
+            paramater~ containerRequired
+              value= false
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:specimenId}
+            parameter~ useThisSequence
+              value=
+
+            # Build sheet configurations
+            parameter~ containerCommentsInclude
+              value= [$$Source_Comments$$]
+            parameter~ containerActionInclude
+              value= Yes
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ includePriority
+              value= No
+            parameter~ containerFileUpload
+              value= No
+
+            parameter~ containerActionOptions
+              value= Aliquot Actions
+
+          fieldset
+            id= parentSampleAssay
+            legend Parent Sample Assay
+            groupRows
+              groupRow
+                select panel
+                  screenLabel~ Panel
+                  id= splitSample_parent_panel
+                  sqlPreparedQuery~ SELECT
+                    - p.name, p.panelCode
+                    - FROM reqPanels rp
+                    - INNER JOIN panels p
+                    -   ON rp.panelCode = p.panelCode
+                    - WHERE rp.requestId = ?
+                    - ORDER BY p.name
+                    string {_:requestId}
+                  value= {_:panelCode}
+                select test
+                  screenLabel~ Test
+                  value= {_:testCode}
+                  id= splitSample_parent_test
+                select method
+                  screenLabel~ Method
+                  value= {_:methodCode}
+                  id= splitSample_parent_testMethod
+
+          fieldset
+            legend Parent Sample Quantity
+            vertical2
+              number quantity
+                screenLabel~ Quantity
+                value= {_:quantity}
+                id= splitSample_parent_quantity
+                class= textboxNumber
+                required~ [$$Quantity_Required$$] == Yes
+              select units
+                id= splitSample_parent_units
+                setName~ [$$Subsample_Amount$$]
+                screenLabel~ Units
+                value= {_:units}
+                required~ [$$Units_Required$$] == Yes
+
+
+        fieldset
+          legend Aliquots
+
+          vertical2
+            select actionForAll
+              setName~ Aliquot Actions
+              required~ false
+              id= actionForAll
+              screenLabel~ Action for all aliquots
+
+            button setActionAll
+              value= Set
+              id= setActionAll
+
+            number quantityForAll
+              screenLabel~ Quantity for all aliquots
+              id= quantityForAll
+              class= textboxNumber
+
+            button setQuantityAll
+              value= Set
+              id= setQuantityAll
+
+
+
+          table
+            id= splitSample_table
+            sqlPreparedQuery~ SELECT
+              - '' AS "Sample",
+              - '' AS "Action",
+              - '' AS "Panel",
+              - '' AS "Test",
+              - '' AS "Method",
+              - '' AS "Quantity",
+              - '{_:units}' AS "Units",
+              - '' AS "Comments",
+              - 'Print' AS "Print",
+              - IFNULL(?, '') AS "Patient First Name",
+              - IFNULL(?, '') AS "Patient Last Name",
+              - ? AS "DOB",
+              - ? AS "MRN",
+              - ? AS "ReqId"
+              string {_:patientFirstName}
+              string {_:patientLastName}
+              string {_:formattedDOB}
+              string {_:requestMRN}
+              string {_:requestId}
+            columnSpecs~ splitSamples
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  class= barcodeBackground splitSample_containerId
+                  addContent~
+                  contentType~ aliquotId
+                  acceptQueue~ any
+                  required~ false
+                  containerType~ aliquotId
+                    configureIf~ [$$Generate_Sample_ID$$]
+                      advanced~
+                      not~
+                        equals~ Use Existing Identifier
+                  containerType~ Consumable
+                    configureIf~ [$$Generate_Sample_ID$$]
+                      advanced~
+                      equals~ Use Existing Identifier
+                  new~ true
+                    configureIf~ [$$Generate_Sample_ID$$]
+                      advanced~
+                      not~
+                        equals~ Use Existing Identifier
+              column 2
+                inputType select
+                  setName~ Aliquot Actions
+                  required~ false
+                  class= splitSample_action clearAliquot
+              column 3
+                inputType select
+                  class= splitSample_panel clearAliquot
+                  sqlPreparedQuery~ SELECT
+                    - p.name, p.panelCode
+                    - FROM reqPanels rp
+                    - INNER JOIN panels p
+                    -   ON rp.panelCode = p.panelCode
+                    - WHERE rp.requestId = ?
+                    - ORDER BY p.name
+                    string {_:requestId}
+
+              column 4
+                inputType select
+                  class= splitSample_test clearAliquot
+              column 5
+                inputType select
+                  class= splitSample_testMethod clearAliquot
+                  required~ false
+              column 6
+                inputType text
+                  class= splitSample_quantity textboxNumber clearAliquot
+                  validate~ SELECT 1 FROM DUAL
+                    - WHERE (? <> '' AND ? = 'Yes' AND ? <> '') OR (? <> 'Yes')
+                    - OR (? = '')
+                    string {_columnInput:1}
+                    string [$$Quantity_Required$$]
+                    string {_thisInput}
+                    string [$$Quantity_Required$$]
+                    string {_columnInput:1}
+                    errorMessage~ Sample and quantity are required.
+              column 7
+                inputType text
+                  class= splitSample_units clearAliquot
+                  readonly= true
+              column 8
+                inputType textArea
+                  class= splitSample_comments clearAliquot
+              column 9
+                inputType hidden
+                  class= printButton
+              column 10
+                inputType hidden
+                  class= hideColumn
+              column 11
+                inputType hidden
+                  class= hideColumn
+              column 12
+                inputType hidden
+                  class= hideColumn
+              column 13
+                inputType hidden
+                  class= hideColumn
+              column 14
+                inputType hidden
+                  class= hideColumn
+
+          div
+            configureIf~ [$$Add_Subsample$$]
+              advanced~
+              equals~ Yes
+            button Add New Row
+              id= splitSample_addRow
+
+
+      ### update parent sample
+
+      sqlPreparedStatement
+        - INSERT INTO containerHistory (containerId, eventId)
+        - VALUES (?, ?)
+        string {runId}
+        long {_eventId}
+
+      ifCondition {specimenId_Action}
+        advanced~
+        equals~ route
+        and~ {specimenId_Comment}
+          not~
+            isBlank~
+
+        sqlPreparedStatement
+          - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+          - VALUES (?, 'Subsample Comment', ?, ?)
+          string {runId}
+          string {specimenId_Comment}
+          long {_eventId}
+
+
+
+      sqlPreparedStatement
+        - UPDATE specimenMethods
+        - SET panelCode = ?,
+        -     testCode = ?,
+        -     methodCode = ?,
+        -     eventId = ?
+        - WHERE id = ?
+        string {panel}
+        string {test}
+          blankIsNull~
+        string {method}
+          blankIsNull~
+        long {_eventId}
+        int {specimenMethodsId}
+
+      # Check if 'Sample Quantity' property exists. Do an insert or update
+      ifCondition {recordedQuantity}
+        advanced~
+        equals~ No
+
+        # Insert quantity
+        sqlPreparedStatement
+          - INSERT INTO containerProperties (containerId, property, value, eventId)
+          - VALUES (?, 'Sample Quantity', ?, ?)
+          string {specimenId}
+          string {quantity}
+          long {_eventId}
+
+        # Else: Update
+        else
+          sqlPreparedStatement
+            - UPDATE containerProperties cp
+            - SET cp.value = ?,
+            -     cp.eventId = ?
+            - WHERE
+            -   cp.property = 'Sample Quantity'
+            -   AND cp.containerId = ?
+            string {quantity}
+            long {_eventId}
+            string {specimenId}
+
+      # Check if 'Sample Quantity Units' property exists. Do an insert or update
+      ifCondition {recordedUnits}
+        advanced~
+        equals~ No
+
+        # Insert units
+        sqlPreparedStatement
+          - INSERT INTO containerProperties (containerId, property, value, eventId)
+          - VALUES (?, 'Sample Quantity Units', ?, ?)
+          string {specimenId}
+          string {units}
+          long {_eventId}
+
+
+        # Else: Update
+        else
+          sqlPreparedStatement
+            - UPDATE containerProperties cp
+            - SET cp.value = ?,
+            -     cp.eventId = ?
+            - WHERE
+            -   cp.property = 'Sample Quantity Units'
+            -   AND cp.containerId = ?
+            string {units}
+            long {_eventId}
+            string {specimenId}
+
+
+      # Handle aliquots
+      forRows splitSamples
+        ifCondition {_columnInput_splitSamples:1}
+          advanced~ true
+          not~
+            isBlank~
+
+          ifCondition [$$Generate_Sample_ID$$]
+            advanced~ true
+            equals~ Use Existing Identifier
+
+            sqlPreparedStatement~ INSERT INTO resourceHistory (containerId, eventId)
+              - SELECT c.containerId, ?
+              - FROM containers c
+              - WHERE c.containerId = ?
+              -   AND c.containerType = 'Consumable'
+              long {_eventId}
+              string {_columnInput_splitSamples:1}
+
+            sqlPreparedStatement~
+              - UPDATE containers SET
+              -   containerType = 'aliquotId'
+              - WHERE containerId = ?
+              -   AND containerType = 'Consumable'
+              string {_columnInput_splitSamples:1}
+
+          # Copy contents from parent specimenId
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - SELECT ?, attribute, contentType, content, ?
+            - FROM contents
+            - WHERE containerId = ?
+            string {_columnInput_splitSamples:1}
+            long {_eventId}
+            string {specimenId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - VALUES (?, 'Sample Quantity', ?, ?)
+            string {_columnInput_splitSamples:1}
+            string {_columnInput_splitSamples:6}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerProperties (containerId, property, value, eventId)
+            - VALUES (?, 'Sample Quantity Units', ?, ?)
+            string {_columnInput_splitSamples:1}
+            string {_columnInput_splitSamples:7}
+            long {_eventId}
+
+
+          ifCondition {_columnInput_splitSamples:2}
+            advanced~
+            equals~ route
+
+            # Look up original requestSpecimens record
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT sm.requestSpecimensId AS "requestSpecimenId"
+                - FROM specimenRuns sr
+                - INNER JOIN specimenMethods sm
+                - ON sr.specimenMethodsId = sm.id
+                - WHERE sr.runId = ?
+                string {runId}
+
+            # Insert assay
+            ifCondition {testAndMethods}
+              advanced~
+              equals~ Yes
+
+              setFormQueryResult panel
+                value= {_columnInput_splitSamples:3}
+              setFormQueryResult test
+                value= {_columnInput_splitSamples:4}
+              setFormQueryResult method
+                value= {_columnInput_splitSamples:5}
+
+              else
+
+                setFormQueryResult panel
+                  value= {panel}
+                setFormQueryResult test
+                  value= {test}
+                setFormQueryResult method
+                  value= {method}
+
+
+            sqlPreparedStatement
+              - INSERT INTO specimenMethods (requestSpecimensId, panelCode, testCode, methodCode, runCount, eventId)
+              - VALUES (?, ?, ?, ?, 1, ?)
+              string {_:requestSpecimenId}
+              string {_:panel}
+              string {_:test}
+                blankIsNull~
+              string {_:method}
+                blankIsNull~
+              long {_eventId}
+
+            setFormQueryResult
+              sqlQuery~ SELECT LAST_INSERT_ID() AS "specimenMethodsId"
+
+            include createNewRun
+              parameter~ specimenMethodsId
+                value= {_:specimenMethodsId}
+              parameter~ processContainerId
+                value= {_columnInput_splitSamples:1}
+              parameter~ runType
+                value= process
+              parameter~ processRunWorkflowParentRunId
+                value= {runId}
+              parameter~ currentParentId
+                value=
+              parameter~ currentParentPosition
+                value=
+
+            # Insert comments for run
+            ifCondition {_columnInput_splitSamples:8}
+              advanced~ true
+              not~
+                isBlank~
+              sqlPreparedStatement~ INSERT INTO
+                - containerNotes (containerId, noteType, note, eventId)
+                - VALUES (?, 'comment', ?, ?)
+                string {_:runId}
+                string {_columnInput_splitSamples:8}
+                long {_eventId}
+
+            include routeContainer
+              parameter~ processContainerId
+                value= {_:runId}
+              parameter~ result
+                value=
+              parameter~ deleteFromStep
+                value=
+              parameter~ defaultNextStep
+                value= [$$NEXT_STEP$$]
+              parameter~ routingType
+                value= run
+              parameter~ routingDirection
+                value= OUT
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}
+
+            else
+              # Insert comments for run
+              ifCondition {_columnInput_splitSamples:8}
+                advanced~ true
+                not~
+                  isBlank~
+                sqlPreparedStatement~ INSERT INTO
+                  - containerNotes (containerId, noteType, note, eventId)
+                  - VALUES (?, 'Subsample Comment', ?, ?)
+                  string {_columnInput_splitSamples:1}
+                  string {_columnInput_splitSamples:8}
+                  long {_eventId}
+
+              include routeContainer
+                parameter~ processContainerId
+                  value= {_columnInput_splitSamples:1}
+                parameter~ result
+                  value= {_columnInput_splitSamples:2}
+                parameter~ deleteFromStep
+                  value=
+                parameter~ defaultNextStep
+                  value=
+                parameter~ routingType
+                  value= sample
+                parameter~ routingDirection
+                  value= OUT
+                parameter~ endOfWorkflow
+                  value= No
+                parameter~ sourceStep
+                  value= {_step}
+
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {runId}
+        parameter~ result
+          value= {specimenId_Action}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= Store
+        parameter~ routingType
+          value= run
+        parameter~ routingDirection
+          value= IN
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+

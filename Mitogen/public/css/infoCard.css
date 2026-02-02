@@ -1,0 +1,167 @@
+.infoCard{
+  height: 121px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 15px 0px 0px 0px;
+  margin: 0px 0px 15px 0px;
+  background: #fff;
+  border-radius: 10px;
+  cursor: default;
+  border-left: 20px solid;
+  border-top: 1px solid;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+}
+.patientCard{
+  width: 700px;
+  border-color: #5007b5;
+}
+.orderCard{
+    width: 540px;
+    border-color: #3faaea;
+}
+.runCard{
+    width: 1000px;
+    border-color: #d2278c;
+}
+
+.bannerTitle {
+  width:20px;
+  height:55px;
+  text-transform: uppercase;
+  color: #ffffff;
+  transform: rotate(270deg);
+  letter-spacing: 5px;
+}
+
+.patientTitle {
+  margin-top: 55px;
+}
+.orderTitle {
+  margin-top: 45px;
+}
+.sampleTitle{
+  margin-top: 55px;
+}
+.infoData {
+  position: relative;
+  width:100%;
+}
+
+.infoNameBlock{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+  width:100%;
+  padding-top: 5px;
+  margin-bottom: 15px;
+}
+
+.patientCard .infoNameBanner,
+.runCard .infoNameBanner {
+  width: 350px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 21px;
+  font-weight: 300;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  text-transform: uppercase;
+  word-break: break-word;
+}
+
+.orderCard .infoNameBanner {
+  width: 300px;
+  font-family: 'Raleway', sans-serif;
+  font-size: 21px;
+  font-weight: 300;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  text-transform: uppercase;
+  word-break: break-word;
+}
+
+.stethoscope {
+  color: #9b9b9b;
+}
+
+.physicianBlock {
+  width: 230px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 15px;
+  font-weight: normal;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  text-transform: uppercase;
+  padding-top: 5px;
+}
+
+.infoBlocks{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0px;
+  width: inherit;
+}
+
+.dataBlock{
+  margin: 0px 15px 15px 0px;
+/*  max-width: 125px;*/
+}
+
+.blockLabel {
+  font-family: 'Roboto'. sans-serif;
+  font-size: 12px;
+  font-weight: normal;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  min-height: 15px;
+  white-space:nowrap;
+  color: #9b9b9b;
+}
+
+.blockData{
+  font-family: 'Roboto', sans-serif;
+  font-size: 15px;
+  font-weight: normal;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: normal;
+  min-height: 20px;
+  text-transform: uppercase;
+}
+
+.infoCard .infoNameBanner span {
+  white-space: nowrap;
+}
+
+.patientInfo {
+   color: #5007b5 !important;
+}
+
+.orderInfo {
+   color: #3faaea !important;
+}
+
+.sampleInfo {
+   color: #d2278c !important;
+}
+
+.pointer{
+    cursor: pointer;
+}
+
+.stat {
+  color: red;
+}
+

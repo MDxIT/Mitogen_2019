@@ -1,0 +1,4801 @@
+config
+  steps
+    stepGroup Reagent Management
+
+    step List Reagent Inventory
+      jsScripts
+        src js/resources/viewInventory.js
+      form
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(reagentId) AS "Current"
+          - FROM reagents
+          - WHERE expirationDate > curDate()
+          -   AND status <> 'Disposed'
+          allowEmptyResults~
+        formPreparedQuery~
+          - select
+          -   COUNT(reagentId) AS "InUse"
+          - FROM reagents
+          - WHERE status = 'In Use'
+          allowEmptyResults~
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(reagentId) AS "ExpireSoon"
+          - FROM reagents
+          - WHERE DATEDIFF(expirationDate, curDate()) < 30
+          -   AND status <> 'Disposed'
+          allowEmptyResults~
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(containerId) AS "NeedsQC"
+          - FROM qualifications
+          - WHERE qualification = 'NEEDS QC'
+          -   AND (expirationDate >= curDate()
+          -   AND expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+          allowEmptyResults~
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(containerId) AS "Qualify"
+          - FROM queues
+          - WHERE step = 'QC Reagent'
+          allowEmptyResults~
+        formPreparedQuery~
+          - SELECT
+          -   COUNT(reagentId) AS "Problem"
+          - FROM reagents
+          - WHERE QCStatus IN ('Fail', 'Retest')
+          -   AND status <> 'Disposed'
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Status Report
+          div
+            class= sectionContent horizontalFlex-spaceevenly
+            div
+              id= reagentsInUse
+              class= inventoryStatBlock  verticalFlex-center
+              span In Use
+                class= statusLabel
+              span {_:InUse}
+                class= statusCount
+            div
+              id= reagentsAlmostExpired
+              class= inventoryStatBlock verticalFlex-center
+              span Expiring
+                class= statusLabel
+              span {_:ExpireSoon}
+                class= statusCount
+            div
+              id= reagentsToQC
+              class= inventoryStatBlock verticalFlex-center
+              span QC Today
+                class= statusLabel
+              span {_:Qualify}
+                class= statusCount
+            div
+              id= reagentsToQCSoon
+              class= inventoryStatBlock verticalFlex-center
+              span QC Soon
+                class= statusLabel
+              span {_:NeedsQC}
+                class= statusCount
+            div
+              id= problemReagents
+              class= inventoryStatBlock verticalFlex-center
+              span Issues
+                class= statusLabel
+              span {_:Problem}
+                class= statusCount
+
+        vertical
+          div
+            id= statusTable
+            class= hiddenOnLoad
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Inventory Details
+          div
+            class= sectionContent
+            div
+              id= lists
+              ul
+                li
+                  a Search Inventory
+                    href= #searchList
+                li
+                  a !!!Current Inventory ({_:Current})
+                    href= #currentList
+                li
+                  a Recently Expired
+                    href= #expiredList
+                li
+                  a Recently Disposed
+                    href= #disposedList
+                li
+                  a Expiring Soon
+                    href= #expSoon
+                li
+                  a QC Soon
+                    href= #qcsoonBreakdown
+              div
+                id= searchList
+                vertical2
+                  select Reagent Type
+                    id= searchByReagentType_value
+                    class= combobox
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT reagentType FROM reagents ORDER BY reagentType
+                  button
+                    class= button
+                    id= searchByReagentType
+                    name= Search
+                    value= Search
+
+                  text Catalog Number
+                    id= searchByCatalogNumber_value
+                  button
+                    class= button
+                    id= searchByCatalogNumber
+                    name= Search
+                    value= Search
+
+                  text Lot Number
+                    id= searchByLotNumber_value
+                  button
+                    class= button
+                    id= searchByLotNumber
+                    name= Search
+                    value= Search
+
+                  text PO Number
+                    id= searchByPONumber_value
+                  button
+                    class= button
+                    id= searchByPONumber
+                    name= Search
+                    value= Search
+
+                  text Project
+                    id= searchByProject_value
+                  button
+                    class= button
+                    id= searchByProject
+                    name= Search
+                    value= Search
+
+                vertical
+                  div
+                    id= searchByReagentType_div
+                  div
+                    id= searchByCatalogNumber_div
+                  div
+                    id= searchByLotNumber_div
+                  div
+                    id= searchByPONumber_div
+                  div
+                    id= searchByProject_div
+
+              div
+                id= currentList
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   reagentId AS "ID",
+                    -   reagentType AS "Reagent",
+                    -   lotNumber AS "Lot",
+                    -   status AS "Status"
+                    - FROM reagents
+                    - WHERE status <> 'Disposed'
+                    -   AND expirationDate > curDate()
+                    - ORDER BY status, reagentType, reagentId
+
+              div
+                id= expiredList
+                table
+                  class= stdTableBasic formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   reagentId AS "ReagentId",
+                    -   reagentType AS "Type",
+                    -   lotNumber AS "Lot",
+                    -   expirationDate AS "ExpDate"
+                    - FROM reagents
+                    - WHERE DATEDIFF(curDate(), expirationDate) <= 200
+                    -   AND DATEDIFF(curDate(), expirationDate) >= 0
+              div
+                id= disposedList
+                table
+                  class= stdTableBasic formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   r.reagentId AS "ReagentId",
+                    -   r.reagentType AS "Type",
+                    -   r.expirationDate AS "Exp Date",
+                    -   r.status AS "Status"
+                    - FROM reagentHistory r
+                    -   INNER JOIN containerHistory ch ON r.reagentId = ch.containerId
+                    -   INNER JOIN events e ON ch.eventId = e.eventId
+                    -     AND e.step = 'Dispose Reagent'
+                    - WHERE r.status = 'Disposed'
+                    -   AND DATEDIFF(curDate(), e.eventDate ) <= 200
+              div
+                id= expSoon
+                table
+                  class= stdTableBasic twoDaysTable formatDateTable
+                  caption 2 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   r.reagentId AS "ReagentId",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "Exp Date"
+                    - FROM reagents r
+                    - WHERE (r.expirationDate >= curDate()
+                    -   AND r.expirationDate <= DATE_ADD(curDate(), INTERVAL 2 DAY))
+                    - ORDER BY r.expirationDate ASC
+                table
+                  class= stdTableBasic fiveDaysTable formatDateTable
+                  caption 5 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   r.reagentId AS "ReagentId",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "Exp Date"
+                    - FROM reagents r
+                    - WHERE (r.expirationDate > DATE_ADD(curDate(), INTERVAL 2 DAY)
+                    -   AND r.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+                    - ORDER BY r.expirationDate ASC
+                table
+                  class= stdTableBasic fourteenDaysTable formatDateTable
+                  caption 14 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   r.reagentId AS "ReagentId",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "Exp Date"
+                    - FROM reagents r
+                    - WHERE (r.expirationDate > DATE_ADD(curDate(),INTERVAL 5 DAY)
+                    -   AND r.expirationDate <= DATE_ADD(curDate(), INTERVAL 14 DAY))
+                    - ORDER BY r.expirationDate ASC
+                table
+                  class= stdTableBasic oneMonthTable formatDateTable
+                  caption 1 Month
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   r.reagentId AS "ReagentId",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "Exp Date"
+                    - FROM reagents r
+                    - WHERE (r.expirationDate > DATE_ADD(curDate(), INTERVAL 14 DAY)
+                    -   AND r.expirationDate <= DATE_ADD(curDate(), INTERVAL 30 DAY))
+                    - ORDER BY r.expirationDate ASC
+              div
+                id= qcsoonBreakdown
+                table
+                  class= stdTableBasic twoDaysTable formatDateTable
+                  caption 2 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS "ReagentId",
+                    -   q.expirationDate AS "QC Exp Date",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "RGT Exp Date"
+                    - FROM qualifications q
+                    -   INNER JOIN reagents r ON q.containerId = r.reagentId
+                    - WHERE q.qualification = 'NEEDS QC'
+                    -   AND (q.expirationDate >= curDate()
+                    -   AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 2 DAY))
+                    - ORDER BY q.expirationDate ASC
+                table
+                  class= stdTableBasic fiveDaysTable formatDateTable
+                  caption 5 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS "ReagentId",
+                    -   q.expirationDate AS "QC Exp Date",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "RGT Exp Date"
+                    - FROM qualifications q
+                    -   INNER JOIN reagents r ON q.containerId = r.reagentId
+                    - WHERE q.qualification = 'NEEDS QC'
+                    -   AND (q.expirationDate > DATE_ADD(curDate(), INTERVAL 2 DAY)
+                    -   AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+                    - ORDER BY q.expirationDate ASC
+                table
+                  class= stdTableBasic fourteenDaysTable formatDateTable
+                  caption 14 Days
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   q.containerId AS "ReagentId",
+                    -   q.expirationDate AS "QC Exp Date",
+                    -   r.reagentType AS "Type",
+                    -   r.lotNumber AS "Lot",
+                    -   r.expirationDate AS "RGT Exp Date"
+                    - FROM qualifications q
+                    -   INNER JOIN reagents r ON q.containerId = r.reagentId
+                    - WHERE q.qualification = 'NEEDS QC'
+                    -   AND (q.expirationDate > DATE_ADD(curDate(),INTERVAL 5 DAY)
+                    -   AND q.expirationDate <= DATE_ADD(curDate(), INTERVAL 14 DAY))
+                    - ORDER BY q.expirationDate ASC
+
+####################################################################################################################################
+    step Create Reagent Type
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          div
+            fieldset
+              legend Instructions
+              ol
+                li Enter a reagent type that will be expected in inventory.
+                li The reagent can be <i>received</i> from a vendor or <i>prepared</i> in-house.
+                li This step will not allow duplicate reagent names.
+                li Required fields must be filled to submit.
+                li Units selected should be the units the item will be tracked in throughout the system.
+                li All fields can be edited in <a href=/uniflow?stepName=Edit+Inventory+Items>Edit Inventory Items</a> under the Reagents tab.
+        hr
+        vertical
+          text Reagent Name
+            size= 50;
+            validate~ !
+              - SELECT value
+              - FROM validValues
+              - WHERE (setName = 'Received Reagent' OR setName = 'Prepared Reagent')
+              -   AND value = ?
+              string {Reagent Name}
+              errorMessage~ This Reagent already exists!
+            required~ true
+            class= required
+          select Reagent Type
+            option
+            option Received Reagent
+            option Prepared Reagent
+            required~ true
+            class= required
+          text Catalog Number
+          select Vendor
+            sqlPreparedQuery~
+              - SELECT vendor, vendorId
+              - FROM vendors
+              - ORDER BY vendor ASC
+          number quantity
+            screenLabel~ Current Quantity
+            value= 0.00
+            min~ 0
+            data-parsley-type= number
+          number Threshold
+            screenLabel~ Threshold
+            placeholder= 0.00
+            min~ 0
+            data-parsley-type= number
+          select units
+            screenLabel~ Units
+            required~ true
+            class= required
+            setName~ inventoryUnits
+            title= SETNAME: inventoryUnits
+
+      ifCondition {Reagent Type}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - INSERT INTO validValues (setName, displayValue, value, displayOrder, eventId)
+          - VALUES (?, ?, ?, 6, ?)
+          string {Reagent Type}
+          string {Reagent Name}
+          string {Reagent Name}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO inventoryItems (inventoryItem, inventoryType, catalogNumber, vendor, quantity, units, threshold, thresholdUnits, eventId)
+          - SELECT ?, ?, ?, case when ? = '' THEN null ELSE ? END, ?, ?, ?, ?, ?
+          string {Reagent Name}
+          string {Reagent Type}
+          string {Catalog Number}
+          string {Vendor}
+          string {Vendor}
+          float {quantity}
+          string {units}
+          string {Threshold}
+          string {units}
+          long {_eventId}
+
+####################################################################################################################################
+    step Sort Reagents for QC
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            legend  Instructions
+            ol
+              li Reagents received Ad Hoc in the ordering module can be sent here.
+              li Sort reagents by selecting either Critical or Non-Critical.
+              li Non-Critical reagents will be ready to use in the system.
+              li Critical reagents will be queued to QC Reagent to await QC results.
+
+        vertical
+          table
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Critical",
+              -   '' AS "Non-Critical",
+              -   q.containerId AS "Reagent Id",
+              -   r.reagentType AS "Type",
+              -   r.catalogNo AS "Catalog No",
+              -   r.lotNumber AS "Lot",
+              -   CONCAT(r.quantity, ' ', r.unitOfMeasure) AS "Quantity"
+              - FROM queues q
+              -   INNER JOIN reagents r ON q.containerId = r.reagentId
+              - WHERE q.step = ?
+              string {_step}
+            columnSpecs~ sortReagents
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType checkbox
+              column 3
+                inputType container
+                  readonly=
+                  required~ false
+                  if~ {_columnInput:1}
+                    advanced~
+                    equals~ true
+                    insertQueue~ QC Reagent
+                    deleteQueue~ Sort Reagents for QC
+                  if~ {_columnInput:2}
+                    advanced~
+                    equals~ true
+                    deleteQueue~ Sort Reagents for QC
+
+      forRows sortReagents
+        ifCondition {_columnInput_sortReagents:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - UPDATE reagents SET
+            -   QCType = 'Critical',
+            -   QCStatus = 'Pending',
+            -   status = 'Pending QC',
+            -   eventId = ?
+            - WHERE reagentId = ?
+            long {_eventId}
+            string {_columnInput_sortReagents:3}
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -   'NEEDS QC',
+            -   '*ALL*',
+            -   DATE_ADD(curDate(), INTERVAL 60 DAY),
+            -   ?
+            - FROM reagents r
+            - WHERE reagentId = ?
+            string {_columnInput_sortReagents:3}
+            long {_eventId}
+            string {_columnInput_sortReagents:3}
+
+        ifCondition {_columnInput_sortReagents:2}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - UPDATE reagents SET
+            -   QCType = 'Non-Critical',
+            -   QCStatus = 'N/A',
+            -   status = 'In Use',
+            -   eventId = ?
+            - WHERE reagentId = ?
+            long {_eventId}
+            string {_columnInput_sortReagents:3}
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -   'Reagent QC',
+            -   '*ALL*',
+            -   r.expirationDate,
+            -   ?
+            - FROM reagents r
+            - WHERE reagentId = ?
+            string {_columnInput_sortReagents:3}
+            long {_eventId}
+            string {_columnInput_sortReagents:3}
+
+####################################################################################################################################
+    step Receive Multiple Reagents
+      jsScripts
+        src js/resources/receiveReagents.js
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            legend Instructions
+            ol
+              li Enter the number of reagents to register.
+              li Reagent details will be entered on the following form.
+        hr
+        vertical
+          number num
+            required= true
+            data-parsley-required= true
+            data-parsley-type= integer
+            screenLabel~ Number of Reagents to Barcode
+            size= 5
+            value= 1
+            min~ 1
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+
+        formPreparedQuery~
+          - SELECT DATE_ADD(curDate(), INTERVAL 10 YEAR) AS "Exp Date"
+
+        hidden num
+          value= {num}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          div
+            fieldset
+              legend Instructions
+              ol
+                li Enter the information for the reagents.
+                li Scan the corresponding barcodes.
+                li Use the copy checkbox to copy information down to the next row.
+                li Fill out all fields outlined in red.
+
+          div
+            vertical
+              table
+                id= receiveMe
+                sqlPreparedQuery~
+                  - SELECT
+                  -   '' AS "Copy",
+                  -   '' AS "Barcode",
+                  -   '' AS "Cat#",
+                  -   '' AS "Item",
+                  -   '' AS "Lot#",
+                  -   '' AS "Parent Lot",
+                  -   '' AS "Qty",
+                  -   '' AS "Units",
+                  -   '' AS "Qty in Item",
+                  -   '' AS "Conc",
+                  # -   '' AS "Site Id",
+                  -   '0.00' AS "Cost/Unit",
+                  -   curDate() AS "Received",
+                  -   DATE_ADD(curDate(), INTERVAL 10 YEAR) AS "Exp Date",
+                  -   '' AS "QCType",
+                  -   '' AS "Category"
+                  - FROM numbers
+                  - LIMIT ?
+                  long {num}
+                columnSpecs~ receiveReagents
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                      class= copyCheckbox
+                      tabIndex= 3
+                  column 2
+                    inputType container
+                      class= barcodeBackground required
+                      new~ true
+                      tabIndex= 1
+                      containerType~ Reagent
+                  column 3
+                    inputType text
+                      class= catNo
+                      size= 6
+                      tabIndex= 2
+                  column 4
+                    inputType select
+                      class= item
+                      sqlPreparedQuery~
+                        - SELECT inventoryItem
+                        - FROM inventoryItems
+                        - WHERE inventoryType = 'Received Reagent'
+                        - ORDER BY inventoryItem ASC
+                      tabIndex= 2
+                  column 5
+                    inputType text
+                      class= lot
+                      size= 6
+                      tabIndex= 2
+                  column 6
+                    inputType text
+                      class= parent
+                      size= 5
+                      tabIndex= 2
+                  column 7
+                    inputType number
+                      data-parsley-type= number
+                      class= qty required
+                      size= 5
+                      tabIndex= 2
+                      data-parsley-type= integer
+                      data-parsley-required= true
+                  column 8
+                    inputType text
+                      class= units
+                      size= 5
+                      readonly=
+                      tabIndex= 2
+                  column 9
+                    inputType number
+                      class= indvQty
+                      size= 6
+                      tabIndex= 2
+                      min~ 0
+                      data-parsley-type= integer
+                      data-parsley-required= false
+                  column 10
+                    inputType number
+                      class= concentration
+                      size= 5
+                      tabIndex= 2
+                      min~ 0
+                      data-parsley-type= integer
+                      data-parsley-required= false
+                  column 11
+                    inputType number
+                      size= 6
+                      class= cost
+                      tabIndex= 2
+                      min~ 0.00
+                      required= false
+                      data-parsley-required= false
+                      data-parsley-type= number
+                  column 12
+                    inputType date
+                      class= dateRec date datePicker required
+                      required= true
+                      tabIndex= 2
+                      formatDate~
+                      convert~ false
+                      data-parsley-required= true
+                  column 13
+                    inputType date
+                      class= expDate date datePickerFuture required
+                      required= true
+                      tabIndex= 2
+                      formatDate~
+                      convert~ false
+                      data-parsley-required= true
+                  column 14
+                    inputType select
+                      class= qcType required
+                      option Critical
+                      option Non-Critical
+                      option Unknown
+                      required= true
+                      tabIndex= 2
+                      data-parsley-required= true
+                  column 15
+                    inputType text
+                      class= category
+                      readonly=
+                      tabIndex= 2
+
+      forRows receiveReagents
+        #containers
+        sqlPreparedStatement
+          - UPDATE containers SET
+          -   containerType = 'Reagent',
+          -   expirationDate = ?
+          - WHERE containerId = ?
+          string {_columnInput_receiveReagents:13}
+          string {_columnInput_receiveReagents:2}
+        #reagents
+        sqlPreparedStatement
+          - INSERT INTO reagents
+          - (reagentId,
+          - reagentType,
+          - catalogNo,
+          - quantity,
+          - quantityInside,
+          - unitOfMeasure,
+          - concentration,
+          - lotNumber,
+          - parentLot,
+          - vendor,
+          - costPerUnit,
+          - poNumber,
+          - receivedDate, expirationDate,
+          - QCType,
+          - QCStatus,
+          - status,
+          - eventId)
+          - SELECT
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   ?,
+          -   i.vendor,
+          -   ?,
+          -   '',
+          -   ?,
+          -   ?,
+          -   ?,
+          -   CASE WHEN ? = 'Critical' THEN 'Pending'
+          -        WHEN ? = 'Non-Critical' THEN 'N/A'
+          -        WHEN ? = 'Unknown' THEN 'Unknown'
+          -        ELSE 'Unknown' END,
+          -   CASE WHEN ? = 'Critical' THEN 'Pending QC'
+          -        WHEN ? = 'Non-Critical' THEN 'In Use'
+          -        WHEN ? = 'Unknown' THEN 'Unknown' END,
+          -   ?
+          - FROM inventoryItems i
+          - WHERE i.inventoryItem = ?
+          string {_columnInput_receiveReagents:2}
+          string {_columnInput_receiveReagents:4}
+          string {_columnInput_receiveReagents:3}
+          float {_columnInput_receiveReagents:7}
+          string {_columnInput_receiveReagents:9}
+          string {_columnInput_receiveReagents:8}
+          string {_columnInput_receiveReagents:10}
+          string {_columnInput_receiveReagents:5}
+          string {_columnInput_receiveReagents:6}
+          string {_columnInput_receiveReagents:11}
+          string {_columnInput_receiveReagents:12}
+          string {_columnInput_receiveReagents:13}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:14}
+          long {_eventId}
+          string {_columnInput_receiveReagents:4}
+
+        #qualification record for non-critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -   ?,
+          -   'Reagent QC'
+          -   , '*ALL*'
+          -   , ?
+          -   , ?
+          - FROM dual
+          - WHERE ? = 'Non-Critical'
+          -   AND ? = 'Received Reagent'
+          string {_columnInput_receiveReagents:2}
+          string {_columnInput_receiveReagents:13}
+          long {_eventId}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:15}
+
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -   ?,
+          -   'NEEDS QC',
+          -   '*ALL*',
+          -   DATE_ADD(curDate(), INTERVAL 60 DAY),
+          -   ?
+          - FROM dual
+          - WHERE ? = 'Critical'
+          -   AND ? = 'Received Reagent'
+          string {_columnInput_receiveReagents:2}
+          long {_eventId}
+          string {_columnInput_receiveReagents:14}
+          string {_columnInput_receiveReagents:15}
+
+        ## insert to qualify reagent if critical, insert to sort step if unknown
+        sqlPreparedStatement
+          - INSERT INTO queues (containerId, step, eventId)
+          - SELECT
+          -   ?,
+          -   'QC Reagent',
+          -   ?
+          - FROM dual
+          - WHERE ? = 'Received Reagent'
+          -   AND ? = 'Critical'
+          string {_columnInput_receiveReagents:2}
+          long {_eventId}
+          string {_columnInput_receiveReagents:15}
+          string {_columnInput_receiveReagents:14}
+
+        sqlPreparedStatement
+          - INSERT INTO queues (containerId, step, eventId)
+          - SELECT
+          -   ?,
+          -   'Sort Reagents for QC',
+          -   ?
+          - FROM dual
+          - WHERE ? = 'Received Reagent'
+          -   AND ? = 'Unknown'
+          string {_columnInput_receiveReagents:2}
+          long {_eventId}
+          string {_columnInput_receiveReagents:15}
+          string {_columnInput_receiveReagents:14}
+
+        ## update the quantities for items received, both barcoded items and line items
+        sqlPreparedStatement
+          - UPDATE inventoryItems SET
+          -   quantity = quantity + ?
+          - WHERE catalogNumber = ?
+          -   AND inventoryItem = ?
+          float {_columnInput_receiveReagents:7}
+          string {_columnInput_receiveReagents:3}
+          string {_columnInput_receiveReagents:4}
+
+####################################################################################################################################
+    step Receive Single Reagent
+      jsScripts
+        src js/resources/receiveReagents.js
+      form
+        include stepInstructions
+
+        formPreparedQuery~ SELECT DATE_ADD(curDate(), INTERVAL 90 DAY) as 'expirationDate'
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          div
+            fieldset
+              legend  Explanation
+              ol
+                li IF THIS REAGENT WAS RECEIVED BY PURCHASE ORDER IT MUST BE RECEIVED THROUGH AD HOC RECEIVING IN ORDERING & RECEIVING!!!
+                li Every reagent that enters the lab needs a barcode.  This step allows the user to log the barcode
+                  - and all given properties of a specific reagent or kit received from a vendor.
+                li If there is ever any question as to what the reagent is or any of its properties,
+                  - the reagent can simply be scanned into the Lookup Reagent step and all properties associated with the reagent will be reported.
+                li Be sure to use either the same or a smaller unit than the original volume for the threshold unit.  A conversion will be done upon
+                  - submit to convert the quantity received to the same units as the threshold
+
+        vertical
+          fieldset
+            legend Register Reagent
+            vertical
+              select Reagent Name
+                id= reagentName
+                class= required
+                keepValue~ true
+                option
+                sqlPreparedQuery~
+                  - SELECT
+                  -   inventoryItem
+                  - FROM inventoryItems
+                  - WHERE inventoryType = 'Received Reagent'
+                  - ORDER BY inventoryItem ASC
+                required~ true
+              text catNo
+                screenLabel~ Catalog Number
+                id= catNo
+              container reagent
+                screenLabel~ Reagent ID
+                new~ true
+                containerType~ Reagent
+                required~ true
+                class= required barcodeBackground
+              select Vendor
+                id= vendor
+                keepValue~ true
+                option
+                sqlQuery~ SELECT vendor, vendorId FROM vendors ORDER BY vendor ASC
+              text parent
+                screenLabel~ Kit Lot Number
+                keepValue~ true
+                required~ false
+                span (if applicable)
+              text Item Lot Number
+                keepValue~ true
+                required~ true
+                class= required
+              number Quantity
+                data-parsley-type= number
+                size= 5
+                value= 0.00
+                min~ 0
+                text Unit
+                  id= units
+                  readonly=
+              number Threshold
+                size= 5
+                data-parsley-type= number
+                min~ 0
+                placeholder= 0
+              date Date Received
+                class= date datePicker required
+                value= {_currentDateFormatted}
+                keepValue~ true
+                required~ true
+                convert~ false
+              select storageId
+                title= Setup storage containers in the storage module to populate select list.
+                screenLabel~ Storage Location
+                option
+                sqlPreparedQuery~
+                  - SELECT CONCAT(storageContainerId, ' (', type, ') '),
+                  - storageContainerId
+                  - FROM
+                  - storageContainerInfo
+                  - ORDER BY type, storageContainerId
+              date Expiration Date
+                convert~ false
+                class= date required datePicker
+                required~ true
+                value= {_:expirationDate}
+                validate~
+                  - SELECT 1
+                  - FROM dual
+                  - WHERE '{Expiration Date}' > '{Date Received}'
+                  errorMessage~ The expiration date must be later than the received date.
+              select QC Type
+                option Critical
+                option Non-Critical
+                class= required
+
+      sqlPreparedStatement
+        - INSERT INTO reagents (reagentId, reagentType, catalogNo, quantity, unitOfMeasure, threshold, thresholdUnits, lotNumber,
+        -                       parentLot, vendor, storageId, receivedDate, expirationDate, QCType, QCStatus, status, eventId)
+        - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+        -         ?, CASE WHEN ? = '' THEN null ELSE ? END, ?, ?, ?,
+        -         CASE WHEN ? = 'Critical' THEN 'Pending'
+        -              WHEN ? = 'Non-Critical' THEN 'N/A' ELSE 'N/A' END,
+        -         CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -              WHEN ? = 'Non-Critical' THEN 'In Use' ELSE 'Pending QC' END
+        -         , ?)
+        string {reagent}
+        string {Reagent Name}
+        string {catNo}
+        float {Quantity}
+        string {Unit}
+        float {Threshold}
+        string {Unit}
+        string {Item Lot Number}
+        string {parent}
+        string {Vendor}
+        string {storageId}
+        string {storageId}
+        string {Date Received}
+        string {Expiration Date}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Non-Critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - VALUES (?, 'Reagent QC', '*ALL*', ?, ?)
+          string {reagent}
+          string {Expiration Date}
+          long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - VALUES (?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 60 DAY), ?)
+          string {reagent}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO queues (containerId, step, eventId)
+          - VALUES (?, 'QC Reagent', ?)
+          string {reagent}
+          long {_eventId}
+
+      sqlPreparedStatement
+        - UPDATE containers SET
+        -   expirationDate = ?,
+        -   manufacturerBarcode = ?
+        - WHERE containerId = ?
+        string {Expiration Date}
+        string {Item Lot Number}
+        string {reagent}
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems SET
+        -   quantity = (quantity + ?)
+        - WHERE inventoryItem = ?
+        float {Quantity}
+        string {Reagent Name}
+
+####################################################################################################################################
+    step Prepare Reagent
+      cssLinks
+        link css/reagents.css
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+        div
+          fieldSet
+            legend Instructions
+            ul
+              li Please enter the number of reagents being used to create the in-house prepared reagent.
+              li If more than one aliquot of the same reagent type is needed to prepare the reagent, be sure to count each separately.
+              li The next form will verify that all components have been opened and passed QC standards of the system.
+        hr
+        vertical
+          text num
+            screenLabel~ # of Components
+            size= 3
+            value= 2
+            min~ 1
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          src= js/resources/prepareReagent.js
+
+        formPreparedQuery~ SELECT CASE WHEN {_accessLevel} > 7 THEN 'show' ELSE 'hide' END AS "hasRecipe"
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden num
+          value= {num}
+        hidden hasRecipe
+          id= hasRecipe
+          value= {_:hasRecipe}
+
+        vertical
+        div
+          fieldSet
+            legend Instructions
+            ul
+              li Each component reagent is expected to have passed all validations. If not, an error will appear on submit.
+              li The reagent recipe can be saved for later use.
+        hr
+
+        printerControls
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        div
+          class= floatLeft
+          vertical
+            select Reagent Name
+              id= reagentName
+              required~ true
+              class= required
+              option
+              sqlPreparedQuery~
+                - SELECT
+                -   inventoryItem
+                - FROM inventoryItems
+                - WHERE inventoryType = 'Prepared Reagent'
+            container reagent
+              id= reagent
+              screenLabel~ Reagent ID
+              new~ true
+              class= required
+            text Lot Number
+              value= Lot{_getNextSequence:preparedLotId}
+              class= required
+              required~ true
+            date Creation Date
+              convert~ false
+              value= {_currentDateFormatted}
+              required~ true
+              class= date required datePicker
+            date Expiration Date
+              convert~ false
+              id= expDate
+              required~ true
+              class= date required datePicker
+            select QC Type
+              option Critical
+              option Non-Critical
+            number Quantity
+              data-parsley-type= number
+              screenLabel~ Total Quantity Created
+              size= 3
+              value= 0.00
+              min~ 0
+              text Unit
+                id= units
+                readonly=
+                size= 5
+
+        div
+          class= floatLeft
+          table
+            caption Components
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Component",
+              -   '' AS "Volume",
+              -   '' AS "Unit"
+              - FROM numbers
+              - LIMIT ?
+              long {num}
+            columnSpecs~ componentsTable
+              allowChangedRecordIds
+              column 1
+                inputType resource
+                  class= component
+                  acceptQueue~ any
+                  qualifyResource~ Reagent QC
+                  size= 8
+              column 2
+                inputType number
+                  size= 4
+                  validate~
+                    - SELECT 1
+                    - FROM reagents
+                    -  WHERE reagentId = ?
+                    -   AND quantity - ? >= 0
+                    string {_columnInput:1}
+                    float {_columnInput:2}
+                    errorMessage~ There is not enough of this reagent to make this recipe.
+              column 3
+                inputType text
+                  class= units
+                  readonly=
+                  size= 4
+
+        div
+          class= clearCSS
+
+        hr
+
+        div
+          class= saveRecipeDiv
+          vertical
+            checkbox Save Recipe
+            text Recipe Name
+              validate~
+                - ! SELECT
+                -   recipeName
+                - FROM reagentRecipes
+                - WHERE reagentType = ?
+                -   AND recipeName = ?
+                string {Reagent Name}
+                string {Recipe Name}
+                errorMessage~ A recipe has already been saved under this name for this reagent.
+            h1
+            comments Recipe Comments
+
+
+      forRows componentsTable
+        sqlPreparedStatement
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - VALUES (?, ?, ?, ?, ?)
+          string {reagent}
+          string self
+          string Component
+          string {_columnInput_componentsTable:1}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO reagentRecipes (recipeName, reagentType, component, quantity, unitOfMeasure, eventId)
+          - SELECT
+          -   CONCAT(?,'-',?,'',?),
+          -   ?,
+          -   reagentType, ?, ?, ?
+          - FROM reagents
+          - WHERE ? <> ''
+          -   AND ? = 'true'
+          -   AND ? <> ''
+          -   AND reagentId = ?
+          -   AND ? > 7
+          string {Recipe Name}
+          float {Quantity}
+          string {Unit}
+          string {Reagent Name}
+          float {_columnInput_componentsTable:2}
+          string {_columnInput_componentsTable:3}
+          long {_eventId}
+          string {_columnInput_componentsTable:1}
+          string {Save Recipe}
+          string {Recipe Name}
+          string {_columnInput_componentsTable:1}
+          long {_accessLevel}
+
+        sqlPreparedStatement
+          - UPDATE reagents SET
+          -   quantity = quantity - ?
+          - WHERE reagentId = ?
+          -   AND ? <> ''
+          float {_columnInput_componentsTable:2}
+          string {_columnInput_componentsTable:1}
+          string {_columnInput_componentsTable:2}
+
+        sqlPreparedStatement
+          - UPDATE inventoryItems i
+          -   INNER JOIN (
+          -               SELECT sum(r1.quantity) AS totalQuantity,
+          -                      r1.reagentType
+          -               FROM reagents r1
+          -                 INNER JOIN reagents r2 ON r1.reagentType = r2.reagentType
+          -               WHERE r2.reagentId = ?
+          -                 AND r1.status <> 'Disposed'
+          -                 AND ? <> ''
+          -               GROUP by r1.reagentType
+          -              ) q
+          - ON i.inventoryItem = q.reagentType
+          - SET i.quantity = totalQuantity
+          string {_columnInput_componentsTable:1}
+          string {_columnInput_componentsTable:2}
+
+      ### Setting vendor to 0 for prepared reagents
+      sqlPreparedStatement
+        - INSERT INTO reagents (reagentId, reagentType, quantity, unitOfMeasure,
+        -                       lotNumber, parentLot, vendor, receivedDate, expirationDate, openDate, QCType,
+        -                       QCStatus, status, eventId)
+        - VALUES (?, ?, ?, ?,
+        -  ?, '', '0', ?, ?, ?, ?,
+        -  CASE WHEN ? = 'Critical' THEN 'Pending'
+        -       WHEN ? = 'Non-Critical' THEN 'N/A' ELSE 'Pending' END,
+        -  CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -       WHEN ? = 'Non-Critical' THEN 'In Use' ELSE 'Pending QC' END, ? )
+        string {reagent}
+        string {Reagent Name}
+        float {Quantity}
+        string {Unit}
+        string {Lot Number}
+        string {Creation Date}
+        string {Expiration Date}
+        string {Creation Date}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Non-Critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - VALUES (?, 'Reagent QC', '*ALL*', ?, ?)
+          string {reagent}
+          string {Expiration Date}
+          long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - VALUES (?, 'NEEDS QC', '*ALL*', ?, ?)
+          string {reagent}
+          string {Expiration Date}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO queues(containerId,step,eventId)
+          - VALUES(?,?,?)
+          string {reagent}
+          string QC Reagent
+          long {_eventId}
+
+      sqlPreparedStatement
+        - UPDATE containers SET
+        -   expirationDate = ?
+        - WHERE containerId = ?
+        string {Expiration Date}
+        string {reagent}
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems SET
+        -   quantity = (quantity + ?)
+        - WHERE inventoryItem = ?
+        float {Quantity}
+        string {Reagent Name}
+####################################################################################################################################
+    step Prepare Reagent by Recipe
+      cssLinks
+        link css/reagents.css
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          div
+            fieldSet
+              legend Instructions
+              ol
+                li Select a reagent recipe to prepare.
+                li Component reagents and amounts to use will be given on the next form.
+        hr
+        vertical
+          select Recipe Name
+            required~ true
+            option
+            sqlPreparedQuery~ SELECT recipeName FROM reagentRecipes
+
+      form
+        include stepInstructions
+        autocomplete= off
+        formPreparedQuery~
+          - SELECT DISTINCT
+          -   reagentType
+          - FROM reagentRecipes
+          - WHERE recipeName = ?
+          string {Recipe Name}
+        formPreparedQuery~
+          - SELECT
+          -   IFNULL(i.units, '') AS "units"
+          - FROM inventoryItems i
+          -   LEFT OUTER JOIN reagentRecipes rr ON i.inventoryItem = rr.reagentType
+          - WHERE rr.recipeName = ?
+          string {Recipe Name}
+        formPreparedQuery~
+          - SELECT
+          -   e.comments
+          - FROM events e
+          -   INNER JOIN reagentRecipes rr ON e.eventId = rr.eventId
+          - WHERE rr.recipeName = ?
+          - LIMIT 1
+          string {Recipe Name}
+
+        hidden Recipe Name
+          value= {Recipe Name}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          div
+            class= floatLeft
+            vertical
+              text Reagent Type
+                value= {_:reagentType}
+                readonly=
+                required~ true
+              container reagent
+                screenLabel~ Reagent ID
+                new~ true
+                if~ {QC Type}
+                  advanced~
+                  equals~ Critical
+                  insertQueue~ QC Reagent
+                class= required
+              text Lot Number
+                value= Lot{_getNextSequence:preparedLotId}
+                required~ true
+                class= required
+              date Creation Date
+                convert~ false
+                required~ true
+                class= date datePicker required
+                value= {_currentDateFormatted}
+                validate~ select 1 from dual where '{_thisInput}' <= '{_currentDateFormatted}'
+                  errorMessage~ The reagent cannot be created in the future.
+              date Expiration Date
+                convert~ false
+                required~ true
+                class= date datePicker required
+                validate~ select 1 from dual where  STR_TO_DATE('{_thisInput}', '%m/%d/%Y') > '{Creation Date}'
+                  errorMessage~ The expiration date must be after the creation date of the reagent.
+              select QC Type
+                option Critical
+                option Non-Critical
+              number Quantity
+                data-parsley-type= number
+                size= 6
+                placeholder= 0.00
+                min~ 0
+                text Units
+                  screenLabel~ Unit
+                  readonly=
+                  value= {_:units}
+            h2 Recipe Comments:
+            div
+              span {_:comments}
+            br
+
+          div
+            class= floatLeft
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   '' AS "Component",
+                -   component AS "Reagent Type",
+                -   quantity AS "Amount",
+                -   unitOfMeasure AS ""
+                - FROM reagentRecipes
+                - WHERE recipeName = ?
+                string {Recipe Name}
+              columnSpecs~ recipe
+                allowChangedRecordIds
+                column 1
+                  inputType resource
+                    acceptQueue~ any
+                    qualifyResource~ Reagent QC
+                    class= required
+                column 2
+                  inputType text
+                    readonly=
+                    validate~
+                      - ! SELECT 1
+                      - FROM reagents
+                      - WHERE reagentId = ?
+                      -   AND reagentType <> ?
+                      -   AND ? <> ''
+                      string {_columnInput:1}
+                      string {_columnInput:2}
+                      string {_columnInput:1}
+                      errorMessage~ This reagent does not match the Reagent Type. Enter the correct reagent.
+                column 3
+                  inputType number
+                    readonly=
+                    size= 4
+                    validate~
+                      - SELECT 1
+                      - FROM reagents
+                      - WHERE reagentId = ?
+                      -   AND quantity - (? ) >= 0
+                      string {_columnInput:1}
+                      float {_columnInput:3}
+                      errorMessage~ There is not enough of this reagent to make this recipe.
+                column 4
+                  inputType text
+                    readonly=
+                    class= units
+                    size= 4
+
+
+      forRows recipe
+        ifCondition {_columnInput_recipe:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - UPDATE reagents SET
+            -   quantity = (quantity - (?))
+            - WHERE reagentId = ?
+            float {_columnInput_recipe:3}
+            string {_columnInput_recipe:1}
+
+          sqlPreparedStatement
+            - UPDATE inventoryItems i
+            -   INNER JOIN (
+            -               SELECT
+            -                 sum(r1.quantity) AS "totalQuantity",
+            -                 r1.reagentType
+            -               FROM reagents r1
+            -                 INNER JOIN reagents r2 ON r1.reagentType = r2.reagentType
+            -               WHERE r2.reagentId = ?
+            -                 AND r1.status <> 'Disposed'
+            -               GROUP BY r1.reagentType
+            -              ) q ON i.inventoryItem = q.reagentType
+            - SET i.quantity = totalQuantity;
+            string {_columnInput_recipe:1}
+
+        sqlPreparedStatement
+          - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+          - SELECT ?, '',  'Component', ?, {_eventId}
+          string {reagent}
+          string {_columnInput_recipe:1}
+
+      ### Setting vendor to 0 for Prepared Reagents
+      sqlPreparedStatement
+        - INSERT INTO reagents (reagentId, reagentType, quantity, unitOfMeasure,
+        -                       lotNumber, parentLot, vendor, receivedDate, expirationDate, openDate,
+        -                       QCType, QCStatus, status, eventId)
+        - VALUES (?, ?, ?,
+        - ?, ?, '', 0, ?,
+        - ?, ?, ?,
+        - CASE WHEN ? = 'Critical' THEN 'Pending'
+        -      WHEN ? = 'Non-Critical' THEN 'N/A' ELSE 'Pending' END,
+        - CASE WHEN ? = 'Critical' THEN 'Pending QC'
+        -      WHEN ? = 'Non-Critical' THEN 'In Use' ELSE 'Pending QC' END, ?)
+        string {reagent}
+        string {Reagent Type}
+        float {Quantity}
+        string {Units}
+        string {Lot Number}
+        string {Creation Date}
+        string {Expiration Date}
+        string {Creation Date}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        string {QC Type}
+        long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Non-Critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - VALUES (?, 'Reagent QC', '*ALL*', ?, ?)
+          string {reagent}
+          string {Expiration Date}
+          long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Critical
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - VALUES (?, 'NEEDS QC', '*ALL*', ?, ?)
+          string {reagent}
+          string {Expiration Date}
+          long {_eventId}
+
+      sqlPreparedStatement
+        - UPDATE containers SET
+        -   expirationDate = ?
+        - WHERE containerId = ?
+        string {Expiration Date}
+        string {reagent}
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems SET
+        -   quantity = (quantity + ?)
+        - WHERE inventoryItem = ?
+        float {Quantity}
+        string {Reagent Type}
+####################################################################################################################################
+    step Prepare Aliquots
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        vertical
+        div
+          fieldSet
+            legend Instructions
+            vertical
+              span Please enter the number of aliquots created.  The next screen will require you to scan each aliquot.  Aliquots will inherit all properties including the expiration date of the parent reagent.
+        hr
+        vertical
+          text parentReagent
+            screenLabel~ Parent ID
+            recordContainerHistory~ false
+            required~ true
+            validate~ select 1 from reagents where reagentId = '{_thisInput}'
+              errorMessage~ Scanned Parent ID is not a valid Reagent.
+            validate~ ! select 1 from reagentHistory where reagentId = '{_thisInput}' and status = 'Disposed'
+              errorMessage~ This reagent has been disposed.
+            validate~ select 1 from reagents where QCStatus <> 'Fail' and reagentId = '{_thisInput}' OR not exists(select 1 from reagents where reagentId = '{_thisInput}')
+              errorMessage~ This reagent has failed QC.  Dilutions should not be made using this reagent.
+          number num
+            required= true
+            data-parsley-required= true
+            data-parsley-type= integer
+            screenLabel~ Number of Aliquots
+            size= 5
+            value= 2
+            min~ 1
+
+      form
+        data-parsley-validate=
+        include userAccountInfo
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   reagentId AS "reagentId",
+          -   reagentType AS "reagentType",
+          -   lotNumber AS "lotNumber",
+          -   QCType AS "QCType",
+          -   QCStatus AS "QCStatus",
+          -   status AS "status",
+          -   expirationDate AS "expirationDate",
+          -   unitOfMeasure AS "unitOfMeasure"
+          - FROM reagents
+          - WHERE reagentId = ?
+          string {parentReagent}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden parentReagent
+          value= {parentReagent}
+
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li Check to make sure the information on the left is correct.
+              li Scan in your aliquots. They will inherit all properties of the parent reagent.
+        hr
+        vertical
+          fieldset
+            legend Parent Information
+            vertical
+              resource reagent
+                screenLabel~ Parent
+                value= {parentReagent}
+                acceptQueue~ any
+                readonly=
+            vertical
+              span <b>Reagent Type:</b> {_:reagentType}
+              span <b>Lot:</b> {_:lotNumber}
+              span <b>QC Type:</b> {_:QCType}
+              span <b>QC Status:</b> {_:QCStatus}
+              span <b>Reagent Status:</b> {_:status}
+
+          fieldset
+            legend Aliquot Information
+            vertical
+              text num
+                class= hiddenOnLoad
+                screenLabel~
+                value= {num}
+                required~ false
+                readonly=
+              date Open Date
+                convert~ false
+                value= {_currentDateFormatted}
+                class= date
+                readonly=
+              date Expiration Date
+                convert~ false
+                value= {_:expirationDate}
+                class= date datePicker
+              number totalAmount
+                data-parsley-type= number
+                screenLabel~ Total Amount Aliquotted
+                size= 8
+                value= 0.00
+                min~ 0
+                text totalUnits
+                  class= noborder
+                  readonly=
+                  size= 6
+                  value= {_:unitOfMeasure}
+              select QC Type
+                class= required
+                screenLabel~ QC Type for Aliquots
+                option
+                option Critical
+                option Non-Critical
+                required~ true
+
+
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   '' AS "Aliquots",
+                -   '0.00' AS "Vol",
+                -   'uL' AS "Units"
+                - FROM numbers
+                - LIMIT ?
+                long {num}
+              columnSpecs~ aliquots
+                allowChangedRecordIds
+                column 1
+                  inputType container
+                    new~ true
+                    containerType~ Reagent Aliquot
+                    contentType~ Reagent Aliquot
+                    addContent~
+                    size= 18
+                    class= barcodeBackground required
+                    data-parsley-required= true
+                column 2
+                  inputType number
+                    data-parsley-type= number
+                    data-parsley-required= true
+                    size= 8
+                    min~ 0
+                    class= required
+                column 3
+                  inputType select
+                    setName~ inventoryUnits
+                    required~ false
+                    data-parsley-required=
+                    class= required
+
+
+      validateSql SELECT 1 FROM dual WHERE ? >= ?
+        string {Expiration Date}
+        string {Open Date}
+        errorMessage The Expiration date must be greater than or equal to the current date.
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   quantity = (quantity - ?)
+        - WHERE reagentId = ?
+        -   AND eventId = ?
+        float {totalAmount}
+        string {reagent}
+        long {_eventId}
+
+      validateSql ! SELECT 1 FROM reagents WHERE reagentId = ? AND sign(quantity) = -1
+        string {reagent}
+        errorMessage There is not enough of the parent container to create the aliquots.
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems
+        -  SET quantity = (quantity - ?)
+        - WHERE inventoryItem = (SELECT reagentType FROM reagents WHERE reagentId = ?)
+        float {totalAmount}
+        string {reagent}
+
+      forRows aliquots
+        ifCondition {_columnInput_aliquots:1}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES (?, 'self', 'Parent Reagent', ?, ?)
+            string {_columnInput_aliquots:1}
+            string {reagent}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO reagents (reagentId, reagentType, quantity, unitOfMeasure, lotNumber, parentLot,
+            -                       vendor, receivedDate, expirationDate, openDate, QCDate, QCType, QCStatus, status, eventId)
+            - SELECT
+            -   ?, r.reagentType, ?, ?,
+            -   r.lotNumber, r.parentLot, r.vendor, r.receivedDate, ?, ?, r.QCDate,
+            -   ?, r.QCStatus, r.status, ?
+            - FROM reagents r
+            - WHERE r.reagentId = ?
+            string {_columnInput_aliquots:1}
+            float {_columnInput_aliquots:2}
+            string {_columnInput_aliquots:3}
+            string {Expiration Date}
+            string {Open Date}
+            string {QC Type}
+            long {_eventId}
+            string {reagent}
+
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - SELECT
+            -   ?,
+            -   q.qualification,
+            -   q.step,
+            -   r.expirationDate,
+            -   ?
+            - FROM reagents r
+            -   INNER JOIN qualifications q on r.reagentId = q.containerId
+            - WHERE r.reagentId = ?
+            string {_columnInput_aliquots:1}
+            long {_eventId}
+            string {reagent}
+
+        ifCondition {QC Type}
+          advanced~
+          equals~ Critical
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'QC Reagent', ?)
+            string {_columnInput_aliquots:1}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - VALUES (?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 14 DAY), ?)
+            string {_columnInput_aliquots:1}
+            long {_eventId}
+
+      sqlPreparedStatement
+        - UPDATE containers SET
+        -   expirationDate = ?
+        - WHERE containerId IN (select reagentId from reagents where eventId = ?)
+        string {Expiration Date}
+        long {_eventId}
+
+####################################################################################################################################
+    step Prepare Dilutions
+      jsScripts
+        src js/resources/prepareDilutions.js
+
+      form
+        data-parsley-validate=
+        include stepInstructions
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li Scan in the Parent Reagent
+              li Enter the # of Diluents being used
+              li Enter the # of Aliquots
+
+        vertical
+          text parent
+            screenLabel~ Parent Reagent
+            recordContainerHistory~ false
+            class= barcodeBackground
+            required~ true
+            validate~ select 1 from reagents where reagentId = '{_thisInput}'
+              errorMessage~ Scanned Parent ID is not a valid Reagent.
+            validate~ ! select 1 from reagentHistory where reagentId = '{_thisInput}' and status = 'Disposed'
+              errorMessage~ This reagent has been disposed.
+            validate~ select 1 from reagents where QCStatus <> 'Fail' and reagentId = '{_thisInput}' OR not exists(select 1 from reagents where reagentId = '{_thisInput}')
+              errorMessage~ This reagent has failed QC.  Dilutions should not be made using this reagent.
+          number diluents
+            required= true
+            data-parsley-required= true
+            data-parsley-type= integer
+            screenLabel~ Number of Diluents
+            size= 5
+            value= 1
+            min~ 1
+          number aliquots
+            required= true
+            data-parsley-required= true
+            data-parsley-type= integer
+            screenLabel~ Number of Aliquots
+            size= 5
+            value= 2
+            min~ 1
+
+
+      form
+        data-parsley-validate=
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   IFNULL(r.reagentType, 'Not a reagent') AS "reagentType",
+          -   r.expirationDate
+          - FROM reagents r
+          - WHERE r.reagentId = ?
+          string {parent}
+        formPreparedQuery~
+          - SELECT
+          -   i.units
+          - FROM inventoryItems i
+          -   INNER JOIN reagents r ON r.reagentType = i.inventoryItem
+          - WHERE r.reagentId = ?
+          string {parent}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden parent
+          value= {parent}
+
+        hidden diluents
+          value= {diluents}
+
+        hidden aliquots
+          value= {aliquots}
+
+        hidden currentDate
+          value= {_currentDate}
+
+        vertical
+          text Reagent Type
+            screenLabel~ Reagent Type
+            value= {_:reagentType}
+            readonly=
+          resource reagent
+            acceptQueue~ any
+            value= {parent}
+            readonly=
+            screenLabel~ Parent Reagent
+          number Amount Used
+            value= 0.00
+            size= 4
+            min~ 0
+            class= required
+            required=
+            text parentUnits
+              value= {_:units}
+              readonly=
+          date Expiration Date
+            convert~ false
+            dateFormat~ {_dateShortFormat}
+            class= date datePicker required
+            required~ true
+            value= {_:expirationDate}
+            screenLabel~ Expiration Date for Dilutions
+          select QC Type
+            option Critical
+            option Non-Critical
+            required~ true
+            class= required
+
+        vertical
+          table
+            caption DILUENTS
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Diluents",
+              -   '0.00' AS "Volume",
+              -   '' AS "Units"
+              - FROM numbers
+              - LIMIT ?
+              long {diluents}
+            columnSpecs~ parents
+              allowChangedRecordIds
+              column 1
+                inputType resource
+                  class= diluent barcodeBackground required
+                  acceptQueue~ any
+                  required~ true
+                  data-parsley-required= true
+                  validate~ select 1 from containers where containerId = '{_thisInput}' and containerType NOT IN ('Instrument ID','Consumable')
+                    errorMessage~ This container cannot be used as a diluent.
+              column 2
+                inputType number
+                  size= 4
+                  class= diluentVolumes required
+                  min~ 0.01
+                  required=
+                  data-parsley-required= true
+                  data-parsley-type= number
+              column 3
+                inputType text
+                  class= units
+                  readonly=
+
+        vertical
+          table
+            caption ALIQUOTS
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Aliquots",
+              -   '0.00' AS "Volume",
+              -   'uL' AS "Units"
+              - FROM numbers
+              - LIMIT ?
+              long {aliquots}
+            columnSpecs~ aliquots
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  new~ true
+                  containerType~ Dilution
+                  contentType~ Dilution
+                  addContent~
+                  required~ true
+                  class= barcodeBackground required
+                  data-parsley-required= true
+              column 2
+                inputType number
+                  size= 4
+                  min~ 0
+                  required=
+                  data-parsley-required= true
+                  data-parsley-type= number
+                  class= required
+              column 3
+                inputType select
+                  setName~ inventoryUnits
+                  required~ false
+
+
+      validateSql ! SELECT 1 FROM controls WHERE controlId = ? AND sign(quantity) = -1
+        string {reagent}
+        errorMessage There is not enough of the parent container to create the dilution.
+
+      validateSql select 1 from dual where ? >= ?
+        string {Expiration Date}
+        string {currentDate}
+        errorMessage The Expiration date must be greater than or equal to the current date.
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems SET
+        -   quantity = (quantity - case ? when '' then 0 else ? end)
+        - WHERE inventoryItem = ?
+        string {Amount Used}
+        float {Amount Used}
+        string {Reagent Type}
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   quantity = (quantity - case ? when '' then 0 else ? end),
+        -   eventId = ?
+        - WHERE reagentId = ?
+        string {Amount Used}
+        float {Amount Used}
+        long {_eventId}
+        string {reagent}
+
+      forRows parents
+        sqlPreparedStatement
+          - UPDATE reagents SET
+          -   quantity = (quantity - case ? when '' then 0 else ? end),
+          -   eventId = ?
+          - WHERE reagentId = ?
+          string {_columnInput_parents:2}
+          float {_columnInput_parents:2}
+          long {_eventId}
+          string {_columnInput_parents:1}
+
+        sqlPreparedStatement
+          - UPDATE inventoryItems SET
+          -   quantity = (quantity - case ? when '' then 0 else ? end)
+          - WHERE inventoryItem = (select reagentType from reagents where reagentId = ?)
+          string {_columnInput_parents:2}
+          float {_columnInput_parents:2}
+          string {_columnInput_parents:1}
+
+      forRows aliquots
+        ifCondition {_columnInput_aliquots:2}
+          advanced~
+          not~
+            isBlank~
+          sqlPreparedStatement
+            - INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+            - VALUES (?, 'self', 'Parent Reagent', ?, ?)
+            string {_columnInput_aliquots:1}
+            string {reagent}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO reagents (reagentId, reagentType, quantity, unitOfMeasure, lotNumber, parentLot,
+            -                       vendor, receivedDate, expirationDate, openDate, QCType, QCStatus, status, eventId)
+            - SELECT
+            -   ?
+            -   , r.reagentType
+            -   , ?
+            -   , ?
+            -   , r.lotNumber
+            -   , r.parentLot
+            -   , r.vendor
+            -   , curDate()
+            -   , ?
+            -   , curDate()
+            -   , ?
+            -   , CASE ?
+            -       WHEN 'Critical' THEN 'Pending'
+            -       WHEN 'Non-Critical' THEN 'Pass'
+            -       ELSE r.QCStatus
+            -     END
+            -   , CASE ?
+            -       WHEN 'Critical' THEN 'Pending QC'
+            -       WHEN 'Non-Critical' THEN 'In Use'
+            -       ELSE r.status
+            -     END
+            -   , ?
+            - FROM reagents r
+            - WHERE r.reagentId = ?
+            string {_columnInput_aliquots:1}
+            float {_columnInput_aliquots:2}
+            string {_columnInput_aliquots:3}
+            string {Expiration Date}
+            string {QC Type}
+            string {QC Type}
+            string {QC Type}
+            long {_eventId}
+            string {reagent}
+
+        ifCondition {QC Type}
+          advanced~
+          equals~ Critical
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'QC Reagent', ?)
+            string {_columnInput_aliquots:1}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - VALUES (?, 'NEEDS QC', '*ALL*', ?, ?)
+            string {_columnInput_aliquots:1}
+            string {Expiration Date}
+            long {_eventId}
+
+        ifCondition {QC Type}
+          advanced~
+          not~
+            equals~ Critical
+          sqlPreparedStatement
+            - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+            - VALUES (?, 'Reagent QC', '*ALL*', ?, ?)
+            string {_columnInput_aliquots:1}
+            string {Expiration Date}
+            long {_eventId}
+
+      sqlPreparedStatement
+        - UPDATE containers SET
+        -   expirationDate = ?
+        - WHERE containerId IN (SELECT reagentId FROM reagents WHERE eventId = ?)
+        string {Expiration Date}
+        long {_eventId}
+
+####################################################################################################################################
+    step QC Reagent
+
+      queueQuery
+        - SELECT
+        -   q.containerId AS "Container",
+        -   r.reagentType AS "Reagent Type",
+        -   r.lotNumber AS "Lot No",
+        -   GROUP_CONCAT(co.containerId SEPARATOR ' | ') AS "Aliquots",
+        -   r.QCStatus AS "QC Status",
+        -   r.receivedDate AS "Received Date",
+        -   e.eventDate AS "Queue Date",
+        -   e.userId AS "Queued By",
+        -   e.step AS "Queued From"
+        - FROM queues q
+        -   INNER JOIN reagents r ON q.containerId = r.reagentId
+        -   INNER JOIN events e ON q.eventId = e.eventId
+        -   LEFT OUTER JOIN contents co ON q.containerId = co.content
+        -     AND co.contentType = 'Parent Reagent'
+        - WHERE q.step = 'QC Reagent'
+        - GROUP BY q.containerId, e.eventId
+        - ORDER BY r.reagentType, r.receivedDate
+      queueSelectRecId
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        ENCTYPE= multipart/form-data
+        vertical
+          div
+            fieldset
+              legend  Explanation
+              vertical
+                span Once a reagent has been tested, the results can be recorded here.  The user can select to either Pass, Fail, or Retest the reagent and record the results for just the individual reagent or for the entire lot.
+
+        hr
+        vertical
+          container _recId
+            screenLabel~ Reagent ID
+            recordContainerHistory~ false
+            acceptQueue~ {_step}
+            validate~
+              - SELECT 1
+              - FROM reagents
+              - WHERE ? = reagentId
+              string {_recId}
+              errorMessage~ This reagent does not exist. Make sure that it has been created and not disposed.
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        ENCTYPE= multipart/form-data
+        formPreparedQuery~
+          - SELECT
+          -   lotNumber,
+          -   expirationDate,
+          -   reagentType,
+          -   receivedDate,
+          -   vendor
+          - FROM reagents
+          - WHERE reagentId = ?
+          - UNION
+          - SELECT '', '', '', '', ''
+          string {_recId}
+        formPreparedQuery~
+          - SELECT
+          -   vendor AS "vendorName"
+          - FROM vendors
+          - WHERE vendor = ?
+          - UNION
+          - SELECT 'No Vendor Assigned'
+          string {_:vendor}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden vendor
+          value= {_:vendor}
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        vertical
+          div
+            fieldset
+              legend  Explanation
+              ul
+                li Once a reagent has been tested, its results can be recorded here.  The user can select to either Pass, Fail, or Retest the reagent and record the results for just the individual reagent or for the entire lot.
+                li Passing a lot will only pass those of the same lot#, reagent type, vendor, and received date.  So, if you have reagents with the same lot#, vendor, and reagent type but
+                  - they were received on a different day, they will not be passed/failed, you will have to qc that shipment.  CLIA and CAP standards require this.
+
+        hr
+        div
+          class= horizontalFlex
+          div
+            vertical
+              text Reagent Type
+                screenLabel~ Reagent Type
+                value= {_:reagentType}
+                readonly=
+              container reagentId
+                acceptQueue~ any
+                value= {_recId}
+                readonly=
+                screenLabel~ Reagent ID
+                ### If something needs retesting, it will simply be re-queued to this step.
+                if~ {Test Status}
+                  advanced~
+                  equals~ Retest
+                  deleteQueue~ QC Reagent
+                  insertQueue~ QC Reagent
+                if~ {Test Status}
+                  advanced~
+                  equals~ Fail
+                  deleteQueue~ QC Reagent
+                if~ {Test Status}
+                  advanced~
+                  equals~ Pass
+                  deleteQueue~ QC Reagent
+
+            vertical
+              select Option
+                option For Lot
+                option For Individual
+              text lot
+                screenLabel~ Lot
+                class= required
+                required~ true
+                value= {_:lotNumber}
+              date receivedDate
+                dateFormat~ {_dateShortFormat}
+                convert~ false
+                class= date datePicker
+                screenLabel~ Received Date
+                value= {_:receivedDate}
+                readonly=
+              text vendorName
+                screenLabel~ Vendor
+                value= {_:vendorName}
+                readonly=
+              select Test Status
+                class= required
+                option
+                option Pass
+                option Fail
+                option Retest
+                required~ true
+              files qcFile
+                screenLabel~ Attach Files
+                destinationFolderName~ documents/QCFiles
+                required~ false
+                multiple=
+                containerId~ {reagentId}
+                fileType~ QC File
+              select steps
+                screenLabel~ Qualified Steps
+                class= required
+                required~ true
+                option *ALL*
+                option Specific Step Name
+              date expirationDate
+                dateFormat~ {_dateShortFormat}
+                class= date datePicker required
+                screenLabel~ Expiration Date
+                value= {_:formattedExpDate}
+                required~ true
+              comments Comments
+
+          div
+            table
+              caption All Other Reagents on queue of the same type, lot number, vendor, and received date
+              sqlPreparedQuery~
+                - SELECT
+                -   q.containerId AS "Reagent ID",
+                -   r.reagentType AS "Type",
+                -   r.lotNumber AS "Lot No",
+                -   r.receivedDate AS "Received Date",
+                -   r.vendor AS "Vendor"
+                - FROM queues q
+                -   INNER JOIN reagents r ON q.containerId = r.reagentId
+                - WHERE q.step = 'QC Reagent'
+                -   AND q.containerId IN (SELECT reagentId FROM reagents WHERE vendor = ? AND lotNumber = ?
+                -     AND receivedDate = ?
+                -     AND reagentType = ?)
+                -   AND q.containerId <> ?
+                - UNION
+                - SELECT
+                -   c.containerId as "Reagent ID",
+                -    r.reagentType as "Type",
+                -   r.lotNumber AS "Lot No",
+                -   r.receivedDate AS "Received Date",
+                -   r.vendor AS "Vendor"
+                -  FROM contents c
+                -  INNER JOIN reagents r on c.containerId = r.reagentId
+                -  WHERE c.content = ?
+                string {_:vendor}
+                string {_:lotNumber}
+                string {_:receivedDate}
+                string {_:reagentType}
+                string {_recId}
+                string {_recId}
+
+      sqlPreparedStatement
+        - INSERT INTO containerNotes (containerId, noteType, note, eventId)
+        - VALUES (?, 'QC Reagent', ?, ?)
+        string {reagentId}
+        string {Comments}
+        long {_eventId}
+
+      ## HAD TO OPEN THE REAGENT TO QC IT, SO IT GETS AN OPEN DATE HERE ##
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   QCDate = curDate(),
+        -   QCStatus = ?,
+        -   openDate = curDate(),
+        -   eventId = ?
+        - WHERE reagentId = ?
+        string {Test Status}
+        long {_eventId}
+        string {reagentId}
+
+      ## INSERTING QUALIFICATION RECORD(S) FOR INDIVIDUALLY PASSED REAGENT ##
+      ifCondition {Test Status}
+        advanced~
+        equals~ Pass
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -   ?,
+          -   'Reagent QC',
+          -   ?,
+          -   ?,
+          -   ?
+          - FROM reagents r
+          - WHERE r.reagentId = ?
+          -   AND ? = 'For Individual'
+          string {reagentId}
+          string {steps}
+          string {expirationDate}
+          long {_eventId}
+          string {reagentId}
+          string {Option}
+
+        ## INSERTING QUALIFICATION RECORD(S) FOR REAGENTS OF THE SAME LOT, TYPE, VENDOR, AND RECEIVED DATE ##
+        sqlPreparedStatement
+          - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+          - SELECT
+          -   r.reagentId,
+          -   'Reagent QC',
+          -   ?,
+          -   ?,
+          -   ?
+          - FROM reagents r
+          - WHERE r.lotNumber = ?
+          -   AND r.reagentType = ?
+          -   AND r.vendor = ?
+          -   AND r.receivedDate = ?
+          -   AND ? = 'For Lot'
+          -   AND r.status = 'Pending QC'
+          string {steps}
+          string {expirationDate}
+          long {_eventId}
+          string {lot}
+          string {Reagent Type}
+          string {vendor}
+          string {receivedDate}
+          string {Option}
+
+      sqlPreparedStatement
+        - DELETE FROM queues
+        - WHERE step = 'QC Reagent'
+        -   AND ? = 'For Lot'
+        -   AND ? in ('Pass', 'Fail')
+        -   AND containerId IN (select reagentId from reagents where lotNumber = ?
+        -     AND reagentType = ?
+        -     AND vendor = ?
+        -     AND receivedDate = ?)
+        string {Option}
+        string {Test Status}
+        string {lot}
+        string {Reagent Type}
+        string {vendor}
+        string {receivedDate}
+
+      ## DELETE FROM QUALIFICATIONS WHERE eventId <> eventId and Test Satus = Pass or Test Status = Fail ##
+      sqlPreparedStatement
+        - DELETE FROM qualifications
+        - WHERE containerId = ?
+        -   AND eventId <> ?
+        -   AND ? = 'For Individual'
+        -   AND ? in ('Pass', 'Fail')
+        string {reagentId}
+        long {_eventId}
+        string {Option}
+        string {Test Status}
+
+      sqlPreparedStatement
+        - DELETE FROM qualifications
+        - WHERE containerId IN (select reagentId from reagents where lotNumber = ?
+        -     AND reagentType = ?
+        -     AND vendor = ?
+        -     AND receivedDate = ?)
+        -   AND eventId <> ?
+        -   AND ? = 'For Lot'
+        -   AND ? in ('Pass', 'Fail')
+        string {lot}
+        string {Reagent Type}
+        string {vendor}
+        string {receivedDate}
+        long {_eventId}
+        string {Option}
+        string {Test Status}
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   QCDate = curDate(),
+        -   QCStatus = ?,
+        -   status = 'In Use',
+        -   eventId = ?
+        - WHERE lotNumber = ?
+        -   AND reagentType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?
+        -   AND status = 'Pending QC'
+        -   AND ? = 'Pass'
+        -   AND ? = 'For Lot'
+        string {Test Status}
+        long {_eventId}
+        string {lot}
+        string {Reagent Type}
+        string {vendor}
+        string {receivedDate}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   QCDate = curDate(),
+        -   QCStatus = ?,
+        -   status = 'Pending QC',
+        -   eventId = ?
+        - WHERE lotNumber = ?
+        -   AND reagentType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?
+        -   AND status = 'Pending QC'
+        -   AND ? = 'Retest'
+        -   AND ? = 'For Lot'
+        string {Test Status}
+        long {_eventId}
+        string {lot}
+        string {Reagent Type}
+        string {vendor}
+        string {receivedDate}
+        string {Test Status}
+        string {Option}
+
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   QCDate = curDate(),
+        -   QCStatus = ?,
+        -   status = 'Failed',
+        -   eventId = ?
+        - WHERE lotNumber = ?
+        -   AND reagentType = ?
+        -   AND vendor = ?
+        -   AND receivedDate = ?
+        -   AND status = 'Pending QC'
+        -   AND ? = 'Fail'
+        -   AND ? = 'For Lot'
+        string {Test Status}
+        long {_eventId}
+        string {lot}
+        string {Reagent Type}
+        string {vendor}
+        string {receivedDate}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   status = 'In Use',
+        -   QCStatus = ?,
+        -   eventId = ?
+        - WHERE reagentId = ?
+        -   AND status = 'Pending QC'
+        -   AND ? = 'Pass'
+        -   AND ? = 'For Individual'
+        string {Test Status}
+        long {_eventId}
+        string {reagentId}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   status = 'Pending QC',
+        -   QCStatus = ?,
+        -   eventId = ?
+        - WHERE reagentId = ?
+        -   AND status = 'Pending QC'
+        -   AND ? = 'Retest'
+        -   AND ? = 'For Individual'
+        string {Test Status}
+        long {_eventId}
+        string {reagentId}
+        string {Test Status}
+        string {Option}
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   status = 'Failed',
+        -   QCStatus = ?,
+        -   eventId = ?
+        - WHERE reagentId = ?
+        -   AND status = 'Pending QC'
+        -   AND ? = 'Fail'
+        -   AND ? = 'For Individual'
+        string {Test Status}
+        long {_eventId}
+        string {reagentId}
+        string {Test Status}
+        string {Option}
+
+####################################################################################################################################
+    step Dispose Reagent
+      jsScripts
+        src js/resources/disposeReagent.js
+      queueSelectRecId
+      form
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden dateLongFormat
+          id= dateLongFormat
+          value= {_dateLongFormat}
+        vertical
+          fieldset
+            legend Explanation
+            ul
+              li Scan in the reagent or Select the reagents that have been or are ready to be disposed.
+              li This will update the status of the reagent in the system so it is no longer counted as active inventory.
+        hr
+        vertical
+          text Dispose
+            acceptQueue~ any
+            screenLabel~ Scan Reagent to Dispose:
+            required~ false
+            class= barcodeBackground
+            validate~ ! select 1 from reagentHistory where reagentId = '{_thisInput}' and status = 'Disposed'
+              errorMessage~ This reagent has already been disposed.
+            validate~ select 1 from containers where containerId = '{_thisInput}' and containerType like 'Reagent%' OR '{_thisInput}' = ''
+              errorMessage~ This is not a known reagent.
+
+
+
+        hr
+        vertical
+          div
+            class= tabs
+            ul
+              li
+                a Select Reagent To Dispose
+                  href= #toDispose
+              li
+                a !!! View Recently Disposed by {_userId}
+                  href= #recentlyDisposed
+            div
+              id= toDispose
+              vertical
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   '' AS "Dispose",
+                    -   reagentId AS "Reagent",
+                    -   reagentType AS "Type",
+                    -   expirationDate AS "Exp Date",
+                    -   quantity AS "Quantity Left",
+                    -   unitOfMeasure AS "Units",
+                    -   status AS "Status"
+                    - FROM reagents
+                    - WHERE status IN ('In Use' , 'Pending QC', 'Failed')
+                    - ORDER BY reagentType, expirationDate
+                  columnSpecs~ dispose
+                    allowChangedRecordIds
+                    column 1
+                      inputType checkbox
+                    column 2
+                      inputType text
+                        readonly=
+                    column 3
+                      inputType select
+                        readonly=
+                    column 4
+                      inputType date
+                        readonly=
+                        formatDate~
+                        convert~ false
+                    column 5
+                      inputType number
+                        data-parsley-type= number
+                        size= 4
+                        readonly=
+            div
+              id= recentlyDisposed
+              vertical
+                table
+                  class= stdTableBasic
+                  sqlPreparedQuery~
+                    - SELECT DISTINCT
+                    -   ch.containerId AS "Reagent ID",
+                    -   e.userId AS "Disposed By",
+                    -   e.eventDate AS "Time",
+                    -   e.comments AS "Comments"
+                    - FROM containerHistory ch
+                    -   INNER JOIN events e ON ch.eventId = e.eventId
+                    - WHERE e.step = ?
+                    -   AND e.userId = ?
+                    -   AND e.eventDate > DATE_SUB(now(), INTERVAL 2 DAY)
+                    string {_step}
+                    string {_userId}
+
+          comments Comments
+
+
+
+      forRows dispose
+        ifCondition {_columnInput_dispose:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - UPDATE reagents SET
+            -   status = 'Disposed',
+            -   eventId = ?
+            - WHERE reagentId = ?
+            long {_eventId}
+            string {_columnInput_dispose:2}
+
+          sqlPreparedStatement
+            - DELETE FROM reagents
+            - WHERE reagentId = ?
+            string {_columnInput_dispose:2}
+
+          sqlPreparedStatement
+            - DELETE FROM qualifications
+            - WHERE containerId = ?
+            string {_columnInput_dispose:2}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_columnInput_dispose:2}
+            long {_eventId}
+
+          sqlPreparedStatement
+            - UPDATE inventoryItems SET
+            -   quantity = (quantity - ?)
+            - WHERE inventoryItem = ?
+            -   AND ? >= 0
+            float {_columnInput_dispose:5}
+            string {_columnInput_dispose:3}
+            float {_columnInput_dispose:5}
+
+      ifCondition {Dispose}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - UPDATE reagents SET
+          -   status = 'Disposed',
+          -   eventId = ?
+          - WHERE reagentId = ?
+          long {_eventId}
+          string {Dispose}
+
+        sqlPreparedStatement
+          - DELETE FROM reagents
+          - WHERE reagentId = ?
+          string {Dispose}
+
+        sqlPreparedStatement
+          - DELETE FROM qualifications
+          - WHERE containerId = ?
+          string {Dispose}
+
+        sqlPreparedStatement
+          - INSERT INTO containerHistory (containerId, eventId)
+          - VALUES (?, ?)
+          string {Dispose}
+          long {_eventId}
+
+####################################################################################################################################
+    step Resurrect Reagent
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          text Reagent ID
+      form
+        include userAccountInfo
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   reagentId,
+          -   reagentType,
+          -   catalogNo,
+          -   quantity,
+          -   unitOfMeasure,
+          -   lotNumber,
+          -   parentLot,
+          -   storageId,
+          -   vendor,
+          -   projectType,
+          -   costPerUnit,
+          -   poNumber,
+          -   receivedDate,
+          -   expirationDate,
+          -   openDate,
+          -   QCDate,
+          -   QCType,
+          -   QCStatus
+          - FROM reagentHistory
+          - WHERE reagentId = ?
+          - ORDER BY eventId DESC
+          - LIMIT 1
+          string {Reagent ID}
+
+        formPreparedQuery~
+          - SELECT
+          -   vendor AS "vendorName"
+          - FROM vendors
+          - WHERE vendorId = ?
+          string {_:vendor}
+          allowEmptyResults~
+
+        formQuery~ receivedDateFormatted
+          formatDate~
+          convertDateTime~ false
+          value= {_:receivedDate}
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+        formQuery~ openDateFormatted
+          formatDate~
+          convertDateTime~ false
+          value= {_:openDate}
+        formQuery~ QCDateFormatted
+          formatDate~
+          convertDateTime~ false
+          value= {_:QCDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden vendor
+          id= vendor
+          value= {_:vendor}
+
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li Check Information
+              li Date fields must be filled in
+        vertical
+          fieldset
+            legend Resurrect Reagent information
+              class= legend
+            vertical2
+              text reagent
+                screenLabel~ Reagent Id
+                value= {_:reagentId}
+              text type
+                screenLabel~ Reagent Type
+                value= {_:reagentType}
+                size= 50
+              text catalogNo
+                screenLabel~ Catalog #
+                value= {_:catalogNo}
+              number quantity
+                data-parsley-type= number
+                screenLabel~ Qty
+                size= 3
+                value= {_:quantity}
+              text units
+                screenLabel~ Units
+                value= {_:unitOfMeasure}
+              text lotNumber
+                screenLabel~ Lot
+                value= {_:lotNumber}
+              text parentLot
+                screenLabel~ Parent Lot
+                value= {_:parentLot}
+              text storageId
+                screenLabel~ Storage Id
+                value= {_:storageId}
+              text vendorName
+                value= {_:vendorName}
+                screenLabel~ Vendor
+              text projectType
+                value= {_:projectType}
+                screenLabel~ Project
+              text costPerUnit
+                screenLabel~ Cost/Unit
+                value= {_:costPerUnit}
+              text poNumber
+                screenLabel~ PO
+                value= {_:poNumber}
+              date receivedDate
+                convert~ false
+                class= date datePicker
+                required~ false
+                value= {_:receivedDateFormatted}
+                screenLabel~ Rec Date
+              date expirationDate
+                convert~ false
+                class= date datePicker
+                required~ false
+                value= {_:formattedExpDate}
+                screenLabel~ Exp Date
+              date openDate
+                convert~ false
+                class= date datePicker
+                required~ false
+                value= {_:openDateFormatted}
+                screenLabel~ Open Date
+              date QCDate
+                convert~ false
+                class= date datePicker
+                required~ false
+                screenLabel~ QC Date
+                value= {_:QCDateFormatted}
+              text QCType
+                screenLabel~ QC Type
+                value= {_:QCType}
+              text QCStatus
+                screenLabel~ QC Status
+                value= {_:QCStatus}
+              text status
+                screenLabel~ Status
+                value= In Use
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   reagentType = ?,
+        -   catalogNo = ?,
+        -   quantity = ?,
+        -   unitOfMeasure = ?,
+        -   lotNumber = ?,
+        -   parentLot = ?,
+        -   storageId = ?,
+        -   vendor = ?,
+        -   projectType = ?,
+        -   costPerUnit = ?,
+        -   poNumber = ?,
+        -   receivedDate = ?,
+        -   expirationDate = ?,
+        -   openDate = ?,
+        -   QCDate = ?,
+        -   QCType = ?,
+        -   QCStatus= ?,
+        -   status = ?,
+        -   eventId = ?
+        - WHERE reagentId = ?
+        string {type}
+        string {catalogNo}
+        float {quantity}
+        string {units}
+        string {lotNumber}
+        string {parentLot}
+        string {storageId}
+        string {vendor}
+        string {projectType}
+        float {costPerUnit}
+        string {poNumber}
+        string {receivedDate}
+        string {expirationDate}
+        string {openDate}
+        string {QCDate}
+        string {QCType}
+        string {QCStatus}
+        string {status}
+        long {_eventId}
+        string {reagent}
+
+      sqlPreparedStatement
+        - INSERT INTO reagents
+        - (reagentId, reagentType, catalogNo, quantity,
+        - unitOfMeasure, lotNumber, parentLot,
+        - vendor, projectType, costPerUnit, poNumber,
+        - receivedDate, expirationDate, openDate, QCDate, QCType, QCStatus, status, eventId)
+        - VALUES (?,?,?,?,?,?,?,?,?,?,?,
+        - (CASE WHEN ? = '' THEN NULL ELSE ? END),
+        - (CASE WHEN ? = '' THEN NULL ELSE ? END),
+        - (CASE WHEN ? = '' THEN NULL ELSE ? END),
+        - (CASE WHEN ? = '' THEN NULL ELSE ? END),
+        - ?,?,?,?)
+        string {reagent}
+        string {type}
+        string {catalogNo}
+        float {quantity}
+        string {units}
+        string {lotNumber}
+        string {parentLot}
+        string {vendor}
+        string {projectType}
+        float {costPerUnit}
+        string {poNumber}
+        string {receivedDate}
+        string {receivedDate}
+        string {expirationDate}
+        string {expirationDate}
+        string {openDate}
+        string {openDate}
+        string {QCDate}
+        string {QCDate}
+        string {QCType}
+        string {QCStatus}
+        string {status}
+        long {_eventId}
+
+      sqlPreparedStatement
+        - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+        - SELECT
+        -   ?,
+        -   'Reagent QC',
+        -   '*ALL*',
+        -   ?,
+        -   ?
+        - FROM dual
+        - WHERE ? > curDate()
+        string {reagent}
+        string {expirationDate}
+        long {_eventId}
+        string {expirationDate}
+
+      sqlPreparedStatement
+        - UPDATE inventoryItems SET
+        -   quantity = (quantity + ?)
+        - WHERE inventoryItem = ?
+        -   AND ? > 0
+        float {quantity}
+        string {type}
+        float {quantity}
+
+####################################################################################################################################
+    step Master Mix Definition
+      form
+        include stepInstructions
+        script
+          src= js/submitAsCreateNew.js
+        hidden showSubmit
+
+        fieldset
+          legend Explanation
+          ul
+            li Click on the link to view or modify record.
+            li Click 'Create New' to create a new record.
+
+        fieldset
+          legend Current Master Mixes
+          table
+            class= tablesorter
+            sqlQuery~ SELECT DISTINCT
+              - mm.code as 'MM Id'
+              - , mm.name as 'Name'
+              - , e.userId as 'Creator'
+              - FROM masterMixes mm
+              -   INNER JOIN events e on mm.eventId = e.eventId
+              - ORDER BY mm.name
+
+      form
+        include stepInstructions
+        script
+          src= js/resources/masterMixDefinition.js
+
+        formPreparedQuery~
+          - SELECT
+          -   id,
+          -   code,
+          -   name,
+          -   overagePercentage
+          - FROM masterMixes
+          - WHERE code = ?
+          - UNION
+          - SELECT '_NEW', '', '', '' FROM dual
+          string {_recId}
+
+        hidden mmId
+          id= mmId
+          value= {_:id}
+        hidden oldCode
+          id= oldCode
+          value= {_:code}
+        hidden oldName
+          value= {_:name}
+
+        fieldset
+          vertical
+            id= duplicateVertical
+            checkbox duplicate
+              id= duplicate
+              screenLabel~ Duplicate as New Master Mix Code
+          vertical
+            span *Master Mix Code can only be changed if duplicating as a new master mix.
+          vertical
+            text newCode
+              data-parsley-required= true
+              class= required
+              id= newCode
+              value= {_:code}
+              screenLabel~ Code
+              required= true
+              validate~ !
+                - SELECT 1
+                - FROM (
+                -  SELECT * FROM masterMixes as mm
+                -  WHERE mm.code = ? AND ? = '_NEW'
+                - ) as mmix
+                string {newCode}
+                string {mmId}
+                errorMessage~ This code already exists in the system and must be unique.
+            text newName
+              data-parsley-required= true
+              class= required
+              value= {_:name}
+              screenLabel~ Name
+              size= 40
+              required= true
+              validate~ !
+                - SELECT 1
+                - FROM (
+                -  SELECT * FROM masterMixes as mm
+                -  WHERE (mm.name = ? AND ? = '_NEW') OR (mm.name = ? AND mm.code <> ?)
+                - ) as mmix
+                string {newName}
+                string {mmId}
+                string {newName}
+                string {newCode}
+                errorMessage~ This Master Mix Name already exists in the system and must be unique.
+            number overagePercentage
+              value= {_:overagePercentage}
+              screenLabel~ Default Overage Percentage
+              validate~
+                - SELECT 1
+                - FROM dual
+                - WHERE (? >= 0 AND ? < 100)
+                -   OR ? = ''
+                float {overagePercentage}
+                float {overagePercentage}
+                float {overagePercentage}
+                errorMessage~ Overage percentage must be between 0 and 100.
+              span %
+
+        fieldset
+          legend Keywords
+          vertical2
+            select keyword
+              id= keywordCombobox
+              class= keywordCombobox
+              screenLabel~
+              option
+              sqlQuery~
+                - SELECT DISTINCT
+                -   keyword
+                - FROM masterMixKeywords
+            button addKeywordToTableButton
+              id= addKeywordToTableButton
+              value= Add Keyword
+              screenLabel~
+          vertical
+            table
+              id= keywords
+              sqlPreparedQuery~
+                - SELECT DISTINCT
+                -   '' AS "Delete"
+                -   , keyword AS "Keyword"
+                - FROM masterMixKeywords
+                - WHERE mmID = ?
+                string {_:id}
+              columnSpecs~ keywords
+                allowChangedRecordIds
+                column 1
+                  inputType checkbox
+                    class= keywordDelete
+                column 2
+                  inputType text
+                    class= keyword
+                    readonly=
+            button deleteKeywords
+              id= deleteKeywords
+              value= Delete Selected Keywords
+
+
+        fieldset
+          legend Instructions
+          table
+            id= instructionsTable
+            sqlPreparedQuery~
+              - SELECT * FROM (
+              - SELECT
+              -   '' AS "Delete",
+              -   `order` AS "Order",
+              -   instruction AS "Instruction"
+              - FROM masterMixInstructions
+              - WHERE mmId = ?
+              - UNION
+              - SELECT
+              -   '' AS "Delete",
+              -   '' AS "Order",
+              -   '' AS "Instruction"
+              - FROM dual
+              - WHERE NOT EXISTS (
+              -   SELECT 1 FROM masterMixInstructions
+              -   WHERE mmId = ?)
+              - ) x
+              - ORDER BY `order`
+              string {_:id}
+              string {_:id}
+            columnSpecs~ instructionsTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType select
+                  class= required
+                  required= true
+                  sqlQuery~ select no FROM numbers  order by no limit 30
+              column 3
+                inputType textArea
+                  class= required
+                  required= true
+                  cols= 50
+                  rows= 3
+          vertical2
+            button addInstructionsRow
+              id= instructions
+              value= Add New
+
+
+        fieldset
+          legend Reagents
+
+          table
+            id= reagentsTable
+            sqlPreparedQuery~
+              - SELECT
+              -   '' AS "Delete",
+              -   mmc.reagentType AS "Reagent",
+              -   mmc.amount AS "Amount",
+              -   ii.units AS "Units"
+              - FROM masterMixComponents mmc
+              -   INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+              -     AND ii.inventoryType IN ('Received Reagent', 'Prepared Reagent')
+              - WHERE mmc.mmId = ?
+              - UNION
+              - SELECT
+              -   '' AS "Delete",
+              -   '' AS "Reagent",
+              -   '' AS "Amount",
+              -   '' AS "Units"
+              - FROM dual
+              - WHERE NOT EXISTS (
+              -   SELECT 1 FROM masterMixComponents mmc
+              -     INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+              -       AND ii.inventoryType IN ('Received Reagent', 'Prepared Reagent')
+              -   WHERE mmc.mmId = ?)
+              string {_:id}
+              string {_:id}
+            columnSpecs~ reagentsTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType select
+                  class=  resourceSelect
+                  sqlQuery~
+                    - SELECT DISTINCT inventoryItem
+                    - FROM inventoryItems
+                    - WHERE inventoryType IN ('Received Reagent', 'Prepared Reagent')
+                    - ORDER BY inventoryItem
+              column 3
+                inputType text
+                  class= amount
+                  size= 4
+              column 4
+                inputType text
+                  class= units
+                  readonly=
+          vertical2
+            button addReagentRow
+              id= reagents
+              value= Add New
+
+
+        fieldset
+          legend Controls
+
+          table
+            id= controlsTable
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   '' AS "Delete",
+              -   mmc.reagentType AS "Control",
+              -   mmc.amount AS "Amount",
+              -   ii.units AS "Units"
+              - FROM masterMixComponents mmc
+              -   INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+              -     AND ii.inventoryType IN ('Received Control', 'Prepared Control')
+              - WHERE mmc.mmId = ?
+              - UNION
+              - SELECT
+              -   '' AS "Delete",
+              -   '' AS "Control",
+              -   '' AS "Amount",
+              -   '' AS "Units"
+              - FROM dual
+              - WHERE NOT EXISTS (
+              -   SELECT 1 FROM masterMixComponents mmc
+              -     INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+              -       AND ii.inventoryType IN ('Received Control', 'Prepared Control')
+              -   WHERE mmc.mmId = ?)
+              string {_:id}
+              string {_:id}
+            columnSpecs~ controlsTable
+              allowChangedRecordIds
+              column 1
+                inputType checkbox
+              column 2
+                inputType select
+                  class= resourceSelect
+                  sqlQuery~
+                    - SELECT DISTINCT inventoryItem
+                    - FROM inventoryItems
+                    - WHERE inventoryType IN ('Received Control', 'Prepared Control')
+                    - ORDER BY inventoryItem
+              column 3
+                inputType text
+                  class= amount
+                  size= 4
+              column 4
+                inputType text
+                  class= units
+                  readonly=
+          vertical2
+            button addControlRow
+              id= controls
+              value= Add New
+
+
+      ifCondition {mmId}
+        advanced~
+        equals~ _NEW
+        or~ {duplicate}
+          equals~ true
+        sqlPreparedStatement
+          - INSERT INTO masterMixes (code, name, overagePercentage, eventId)
+          - VALUES (?, ?, ?, ?)
+          string {newCode}
+          string {newName}
+          long {overagePercentage}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO containers (containerId, containerType, eventId)
+          - SELECT ?, 'masterMixId', ?
+          - FROM masterMixes WHERE eventId = ?
+          string {newCode}
+          long {_eventId}
+          long {_eventId}
+
+        sqlPreparedStatement
+          - INSERT INTO containerHistory (containerId, eventId)
+          - VALUE
+          - (
+          -   ?,
+          -   ?
+          - )
+          string {newCode}
+          long {_eventId}
+
+      setFormQueryResult
+        sqlQuery
+          -   SELECT
+          -     Id as "mmId"
+          -   FROM masterMixes
+          -   WHERE eventId = {_eventId}
+          - UNION
+          -   SELECT '{mmId}'
+
+      ifCondition {duplicate}
+        advanced~
+        equals~ false
+        sqlPreparedStatement DELETE FROM masterMixKeywords where mmId = ?
+          string {_:mmId}
+        sqlPreparedStatement DELETE FROM masterMixInstructions where mmId = ?
+          string {_:mmId}
+        sqlPreparedStatement DELETE FROM masterMixComponents where mmId = ?
+          string {_:mmId}
+        sqlPreparedStatement
+          - UPDATE masterMixes
+          - SET name = ?
+          - WHERE Id = ?
+          string {newName}
+          string {_:mmId}
+
+      forRows keywords
+        sqlPreparedStatement
+          - INSERT INTO masterMixKeywords (mmId, keyword, eventId)
+          - VALUES (?, ?, ?)
+          string {_:mmId}
+          string {_columnInput_keywords:2}
+          long {_eventId}
+
+      forRows instructionsTable
+        ifCondition~ {_columnInput_instructionsTable:1}
+          advanced~
+          not~
+            equals~ true
+          sqlPreparedStatement
+            - INSERT INTO masterMixInstructions (mmId, `order`, instruction, eventId)
+            - SELECT ?, ?, ?, ?
+            string {_:mmId}
+            string {_columnInput_instructionsTable:2}
+            string {_columnInput_instructionsTable:3}
+            long {_eventId}
+
+      forRows reagentsTable
+        ifCondition~ {_columnInput_reagentsTable:1}
+          advanced~
+          not~
+            equals~ true
+          sqlPreparedStatement
+            - INSERT INTO masterMixComponents (mmId, reagentType, amount, eventId)
+            - VALUES (?, ?, ?, ?)
+            string {_:mmId}
+            string {_columnInput_reagentsTable:2}
+            float {_columnInput_reagentsTable:3}
+            long {_eventId}
+
+      forRows controlsTable
+        ifCondition~ {_columnInput_controlsTable:1}
+          advanced~
+          not~
+            equals~ true
+          sqlPreparedStatement
+            - INSERT INTO masterMixComponents (mmId, reagentType, amount, eventId)
+            - VALUES (?, ?, ?, ?)
+            string {_:mmId}
+            string {_columnInput_controlsTable:2}
+            float {_columnInput_controlsTable:3}
+            long {_eventId}
+
+      validateSql
+        - SELECT mmId
+        - FROM masterMixInstructions
+        - WHERE mmId = ?
+        string {_:mmId}
+        errorMessage There must be at least one instruction associated with the master mix.
+      validateSql
+        - SELECT mmId
+        - FROM masterMixComponents
+        - WHERE mmId = ?
+        string {_:mmId}
+        errorMessage There must be at least one component in the master mix.
+      validateSql
+        - SELECT 1
+        - FROM dual
+        - WHERE (? = 'false') OR (? = 'true' and ? <> ? and ? <> ?)
+        string {duplicate}
+        string {duplicate}
+        string {oldCode}
+        string {newCode}
+        string {oldName}
+        string {newName}
+        errorMessage Duplicated master mix must have a new code AND a new name.
+
+####################################################################################################################################
+    step Lookup Reagent
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          text _recId
+            screenLabel~ Reagent ID
+            value= {_recId}
+            validate~
+              - SELECT 1
+              - FROM reagents
+              - WHERE reagentId = ?
+              string {_thisInput}
+              errorMessage~ This is not a valid reagent.
+      form
+        include userAccountInfo
+        include stepInstructions
+        script
+          src= js/resources/lookupReagents.js
+        formPreparedQuery~
+          - (SELECT
+          -   reagentId,
+          -   reagentType,
+          -   catalogNo,
+          -   vendor,
+          -   lotNumber,
+          -   receivedDate,
+          -   expirationDate,
+          -   openDate,
+          -   QCType,
+          -   QCStatus,
+          -   QCDate,
+          -   quantity,
+          -   unitOfMeasure,
+          -   thresholdUnits,
+          -   status,
+          -   threshold,
+          -   eventId
+          - FROM reagents
+          - WHERE reagentId = ?)
+          - UNION
+          - (SELECT
+          -   reagentId,
+          -   reagentType,
+          -   catalogNo,
+          -   vendor,
+          -   lotNumber,
+          -   receivedDate,
+          -   expirationDate,
+          -   openDate,
+          -   QCType,
+          -   QCStatus,
+          -   QCDate,
+          -   quantity,
+          -   unitOfMeasure,
+          -   thresholdUnits,
+          -   status,
+          -   threshold,
+          -   eventId
+          - FROM reagentHistory
+          - WHERE reagentId = ?
+          -  ORDER BY eventId desc)
+          - LIMIT 1
+          string {_recId}
+          string {_recId}
+          allowEmptyResults~
+
+        formPreparedQuery~
+          - SELECT
+          -   e.userId
+          - FROM events e
+          -   , reagents r
+          - WHERE r.eventId = e.eventId
+          -   AND r.reagentId = ?
+          - UNION
+          - SELECT ''
+          string {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        formQuery~ formattedExpDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        formQuery~ formattedReceivedDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:receivedDate}
+
+        formQuery~ formattedOpenDate
+          formatDate~
+          convertDateTime~ false
+          value= {_:openDate}
+
+        formQuery~ QCDateFormatted
+          formatDate~
+          convertDateTime~ false
+          value= {_:QCDate}
+
+        vertical
+          span Reagent {_:reagentId} is <b>{_:status}</b>
+        vertical
+          div
+            class= tabs
+            ul
+              li
+                a Reagent Details
+                  href= #rgtDetails
+              li
+                a Quality Control
+                  href= #quality
+              li
+                a Part of...
+                  href= #part
+              li
+                a Aliquots
+                  href= #aliquots
+              li
+                a Parent Reagent
+                  href= #parent
+              li
+                a History
+                  href= #history
+            div
+              id= rgtDetails
+              h3 Reagent Details
+              hidden reagentId
+                id= reagentId
+                value= {_:reagentId}
+              hidden reagentType
+                id= reagentType
+                value= {_:reagentType}
+
+              p
+              div
+                vertical2
+                  span <b>ID:</b> {_:reagentId}
+                  span <b>Type:</b> {_:reagentType}
+                  span <b>Catalog Number:</b> {_:catalogNo}
+                  span <b>Vendor:</b> {_:vendor}
+                  span <b>Lot:</b> {_:lotNumber}
+                  span <b>Received Date:</b> {_:formattedReceivedDate}
+                  span <b>Expiration Date:</b> {_:formattedExpDate}
+                  span <b>Open Date:</b> {_:formattedOpenDate}
+                  span <b>QC Type:</b> {_:QCType}
+                  span <b>QC Status:</b> {_:QCStatus}
+                  span <b>QC Date:</b> {_:QCDateFormatted}
+                  span <b>Quantity:</b> {_:quantity} {_:unitOfMeasure}
+                  span <b>Threshold:</b> {_:threshold} {_:thresholdUnits}
+                  span <b>Received By:</b> {_:userId}
+            div
+              id= quality
+              h3 Quality Control
+              vertical
+                span <b>Status:</b> {_:QCStatus}
+                span <b>QC Type:</b> {_:QCType}
+                span <b>Attached Files:</b>
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   CONCAT('<a href=/documents/QCFiles/', fileName,'>', fileName, '</a>') AS 'fileName'
+                    - FROM containerFiles
+                    - WHERE containerId = '{_recId}'
+                    -   AND fileType = 'QC File'
+
+
+            div
+              id= part
+              h3 Reagents Composed of This Reagent
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   id,
+                    -   containerId,
+                    -   attribute,
+                    -   contentType,
+                    -   content,
+                    -   eventId
+                    - FROM contents
+                    - WHERE content = '{_recId}'
+                    -   AND contentType = 'Component'
+              h3 Parent Reagent
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   id,
+                    -   containerId,
+                    -   attribute,
+                    -   contentType,
+                    -   content,
+                    -   eventId
+                    - FROM contents
+                    - WHERE containerId = '{_recId}'
+                    -   AND contentType = 'Parent Reagent'
+            div
+              id= aliquots
+              h3 Aliquots
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   id,
+                    -   containerId,
+                    -   attribute,
+                    -   contentType,
+                    -   content,
+                    -   eventId
+                    - FROM contents
+                    - WHERE content = '{_recId}'
+                    -   AND contentType = 'Parent Reagent'
+            div
+              id= parent
+              h3 Parent Reagent
+              vertical
+                table
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   id,
+                    -   containerId,
+                    -   attribute,
+                    -   contentType,
+                    -   content,
+                    -   eventId
+                    - FROM contents
+                    - WHERE containerId = '{_recId}'
+                    -   AND contentType = 'Parent Reagent'
+
+            div
+              id= history
+              h3 Mitogen History Usage
+              vertical
+                table
+                  class= stdTableBasic formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   rh.containerId AS "Reagent",
+                    -   e.step,
+                    -   DATE(e.eventDate) AS "Date",
+                    -   e.userId
+                    - FROM resourceHistory rh
+                    -   , events e
+                    - WHERE rh.eventId = e.eventId
+                    -   AND rh.containerId = ?
+                    string {_recId}
+              vertical
+                table
+                  class= stdTableBasic formatDateTable
+                  sqlPreparedQuery~
+                    - SELECT
+                    -   ch.containerId AS "Reagent",
+                    -   e.step,
+                    -   DATE(e.eventDate) AS "Date",
+                    -   e.userId
+                    - FROM containerHistory ch
+                    -   , events e
+                    - WHERE ch.eventId = e.eventId
+                    -   AND ch.containerId = ?
+                    string {_recId}
+
+####################################################################################################################################
+    step Lookup Lot Information
+      form
+        include stepInstructions
+        vertical
+          text Lot Number
+      form
+        script
+          src= js/dateFormatting.js
+        include stepInstructions
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        vertical
+          class= dashBlock
+          table
+            class= stdTable dateFormat
+            caption Lot Information by Reagent
+            sqlPreparedQuery~
+              - SELECT
+              -   r.reagentId AS 'ReagentID',
+              -   r.reagentType AS 'Type',
+              -   CONCAT(r.quantity, r.unitOfMeasure) AS 'Amount',
+              -   r.lotNumber AS 'Lot',
+              -   r.parentLot AS 'Parent',
+              -   r.vendor AS 'Vendor',
+              -   DATE(r.receivedDate) AS 'Received',
+              -   DATE(r.expirationDate) AS 'Expiration',
+              -   DATE(r.openDate) AS 'Opened',
+              -   r.QCType AS 'C/NC',
+              -   r.QCDate AS 'Qualified',
+              -   r.QCStatus AS 'QC Status',
+              -   r.status AS 'Reagent Status'
+              - FROM reagents r
+              - WHERE r.lotNumber = ?
+              string {Lot Number}
+        vertical
+          class= dashBlock
+          table
+            class= stdTableBasic dateFormat
+            caption Mitogen Container History
+            sqlPreparedQuery~
+              - SELECT
+              -   ch.containerId AS "Reagent",
+              -   e.step,
+              -   e.userId,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.comments
+              - FROM containerHistory ch
+              -   INNER JOIN reagents r ON r.reagentId = ch.containerId
+              -   INNER JOIN events e ON ch.eventId = e.eventId
+              - WHERE r.lotNumber = ?
+              string {Lot Number}
+          table
+            class= stdTableBasic dateFormat
+            caption Mitogen Resource History
+            sqlPreparedQuery~
+              - SELECT
+              -   rh.containerId AS "Reagent",
+              -   e.step,
+              -   e.userId,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.comments
+              - FROM resourceHistory rh
+              -   INNER JOIN reagents r ON r.reagentId = rh.containerId
+              -   INNER JOIN events e ON rh.eventId = e.eventId
+              - WHERE r.lotNumber = ?
+              string {Lot Number}
+
+####################################################################################################################################
+    step Lookup Parent Lot Information
+      form
+        include stepInstructions
+        vertical
+          text parent
+            screenLabel~ Parent Lot Number
+      form
+        script
+          src= js/dateFormatting.js
+
+        include stepInstructions
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          class= dashBlock
+          table
+            class= stdTable dateFormat
+            caption Reagents Associated With Parent Lot
+            sqlPreparedQuery~
+              - SELECT
+              -   r.reagentId AS 'ReagentID',
+              -   r.reagentType AS 'Type',
+              -   CONCAT(r.quantity, r.unitOfMeasure) AS 'Amount',
+              -   r.lotNumber AS 'Lot',
+              -   r.parentLot AS 'Parent',
+              -   r.vendor AS 'Vendor',
+              -   DATE(r.receivedDate) AS 'Received',
+              -   DATE(r.expirationDate) AS 'Expiration',
+              -   DATE(r.openDate) as 'Opened',
+              -   r.QCType AS 'C/NC',
+              -   DATE(r.QCDate) AS 'Qualified',
+              -   r.QCStatus AS 'QC Status',
+              -   r.status AS 'Reagent Status'
+              - FROM reagents r
+              - WHERE r.parentLot = ?
+              string {parent}
+
+        vertical
+          class= dashBlock
+          table
+            class= stdTableBasic dateFormat
+            caption Mitogen Container History
+            sqlPreparedQuery~
+              - SELECT
+              -   ch.containerId AS "Reagent",
+              -   e.step,
+              -   e.userId,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.comments
+              - FROM containerHistory ch
+              -   INNER JOIN reagents r ON r.reagentId = ch.containerId
+              -   INNER JOIN events e ON ch.eventId = e.eventId
+              - WHERE r.parentLot = ?
+              string {parent}
+          table
+            class= stdTableBasic dateFormat
+            caption Mitogen Resource History
+            sqlPreparedQuery~
+              - SELECT
+              -   rh.containerId AS "Reagent",
+              -   e.step,
+              -   e.userId,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.comments
+              - FROM resourceHistory rh
+              -   INNER JOIN reagents r ON r.reagentId = rh.containerId
+              -   INNER JOIN events e ON rh.eventId = e.eventId
+              - WHERE r.parentLot = ?
+              string {parent}
+
+####################################################################################################################################
+    step Edit Reagent Details
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          text Reagent
+            validate~
+              - SELECT 1
+              - FROM reagents
+              - WHERE reagentId = ?
+              string {_thisInput}
+              errorMessage~ This is not a valid reagent.
+
+
+      form
+        include userAccountInfo
+        include stepInstructions
+        formPreparedQuery~
+          - SELECT
+          -   reagentId,
+          -   reagentType,
+          -   v.vendorId,
+          -   v.vendor AS "vendorName",
+          -   lotNumber,
+          -   receivedDate,
+          -   expirationDate,
+          -   storageId,
+          -   IFNULL(quantity,'0') as 'quantity',
+          -   IFNULL(concentration, '') as 'concentration',
+          -   unitOfMeasure,
+          -   IFNULL(threshold,'0')as 'threshold',
+          -   thresholdUnits,
+          -   QCType,
+          -   QCStatus,
+          -   status
+          - FROM reagents r
+          -   LEFT JOIN vendors v on r.vendor = v.vendorId
+          - WHERE r.reagentId = ?
+          string {Reagent}
+          allowEmptyResults~
+        formPreparedQuery~
+          - SELECT
+          -   units AS "invUnits"
+          - FROM inventoryItems
+          - WHERE inventoryItem = ?
+          string {_:reagentType}
+          allowEmptyResults~
+        configurePreparedQuery~
+          - SELECT IFNULL(q.containerId, 'NotQueued') as 'queuedQC'
+          - FROM queues q
+          - WHERE q.step = 'QC Reagent' and q.containerId = ?
+          string {Reagent}
+          allowEmptyResults~
+          emptyResultDefault~
+            queuedQC= NotQueued
+        formQuery~ receivedDateFormatted
+          formatDate~
+          convertDateTime~ false
+          value= {_:receivedDate}
+        formQuery~ expirationDateFormatted
+          formatDate~
+          convertDateTime~ false
+          value= {_:expirationDate}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+        hidden ovendor
+          value= {_:vendorId}
+        hidden olotNumber
+          value= {_:lotNumber}
+        hidden orecDate
+          value= {_:receivedDateFormatted}
+        hidden oexpDate
+          value= {_:expirationDateFormatted}
+        hidden oQCType
+          value= {_:QCType}
+        hidden oQCStatus
+          value= {_:QCStatus}
+        hidden ostatus
+          value= {_:status}
+
+        vertical
+          fieldset
+            legend Instructions
+            ul
+              li Update reagent information
+              li Note: QC Status must be Pass or N/A in order for a reagent to be updated to an In Use status.
+
+        vertical
+          container Reagent
+            acceptQueue~ any
+            value= {Reagent}
+            readonly=
+            if~ {qualify}
+              advanced~
+              equals~ true
+              insertQueue~ QC Reagent
+          select Reagent Type
+            option {_:reagentType}
+            sqlQuery~
+              - SELECT
+              -   value
+              - FROM validValues
+              - WHERE setName IN ('Received Reagent', 'Prepared Reagent')
+
+        vertical
+          select Vendor
+            option {_:vendorName}
+              value= {_:vendorId}
+            sqlPreparedQuery~
+              - SELECT
+              -   vendor,
+              -   vendorId
+              - FROM vendors
+              - ORDER BY vendor ASC
+          text Lot Number
+            value= {_:lotNumber}
+          date Date Received
+            convert~ false
+            class= datePicker date
+            formatDate~ {_dateShortFormat}
+            value= {_:receivedDateFormatted}
+          date Expiration Date
+            convert~ false
+            class= datePicker date
+            formatDate~ {_dateShortFormat}
+            value= {_:expirationDateFormatted}
+          text Location
+            value= {_:storageId}
+          number Quantity
+            value= {_:quantity}
+            size= 6
+            select Unit
+              option {_:unitOfMeasure}
+              option {_:invUnits}
+          text Concentration
+            value= {_:concentration}
+            size= 6
+            screenLabel~ Concentration
+          text Threshold
+            value= {_:threshold}
+            size= 6
+            screenLabel~ Threshold
+            select threshUnit
+              option {_:invUnits}
+              screenLabel~
+          select QC Type
+            option {_:QCType}
+            option Critical
+            option Non-Critical
+          select QC Status
+            option {_:QCStatus}
+            option Pending
+            option Failed
+            option Retest
+            option N/A
+          select Status
+            screenLabel~ Reagent Status
+            option {_:status}
+            option In Use
+            option Pending QC
+            validate~
+              - SELECT 1
+              - FROM dual
+              - WHERE (? IN ('Pass', 'N/A') AND ? = 'In Use')
+              -   OR ? <> 'In Use'
+              string {QC Status}
+              string {Status}
+              string {Status}
+              errorMessage~ QC Status MUST be 'Pass' or 'N/A' in order for the reagent to be 'In Use'.  Please pass the reagent through QC Reagent or select 'N/A' from the QC Status drop-down.
+        div
+          configureIf~ {_:queuedQC}
+            advanced~
+            equals~ NotQueued
+          vertical
+            checkbox qualify
+              screenLabel~ Queue to QC Reagent
+
+     ## Check that the QC Type is critical before queuing to QC Reagent
+      ifCondition {qualify}
+        advanced~
+        equals~ true
+        validateSql select 1 from dual where ? = 'Critical'
+          string {QC Type}
+          errorMessage The reagent must be have a QC Type of Critical to be queued to QC Reagent.
+
+      ## Check that the original QC Type was Critical and then changed to Non-Critical and then delete from QC Reagent queue
+      ifCondition {oQCType}
+        advanced~
+        equals~ Critical
+        and~ {QC Type}
+          equals~ Non-Critical
+        sqlPreparedStatement
+          - DELETE FROM queues
+          -  WHERE step = 'QC Reagent'
+          - AND containerId = ?
+          string  {Reagent}
+
+
+
+      ## qc status and status update fields must be before lotNumber and qcType in the update query in order to work properly.
+
+      sqlPreparedStatement
+        - UPDATE reagents SET
+        -   reagentType = ?
+        -   ,vendor = ?
+        -   ,receivedDate = ?
+        -   ,storageId = CASE WHEN ? = '' THEN null ELSE ? END
+        -   ,expirationDate = ?
+        -   ,quantity = ?
+        -   ,concentration = ?
+        -   ,unitOfMeasure = ?
+        -   ,threshold = ?
+        -   ,thresholdUnits = ?
+        -   ,QCStatus = CASE WHEN ? = 'Critical' AND ? <> 'Critical' THEN 'Pending'
+        -                    WHEN ? = 'Critical' AND ? <> ? THEN 'Pending'
+        -                    WHEN ? = 'Non-Critical' THEN 'N/A'
+        -                    ELSE ? END
+        -   ,status = CASE WHEN ? = 'Critical' AND ? <> 'Critical' THEN 'Pending QC'
+        -                  WHEN ? = 'Critical' AND ? <> ? THEN 'Pending QC'
+        -                  WHEN ? = 'Non-Critical' THEN 'In Use'
+        -                  ELSE ? END
+        -   ,lotNumber = ?
+        -   ,QCType = ?
+        -   ,eventId = ?
+        - WHERE reagentId = ?
+        string {Reagent Type}
+        string {Vendor}
+        string {Date Received}
+        string {Location}
+        string {Location}
+        string {Expiration Date}
+        float {Quantity}
+        string {Concentration}
+        string {Unit}
+        float {Threshold}
+        string {threshUnit}
+        string {QC Type}
+        string {oQCType}
+        string {QC Type}
+        string {olotNumber}
+        string {Lot Number}
+        string {QC Type}
+        string {QC Status}
+        string {QC Type}
+        string {oQCType}
+        string {QC Type}
+        string {olotNumber}
+        string {Lot Number}
+        string {QC Type}
+        string {Status}
+        string {Lot Number}
+        string {QC Type}
+        long {_eventId}
+        string {Reagent}
+
+
+      sqlPreparedStatement
+        - UPDATE containers SET
+        -   expirationDate = ?
+        - WHERE containerId = ?
+        string {Expiration Date}
+        string {Reagent}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Critical
+        and~ {oQCType}
+          not~
+            equals~ Critical
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ select 1 from qualifications where containerId = ?
+            string {Reagent}
+          sqlPreparedStatement
+            - UPDATE qualifications SET
+            -   qualification = 'NEEDS QC'
+            -   , step = '*ALL*'
+            -   , expirationDate = DATE_ADD(curDate(), INTERVAL 60 DAY)
+            -   , eventId = ?
+            - WHERE containerId = ?
+            long {_eventId}
+            string {Reagent}
+          else
+            sqlPreparedStatement
+              - INSERT INTO qualifications (containerId, qualification, step, expirationDate, eventId)
+              - VALUES ( ?, 'NEEDS QC', '*ALL*', DATE_ADD(curDate(), INTERVAL 60 DAY), ? )
+            string {Reagent}
+            long {_eventId}
+
+      ifCondition {QC Type}
+        advanced~
+        equals~ Non-Critical
+        and~ {oQCType}
+          not~
+            equals~ Non-Critical
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 FROM qualifications WHERE containerId = ?
+            string {Reagent}
+          sqlPreparedStatement
+            - UPDATE qualifications SET
+            -   qualification = 'Reagent QC'
+            -   , step = '*ALL*'
+            -   , expirationDate = ?
+            -   , eventId = ?
+            - where containerId = ?
+            string {Expiration Date}
+            long {_eventId}
+            string {Reagent}
+          else
+            sqlPreparedStatement insert into qualifications (containerId, qualification, step, expirationDate, eventId)
+              - values (?, 'Reagent QC', '*ALL*', ?, ? )
+            string {Reagent}
+            string {Expiration Date}
+            long {_eventId}
+
+####################################################################################################################################
+    step View Reagent Associations
+      form
+        include stepInstructions
+        vertical
+          text Reagent ID
+      form
+        script
+          src= js/dateFormatting.js
+
+        include stepInstructions
+
+        formPreparedQuery~
+          - SELECT
+          -   reagentId,
+          -   reagentType,
+          -   catalogNo,
+          -   quantity,
+          -   quantityInside,
+          -   concentration,
+          -   unitOfMeasure,
+          -   threshold,
+          -   thresholdUnits,
+          -   lowerLimit,
+          -   upperLimit,
+          -   lotNumber,
+          -   parentLot,
+          -   vendor,
+          -   storageId,
+          -   projectType,
+          -   costPerUnit,
+          -   poNumber,
+          -   receivedDate,
+          -   expirationDate,
+          -   openDate,
+          -   QCDate,
+          -   QCType,
+          -   QCStatus,
+          -   status,
+          -   eventId
+          - FROM reagents
+          - WHERE reagentId = ?
+          string {Reagent ID}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          span Shown below are all containers, consumables, instruments, and other reagents
+            - that were submitted together with - {Reagent ID} ({_resultSet:reagentType}).
+
+        h3 Containers
+        vertical
+          table
+            class= stdTableBasic dateFormat
+            caption CONTAINER ASSOCIATIONS
+            sqlPreparedQuery~
+              - SELECT
+              -   ch.containerId,
+              -   co.containerType,
+              -   e.step,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.userId
+              - FROM resourceHistory rh
+              -   INNER JOIN containerHistory ch ON rh.eventId = ch.eventId
+              -   INNER JOIN containers co ON ch.containerId = co.containerId
+              -   INNER JOIN events e ON ch.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate desc
+              string {Reagent ID}
+
+        h3 Other Resources
+        vertical
+          table
+            class= stdTableBasic dateFormat
+            caption OTHER REAGENTS
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   r.reagentType,
+              -   e.step,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.userId
+              - FROM resourceHistory rh
+              -   INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              -   INNER JOIN reagents r ON rh2.containerid = r.reagentId
+              -   INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Reagent ID}
+        vertical
+          table
+            class= stdTableBasic dateFormat
+            caption INSTRUMENTS
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   i.instrumentType,
+              -   e.step,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.userId
+              - FROM resourceHistory rh
+              -   INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              -   INNER JOIN instruments i ON rh2.containerid = i.instrumentId
+              -   INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Reagent ID}
+        vertical
+          table
+            class= stdTableBasic dateFormat
+            caption CONSUMABLES
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   c.consumableType,
+              -   e.step,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.userId
+              - FROM resourceHistory rh
+              -   INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              -   INNER JOIN consumables c ON rh2.containerid = c.consumableId
+              -   INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Reagent ID}
+        vertical
+          table
+            class= stdTableBasic dateFormat
+            caption CONTROLS
+            sqlPreparedQuery~
+              - SELECT
+              -   rh2.containerId,
+              -   c.controlType,
+              -   e.step,
+              -   DATE(e.eventDate) AS "Date",
+              -   e.userId
+              - FROM resourceHistory rh
+              -   INNER JOIN resourceHistory rh2 ON rh.eventId = rh2.eventId
+              -   INNER JOIN controls c ON rh2.containerid = c.controlId
+              -   INNER JOIN events e ON rh2.eventId = e.eventId
+              - WHERE rh.containerId = ?
+              - ORDER BY e.eventDate DESC
+              string {Reagent ID}
+
+####################################################################################################################################
+####################################################################################################################################
+    stepGroup Reagent Ajax Steps
+    step Ajax Show Reagents Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelectList
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   value
+          - FROM validValues
+          - WHERE setName in ('Prepared Reagent', 'Received Reagent')
+          -   AND value LIKE ?
+          - LIMIT 10
+          string {name}%
+
+    step Ajax Check Reagent Qualification
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN (select step from qualifications where containerId = ? and qualification = 'Reagent QC' and expirationDate > curDate()) = '*ALL*'
+          -        THEN '*ALL*'
+          -        WHEN (select step from qualifications where containerId = ? and qualification = 'Reagent QC' and expirationDate > curDate()) = ?
+          -        THEN ? ELSE ?
+          -     END as 'step'
+          - FROM dual
+          string {containerId}
+          string {containerId}
+          string {thisStep}
+          string {thisStep}
+          string {containerId}
+
+    step Ajax Get Reagent Units
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   unitOfMeasure
+          - FROM reagents
+          - WHERE reagentId = ?
+          string {reagentId}
+
+    step Ajax Get Reagent Inventory Units
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   i.units
+          - FROM inventoryItems i
+          - WHERE inventoryItem = ?
+          string {inventoryType}
+
+    step Ajax Show Reagents to Reorder
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , expirationDate AS "Exp Date"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE DATEDIFF(curDate(), expirationDate) < 10
+          -   AND reagentType NOT LIKE '%Aliquot%'
+          -   AND volume <= threshold
+          -   AND status = 'In Use'
+        columnSpecs~ ajaxNeedingFormatting
+          column 4
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax Get Reagent Qualification
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   r.reagentId AS "containerId",
+          -   r.reagentType AS "type",
+          -   IFNULL(q.qualification, 'NOT QUALIFIED') AS "qualification",
+          -   r.expirationDate AS "expDate",
+          -   curDate() AS "todayDate"
+          - FROM reagents r
+          -   LEFT OUTER JOIN qualifications q ON r.reagentId = q.containerId
+          -     AND q.qualification = ?
+          -     AND q.expirationDate > curDate()
+          - WHERE r.reagentId = ?
+          - UNION
+          - SELECT '', '', '', '',''
+          string {qualification}
+          string {containerId}
+        columnSpecs~ ajaxNeedingFormatting
+          column 4
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 5
+            inputType date
+              class= date
+              readonly=
+
+    ### Ajax steps for "List Reagent Inventory" search fields
+    step Ajax_searchByReagentType
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        class= stdTableBasic
+        id= Ajax_searchByReagentType
+        caption Reagent Type Search Results
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , catalogNo AS "CatNo"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "Exp Date"
+          -   , QCStatus AS "QC Status"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE reagentType LIKE ?
+          -   AND status <> 'Disposed'
+          string %{value}%
+        columnSpecs~ ajaxNeedingFormatting
+          column 5
+            inputType date
+              class= date
+              readonly=
+          column 6
+            inputType date
+              class= date
+              readonly=
+
+    step Ajax_searchByCatalogNumber
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchByCatalogNumber
+        class= stdTableBasic
+        caption Catalog No. Search Results
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , catalogNo AS "CatNo"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "ExpDate"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE catalogNo LIKE ?
+          -   AND status <> 'Disposed'
+          - ORDER BY eventId DESC
+          - LIMIT 150
+          string %{value}%
+        columnSpecs~ ajaxNeedingFormatting
+          column 5
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 6
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_searchByLotNumber
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchByLotNumber
+        caption Lot Number Search Results
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , catalogNo AS "CatNo"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "Exp Date"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE lotNumber LIKE ?
+          -   AND status <> 'Disposed'
+          - LIMIT 150
+          string %{value}%
+        columnSpecs~ ajaxNeedingFormatting
+          column 5
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 6
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_searchByPONumber
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchByPONumber
+        caption PO Number Search Results
+        sqlPreparedQuery~
+          - SELECT
+          -   poNumber AS "PO#"
+          -   , reagentId AS "ReagentId"
+          -   , catalogNo AS "CatNo"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot#"
+          -   , projectType AS "Project"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "Exp Date"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE poNumber = ?
+          -   AND status <> 'Disposed'
+          - LIMIT 150
+          string {value}
+        columnSpecs~ ajaxNeedingFormatting
+          column 7
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 8
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_searchByProject
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_searchByProject
+        caption Project Search Results
+        sqlPreparedQuery~
+          - SELECT
+          -   projectType AS "Project"
+          -   , reagentId AS "ReagentId"
+          -   , catalogNo AS "CatNo"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "Exp Date"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE projectType LIKE ?
+          -   AND status <> 'Disposed'
+          - LIMIT 150
+          string %{value}%
+        columnSpecs~ ajaxNeedingFormatting
+          column 6
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 7
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    ### Ajax steps for "List Reagent Inventory" class= dashBlock
+    step Ajax_reagentsInUse
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_reagentsInUse
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "ExpDate"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE status = 'In Use'
+          - LIMIT 200
+        columnSpecs~ ajaxNeedingFormatting
+          column 4
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 5
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_reagentsAlmostExpired
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_reagentsAlmostExpired
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , catalogNo AS "CatNo"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , expirationDate AS "Exp Date"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE DATEDIFF(expirationDate, curDate()) <= 30
+          -   AND status <> 'Disposed'
+          - ORDER BY expirationDate ASC
+        columnSpecs~ ajaxNeedingFormatting
+          column 5
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_reagentsToQC
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_reagentsToQC
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   q.containerId AS "ReagentId"
+          -   , r.reagentType AS "Type"
+          -   , r.lotNumber AS "Lot"
+          -   , r.expirationDate AS "Exp Date"
+          -   , r.QCStatus AS "QCStatus"
+          -   , r.status AS "Status"
+          - FROM queues q
+          -   INNER JOIN reagents r ON r.reagentId = q.containerId
+          - where q.step = 'QC Reagent'
+        columnSpecs~ ajaxNeedingFormatting
+          column 4
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_reagentsToQCSoon
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_reagentsToQCSoon
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   q.containerId AS "ReagentId"
+          -   , DATE(q.expirationDate) AS "QC Exp Date"
+          -   , r.reagentType AS "Type"
+          -   , r.lotNumber AS "Lot"
+          -   , r.expirationDate AS "RGT Exp Date"
+          - FROM qualifications q
+          -   INNER JOIN reagents r ON q.containerId = r.reagentId
+          - WHERE q.qualification = 'NEEDS QC'
+          -   AND (q.expirationDate >= curDate() AND
+          -        q.expirationDate <= DATE_ADD(curDate(), INTERVAL 5 DAY))
+          - ORDER BY q.expirationDate ASC
+        columnSpecs~ ajaxNeedingFormatting
+          column 2
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 5
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step Ajax_problemReagents
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= Ajax_problemReagents
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   reagentId AS "ReagentId"
+          -   , reagentType AS "Type"
+          -   , lotNumber AS "Lot"
+          -   , receivedDate AS "Received"
+          -   , expirationDate AS "ExpDate"
+          -   , QCStatus AS "QCStatus"
+          -   , status AS "Status"
+          - FROM reagents
+          - WHERE QCStatus IN ('Fail', 'Retest')
+          -   AND status <> 'Disposed'
+        columnSpecs~ ajaxNeedingFormatting
+          column 4
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+          column 5
+            inputType date
+              convert~ false
+              class= date
+              readonly=
+
+    step AJAX_GetMasterMixComponents
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   ifnull(mmc.reagentType, '') AS "reagentType",
+          -   ifnull(mmc.amount, '') AS "amount",
+          -   ifnull(ii.units, '') AS "units",
+          -   ifNull(mm.overagePercentage, 0) AS "overagePercentage",
+          -   ifNull(ii.inventoryType, '') AS "inventoryType"
+          - FROM masterMixComponents mmc
+          -   INNER JOIN masterMixes mm ON mmc.mmId = mm.id
+          -   INNER JOIN inventoryItems ii ON mmc.reagentType = ii.inventoryItem
+          - WHERE mm.Id = ?
+          string {masterMixId}
+
+
+
+    step AJAX_GetMasterMixInstructions
+      allowUnsafeParameters~
+      class uniflow.AjaxJSONObjects
+      jython
+        import json
+        import java.lang.StringBuilder
+        import com.uniconnect.uniflow.TabularDataGenerator
+        import com.uniconnect.uniflow.Node
+
+        myJSON = r'''{masterMixList}'''.encode("utf-8")
+        switchboard.log(str(myJSON))
+        myJSON = json.loads(myJSON)
+
+        tbl = com.uniconnect.uniflow.Node("table")
+        sqlNode = tbl.add(jythonNode.parent.get("sqlPreparedQuery~").makeClone())
+
+        sqlData = "SELECT distinct mm.code AS 'Master Mix Code',"
+        sqlData += " group_concat(concat(mmi.`order`, '. ', mmi.instruction) SEPARATOR '<br>') AS 'Instructions',"
+        sqlData += "'No Volumes Calculated' AS 'Per Sample',"
+        sqlData += "'No Volumes Calculated' AS 'Total Reagent Volumes',"
+        sqlData += " mm.Id AS 'mmId' "
+        sqlData += "FROM masterMixInstructions mmi "
+        sqlData += "INNER JOIN masterMixes mm ON mmi.mmId = mm.Id "
+        sqlData += " WHERE mm.id IN ("
+
+        firstParm = True
+        for parm in myJSON:
+          switchboard.log(str(parm))
+
+          if firstParm == False:
+            sqlData += ", ?"
+          else:
+            sqlData += "?"
+          sqlNode.add("string", parm)
+          firstParm = False
+
+        sqlData += ") "
+        sqlData += "GROUP BY mm.id "
+        sqlData += "ORDER BY mm.code, mmi.`order`"
+        switchboard.log(str(sqlData))
+        sqlNode.value = sqlData
+        switchboard.log(str(tbl))
+        sb = java.lang.StringBuilder(150*30)
+        sb.append("[")
+        tdg = com.uniconnect.uniflow.TabularDataGenerator()
+        tdg.generateTableData(tbl, sb, switchboard)
+        sb.append("]")
+        switchboard.out.print(sb.toString());
+        switchboard.out.close();
+      sqlPreparedQuery~ SELECT 1 AS "empty"
+
+
+

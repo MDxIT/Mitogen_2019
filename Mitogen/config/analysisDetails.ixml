@@ -1,0 +1,90 @@
+config
+  steps
+
+    stepGroup Analysis Details
+
+    step Analysis Details
+
+      form
+        include stepInstructions
+        vertical
+
+          container batchId
+            screenLabel~ Batch ID
+
+          select methodName
+            screenLabel~ Select Method
+            sqlPreparedQuery~
+              - SELECT DISTINCT
+              -   methodName
+              - FROM analysisDataDefinition adef
+              - INNER JOIN analysisMethodVersions mev
+              - ON adef.analysisMethodVersionsId = mev.id
+              - INNER JOIN analysisMethods am
+              - ON mev.analysisMethodsId = am.id
+              - WHERE adef.stepName = ?
+              string {_step}
+
+          select details1
+            setName~ analysisDetails
+            required~ false
+          select details2
+            setName~ analysisDetails
+            required~ false
+          select details3
+            setName~ analysisDetails
+            required~ false
+          select details4
+            setName~ analysisDetails
+            required~ false
+          select details5
+            setName~ analysisDetails
+            required~ false
+          select details6
+            setName~ analysisDetails
+            required~ false
+
+      form
+        include stepInstructions
+
+        script
+          src= js/analysis.js
+
+        hidden stepName
+          id= stepName
+          value= {_step}
+
+        hidden containerLabel
+          id= containerLabel
+          value= Sample Id
+
+        hidden analysisResultSet
+          id= analysisResultSet
+          value= analysisResults
+
+        div
+          class= hideDiv
+          select overallResultOptions
+            setName~ analysisResults
+            required~ false
+            id= overallResultOptions
+
+        vertical
+          container batchId
+            screenLabel~ Batch ID
+            id= parentId
+            value= {batchId}
+            readonly=
+            deleteQueue~ {_step}
+
+          text methodName
+            screenLabel~ Analysis Method
+            value= {methodName}
+            readonly=
+            id= methodName
+
+        div
+          id= errorBox
+
+        div
+          id= analysisDataTableDiv

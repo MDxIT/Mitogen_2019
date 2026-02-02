@@ -1,0 +1,24 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        vertical
+          text Text1
+            value= [$$Plate_Select$$]
+
+          text Text2
+            value= [$$Plate_Comments$$]
+
+          text Text3
+            value= [$$PLATE_Comment_History$$]
+
+          text Text4
+            value= [$$routing_option$$]
+
+          text Text5
+            value= [$$Sample_Comments$$]
+
+          text Text6
+            value= [$$destination_Sample_routing$$]
+
+          text Text7
+            value= [$$sample_comment_history$$]

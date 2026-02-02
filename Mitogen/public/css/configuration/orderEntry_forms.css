@@ -1,0 +1,121 @@
+/* Header  CSS */
+.formHeaderTable{
+  width: 100%;
+}
+
+.lastOfAccordionSection {
+  background-color:transparent;
+  width:0px;
+  border:0 ! important;
+}
+
+.hideDiv {
+  display:none;
+}
+
+.formHeader {
+  background-color: #f2f4f9;
+  color: #444;
+  width: 200px;
+  height: 45px;
+  border: solid;
+  border-color: black;
+  border-width: 1px;
+  border-radius: 7px;
+  vertical-align: middle
+}
+
+.formHeaderLabels {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.formHeader {
+  background-color: #f2f4f9;
+  color: #444;
+  width: 200px;
+  height: 45px;
+  border: solid;
+  border-color: black;
+  border-width: 1px;
+  border-radius: 7px;
+  vertical-align: middle
+}
+
+
+.formHeaderInfo {
+  text-align: center;
+  width: 200px;
+  height: 45px;
+  margin-top: 0px;
+  vertical-align: middle;
+}
+
+/* Button CSS*/
+.formButtonLabel {
+  text-align: center;
+  width: 150px;
+  height: 25px;
+  margin-top: 0px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.formButton {
+  background-color: #eee;
+  color: #444;
+  width: 150px;
+  height: 25px;
+  border-radius: 7px;
+  vertical-align: middle;
+  cursor: pointer;
+  text-align: right;
+}
+
+.formButton:hover {
+  background-color: #ccc;
+}
+
+.hiddenOnLoad {
+  display:none;
+}
+
+/*#stepFormSubmitButton {
+  display:none;
+}*/
+
+.drugSelection {
+  width: 30%;
+  float: left;
+}
+
+.newborn {
+  width: 45%;
+  float: left;
+}
+
+
+.patientInfoLink{
+  font-size:13px;
+  text-decoration:none;
+  color: #1F2025;
+}
+
+#patientOrderHistory a, .patientInfoLink a {
+  text-decoration: none;
+  font-weight:400;
+}
+
+#patientOrderHistory a:hover, .patientInfoLink a:hover {
+  text-decoration: underline;
+}
+
+.emptyPatientHist{
+  text-align:center;
+}
+
+.userInfoMsg{
+  color:#1976D2 ;
+  font-size: 14px;
+  padding-top: 2px;
+}

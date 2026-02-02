@@ -1,0 +1,1187 @@
+config
+  steps
+    step View HL7 Processing Errors
+      form
+        vertical
+          table
+            sqlPreparedQuery~ SELECT '' as "Redmediation Action", remediationComment as "Remediation Comment", id,
+              - fileName as "File Name", orignalPath as "Original Path", failPath as "Fail Path",
+              - exceptionText as "Exception Text", failTimeStamp as "Fail Time Stamp", failEventId as "Fail Event Id"
+              - FROM hl7Failures WHERE remediated = b'0'
+            columnSpecs~ hl7
+              allowChangedRecordIds
+              column 1
+                inputType select
+                  option
+                    value=
+                  option Re-Process
+                    value= RP
+                  option Don't Re-Process
+                    value= DNR
+              column 2
+                inputType textArea
+              column 3
+                inputType text
+                  readonly=
+              column 4
+                inputType textArea
+                  readonly=
+              column 5
+                inputType textArea
+                  readonly=
+              column 6
+                inputType textArea
+                  readonly=
+              column 7
+                inputType textArea
+                  readonly=
+              column 8
+                inputType text
+                  readonly=
+              column 9
+                inputType text
+                  readonly=
+
+      forRows hl7
+        ifCondition {_columnInput_hl7:1}_BLANK == RP_BLANK
+          jython
+            import os
+            import shutil
+            import sys
+            from com.uniconnect.uniflow.exception import SystemException
+            import com.uniconnect.uniflow as uniflow
+            import sys
+            from datetime import datetime
+            from java.sql import SQLException
+
+            try:
+              hl7 = "{_columnInput_hl7:6}"
+              hl7New = "{_columnInput_hl7:5}/{_columnInput_hl7:4}"
+
+              switchboard.log(hl7)
+              switchboard.log(hl7New)
+              switchboard_temp = uniflow.Switchboard()
+              remediateSQL = "UPDATE hl7Failures SET remediated = b'1', remediationComment = ?, remediationPath = ?, remediationEventId = ? WHERE id = ?"
+              remediateStatement = switchboard_temp.connection.prepareStatement(remediateSQL)
+              remediateStatement.setString(1, "{_columnInput_hl7:2}")
+              remediateStatement.setString(2, hl7New)
+              remediateStatement.setLong(3, {_eventId})
+              remediateStatement.setInt(4, {_columnInput_hl7:3})
+              remediateStatement.executeUpdate()
+              switchboard_temp.connection.commit()
+
+              shutil.move(hl7, hl7New)
+            except Exception as e:
+              switchboard.log(e.message)
+
+        ifCondition {_columnInput_hl7:1}_BLANK == DNR_BLANK
+          jython
+            import os
+            import shutil
+            import sys
+            from com.uniconnect.uniflow.exception import SystemException
+            import com.uniconnect.uniflow as uniflow
+            import sys
+            from datetime import datetime
+            from java.sql import SQLException
+
+            try:
+              hl7 = "{_columnInput_hl7:6}"
+              fileGrave = "{_configPath}private/hl7/done/{_columnInput_hl7:4}"
+              switchboard.log(hl7)
+              switchboard.log(fileGrave)
+              switchboard_temp = uniflow.Switchboard()
+              remediateSQL = "UPDATE hl7Failures SET remediated = b'1', remediationComment = ?, remediationPath = ?, remediationEventId = ? WHERE id = ?"
+              remediateStatement = switchboard_temp.connection.prepareStatement(remediateSQL)
+              remediateStatement.setString(1, "{_columnInput_hl7:2}")
+              remediateStatement.setString(2, fileGrave)
+              remediateStatement.setLong(3, {_eventId})
+              remediateStatement.setInt(4, {_columnInput_hl7:3})
+              remediateStatement.executeUpdate()
+              switchboard_temp.connection.commit()
+              shutil.move(hl7, fileGrave)
+
+            except Exception as e:
+              switchboard.log(e.message)
+
+
+  # Process incomging HL7 orders
+  # default source path: /sftp/sunquest/incoming
+  timerTask IncomingHL7
+    intervalSeconds 60
+    conditionalTransactionInstructions
+      jython
+        import glob
+        import os
+        import shutil
+
+        srcPath = "/sftp/sunquest/incoming"
+        dirList = glob.glob("%s/ORM.*" % srcPath)
+        dirList.extend(glob.glob("%s/*.hl7" % srcPath))
+        destPath = "{_configPath}private/hl7/incoming"
+        if not os.path.exists(destPath):
+          os.makedirs(destPath)
+
+        hl7Files = []
+        if dirList:
+          for filepath in dirList:
+            fn = os.path.basename(filepath)
+            dst = "%s/%s" % (destPath, fn)
+            shutil.copyfile(filepath, dst)
+            if os.path.exists(dst):
+              os.remove(filepath)
+
+        destDirList = glob.glob("%s/ORM.*" % destPath)
+        destDirList.extend(glob.glob("%s/*.hl7" % destPath))
+        if destDirList:
+          for filepath in destDirList:
+            fn = os.path.basename(filepath)
+            dst = "%s/%s" % (destPath, fn)
+            hl7Files.append(dst)
+
+          switchboard.log('\n'.join(hl7Files))
+          switchboard.isUpdateTransaction = True
+    jython
+      from com.uniconnect.uniflow.exception import SystemException
+      import com.uniconnect.uniflow as uniflow
+      import sys
+      from datetime import datetime
+      from java.sql import SQLException
+
+      donePath = "{_configPath}private/hl7/done"
+      if not os.path.exists(donePath):
+        os.makedirs(donePath)
+      failedPath = "{_configPath}private/hl7/failed"
+      if not os.path.exists(failedPath):
+        os.makedirs(failedPath)
+
+      potentialSpecimens = []
+
+
+      def addFieldVal(parent, fieldName, value):
+        value = value if value is not None else ''
+        parent.add(fieldName, value)
+
+      def addFields(parent, dataFields, fieldNames, delim='|'):
+        fields = fieldNames.split(delim)
+        if fields[0] != dataFields[0]:
+          return
+
+        specimenIdSuffix = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+        global dg1Index
+
+        for i in range(1, len(fields)):
+          if len(fields[i]) > 0:
+            if len(dataFields) < i + 1:
+              val = ''
+            else:
+              if fields[i] in ['patientDob', 'in1InsuredDOB']:
+                val = datetime.strptime(dataFields[i], '%Y%m%d').strftime('%Y-%m-%d')
+              elif fields[i] in ['obrSpecimenDate', 'spmSpecimenCollectionDate', 'obrDateTime'] and dataFields[i]:
+                valDateTime = datetime.strptime(dataFields[i], '%Y%m%d%H%M%S')
+                addFieldVal(parent, fields[i]+'_time',valDateTime.strftime('%H:%M:%S'))
+                val = valDateTime.strftime('%Y-%m-%d')
+              elif fields[i] in ['spmSpecimenId', 'obrPlacerId']:
+                sqlSelectSpecimen = "SELECT containerId FROM contents WHERE containerId LIKE ? AND attribute = ? UNION DISTINCT SELECT containerid FROM queues WHERE containerId LIKE ? AND step = ?"
+                ps = switchboard.connection.prepareStatement(sqlSelectSpecimen)
+                ps.setString(1, dataFields[i] + "%")
+                ps.setString(2, "self")
+                ps.setString(3, dataFields[i] + "%")
+                ps.setString(4, "Receive Specimens")
+                switchboard.resultSet = ps.executeQuery()
+                while switchboard.resultSet.next():
+                  potentialSpecimens.append(switchboard.resultSet.getString(1))
+                if dataFields[i] not in potentialSpecimens:
+                  val = dataFields[i]
+                  potentialSpecimens.append(dataFields[i])
+                else:
+                  for sf in specimenIdSuffix:
+                    s = dataFields[i] + "-" + sf
+                    if s not in potentialSpecimens:
+                      val = s
+                      potentialSpecimens.append(s)
+                      break
+              elif fields[i] == 'nteComment':
+                val = dataFields[i].decode("utf-8")
+                if val.startswith("MEDICATIONS:"):
+                  medications = val.replace("MEDICATIONS:", "").strip()
+                  addFieldVal(parent, "medications", medications)
+                  val = ''
+              elif fields[i] == 'icdCount':
+                val = str(dg1Index)
+                dg1Index += 1
+              else:
+                val = dataFields[i]
+            addFieldVal(parent, fields[i], val)
+
+      def addSecondaryFields(parent, secondaryField, fieldNames):
+        addFields(parent, ('placeHolder^' + secondaryField).split('^'), 'placeHolder^' + fieldNames, '^')
+
+
+      if hl7Files:
+        for hl7 in hl7Files:
+
+          isProcessed = False
+          switchboard_temp = uniflow.Switchboard()
+          didInstructions = False
+          exceptionMessage = "File not processed"
+
+          try:
+            dg1Index = 1
+            if os.path.exists(hl7):
+              hl7Done = "%s/%s" % (donePath, os.path.basename(hl7))
+              hl7Failed = "%s/%s" % (failedPath, os.path.basename(hl7))
+              isProcessed = True
+
+              specimenSegment = "OBR"
+              with open(hl7, 'rUb') as infile:
+                for line in infile:
+                  if line.startswith("SPM"):
+                    specimenSegment = "SPM"
+                    break
+
+              hl7Tree = uniflow.Node("HL7","")
+              with open(hl7, 'rUb') as f:
+                for line in f:
+                  try:
+                    switchboard.log('LINE: ' + line)
+                    isProcessed = True
+
+                    fields = line.strip().split('|')
+                    if fields[0] == 'MSH':
+                      if fields[8] != "ORM^O01":
+                        exceptionMessage = "Wrong message type for %s, expected: ORM^O01, received: %s" % (os.path.basename(hl7), fields[8])
+                        isProcessed = False
+                        break
+                      mshNode = hl7Tree.add("MSH","")
+                      addFields(mshNode, fields, 'MSH|encoding|mshSendingApp|mshSendingFacility|receivingApp|receivingFacility|messageDate||messageType|messageControlId|processingId|versionId|')
+                      mshNode.add("messageSpecimenSegment", specimenSegment)
+                    if fields[0] == 'PID':
+                      pidNode = hl7Tree.add("PID","")
+                      addFields(pidNode, fields, 'PID|1|patientPlacerId|||||patientDob|patientGender||patientRace||patientCountryCode|patientPhone1|patientPhone2|patientLanguage|patientMarital|patientReligion|patientAccountNumber|patientSSN||||||||||')
+                      #repeatable pid.3 field. This is fine for now, but when handling ADT messages, many MRNs could be passed
+                      for rep in fields[3].split('~'):
+                        # need to make this use the hl7configuration value
+                        if 'SQID' in rep:
+                          addSecondaryFields(pidNode,rep,'sqid^^^sqidAssigningAuthority^sqidType^')
+                        else:
+                          addSecondaryFields(pidNode.parent,rep,'mrn^^^^mrnType^mrnFacility')
+                      addSecondaryFields(pidNode, fields[5],  'patientLast^patientFirst^patientMiddle^patient4^patient5')
+                      addSecondaryFields(pidNode, fields[11], 'address1^address2^city^state^postalCode')
+                    if fields[0] == 'PV1':
+                      pv1Node = hl7Tree.add("PV1","")
+                      addFields(pv1Node, fields, 'PV1|1|patientLocation||||||||||||||||eventType^modifier||||||||||||||||||||||||||admitTimeDate||||||||')
+                      addSecondaryFields(pv1Node, fields[7], 'npi^physicianLast^physicianFirst')
+                      addSecondaryFields(pv1Node, fields[8], 'npi2^physicianLast2^physicianFirst2')
+                    if fields[0] == 'IN1':
+                      in1Node = hl7Tree.add("IN1","")
+                      addFields(in1Node, fields, 'IN1|in1SetId|in1PlanId|in1CompanyId|in1CompanyName|||in1CompanyPhone|in1GroupNumber|||||||in1PlanType||in1InsuredRelationship|in1InsuredDOB|||||||||||||in1AgreementCode|||||in1PolicyNumber|||||||in1InsuredSex|')
+                      addSecondaryFields(in1Node, fields[5], 'insurerAddress1^insurerAddress2^insurerCity^insurerState^insurerPostalCode^insurerCountry')
+                      addSecondaryFields(in1Node, fields[16], 'insuredLastName^insuredFirstName^insuredMiddleName')
+                    if fields[0] == 'ORC':
+                      orcNode = hl7Tree.add("ORC","")
+                      addFields(orcNode, fields, 'ORC|orderControl|placerOrderNumber||placerGroupNumber|||||||orderedBy|||orderedByPhone||||||||||')
+                      if len(fields) > 11:
+                        addSecondaryFields(orcNode, fields[12], 'npi^physicianLast^physicianFirst^physicianMiddle')
+                      if len(fields) > 20:
+                        addSecondaryFields(orcNode, fields[21], 'orderFacilityCode^orderFacilityName')
+                        addSecondaryFields(orcNode.parent, fields[21], 'orderFacilityCode^orderFacilityName') # need access to this data in the PID processing section
+                    if fields[0] == 'OBR':
+                      obrNode = hl7Tree.add("OBR","")
+                      #addFields(obrNode, fields, 'OBR|obrSetId|obrPlacerId|||||obrDateTime|||collectorIdentifier|specimenActionCode|||specimenDate|obrSpecimenSource||||placeHolderField2||||||||||||||||||')
+                      addFields(obrNode.parent, fields, 'OBR|obrSetId|obrPlacerId|||||obrSpecimenDate|||collectorIdentifier|specimenActionCode|||obrSpecimenDate|obrSpecimenSource||||placeHolderField2||||||||||||||||||')
+                      addSecondaryFields(obrNode, fields[4], 'testCode1^testName1')
+                    if fields[0] == 'SPM':
+                      obrNode = hl7Tree.add("SPM","")
+                      addFields(obrNode, fields, 'SPM|spmId|spmSpecimenId||spmSpecimenType|||||||||||||spmSpecimenCollectionDate||||||||||spmSpecimenContainerType')
+                    if fields[0] == 'DG1':
+                      dg1Node = hl7Tree.add("DG1","")
+                      addFields(dg1Node, fields, 'DG1|icdCount|||diagDesc||||||||||||||||')
+                      addSecondaryFields(dg1Node, fields[3], 'diagCode^diagText^diagSystem')
+                    if fields[0] == 'NTE':
+                      nteNode = hl7Tree.add("NTE", "")
+                      addFields(nteNode, fields, 'NTE|||nteComment|')
+                  except uniflow.exception.SystemException as e:
+                    isProcessed = False
+                    switchboard.log("*** UNIFlow SystemException processing message: " + str(e.message))
+                    continue
+                  except Exception as e:
+                    isProcessed = False
+                    switchboard.log("*** Exception processing message: " + str(e.message))
+                    continue
+
+              if isProcessed:
+
+                switchboard.log(hl7Tree.toString())
+
+                responseInstructions = jythonNode.parent.getByTagAndValue('responseInstructions', 'handler1')
+
+                switchboard_temp.isUpdateTransaction = True
+                switchboard_temp.resultForest.add(hl7Tree)
+                switchboard_temp.eventId = long(switchboard_temp.getNextSequence("eventId"))
+                switchboard_temp.stepName = switchboard.stepName
+                switchboard_temp.userId = switchboard.userId
+                switchboard_temp.recordHistory()
+                switchboard_temp.executeInstructions(responseInstructions.head)
+                didInstructions = True
+
+          except SystemException as e:
+            exceptionMessage = "*** UNIFlow SystemException: " + str(e.message)
+          except SQLException as e:
+            exceptionMessage = "*** SQLException: " + str(e.message)
+          except Exception as e:
+            exceptionMessage = "*** Exception: " + str(e.message)
+          except BaseException as e:
+            exceptionMessage = "*** PyException: " + str(e.message)
+          except StandardError as e:
+            exceptionMessage = "*** PyError: " + str(e.message)
+          except TypeError as e:
+            exceptionMessage = "*** TypeError: " + str(e.message)
+          except:
+            exceptionMessage = "*** Unspecified Error"
+
+          finally:
+            try:
+              if didInstructions:
+                switchboard_temp.connection.commit()
+                switchboard.log("It Worked!")
+                shutil.move(hl7, hl7Done)
+              else:
+                switchboard.log(exceptionMessage)
+                if switchboard_temp is not None:
+                  switchboard_temp.rollback()
+                  switchboard.log("Logging HL7 failure information")
+                  switchboard_temp.isUpdateTransaction = True
+                  hl7FileName = hl7
+                  if hl7FileName.rfind('/') > -1:
+                    hl7FileName = hl7FileName.rsplit('/',1)[1]
+                  if hl7FileName.rfind('\\') > -1:
+                    hl7FileName = hl7FileName.rsplit('\\',1)[1]
+                  failSQL = "INSERT INTO hl7Failures (fileName, orignalPath, failPath, exceptionText, failEventId) VALUES (?,?,?,?,?)"
+                  failStatement = switchboard_temp.connection.prepareStatement(failSQL)
+                  failStatement.setString(1, hl7FileName)
+                  failStatement.setString(2, destPath)
+                  failStatement.setString(3, hl7Failed)
+                  failStatement.setString(4, exceptionMessage)
+                  failStatement.setLong(5, {_eventId})
+                  switchboard.log("Running SQL")
+                  failStatement.executeUpdate()
+                  switchboard.log("Committing...")
+                  switchboard_temp.connection.commit()
+                  switchboard.log("Done!")
+
+                  shutil.move(hl7, hl7Failed)
+                  switchboard.log("File Quarantined")
+
+            except SQLException as e:
+              switchboard.log(e.message)
+              pass
+            except SystemException as e:
+              switchboard.log(e.message)
+              pass
+            except Exception as e:
+              switchboard.log(e.message)
+              pass
+            except:
+              switchboard.log("*** Unspecified Error")
+
+            if switchboard_temp is not None:
+              switchboard_temp.closeDbResources()
+              switchboard_temp.connection.expireLease()
+
+          switchboard_temp = None
+
+    responseInstructions handler1
+      forSubtrees MSH
+        setFormQueryResult sendingApp
+          value= {_:mshSendingApp}
+
+        setFormQueryResult sendingFacility
+          value= {_:mshSendingFacility}
+
+        setFormQueryResult specimenSegment
+          value= {_:messageSpecimenSegment}
+
+      forSubtrees PID
+        ## If a sqid is present in the message use that as the patient identifier
+        ifCondition '{_n:sqid}' != ''
+          ## check for existing sqid patient
+          ifCondition select 1 from patients where sqid = ? limit 1
+            string {_n:sqid}
+            setFormQueryResult
+              sqlPreparedQuery select patientId as 'NewPatientId' from patients
+                - where sqid = ?
+                string {_n:sqid}
+            sqlPreparedStatement update patients set placerPatientId = ?, govtId  = ?, firstName = ?, middleName = ?, lastName = ?, dob = ?, ethnicity = ?, geneticGender = (CASE WHEN ? = '' THEN 'U' ELSE ? END), address1 = ?, address2 = ?, city = ?, state = ?, postalCode = ?, country = ?, phone1 = ?, phone2 = ?, eventId = ?
+              - where patientId = ?
+              string {_n:patientPlacerId}
+              string {_n:patientSSN}
+              string {_:patientFirst}
+              string {_n:patientMiddle}
+              string {_n:patientLast}
+              string {_n:patientDob}
+              string {_n:patientRace}
+              string {_n:patientGender}
+              string {_n:patientGender}
+              string {_:address1}
+              string {_:address2}
+              string {_:city}
+              string {_:state}
+              string {_:postalCode}
+              string {_:patientCountryCode}
+              string {_n:patientPhone1}
+              string {_n:patientPhone2}
+              long {_eventId}
+              string {_:NewPatientId}
+          ## if sqid patient not present, create them
+            else
+              setFormQueryResult NewPatientId
+                sqlPreparedQuery CALL sp_getNextSequence(?,?)
+                  string patientId
+                  string NewPatientId
+              sqlPreparedStatement insert into containers (containerId, containerType, eventId) values (?, 'patientId', ?)
+                string {_:NewPatientId}
+                long {_eventId}
+              sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId) values (?, 'self', 'Patient', ?, ?)
+                string {_:NewPatientId}
+                string {_:NewPatientId}
+                long {_eventId}
+              sqlPreparedStatement insert into patients (patientId, sqId, placerPatientId, firstName, middleName, lastName, status, address1, address2, city, state, postalCode, dob, geneticGender, govtId, ethnicity, phone1, phone2, eventId)
+                - values (?, ?, ?, ?, ?, ?, 'active',?,?,?,?,?,?, CASE WHEN ? = '' THEN 'U' ELSE ? END,?,?,?,?,?)
+                string {_:NewPatientId}
+                string {_n:sqid}
+                string {_n:patientPlacerId}
+                string {_:patientFirst}
+                string {_n:patientMiddle}
+                string {_n:patientLast}
+                string {_:address1}
+                string {_:address2}
+                string {_:city}
+                string {_:state}
+                string {_:postalCode}
+                string {_n:patientDob}
+                string {_n:patientGender}
+                string {_:patientGender}
+                string {_n:patientSSN}
+                string {_n:patientRace}
+                string {_n:patientPhone1}
+                string {_n:patientPhone2}
+                long {_eventId}
+
+        ## If a sqid is not present in the message, fall back on first, last, DOB
+        ifCondition '{_n:sqid}' == ''
+          ## Test for existence of patient based on first, last and dob. ##
+          ifCondition select 1 from patients
+            - where lastName = ? and dob = ? and firstName = ? limit 1
+            string {_n:patientLast}
+            string {_n:patientDob}
+            string {_n:patientFirst}
+            setFormQueryResult
+              sqlPreparedQuery select patientId as 'NewPatientId' from patients
+                - where lastName = ? and dob = ? and firstName = ? limit 1
+                string {_n:patientLast}
+                string {_n:patientDob}
+                string {_n:patientFirst}
+            sqlPreparedStatement update patients set placerPatientId = ?, govtId  = ?, ethnicity = ?, geneticGender = (CASE WHEN ? = '' THEN 'U' ELSE ? END), address1 = ?, address2 = ?, city = ?, state = ?, postalCode = ?, country = ?, phone1 = ?, phone2 = ?, eventId = ?
+              - where patientId = ?
+              string {_n:patientPlacerId}
+              string {_n:patientSSN}
+              string {_n:patientRace}
+              string {_n:patientGender}
+              string {_n:patientGender}
+              string {_:address1}
+              string {_:address2}
+              string {_:city}
+              string {_:state}
+              string {_:postalCode}
+              string {_:patientCountryCode}
+              string {_n:patientPhone1}
+              string {_n:patientPhone2}
+              long {_eventId}
+              string {_:NewPatientId}
+
+          ## If patient doesnt' exist, create it with a new KPA patient Id.
+            else
+              setFormQueryResult NewPatientId
+                sqlPreparedQuery CALL sp_getNextSequence(?,?)
+                  string patientId
+                  string NewPatientId
+              sqlPreparedStatement insert into containers (containerId, containerType, eventId) values (?, 'patientId', ?)
+                string {_:NewPatientId}
+                long {_eventId}
+              sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId) values (?, 'self', 'Patient', ?, ?)
+                string {_:NewPatientId}
+                string {_:NewPatientId}
+                long {_eventId}
+              sqlPreparedStatement insert into patients (patientId, placerPatientId, firstName, middleName, lastName, status, address1, address2, city, state, postalCode, dob, geneticGender, govtId, ethnicity, phone1, phone2, eventId)
+                - values (?, ?, ?, ?, ?, 'active',?,?,?,?,?,?, CASE WHEN ? = '' THEN 'U' ELSE ? END,?,?,?,?,?)
+                string {_:NewPatientId}
+                string {_n:patientPlacerId}
+                string {_:patientFirst}
+                string {_n:patientMiddle}
+                string {_n:patientLast}
+                string {_:address1}
+                string {_:address2}
+                string {_:city}
+                string {_:state}
+                string {_:postalCode}
+                string {_n:patientDob}
+                string {_n:patientGender}
+                string {_:patientGender}
+                string {_n:patientSSN}
+                string {_n:patientRace}
+                string {_n:patientPhone1}
+                string {_n:patientPhone2}
+                long {_eventId}
+        # Set all other sources to not master... I AM THE MASTER NOW!
+        sqlPreparedStatement update patientSources set master = ? where patientId = ? and master = ?
+          int 0
+          string {_:NewPatientId}
+          int 1
+        sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+          string {_:NewPatientId}
+          long {_eventId}
+        #always put everything into patientSources plus mrn and sqid stuff
+        sqlPreparedStatement insert into patientSources (master, siteId, patientId, sqId, sqidNumberType, assigningAuthority, mrn, mrnType, mrnFacility, placerPatientId, firstName, middleName, lastName, status, address1, address2, city, state, postalCode, dob, geneticGender, govtId, ethnicity, phone1, phone2, eventId)
+          - values (1,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,?,?, IF(? = '', 'U', ?),?,?,?,?,?)
+          string {_n:orderFacilityCode}
+          string {_:NewPatientId}
+          string {_n:sqid}
+          string {_n:sqidType}
+          string {_n:sqidAssigningAuthority}
+          string {_n:mrn}
+          string {_n:mrnType}
+          string {_n:mrnFacility}
+          string {_n:patientPlacerId}
+          string {_:patientFirst}
+          string {_n:patientMiddle}
+          string {_n:patientLast}
+          string {_:address1}
+          string {_:address2}
+          string {_:city}
+          string {_:state}
+          string {_:postalCode}
+          string {_n:patientDob}
+          string {_n:patientGender}
+          string {_:patientGender}
+          string {_n:patientSSN}
+          string {_n:patientRace}
+          string {_n:patientPhone1}
+          string {_n:patientPhone2}
+          long {_eventId}
+
+      # order common segment should contain physician and basic order information
+      forSubtrees ORC
+
+        # If physician exists and physiciansites doesn't have the relation, create the relation
+        ifCondition select 1 from physicians
+          - where providerId = ? limit 1
+          string {_n:npi}
+
+          setFormQueryResult NewPhysicianId
+            sqlPreparedQuery select physicianId as 'NewPhysicianId' from physicians
+              - where providerId = ?
+              string {_n:npi}
+          # if there's no associated physiciansite, create it
+          ifCondition ! select 1 from physicianSites
+            - where physicianId = ? and siteId = ? limit 1
+            string {_:NewPhysicianId}
+            string {_n:orderFacilityCode}
+            sqlPreparedStatement insert into physicianSites (physicianId, siteId, eventId)
+              - values (?,?,?)
+              string {_:NewPhysicianId}
+              string {_n:orderFacilityCode}
+              long {_eventId}
+            setFormQueryResult NewPhysicianSiteId
+              sqlPreparedQuery select LAST_INSERT_ID() as 'NewPhysicianSiteId'
+        ## If physician doesn't exist, create it.  ##
+          else
+            setFormQueryResult NewPhysicianId
+              sqlPreparedQuery CALL sp_getNextSequence(?,?)
+                string physicianId
+                string NewPhysicianId
+            sqlPreparedStatement insert into physicians (physicianId, first_name, last_name, middle_name, providerId, eventId)
+              - values (?,?,?,?,?,?)
+              string {_:NewPhysicianId}
+              string {_n:physicianFirst}
+              string {_n:physicianLast}
+              string {_n:physicianMiddle}
+              string {_n:npi}
+              long {_eventId}
+            sqlPreparedStatement insert into physicianSites (physicianId, siteId, eventId)
+              - values (?,?,?)
+              string {_:NewPhysicianId}
+              string {_n:orderFacilityCode}
+              long {_eventId}
+            setFormQueryResult NewPhysicianSiteId
+              sqlPreparedQuery select LAST_INSERT_ID() as 'NewPhysicianSiteId'
+        # get next request ID
+        setFormQueryResult thisValueDoesNothing
+          sqlPreparedQuery CALL sp_getNextSequence(?,?)
+            string requestId
+            string requestId
+
+          #string {_:requestId}
+        # Create Request record in contents, containers, requestForms ##
+        sqlPreparedStatement insert into containers (containerId, containerType, eventId) values (?, 'requestId', ?)
+          string {_:requestId}
+          long {_eventId}
+        sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+          - values (?, 'self', 'requestId', ?, ?), (?, 'patientId', 'patientId', ?, ?)
+          string {_:requestId}
+          string {_:requestId}
+          long {_eventId}
+          string {_:requestId}
+          string {_:NewPatientId}
+          long {_eventId}
+        # Will need to add accountNumber when insurance stuff is reworked
+        sqlPreparedStatement insert into requestForms (consent, clinicalTrial, workersComp, patientSignature, physicianSignature, requestId, patientId, physicianId, physicianSiteId, receivedDate, eventId, sendingApp, sendingFacility, placerOrderId, externalRequestId, encounterNumber, mrn, mrnType, mrnFacility)
+          - VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,  NOW(), ?, ?, ?, ?,?,?,?,?,?)
+          int 0
+          int 0
+          int 0
+          int 0
+          int 0
+          string {_:requestId}
+          string {_:NewPatientId}
+          string {_:NewPhysicianId}
+          string {_n:orderFacilityCode}
+          long {_eventId}
+          string {_:sendingApp}
+          string {_:sendingFacility}
+          string {_:placerOrderNumber}
+          string {_:placerOrderNumber}
+          string {_:placerGroupNumber}
+          string {_:mrn}
+          string {_:mrnType}
+          string {_:mrnFacility}
+        # patient billing is now per request, so it's created at the end of the request creation process
+        sqlPreparedStatement insert into patientBilling (patientId, requestId, billto, eventId)
+          - values (?,?,'Customer',?)
+          string {_:NewPatientId}
+          string {_:requestId}
+          long {_eventId}
+        sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+          string {_:requestId}
+          long {_eventId}
+        # where does this get queued? This is probably right...
+        sqlPreparedStatement insert into queues (containerId, step, eventId) values(?, 'Order Review', ?)
+          string {_:requestId}
+          long {_eventId}
+
+      forSubtrees IN1
+        # If insurance carrier exists update it I would think it would stay the same? If not, create it.
+        ifCondition select 1 from insuranceCarriers where carrierName = ? limit 1
+          string {_n:in1CompanyName}
+          setFormQueryResult carrierId
+            sqlPreparedQuery select id as 'carrierId' from insuranceCarriers
+              - where carrierName = ?
+              string {_n:in1CompanyName}
+          else
+            sqlPreparedStatement insert into insuranceCarriers (carrierName, address1, address2, city, state, country, postalCode, phoneNumber, active, eventId)
+              - values (?,?,?,?,?,?,?,?,?,?)
+              string {_n:in1CompanyName}
+              string {_n:insurerAddress1}
+              string {_n:insurerAddress2}
+              string {_n:insurerCity}
+              string {_n:insurerState}
+              string {_n:insurerCountry}
+              string {_n:insurerPostalCode}
+              string {_n:in1CompanyPhone}
+              int 1
+              long {_eventId}
+            setFormQueryResult carrierId
+              sqlPreparedQuery select LAST_INSERT_ID() as 'carrierId'
+
+        # Create empty patientBillingDefault row if it doesn't exist
+        ifCondition ! select 1 from patientBillingDefault where patientId = ? limit 1
+          string {_:NewPatientId}
+          sqlPreparedStatement insert into patientBillingDefault (patientId, eventId) values (?,?)
+            string {_:NewPatientId}
+            long {_eventId}
+
+        ifCondition '{_n:in1CompanyName}' != ''
+          setFormQueryResult isInsurance
+            value= true
+          ifCondition '{_:in1SetId}' == '1'
+            sqlPreparedStatement update patientBilling
+              - set billTo = 'Patient',
+              - policyHolder1FirstName = ?,
+              - policyHolder1LastName = ?,
+              - policyHolder1Relationship = ?,
+              - carrierId1 = ?,
+              - policyNumber1 = ?,
+              - groupNumber1 = ?,
+              - policyHolder1DOB = CASE WHEN ? = '' THEN NULL ELSE ? END,
+              - eventId = ?
+              - where patientId = ? AND requestId = ?
+              string {_n:insuredFirstName}
+              string {_n:insuredLastName}
+              string {_n:in1InsuredRelationship}
+              int {_n:carrierId}
+              string {_n:in1PolicyNumber}
+              string {_n:in1GroupNumber}
+              string {_n:in1InsuredDOB}
+              string {_n:in1InsuredDOB}
+              long {_eventId}
+              string {_:NewPatientId}
+              string {_:requestId}
+            ifCondition ! select 1 from patientBillingDefault where patientId = ? and carrierId1 = ? limit 1
+              string {_:NewPatientId}
+              int
+              sqlPreparedStatement update patientBillingDefault
+                - set billTo = 'Patient',
+                - policyHolder1FirstName = ?,
+                - policyHolder1LastName = ?,
+                - policyHolder1Relationship = ?,
+                - carrierId1 = ?,
+                - policyNumber1 = ?,
+                - groupNumber1 = ?,
+                - policyHolder1DOB = CASE WHEN ? = '' THEN NULL ELSE ? END,
+                - eventId = ?
+                - where patientId = ?
+                string {_n:insuredFirstName}
+                string {_n:insuredLastName}
+                string {_n:in1InsuredRelationship}
+                int {_n:carrierId}
+                string {_n:in1PolicyNumber}
+                string {_n:in1GroupNumber}
+                string {_n:in1InsuredDOB}
+                string {_n:in1InsuredDOB}
+                long {_eventId}
+                string {_:NewPatientId}
+          ifCondition '{_:in1SetId}' == '2'
+            sqlPreparedStatement update patientBilling
+              - set billTo = 'Patient',
+              - policyHolder2FirstName = ?,
+              - policyHolder2LastName = ?,
+              - policyHolder2Relationship = ?,
+              - carrierId2 = ?,
+              - policyNumber2 = ?,
+              - groupNumber2 = ?,
+              - policyHolder2DOB = CASE WHEN ? = '' THEN NULL ELSE ? END,
+              - eventId = ?
+              - where patientId = ? AND requestId = ?
+              string {_n:insuredFirstName}
+              string {_n:insuredLastName}
+              string {_n:in1InsuredRelationship}
+              int {_n:carrierId}
+              string {_n:in1PolicyNumber}
+              string {_n:in1GroupNumber}
+              string {_n:in1InsuredDOB}
+              string {_n:in1InsuredDOB}
+              long {_eventId}
+              string {_:NewPatientId}
+              string {_:requestId}
+            ifCondition ! select 1 from patientBillingDefault where patientId = ? and carrierId2 = ? limit 1
+              string {_:NewPatientId}
+              int
+              sqlPreparedStatement update patientBillingDefault
+                - set billTo = 'Patient',
+                - policyHolder2FirstName = ?,
+                - policyHolder2LastName = ?,
+                - policyHolder2Relationship = ?,
+                - carrierId2 = ?,
+                - policyNumber2 = ?,
+                - groupNumber2 = ?,
+                - policyHolder2DOB = CASE WHEN ? = '' THEN NULL ELSE ? END,
+                - eventId = ?
+                - where patientId = ?
+                string {_n:insuredFirstName}
+                string {_n:insuredLastName}
+                string {_n:in1InsuredRelationship}
+                int {_n:carrierId}
+                string {_n:in1PolicyNumber}
+                string {_n:in1GroupNumber}
+                string {_n:in1InsuredDOB}
+                string {_n:in1InsuredDOB}
+                long {_eventId}
+                string {_:NewPatientId}
+
+      forSubtrees OBR
+        sqlPreparedStatement insert into reqPanels (requestId, panelCode, eventId)
+          - values (?,?,?) on duplicate key update eventId = ?
+          string {_:requestId}
+          string {_n:testCode1}
+          long {_eventId}
+          long {_eventId}
+        ifCondition ! select 1 from contents where containerId = ? and attribute = 'self' and eventId = ? limit 1
+          string {_:obrPlacerId}
+          long {_eventId}
+          sqlPreparedStatement update requestForms set type = (select type from panels where panelCode = ?) where requestId = ?
+            string {_n:testCode1}
+            string {_:requestId}
+          # if spm section doesn't exist, create the specimen from the OBR message
+          ifCondition {_:specimenSegment} == OBR
+ #           sqlPreparedStatement insert into containers (containerId, containerType, eventId) values (?, 'specimenId', ?)
+ #             string {_:obrPlacerId}
+ #             long {_eventId}
+ #           sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+ #             - values (?, 'self', 'specimenId', ?, ?)
+ #             string {_:NewPatientId}
+ #             string {_:obrPlacerId}
+ #             long {_eventId}
+ #           sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+ #             - values (?, 'patient', 'specimenId', ?, ?)
+ #             string {_:requestId}
+ #             string {_:obrPlacerId}
+ #             long {_eventId}
+ #           sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+ #             - values (?,'self', 'specimenId', ?, ?)
+ #             string {_:obrPlacerId}
+ #             string {_:obrPlacerId}
+ #             long {_eventId}
+ #           sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+ #             - values (?,'self', 'requestId', ?, ?)
+ #             string {_:obrPlacerId}
+ #             string {_:requestId}
+ #             long {_eventId}
+            # May need to additionally capture SPM.27 containerType (spmSpecimenContainerType)
+            sqlPreparedStatement insert into requestSpecimens (requestId, patientId, externalIdentifier, specimenSource, specimenType, collectionDate, collectionTime, receivedDate, eventId, status)
+              - values (?, ?, ?, 'patient', ?, IF(? = '', NULL, ?), IF(? = '', NULL, ?), null, ?, 'ORDER ENTERED')
+              string {_:requestId}
+              string {_:NewPatientId}
+              string {_:obrPlacerId}
+              string {_n:obrSpecimenSource}
+              string {_n:obrSpecimenDate}
+              string {_n:obrSpecimenDate}
+              string {_n:obrSpecimenDate_time}
+              string {_n:obrSpecimenDate_time}
+              long {_eventId}
+ #           sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+ #             string {_:obrPlacerId}
+ #             long {_eventId}
+      forSubtrees SPM
+        ifCondition ! select 1 from contents where containerId = ? and attribute = 'self' and eventId = ? limit 1
+          string {_:spmSpecimenId}
+          long {_eventId}
+          # may need to check if this container exists already
+#          sqlPreparedStatement insert into containers (containerId, containerType, eventId) values (?, 'specimenId', ?)
+#            string {_:spmSpecimenId}
+#            long {_eventId}
+#          sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+#            - values (?, 'self', 'specimenId', ?, ?)
+#            string {_:NewPatientId}
+#            string {_:spmSpecimenId}
+#            long {_eventId}
+#          sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+#            - values (?, 'patient', 'specimenId', ?, ?)
+#            string {_:requestId}
+#            string {_:spmSpecimenId}
+#            long {_eventId}
+#          sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+#            - values (?,'self', 'specimenId', ?, ?)
+#            string {_:spmSpecimenId}
+#            string {_:spmSpecimenId}
+#            long {_eventId}
+#          sqlPreparedStatement insert into contents (containerId, attribute, contentType, content, eventId)
+#            - values (?,'self', 'requestId', ?, ?)
+#            string {_:spmSpecimenId}
+#            string {_:requestId}
+#            long {_eventId}
+            # May need to additionally capture SPM.27 containerType (spmSpecimenContainerType)
+          sqlPreparedStatement insert into requestSpecimens (requestId, patientId, externalIdentifier, specimenSource, specimenType, collectionDate, collectionTime, receivedDate, eventId, status)
+            - values (?, ?, ?, 'patient', ?, IF(? = '', NULL, ?), IF(? = '', NULL, ?), NULL, ?, 'ORDER ENTERED')
+            string {_:requestId}
+            string {_:NewPatientId}
+            string {_:spmSpecimenId}
+            string {_n:spmSpecimenType}
+            string {_n:spmSpecimenCollectionDate}
+            string {_n:spmSpecimenCollectionDate}
+            string {_n:spmSpecimenCollectionDate_time}
+            string {_n:spmSpecimenCollectionDate_time}
+            long {_eventId}
+
+#          sqlPreparedStatement insert into containerHistory (containerId, eventId) values (?, ?)
+#            string {_:spmSpecimenId}
+#            long {_eventId}
+
+      forSubtrees DG1
+        sqlPreparedStatement insert into requestCodes (requestId, codeId, eventId)
+          - values (?, (SELECT id from diagnosticCodes where diagnosticCode=?), ?)
+          string {_:requestId}
+          string {_n:diagCode}
+          string {_eventId}
+
+      forSubtrees NTE
+        ifCondition '{_:nteComment}' != ''
+          sqlPreparedStatement INSERT INTO containerNotes (containerId, noteType, note, eventId) VALUES (?, 'Request', ?, ?)
+            string {_:requestId}
+            string {_:nteComment}
+            long {_eventId}
+          sqlPreparedStatement INSERT INTO patientClinical (patientId, clinicalNotes, eventId) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE
+            - clinicalNotes = IF(COALESCE(clinicalNotes, '') <> ?, CONCAT(COALESCE(clinicalNotes, ''), ' ', ?), clinicalNotes), eventId = ?
+            string {_:NewPatientId}
+            string {_:nteComment}
+            long {_eventId}
+            string {_:nteComment}
+            string {_:nteComment}
+            long {_eventId}
+
+        ifCondition '{_n:medications}' != ''
+          sqlPreparedStatement INSERT INTO containerNotes (containerId, noteType, note, eventId) VALUES (?, 'Request', ?, ?)
+            string {_:requestId}
+            string MEDICATIONS: {_:medications}
+            long {_eventId}
+          sqlPreparedStatement INSERT INTO patientClinical (patientId, medications, eventId) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE
+            - medications = IF(COALESCE(medications, '') <> ?, CONCAT(COALESCE(medications, ''), ', ', ?), medications), eventId = ?
+            string {_:NewPatientId}
+            string {_:medications}
+            long {_eventId}
+            string {_:medications}
+            string {_:medications}
+            long {_eventId}
+
+  # Process outgoing HL7 results
+  # destination: /sftp/sunquest/outgoing
+  #
+  # TODO: Handle discrete data in OBR/OBX segments
+  timerTask OutgoingHL7
+    intervalSeconds 60
+    conditionalTransactionInstructions
+      ifCondition select 1 from queues where step = '_outgoingHL7' limit 1
+        jython
+          switchboard.isUpdateTransaction = True
+
+    setFormQueryResult
+      sqlPreparedQuery select c.clientId, c.name as 'clientName', c.labDirectorFirstName, c.labDirectorLastName, c.labDirectorTitle, c.labDirectorSuffix, c.labCliaNumber,
+        - ca.address1 as 'clientAddress1', ca.address2 as 'clientAddress2', ca.city as 'clientCity', ca.state as 'clientState', ca.postalCode as 'clientPostalCode', ca.phone as 'clientPhone'
+        - from client c LEFT JOIN clientAddress ca ON ca.clientId = c.clientId limit 1
+
+    forEach
+      - SELECT
+      - q.containerId,
+      - e.eventDate AS 'signedDate',
+      - COALESCE(rf.sendingApp, '') AS 'sendingApp',
+      - COALESCE(rf.sendingFacility, '') AS 'sendingFacility',
+      - rf.Id AS 'requestId',
+      - rd.reportId AS 'reportId',
+      - pa.entityId AS 'patientId',
+      - COALESCE(rf.externalSpecimenId,'') AS 'accessionId',
+      - pa.firstName AS 'patientFirst',
+      - pa.lastName AS 'patientLast',
+      - COALESCE(pa.middleName, '') AS 'patientMiddle',
+      - p.dob AS 'dob',
+      - COALESCE(p.gender, '') AS 'gender',
+      - COALESCE(p.ethnicity, '') AS 'ethnicity',
+      - COALESCE(p.mrn, pa.entityId) AS 'externalPatientId',
+      - COALESCE(p.subjectId, '') AS 'accountNumber',
+      - rs.sampleType,
+      - CASE WHEN COALESCE(rs.senderId, '') = ''
+      - THEN rs.specimenId ELSE rs.senderId END AS 'specimenId',
+      - rs.collectionDate AS 'collectionDate',
+      - rs.receivedDate AS 'receivedDate',
+      - rd.panelCode,
+      - tp.name AS 'panelName',
+      - org.firstName AS 'orgName',
+      - oa.address1 AS 'orgAddress1',
+      - oa.address2 AS 'orgAddress2',
+      - oa.city AS 'orgCity',
+      - oa.state AS 'orgState',
+      - oa.postalCode AS 'orgPostal',
+      - op.number AS 'orgPhone',
+      - ph.firstName AS 'physicianFirst',
+      - ph.lastName AS 'physicianLast',
+      - COALESCE(ph.middleName, '') AS 'physicianMiddle',
+      - phy.npi AS 'physicianNPI'
+      - FROM queues q
+      - INNER JOIN events e ON e.eventId = q.eventId
+      - INNER JOIN reportDetails rd ON rd.reportId = q.containerId
+      - AND rd.signedEventId = q.eventId
+      - INNER JOIN contents c ON c.containerId = q.containerId
+      - AND c.contentType = 'requestId'
+      - INNER JOIN requestForms rf ON rf.Id = c.content
+      - INNER JOIN requestSpecimens rs ON rs.reqId = rf.Id
+      - AND rs.status NOT IN ('cancelled', 'rejected')
+      - INNER JOIN entities pa ON rf.patientId = pa.entityId
+      - INNER JOIN patients p ON pa.entityId = p.patientId
+      - INNER JOIN testPanels tp ON tp.panelCode = rd.panelCode
+      - LEFT JOIN entities org ON org.entityId = rf.organizationId
+      - LEFT JOIN entityAddresses oa ON oa.entityId = rf.organizationId
+      - AND oa.type = 'Primary'
+      - LEFT JOIN entityPhones op on op.entityId = rf.organizationId
+      - AND op.type = 'Primary'
+      - LEFT JOIN entities ph ON ph.entityId = rf.physicianId
+      - LEFT JOIN physicians phy ON phy.physicianId = rf.physicianId
+      - WHERE q.step = '_outgoingHL7'
+      - GROUP BY rd.reportId
+      jython
+        import os
+        import shutil
+        import base64
+        from datetime import datetime
+
+        report_pdf = "{_configPath}private/reports/{_:reportId}.pdf"
+        msg_name = "ORU{_eventId}_{_:requestId}.hl7"
+        srcPath = "{_configPath}private/hl7/outgoing/%s" % msg_name
+        destPath = "/sftp/sunquest/outgoing/%s" % msg_name
+
+        if os.path.isfile(report_pdf):
+          with open(report_pdf, "rb") as pdf_file:
+            pdf_content = pdf_file.read()
+
+          pdf_b64 = base64.b64encode(pdf_content)
+
+          panelTests = []
+          sqlSelectTests = "SELECT t.testCode, t.name AS 'testName', COALESCE(t.interpretation,'') AS 'interpretation' FROM testPanels tp INNER JOIN testsForPanel tfp ON tfp.panelId=tp.Id INNER JOIN tests t ON t.Id=tfp.testId WHERE tp.panelCode=?"
+          ps = switchboard.connection.prepareStatement(sqlSelectTests)
+          ps.setString(1, "{_:panelCode}")
+          switchboard.resultSet = ps.executeQuery()
+          while switchboard.resultSet.next():
+            testCode = switchboard.resultSet.getString(1)
+            testName = switchboard.resultSet.getString(2).strip()
+            interp = switchboard.resultSet.getString(3).strip()
+            panelTests.append([testCode, interp, testName])
+
+          with open(srcPath, "wb") as hl7_msg:
+            msgDate = datetime.now().strftime('%Y%m%d%H%M%S')
+            hl7_hdr = "MSH|^~\&|MITOGEN|{_:clientId}|{_:sendingApp}|{_:sendingFacility}|%s||ORU^R01|%s_{_eventId}|P|2.3\r" % (msgDate, msgDate)
+            hl7_msg.write(hl7_hdr)
+
+            dob = datetime.strptime('{_:dob}', '%Y-%m-%d').strftime('%Y%m%d')
+            hl7_pid = "PID|1|{_:patientId}|{_:externalPatientId}||{_:patientLast}^{_:patientFirst}^{_:patientMiddle}||%s|{_:gender}||{_:ethnicity}||||||||{_:accountNumber}||||{_:ethnicity}\r" % (dob)
+            hl7_msg.write(hl7_pid)
+
+            hl7_pv1 = "PV1|1|O|||||{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^{_:physicianMiddle}|||||||||||||||||||||||\r"
+            hl7_msg.write(hl7_pv1)
+
+            hl7_orc = "ORC|RE|{_:accessionId}|{_:requestId}|||||||||{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^{_:physicianMiddle}|||||||||{_:orgName}|{_:orgAddress1}^{_:orgAddress2}^{_:orgCity}^{_:orgState}^{_:orgPostal}|{_:orgPhone}\r"
+            hl7_msg.write(hl7_orc)
+
+            collectionDate = datetime.strptime('{_:collectionDate}', '%Y-%m-%d').strftime('%Y%m%d%H%M%S')
+            receivedDate = datetime.strptime('{_:receivedDate}', '%Y-%m-%d').strftime('%Y%m%d%H%M%S')
+            signedDate = datetime.strptime('{_:signedDate}', '%Y-%m-%d %H:%M:%S.%f').strftime('%Y%m%d%H%M%S')
+            hl7_obr = "OBR|1|{_:specimenId}|{_:requestId}|{_:panelCode}^{_:panelName}|R||%s|||||||%s|{_:sampleType}|{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^{_:physicianMiddle}||{_:accessionId}||||%s|||F||||||||||||\r" % (collectionDate, receivedDate, signedDate)
+            hl7_msg.write(hl7_obr)
+
+            if panelTests and len(panelTests[0]) > 1:
+              obxCount = 1
+              for t in panelTests:
+                if t[1] not in ["PDF", "PDFOBR"]:
+                  res = 'see attached report' if t[1] == '' else t[1]
+                  hl7_obx = "OBX|%d|ST|%s^%s||%s|||null|||F|||%s|\r" % (obxCount, t[0], t[2], res, signedDate)
+                  hl7_msg.write(hl7_obx)
+                  obxCount += 1
+
+              for t in panelTests:
+                if t[1] == "PDF":
+                  hl7_obx = "OBX|%d|ED|PDF|Base64|%s||||||F|||%s|\r" % (obxCount, pdf_b64, signedDate)
+                  hl7_msg.write(hl7_obx)
+                elif t[1] == "PDFOBR":
+                  hl7_obr = "OBR|2|{_:specimenId}|{_:requestId}|Base64^Embedded PDF|R||%s|||||||%s|{_:sampleType}|{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^{_:physicianMiddle}||{_:accessionId}||||%s|||F||||||||||||\r" % (collectionDate, receivedDate, signedDate)
+                  hl7_msg.write(hl7_obr)
+
+                  hl7_obx = "OBX|1|ED|PDF|Base64|%s||||||F|||%s|\r" % (pdf_b64, signedDate)
+                  hl7_msg.write(hl7_obx)
+                else:
+                  pass
+
+            hl7_zps = "ZPS|1||{_:clientName}|{_:clientAddress1}^{_:clientAddress2}^{_:clientCity}^{_:clientState}^{_:clientPostalCode}|{_:clientPhone}||{_:labDirectorTitle}^{_:labDirectorLastName}^{_:labDirectorFirstName}^{_:labDirectorSuffix}||{_:labCliaNumber}\r"
+            hl7_msg.write(hl7_zps)
+
+          sqlDeleteFromQ = "delete from queues where containerId = ? and step = ?"
+          ps = switchboard.connection.prepareStatement(sqlDeleteFromQ)
+          ps.setString(1, "{_:containerId}")
+          ps.setString(2, "_outgoingHL7")
+          ps.execute()
+
+          sqlInsertHistory = "insert into containerHistory (containerId, eventId) values (?, ?)"
+          ps = switchboard.connection.prepareStatement(sqlInsertHistory)
+          ps.setString(1, "{_:containerId}")
+          ps.setInt(2, {_eventId})
+          ps.execute()
+
+          shutil.copyfile(srcPath, destPath)
+
+  # Process received speceimen HL7
+  # destination: /sftp/sunquest/outgoing
+  _ timerTask ReceivedHL7
+    intervalSeconds 60
+    conditionalTransactionInstructions
+      ifCondition select 1 from queues where step = '_receivedHL7'
+        jython
+          switchboard.isUpdateTransaction = True
+    forEach
+      - SELECT
+      - q.containerId,
+      - COALESCE (rf.sendingApp, '') AS 'sendingApp',
+      - rf.Id AS 'requestId',
+      - pa.entityId AS 'patientId',
+      - COALESCE(p.mrn, pa.entityId) AS 'externalPatientId',
+      - COALESCE(rf.externalSpecimenId,'') AS 'accessionId',
+      - pa.firstName AS 'patientFirst',
+      - pa.lastName AS 'patientLast',
+      - COALESCE(pa.middleName, '') AS 'patientMiddle',
+      - p.dob AS 'dob',
+      - COALESCE(p.gender, '') AS 'gender',
+      - COALESCE(p.ethnicity, '') AS 'ethnicity',
+      - rs.sampleType,
+      - CASE
+      - WHEN COALESCE (rs.senderId, '') = ''
+      - THEN rs.specimenId
+      - ELSE rs.senderId
+      - END AS 'specimenId',
+      - rs.collectionDate AS 'collectionDate',
+      - rs.receivedDate AS 'receivedDate',
+      - rd.panelCode,
+      - org.firstName AS 'organizationFirst',
+      - ea.address1 AS 'organizationAddress1',
+      - ea.city AS 'organizationCity1',
+      - ea.state AS 'organizationState1',
+      - ea.postalCode AS 'organizationZip1',
+      - ph.firstName AS 'physicianFirst',
+      - ph.lastName AS 'physicianLast',
+      - COALESCE(ph.middleName, '') AS 'physicianMiddle',
+      - phy.npi AS 'physicianNPI'
+      - FROM queues q
+      - INNER JOIN contents c ON c.containerId = q.containerId
+      - AND c.contentType = 'specimenId'
+      - INNER JOIN requestSpecimens rs ON rs.specimenId = c.content
+      - AND rs.status NOT IN ('cancelled', 'rejected')
+      - INNER JOIN requestForms rf ON rf.Id = rs.reqId
+      - INNER JOIN reportDetails rd ON rd.requestId = rf.Id
+      - INNER JOIN entities pa ON rf.patientId = pa.entityId
+      - INNER JOIN patients p ON pa.entityId = p.patientId
+      - LEFT JOIN entities org ON rf.organizationId = org.entityId
+      - LEFT JOIN entityAddresses ea ON ea.entityId = rf.organizationId
+      - AND ea.type = 'Primary'
+      - LEFT JOIN entities ph ON rf.physicianId = ph.entityId
+      - LEFT JOIN physicians phy ON phy.physicianId = rf.physicianId
+      - WHERE q.step = '_receivedHL7'
+      jython
+        import os
+        import shutil
+        from datetime import datetime
+
+        msg_name = "{_:requestId}_{_eventId}.orm"
+        srcPath = "{_configPath}private/hl7/outgoing/%s" % msg_name
+        destPath = "/sftp/sunquest/outgoing/%s" % msg_name
+
+        with open(srcPath, "wb") as hl7_msg:
+          msgDate = datetime.now().strftime('%Y%m%d%H%M%S')
+          hl7_hdr = "MSH|^~\&|MITOGEN||{_:sendingApp}||%s||ORM^O01|%s_{_eventId}|D|2.3\r" % (msgDate, msgDate)
+          hl7_msg.write(hl7_hdr)
+
+          dob = datetime.strptime('{_:dob}', '%Y-%m-%d').strftime('%Y%m%d')
+          hl7_pid = "PID|1|{_:externalPatientId}|{_:patientId}||{_:patientLast}^{_:patientFirst}^{_:patientMiddle}||%s|{_:gender}||{_:ethnicity}||||||||||||{_:ethnicity}\r" % (dob)
+          hl7_msg.write(hl7_pid)
+
+          hl7_pv1 = "PV1|1|O|||||{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^{_:physicianMiddle}\r"
+          hl7_msg.write(hl7_pv1)
+
+          hl7_orc = "ORC|SC|{_:accessionId}|{_:requestId}|||||||||{_:physicianNPI}^{_:physicianLast}^{_:physicianFirst}^{_:physicianMiddle}|||||||||{_:organizationFirst}|{_:organizationAddress1}^^{_:organizationCity1}^{_:organizationState1}^{_:organizationZip1}|\r"
+          hl7_msg.write(hl7_orc)
+
+          collectionDate = datetime.strptime('{_:collectionDate}', '%Y-%m-%d').strftime('%Y%m%d%H%M%S')
+          receivedDate = datetime.strptime('{_:receivedDate}', '%Y-%m-%d').strftime('%Y%m%d%H%M%S')
+          hl7_obr = "OBR|1|{_:specimenId}|{_:requestId}|{_:panelCode}|||%s|||||||%s|{_:sampleType}|||{_:accessionId}|\r" % (collectionDate, receivedDate)
+          hl7_msg.write(hl7_obr)
+
+        sqlDeleteFromQ = "delete from queues where containerId = ? and step = ?"
+        ps = switchboard.connection.prepareStatement(sqlDeleteFromQ)
+        ps.setString(1, "{_:containerId}")
+        ps.setString(2, "_receivedHL7")
+        ps.execute()
+
+        shutil.copyfile(srcPath, destPath)
+

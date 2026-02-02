@@ -1,0 +1,20 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  _networkInstruments
+    instrument MTBAL1
+      class uniflow.instruments.MettlerToledoBalance
+      ipaddress 10.1.19.198
+      port 8001
+      command trythis
+    instrument MTBAL2
+      class uniflow.instruments.MettlerToledoBalance
+      ipAddress localhost
+      port 8080
+      command GET /uniflow HTTP/1.1
+        - Host: localhost
+        -

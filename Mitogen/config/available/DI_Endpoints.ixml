@@ -1,0 +1,20 @@
+config
+  endpoints
+    endpoint apiOrders
+      mode orders
+      hl7Path /sftp/sunquest/incoming
+      type JAVA
+        className com.sunquest.mitogen.lims.im.LegacyDIEndpoint
+    endpoint apiLog
+      type JAVA
+        className com.sunquest.mitogen.lims.im.LegacyDIEndpoint
+      mode logging
+    endpoint apiContainers
+      type JAVA
+        className com.sunquest.mitogen.lims.im.LegacyDIEndpoint
+      mode containers
+    endpoint apiResults
+      mode results
+      hl7Path /sftp/sunquest/incoming
+      type JAVA
+        className com.sunquest.mitogen.lims.im.LegacyDIEndpoint

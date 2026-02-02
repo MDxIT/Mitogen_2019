@@ -1,0 +1,353 @@
+config
+  includes
+    includeable sendMessage_SpecimenEvent_STRATA
+      # Used for sending specimen information to STRATA
+      # PARAMETERS IN
+      #   requestId
+      #   specimenId
+      #   type - the action the event represents
+      #   problem - true/false to indicate that an error has occurred
+      #   disposition - In-Process, Stored, Disposed
+      #   stepLevelComments
+
+      # Obtain necessary specimen information for STRATA
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT
+          - rs.specimenQuantity AS "SMSEStrata_specimenQuantity",
+          - rs.specimenQuantityUnits AS "SMSEStrata_specimenQuantityUnits",
+          - rs.externalIdentifier AS "SMSEStrata_externalIdentifier",
+          - rs.status AS "SMSEStrata_status",
+          - CAST(rs.receivedDate AS DATETIME) AS "SMSEStrata_receivedDate",
+          - CAST(CONCAT(IFNULL(rs.collectionDate, ''), 
+          -   ' ', IFNULL(rs.collectionTime, '')) AS DATETIME)
+          -   AS "SMSEStrata_collectionDateTime",
+          - user.name AS "SMSEStrata_name",
+          - user.email AS "SMSEStrata_email",
+          - rs.specimenType AS "SMSEStrata_specimenType",
+          - pa.sqId AS "SMSEStrata_sqId",
+          - pa.firstName AS "SMSEStrata_firstName",
+          - pa.lastName AS "SMSEStrata_lastName",
+          - pa.geneticGender AS "SMSEStrata_geneticGender",
+          - pa.dob AS "SMSEStrata_dob",
+          - pa.patientId AS "SMSEStrata_patientId",
+          - rf.mrn AS "SMSEStrata_mrn",
+          - rf.mrnFacility AS "SMSEStrata_mrnFacility",
+          - rf.externalSystem AS "SMSEStrata_externalSystem",
+          - rf.externalRequestId AS "SMSEStrata_externalRequestId",
+          - p.name AS "SMSEStrata_panelName", 
+          - NOW(3) AS "SMSEStrata_currentDateTime"
+          -  FROM requestForms rf
+          - INNER JOIN requestSpecimens rs
+          -   ON rf.requestId = rs.requestId
+          - INNER JOIN events e
+          -   ON rs.eventId = e.eventId
+          - INNER JOIN userInfo user
+          -   ON e.userId = user.userId
+          - INNER JOIN patients pa
+          -   ON rs.patientId = pa.patientId
+          - LEFT JOIN specimenMethods sm
+          -   ON rs.id = sm.requestSpecimensId
+          - LEFT JOIN panels p
+          -   ON sm.panelCode = p.panelCode
+          - WHERE rf.requestId = ? 
+          -   AND rs.specimenId = ?
+          -   AND user.userId = ?
+          -   AND (? = '' OR p.panelCode = ?)
+          string {_includeParm:requestId}
+          string {_includeParm:specimenId}
+          string {_userId}
+          string {_includeParm:panelCode}
+          string {_includeParm:panelCode}
+
+
+      # Used for form processing level date formatting
+      #   and handling the stage and type
+      # TODO: Move this to a .py file
+      jython
+        import com.uniconnect.uniflow.node as node
+        import datetime
+
+        def convertDateToStr(date, displayFormat="yyyyMMdd"):
+          if not date:
+            return ''
+          nodeDate = node.date()
+          nodeDate.setDisplayFormat(displayFormat)
+          formatted = nodeDate.parseSQLDate(date)
+          return formatted
+
+
+        def convertDateTimeToStr(date, displayFormat="yyyyMMdd'T'HH:mm:ssXXX", sqlFormat=None):
+          if not date:
+            return '', ''
+
+          nodeDateTime = node.datetime(False)
+
+          if sqlFormat is not None:
+            nodeDateTime.setSQLFormat(sqlFormat)
+
+          nodeDateTime.setDisplayFormat(displayFormat)
+          formatted = nodeDateTime.parseSQLDate(date)
+
+          timestamp = ''
+
+          if nodeDateTime:
+            timestamp = str(nodeDateTime.toEpoch())
+
+          return formatted, timestamp
+
+
+        # Stage and eventType conversion
+        stage = '{_:SMSEStrata_status}'
+        eventType = stage
+        if stage.lower() == 'received':
+          stage = 'Received'
+          eventType = 'Container Received'
+        elif stage.lower() == 'in lab':
+          stage = 'Analytical'
+          eventType = 'In Lab'
+        elif stage.lower() == 'complete':
+          stage = 'Complete'
+          eventType = '{_step}'
+        else:
+          eventType = '{_step}'
+
+
+        #dateTimeMillisDisplayFormat = "yyyyMMdd'T'HH:mm:ss.SSSXXXX"
+        dateTimeMillisDisplayFormat = "yyyyMMdd'T'HH:mm:ss"
+        dateTimeMillisSqlFormat = 'yyyy-MM-dd HH:mm:ss'
+
+        currentDateTime = '{_:SMSEStrata_currentDateTime}'
+        currentDateTime, currentDateTimeMillis = currentDateTime.split('.')
+        currentDateTimeMillis = currentDateTimeMillis + ('0' * (3 - len(currentDateTimeMillis)))
+       
+        if switchboard.convertDateTime == True:
+          currentDateTime = currentDateTime + "." + currentDateTimeMillis
+          currentDateTime, currentDateTimeEpoch = convertDateTimeToStr(currentDateTime, dateTimeMillisDisplayFormat, dateTimeMillisSqlFormat)
+        else:
+          currentDateTime, currentDateTimeEpoch = convertDateTimeToStr(currentDateTime)
+
+        # There is no toEpochMilliseconds so we'll just append it
+        currentDateTimeEpoch += currentDateTimeMillis
+
+
+        receivedDate, receivedDateEpoch = convertDateTimeToStr('{_:SMSEStrata_receivedDate}')
+        collectionDateTime, collectionDateTimeEpoch = convertDateTimeToStr('{_:SMSEStrata_collectionDateTime}')
+
+        # If collectionDateTime is None, use receivedDate info instead
+        if not collectionDateTime:
+          collectionDateTime = receivedDate
+          collectionDateTimeEpoch = receivedDateEpoch
+
+        dob = convertDateToStr('{_:SMSEStrata_dob}')
+
+
+      # Send a request to STRATA
+      sendMessage STRATA Specimen Event
+      
+        # Only send message if 
+        #   - stage is not 'ORDER ENTERED'
+        #   - externalRequestId is not blank
+        #   - externalSystem is equal to CCE
+        sendIfCondition~ {_j:stage}
+          not~
+            equals~ ORDER ENTERED
+          and~ {_:SMSEStrata_externalRequestId}
+            not~
+              isBlank~
+          and~ {_:SMSEStrata_externalSystem}
+            equals~ CCE
+        service~ STRATA
+        values~
+          result true
+          events
+            entry~
+              resourceType SQSpecimenEvent
+              meta
+                versionId 1.0
+
+              # NOTE: Strata needs to have eventIds be unique.
+              eventId MITOGEN-{_eventId}-{_includeParm:specimenId}-{_j:currentDateTimeEpoch}
+              sourceFacility {_:SMSEStrata_mrnFacility}
+              sourceSystem Mitogen LIMS
+              type {_j:eventType}
+              stage {_j:stage}
+              problem {_includeParm:problem}
+
+              xcomments {_includeParm:stepLevelComments}
+              quantity
+                unit {_:SMSEStrata_specimenQuantityUnits}
+                value {_:SMSEStrata_specimenQuantity}
+
+              # User or system performing the action
+              # userInfo only contains name field
+              #   - does not have first and last name separated
+              user
+                identifier
+                  entry~
+                    value {_:SMSEStrata_email}
+                name
+                  entry~
+                    given
+                      entry~ {_:SMSEStrata_name}
+                    family
+
+              xdatetime {_j:currentDateTime}
+
+              # Location the event occurred.
+              # Example provided was "Received Specimen"
+              location
+                entry~ {_step}
+
+              
+              disposition {_includeParm:disposition}
+              specimen
+                identifier
+                  entry~
+                    value {_includeParm:specimenId}
+                accessionIdentifier
+                  value {_includeParm:specimenId}
+
+                subject
+                  reference #patient
+
+                request list
+                  entry~
+                    reference #req1
+
+                type
+                  xtext {_:SMSEStrata_specimenType}
+                  coding
+                    entry~
+                      system Mitogen LIMS
+                      code {_:SMSEStrata_specimenType}
+
+
+                collection
+                  collectedDateTime {_j:collectionDateTime}
+                  quantity
+                    unit {_:SMSEStrata_specimenQuantity}
+                    value {_:SMSEStrata_specimenQuantityUnits}
+
+                receivedTime {_j:receivedDate}
+
+                xcontainer
+                  entry~
+                    # NOTE: "Not well supported" - Docs
+                    identifier
+                      entry~
+                        value {_includeParm:specimenId}
+
+                    type
+                      xtext {_:SMSEStrata_specimenType}
+                      coding list
+                        entry~
+                          # NOTE: Leaving these values static for now
+                          system Mitogen LIMS
+
+                          # NOTE: TBD.. Mitogen does not have this.
+                          # NOTE From Lead RE: They are using HISTO as generic container
+                          #   type for the AP orders. Not susure if they have a plan
+                          #   for a different generic container type for Mitogen LIMS
+                          #   orders. HISTO is being sent from CCE as all caps
+                          code HISTO
+
+                    # NOTE: Mitogen does not have capacity
+                    capacity
+                      unit
+                      value
+
+                    specimenQuantity
+                      unit {_:SMSEStrata_specimenQuantity}
+                      value {_:SMSEStrata_specimenQuantityUnits}
+
+
+              contained
+                # NOTE: "Will only be present when event message is for a child."
+                #entry~
+                #  specimen
+                #    resourceType Specimen
+                #    id parent
+                #    subject
+                #      reference #patient
+                #    identifier
+                #      entry~
+                #        value BB873487
+                #    accessionIdentifier
+                #      value BB873487
+
+
+                entry~
+                  patient
+                    resourceType Patient
+                    id patient
+                    identifier
+                      entry~
+                        system SQID
+                        value {_:SMSEStrata_sqId}
+                      entry~
+                        system MRN
+                        value {_:SMSEStrata_mrn}
+                    name
+                      entry~
+                        given
+                          entry~ {_:SMSEStrata_firstName}
+                        family {_:SMSEStrata_lastName}
+
+                    birthDate {_j:dob}
+
+                    gender {_:SMSEStrata_geneticGender}
+
+                entry~
+                  procedureRequest
+                    resourceType ProcedureRequest
+                    id req1
+                    identifier
+                      entry~
+                        system {_:SMSEStrata_externalSystem}
+                        value {_:SMSEStrata_externalRequestId}
+
+                    # NOTE: Mitogen does not know the requisition for QLD.
+                    requisition
+                      value {_:SMSEStrata_externalRequestId}
+
+                    # NOTE: Can be derived, but not currently supported.
+                    status {_includeParm:status}
+
+                    # Will always be 'order'
+                    intent order
+
+                    # Blank, CCE is the only system aware of this timestamp.
+                    authoredOn
+
+                    # Must only be 1 per ProcedureRequest
+                    code
+                      xtext {_:SMSEStrata_panelName}
+                      coding
+                        entry~
+                          system Mitogen LIMS
+                          code {_includeParm:panelCode}
+
+                    subject
+                      reference #patient
+
+                    # Physician who requested the procedure
+                    requester
+                      # Blank from Mitogen. Will come from CCE for QLD
+                      agent object
+                        reference
+
+                      # Blank from Mitogen. Will come from CCE for QLD.
+                      onBehalfOf
+                        reference
+
+    includeable parseResponse_SpecimenEvent_STRATA
+      # Used for parsing response from STRATA
+      jython
+        from java.util import Hashtable
+        res = Hashtable(switchboard.serviceResponses)
+        if res:
+          res = Hashtable(res.get("STRATA"))
+          if res:
+            res = res.get('STRATA Response')
+            switchboard.log(res.toJSON())
+

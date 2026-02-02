@@ -1,0 +1,32 @@
+-- $$CURRENT_VERSION$$ --> $$NEXT_VERSION$$
+IF EXISTS(SELECT 1 FROM dbSettings WHERE dbSetting =  '$$KEY$$' AND `value` = '$$CURRENT_VERSION$$') THEN
+
+   INSERT INTO tmpUpgradeResults (resultType, result)
+   VALUES ('INFO', 'VERSION $$CURRENT_VERSION$$ DETECTED');
+
+   -- ADD SQL UPDATE --
+
+   -- END SQL UPDATE --
+
+   INSERT INTO tmpUpgradeResults (resultType, result)
+   VALUES ('INFO', 'UPDATING LIMS DB Version..... ');
+
+   INSERT INTO dbVersionHistory
+   (
+       version,
+       versionDate
+   ) VALUES (
+      '$$NEXT_VERSION$$',
+       NOW()
+   );
+
+   UPDATE dbSettings
+   SET `value` = '$$NEXT_VERSION$$'
+   WHERE `dbSetting` = '$$KEY$$';
+
+  INSERT INTO tmpUpgradeResults (resultType, result)
+  VALUES ('INFO', 'UPDATING LIMS DB Version..... Success');
+ELSE
+  INSERT INTO tmpUpgradeResults (resultType, result)
+  VALUES ('INFO', 'SKIPPING VERSION $$CURRENT_VERSION$$ UPDATES');
+END IF;

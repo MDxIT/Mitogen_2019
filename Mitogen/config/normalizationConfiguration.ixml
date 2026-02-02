@@ -1,0 +1,264 @@
+config
+  steps
+
+    stepGroup Normalization Configuration
+
+    step Normalization Configuration
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src js/configuration/normalizationConfiguration.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link css/configuration/analysisConfiguration.css
+
+      form
+        data-parsley-validate=
+        div
+          id= modal
+
+        fieldset
+          div
+            id= tabs
+            ul
+              li
+                a Active
+                  href= #normalizationActive
+
+              li
+                a Inactive
+                  href= #normalizationInactive
+              div
+                id= createNewButtonDiv
+                button
+                  id= btnCreateNewNormalizationMethod
+                  value= Create new normalization template
+
+            div
+              id= normalizationActive
+              table
+                id= analysisMethodsActiveTable
+                sqlPreparedQuery~
+                  - SELECT 
+                  -   am.methodName AS "Name",
+                  -   am.methodDescription AS "Description",
+                  -   amv.id AS "versionId",
+                  -   amv.analysisMethodsId,
+                  -   amv.version,
+                  -   amv.active,
+                  -   am.analysisStepName AS "Associated Step"
+                  - FROM analysisMethods am
+                  -   INNER JOIN analysisMethodVersions amv 
+                  -     ON amv.analysisMethodsId = am.id
+                  -   LEFT JOIN protocolSteps ps 
+                  -     ON am.analysisStepName = ps.displayName
+                  - WHERE am.methodType = 'Normalization' 
+                  -   AND amv.active = 1
+                  - ORDER BY amv.analysisMethodsId, amv.version DESC
+                columnSpecs~ analysisMethodsActiveTable
+                  column 1
+                    inputType text 
+                      class= readonly methodName
+                      readonly=
+                  column 3
+                    inputType text 
+                      class= hide templateId
+                  column 4
+                    inputType text 
+                      class= hide
+                  column 5
+                    inputType text 
+                      class= hide
+                  column 6
+                    inputType text 
+                      class= hide
+
+            div
+              id= normalizationInactive
+              table
+                id= analysisMethodsInactiveTable
+                sqlPreparedQuery~
+                  - SELECT 
+                  -   am.methodName AS "Name",
+                  -   am.methodDescription AS "Description",
+                  -   max(amv.id) AS "versionId",
+                  -   amv.analysisMethodsId,
+                  -   max(amv.version) AS "version",
+                  -   amv.active,
+                  -   am.analysisStepName AS "Associated Step"
+                  - FROM analysisMethods am
+                  -   INNER JOIN analysisMethodVersions amv 
+                  -     ON amv.analysisMethodsId = am.id
+                  -   LEFT JOIN protocolSteps ps 
+                  -     ON am.analysisStepName = ps.displayName
+                  - WHERE am.methodType = 'Normalization'
+                  -   AND amv.analysisMethodsId not in (SELECT analysisMethodsId FROM analysisMethodVersions WHERE active = 1)
+                  - GROUP BY amv.analysisMethodsId
+                  - ORDER BY amv.analysisMethodsId, amv.version DESC
+                columnSpecs~ analysisMethodsInactiveTable
+                  column 1
+                    inputType text 
+                      class= readonly methodName
+                      readonly=
+                  column 3
+                    inputType text 
+                      class= hide templateId
+                  column 4
+                    inputType text 
+                      class= hide
+                  column 5
+                    inputType text 
+                      class= hide
+                  column 6
+                    inputType text 
+                      class= hide
+
+
+      form
+        data-parsley-validate=
+        div
+          id= modal
+
+        configurePreparedQuery~
+          - SELECT am.methodName,
+          -         am.methodDescription AS "templateDescription",
+          -         amv.id AS "versionId",
+          -         amv.analysisMethodsId,
+          -         amv.version AS "version",
+          -         amv.active,
+          -         am.analysisStepName AS "associatedStepName"
+          -  FROM analysisMethods am
+          -  INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          -  WHERE amv.id = '{templateId}'
+          allowEmptyResults~
+
+###UPDATE ME from analysisDataLimits
+        configurePreparedQuery~
+          - SELECT
+          -  (CAST(adl.lowerLimit AS CHAR)+0) AS "thresholdValue"
+          - FROM analysisMethods am
+          - INNER JOIN analysisMethodVersions amv ON amv.analysisMethodsId = am.id
+          - INNER JOIN analysisDataDefinition andd ON andd.analysisMethodVersionsId = amv.id
+          - LEFT JOIN analysisDataLimits adl ON andd.id = adl.analysisDataDefinitionId
+          - WHERE amv.active = 1 AND amv.id = '{templateId}' AND andd.definerType = 'normalizationThreshold';
+          allowEmptyResults~
+
+        hidden templateNameOrig
+          id= templateNameOrig
+          value= {_:methodName}
+
+        hidden templateNameId
+          id= templateNameId
+          value= {analysisMethodsId}
+
+        hidden methodVersionId
+          id= methodVersionId
+          value= {_:versionId}
+
+        hidden templateActiveOrig
+          id= templateActiveOrig
+          value= {_:active}
+
+        hidden templateVersionNumberOrig
+          id= templateVersionNumberOrig
+          value= {_:version}
+
+        hidden previousLoadData
+          id= previousLoadData
+
+        hidden associatedStepType
+          id= associatedStepType
+
+
+        div
+          id= loadingProgress
+          img
+            src= images/loader.gif
+          span Loading Configuration Options...
+
+        div
+          id= configOptions
+          fieldset
+            fieldset
+              id= topSectionFieldset
+              topVertical
+                class= goLeft
+                text templateName
+                  screenLabel~ Normalization Template Name:
+                  id= templateName
+                  class= required
+                  required~ true
+                  data-parsley-required= true
+                  value= {_:methodName}
+                  ### check for template number and also for special characters.... such as tick marks and clear field if exists
+
+              div
+                class= goRight
+                label Template Version:
+                label !!! {_:version}
+                  id= versionNumber
+                text templateVersionNumber
+                  id= templateVersionNumber
+                  data-parsley-required= true
+                  value= {_:version}
+
+              topVertical
+                class= goLeft
+                textArea templateDescription
+                  screenLabel~ Template Description:
+                  id= templateDescription
+                  class= required
+                  required~ true
+                  data-parsley-required= true
+                  value= {_:templateDescription}
+                select templateActive
+                  screenLabel~ Template Active:
+                  id= templateActive
+                  class= required
+                  required~ true
+                  data-parsley-required= true
+                  option Yes
+                    value= 1
+                  option No
+                    value= 0
+                  value= {_:active}
+                select associatedStepName
+                  screenLabel~ Associated Step Name:
+                  id= associatedStepName
+                  option
+                  sqlQuery~
+                    - SELECT 
+                    -   ps.displayName, 
+                    -   ps.displayName
+                    - FROM protocolSteps ps
+                    - WHERE ps.stepName IN ('Sample: Serial Dilution', 'Sample: Series Dilution', 'Sample: Normalization/Normalisation')
+                    -   AND ps.displayName NOT IN ( SELECT analysisStepName
+                    -                             FROM analysisMethods am
+                    -                             INNER JOIN analysisMethodVersions amv
+                    -                                   ON am.id = amv.analysisMethodsId
+                    -                                   AND amv.active = '1'
+                    -                                   AND analysisStepName <> '')
+                  value= {_:associatedStepName}
+                textArea associatedPanelsPerStep
+                  screenLabel~ Panel/s:
+                  id= associatedPanelsPerStep
+                  readonly=
+                number thresholdValue
+                  screenLabel~ Target Value:
+                  id= thresholdValue
+                  class= thresholdValue
+                  data-parsley-required= false
+                  data-parsley-column-order= false
+                  required~ false
+                  value= {_:thresholdValue}
+
+          fieldset
+            # id= loadField
+            legend Load Concentration Data
+            div
+              class= tableWrapper table-scroll
+              div
+                id= prevDataTable
+
+
+
+

@@ -1,0 +1,43 @@
+
+
+.wellOptionButton {
+  width: 100px ! important;
+  height: 25px ! important;
+  vertical-align: middle ! important;
+  cursor: pointer ! important;
+  text-align: center ! important;
+}
+
+/*.wellOptionButtonParent {
+  border: 1px solid black ! important;
+  border-style: ridge ! important
+}
+*/
+.sourceWell{
+	text-align: center ! important;
+	margin-left: auto ! important;
+	margin-right: auto ! important;
+	padding-left: 5px ! important;
+	padding-right: 5px ! important;
+  cursor: pointer ! important;
+}
+
+
+.destinationWell {
+  text-align: center ! important;
+  margin-left: auto ! important;
+  margin-right: auto ! important;
+  padding-left: 5px ! important;
+  padding-right: 5px ! important;
+  cursor: pointer ! important;
+} 
+
+
+.wellParent {
+  padding-left: 10px ! important;
+  padding-right: 10px ! important;
+  padding-top: 10px ! important;
+  padding-bottom: 10px ! important;
+  cursor: pointer ! important;
+} 
+

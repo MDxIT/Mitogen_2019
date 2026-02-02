@@ -1,0 +1,4 @@
+table.dataTable.display tbody tr.selectedRow td{
+  background-color: #dddddd !important;
+  color: #aaaaaa !important;
+}

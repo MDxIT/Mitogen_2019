@@ -1,0 +1,802 @@
+
+    step [$$STEP_NAME$$]
+
+      allowDuplicateContainerIds
+
+      cssLinks
+        link css/cherryPickTrayToTray.css
+
+      form
+
+        data-parsley-validate=
+
+        script
+          src= js/components/container.js
+
+        script
+          src= js/tasks/processBatch/processBatch_form0.js
+
+        script
+          src= js/tasks/cherryPickTrayToTray_form0.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT CASE WHEN ? = 'Yes' THEN ?
+          -   ELSE 'any'
+          - END AS "acceptedQueue"
+          string [$$Require_Queued_Source$$]
+          string {_step}
+          allowEmptyResults~
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        hidden cellNumber
+          id= cellNumber
+          value= 5000
+
+        hidden filledCells
+          id= filledCells
+
+        fieldset
+          legend Source Tray
+
+          include groupingContainer_Form0
+            parameter~ groupingContainerScreenLabel
+              value= Source Tray
+            parameter~ currentStep
+              value= {_step}
+            parameter~ acceptQueue
+              value= {_:acceptedQueue}
+            parameter~ containerType
+              value= trayId
+
+
+        fieldset
+          legend Destination Tray
+          vertical
+            select destinationType
+              screenLabel~ Destination Tray Source
+              required~ true
+              class= required destinationType
+              setName~ destinationType
+              value= {destinationType}
+          br
+          fieldset
+            id= existingTray
+            class= hideTrayOptions
+            legend Scan Existing Tray
+            vertical
+              container scanDestination
+                class= required trayOption existingTrayOption scanDestination
+                required~ false
+                screenLabel~
+                acceptQueue~ any
+                data-parsley-required= false
+                validate~ {cellNumber}
+                  advanced~
+                  greaterThan~ {filledCells}
+                  or~ {destinationType}
+                    equals~ New
+                  errorMessage~ The destination tray has no free wells.  Please use a different tray.
+
+      form
+        enctype= multipart/form-data
+        data-parsley-validate=
+
+        script
+          src= js/tasks/cherryPickTrayToTray_form1.js
+
+        script
+          src= js/components/printBarcode.js
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT trayType, trayRows, trayColumns
+          - FROM trayMapStepAssignments tmsa
+          - INNER JOIN trayMapProperties tmp
+          -   ON tmsa.trayMapId = tmp.id
+          - WHERE step = ?
+          string {_step}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT CASE WHEN ? <> 'Use Existing Identifier' THEN ''
+          -   ELSE 'Use Existing Identifier'
+          - END AS 'existingIdentifier'
+          string [$$Generate_Plate_ID$$]
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -   CASE WHEN ? = '' THEN ?
+          -     ELSE ?
+          -   END AS "destinationTrayType",
+          -   CASE WHEN ? = '' THEN ?
+          -     ELSE ?
+          -   END AS "destinationRows",
+          -   CASE WHEN ? = '' THEN ?
+          -     ELSE ?
+          -   END AS "destinationColumns"
+          string {_:trayType}
+          string [$$Tray_Type$$]
+          string {_:trayType}
+          string {_:trayRows}
+          string [$$Tray_Size_Rows$$]
+          string {_:trayRows}
+          string {_:trayColumns}
+          string [$$Tray_Size_Columns$$]
+          string {_:trayColumns}
+
+        configurePreparedQuery~
+          - SELECT value AS "sourceTrayRows"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayRowNumber'
+          string {groupingContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT value AS "sourceTrayColumns"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayColumnNumber'
+          string {groupingContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT LOWER(value) AS "sourceTrayType"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayType'
+          string {groupingContainerId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT
+          -   step AS "destCurrentQueue"
+          - FROM queues
+          - WHERE containerId = ?
+          string {scanDestination}
+          allowEmptyResults~
+
+        hidden editDestinationTray
+          id= editDestinationTray
+          value= Yes
+
+        hidden destinationType
+          id= destinationType
+          value= {destinationType}
+
+        hidden groupingContainerId
+          value= {groupingContainerId}
+
+        hidden scanDestination
+          id= scanDestination
+          value= {scanDestination}
+
+        hidden destinationTrayType
+          id= destinationTrayType
+          value= {_:destinationTrayType}
+
+        hidden destinationRows
+          id= destinationRows
+          value= {_:destinationRows}
+
+        hidden destinationColumns
+          id= destinationColumns
+          value= {_:destinationColumns}
+
+        hidden sourceTrayType
+          id= sourceTrayType
+          value= {_:sourceTrayType}
+
+        hidden sourceRows
+          id= sourceRows
+          value= {_:sourceTrayRows}
+
+        hidden sourceColumns
+          id= sourceColumns
+          value= {_:sourceTrayColumns}
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+        ## Transfer Maps div ###
+
+        fieldset
+          legend Source Tray
+          include containerComponent
+            #### DEVELOPER CONFIGURATIONS
+            parameter~ containerName
+              value= sourceTray
+            parameter~ containerScreenLabel
+              value= Source Tray Id
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= trayId
+            parameter~ containerRequired
+              value= true
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {groupingContainerId}
+            parameter~ useThisSequence
+              value= trayId
+
+            #### BUILD SHEET CONFIGURATIONS
+            parameter~ containerCommentsInclude
+              value= [$$Plate_Comments$$]
+            parameter~ containerActionInclude
+              value= No
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ containerCategoryInclude
+              value= Not Applicable
+            parameter~ includePriority
+              value= No
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+
+            #### PARAMETER DRIVEN ROUTING
+            parameter~ containerActionOptions
+              value= passfail
+
+            parameter~ showContainerRunCount
+              value= No
+            parameter~ groupingContainerRunCount
+              value= No
+
+
+          div
+            configureIf~ {_:sourceTrayType}
+              advanced~
+              equals~ plate
+                ignoreCase~
+            vertical
+              plate Source Plate
+                rows {_:sourceTrayRows}
+                cols {_:sourceTrayColumns}
+                sqlPreparedQuery~
+                  - SELECT currentParentPosition AS "attribute",
+                  -   currentContainerId AS "content"
+                  - FROM specimenRuns
+                  - WHERE currentParentId = ?
+                  - UNION ALL
+                  - SELECT currentParentPosition AS "attribute",
+                  -   currentContainerId AS "content"
+                  - FROM poolRuns
+                  - WHERE currentParentId = ?
+                  - UNION ALL
+                  - SELECT currentParentPosition AS "attribute",
+                  -   currentContainerId AS "content"
+                  - FROM controlRuns
+                  - WHERE currentParentId = ?
+                  string {groupingContainerId}
+                  string {groupingContainerId}
+                  string {groupingContainerId}
+                inputType text
+                  class= sourceWell
+                  readonly=
+          div
+            configureIf~ {_:sourceTrayType}
+              advanced~
+              equals~ grid
+                ignoreCase~
+            vertical
+              grid Source Grid
+                rows {_:sourceTrayRows}
+                cols {_:sourceTrayColumns}
+                sqlPreparedQuery~
+                  - SELECT currentParentPosition AS "attribute",
+                  -   currentContainerId AS "content"
+                  - FROM specimenRuns
+                  - WHERE currentParentId = ?
+                  - UNION ALL
+                  - SELECT currentParentPosition AS "attribute",
+                  -   currentContainerId AS "content"
+                  - FROM poolRuns
+                  - WHERE currentParentId = ?
+                  - UNION ALL
+                  - SELECT currentParentPosition AS "attribute",
+                  -   currentContainerId AS "content"
+                  - FROM controlRuns
+                  - WHERE currentParentId = ?
+                  string {groupingContainerId}
+                  string {groupingContainerId}
+                  string {groupingContainerId}
+                inputType text
+                  class= sourceWell
+                  readonly=
+
+          br
+
+          vertical
+            button Clear Selections
+              id= sourceClear
+              screenLabel~
+
+          br
+          br
+          topVertical
+            select keepOnQueue
+              screenLabel~ Keep Source Tray On Queue
+              class= required
+              data-parsley-required= true
+              setName~ yesNo
+              value= [$$Keep_Source_On_Queue$$]
+
+        br
+        div
+          id= hiddenRunTableDiv
+          vertical
+            table
+              id= hiddenRunTable
+              sqlPreparedQuery~
+                - SELECT
+                - '' AS "Source Well",
+                - '' AS "Destination Sample",
+                - '' AS "Destination Well"
+              columnSpecs~ hiddenRunTable
+                allowChangedRecordIds
+                column 1
+                  inputType text
+                    class= sourceWell
+                column 2
+                  inputType text
+                    class= destinationSample
+                column 3
+                  inputType text
+                    class= destinationWell
+
+          vertical
+            table
+              id= originalSamplesTable
+              sqlPreparedQuery~
+                - SELECT currentContainerId AS "Sample",
+                -   currentParentPosition AS "Well"
+                - FROM specimenRuns
+                - WHERE currentParentId = ?
+                - UNION ALL
+                - SELECT currentContainerId AS "Sample",
+                -   currentParentPosition AS "Well"
+                - FROM poolRuns
+                - WHERE currentParentId = ?
+                - UNION ALL
+                - SELECT currentContainerId AS "Sample",
+                -   currentParentPosition AS "Well"
+                - FROM controlRuns
+                - WHERE currentParentId = ?
+                string {scanDestination}
+                string {scanDestination}
+                string {scanDestination}
+              columnSpecs~ originalSamplesTable
+                allowChangedRecordIds
+                column 1
+                  inputType text
+                    class= originalSample
+                    readonly= true
+                column 2
+                  inputType text
+                    class= originalWell
+                    readonly= true
+
+        br
+        fieldset
+          legend Destination Tray Map
+
+
+          div
+            id= printMe
+              configureIf~ [$$Print_Plate_Layout$$]
+                advanced~
+                equals~ Yes
+
+            printerControls
+              configureIf~ [$$Print_Plate_Barcode$$]
+                advanced~
+                equals~ Yes
+              defaultPrinter~
+              defaultDocument~
+              variables~
+
+            div
+              configureIf~ {_:destinationTrayType}
+                advanced~
+                equals~ plate
+                  ignoreCase~
+                and~ {scanDestination}
+                  isBlank~
+
+              include trayComponent
+
+                parameter~ containerNameParm
+                  value= trayId
+                parameter~ containerScreenLabel
+                  value= Destination Tray Id
+                parameter~ containerReadonly
+                  value= false
+                parameter~ containerNew
+                  value= true
+                parameter~ containerAsSelect
+                  value= false
+                parameter~ acceptQueue
+                  value= any
+                parameter~ containerType
+                  value= trayId
+                parameter~ containerRequired
+                  value= true
+                parameter~ containerAdditionalClasses
+                  value=
+                parameter~ containerValue
+                  value=
+                parameter~ useThisSequence
+                  value= trayId
+                parameter~ containerCommentsInclude
+                  value= [$$Destination_Plate_Comments$$]
+                parameter~ containerGenerateFromSequence
+                  value= [$$Generate_Plate_ID$$]
+                parameter~ containerShowStorageLocation
+                  value= No
+                parameter~ containerPrintBarcode
+                  value= [$$Print_Plate_Barcode$$]
+                parameter~ containerActionInclude
+                  value= No
+                parameter~ containerCategoryInclude
+                  value= Not Applicable
+                parameter~ containerActionOptions
+                  value= passfail
+                parameter~ platePrintLayout
+                  value= [$$Print_Plate_Layout$$]
+                parameter~ plateAllowSampleDuplicates
+                  value= [$$Allow_Replicate$$]
+                parameter~ trayType
+                  value= plate
+                parameter~ trayRowNumber
+                  value= {_:destinationRows}
+                parameter~ trayColumnNumber
+                  value= {_:destinationColumns}
+                parameter~ userClass1
+                  value= destinationWell
+                parameter~ includePriority
+                  value= No
+                parameter~ trayInputReadyOnly
+                  value= false
+                parameter~ trayLabel
+                  value= Plate
+                parameter~ sampleScanReadOnly
+                  value= false
+                parameter~ trayToTray
+                  value= true
+                parameter~ containerFileUpload
+                  value= [$$Document_Upload$$]
+
+            div
+              configureIf~ {_:destinationTrayType}
+                advanced~
+                equals~ plate
+                  ignoreCase~
+                and~ {scanDestination}
+                  not~
+                    isBlank~
+
+              include trayComponent
+
+                parameter~ containerNameParm
+                  value= trayId
+                parameter~ containerScreenLabel
+                  value= Destination Tray Id
+                parameter~ containerReadonly
+                  value= true
+                parameter~ containerNew
+                  value= false
+                parameter~ containerAsSelect
+                  value= false
+                parameter~ acceptQueue
+                  value= any
+                parameter~ containerType
+                  value= trayId
+                parameter~ containerRequired
+                  value= true
+                parameter~ containerAdditionalClasses
+                  value=
+                parameter~ containerValue
+                  value= {scanDestination}
+                parameter~ useThisSequence
+                  value=
+                parameter~ containerCommentsInclude
+                  value= [$$Destination_Plate_Comments$$]
+                parameter~ containerGenerateFromSequence
+                  value= {_:existingIdentifier}
+                parameter~ containerShowStorageLocation
+                  value= No
+                parameter~ containerPrintBarcode
+                  value= [$$Print_Plate_Barcode$$]
+                parameter~ containerActionInclude
+                  value= No
+                parameter~ containerCategoryInclude
+                  value= Not Applicable
+                parameter~ containerActionOptions
+                  value= passfail
+                parameter~ platePrintLayout
+                  value= [$$Print_Plate_Layout$$]
+                parameter~ plateAllowSampleDuplicates
+                  value= [$$Allow_Replicate$$]
+                parameter~ trayType
+                  value= plate
+                parameter~ trayRowNumber
+                  value= {_:destinationRows}
+                parameter~ trayColumnNumber
+                  value= {_:destinationColumns}
+                parameter~ userClass1
+                  value= destinationWell
+                parameter~ includePriority
+                  value= No
+                parameter~ trayInputReadyOnly
+                  value= false
+                parameter~ trayLabel
+                  value= Plate
+                parameter~ sampleScanReadOnly
+                  value= false
+                parameter~ trayToTray
+                  value= true
+                parameter~ containerFileUpload
+                  value= [$$Document_Upload$$]
+
+            div
+              configureIf~ {_:destinationTrayType}
+                advanced~
+                equals~ grid
+                  ignoreCase~
+                and~ {scanDestination}
+                  isBlank~
+
+
+
+              include trayComponent
+
+                parameter~ containerNameParm
+                  value= trayId
+                parameter~ containerScreenLabel
+                  value= Destination Tray Id
+                parameter~ containerReadonly
+                  value= false
+                parameter~ containerNew
+                  value= true
+                parameter~ containerAsSelect
+                  value= false
+                parameter~ acceptQueue
+                  value= any
+                parameter~ containerType
+                  value= trayId
+                parameter~ containerRequired
+                  value= true
+                parameter~ containerAdditionalClasses
+                  value=
+                parameter~ containerValue
+                  value=
+                parameter~ useThisSequence
+                  value= trayId
+                parameter~ containerCommentsInclude
+                  value= [$$Destination_Plate_Comments$$]
+                parameter~ containerGenerateFromSequence
+                  value= [$$Generate_Plate_ID$$]
+                parameter~ containerShowStorageLocation
+                  value= No
+                parameter~ containerPrintBarcode
+                  value= [$$Print_Plate_Barcode$$]
+                parameter~ containerActionInclude
+                  value= No
+                parameter~ containerCategoryInclude
+                  value= Not Applicable
+                parameter~ containerActionOptions
+                  value= passfail
+                parameter~ platePrintLayout
+                  value= [$$Print_Plate_Layout$$]
+                parameter~ plateAllowSampleDuplicates
+                  value= [$$Allow_Replicate$$]
+                parameter~ trayType
+                  value= grid
+                parameter~ trayRowNumber
+                  value= {_:destinationRows}
+                parameter~ trayColumnNumber
+                  value= {_:destinationColumns}
+                parameter~ userClass1
+                  value= destinationWell
+                parameter~ includePriority
+                  value= No
+                parameter~ trayInputReadyOnly
+                  value= false
+                parameter~ trayLabel
+                  value= Grid
+                parameter~ sampleScanReadOnly
+                  value= false
+                parameter~ trayToTray
+                  value= true
+                parameter~ containerFileUpload
+                  value= [$$Document_Upload$$]
+
+
+            div
+              configureIf~ {_:destinationTrayType}
+                advanced~
+                equals~ grid
+                  ignoreCase~
+                and~ {scanDestination}
+                  not~
+                    isBlank~
+
+              include trayComponent
+
+                parameter~ containerNameParm
+                  value= trayId
+                parameter~ containerScreenLabel
+                  value= Destination Tray Id
+                parameter~ containerReadonly
+                  value= true
+                parameter~ containerNew
+                  value= false
+                parameter~ containerAsSelect
+                  value= false
+                parameter~ acceptQueue
+                  value= any
+                parameter~ containerType
+                  value= trayId
+                parameter~ containerRequired
+                  value= true
+                parameter~ containerAdditionalClasses
+                  value=
+                parameter~ containerValue
+                  value= {scanDestination}
+                parameter~ useThisSequence
+                  value=
+                parameter~ containerCommentsInclude
+                  value= [$$Destination_Plate_Comments$$]
+                parameter~ containerGenerateFromSequence
+                  value= {_:existingIdentifier}
+                parameter~ containerShowStorageLocation
+                  value= No
+                parameter~ containerPrintBarcode
+                  value= [$$Print_Plate_Barcode$$]
+                parameter~ containerActionInclude
+                  value= No
+                parameter~ containerCategoryInclude
+                  value= Not Applicable
+                parameter~ containerActionOptions
+                  value= passfail
+                parameter~ platePrintLayout
+                  value= [$$Print_Plate_Layout$$]
+                parameter~ plateAllowSampleDuplicates
+                  value= [$$Allow_Replicate$$]
+                parameter~ trayType
+                  value= grid
+                parameter~ trayRowNumber
+                  value= {_:destinationRows}
+                parameter~ trayColumnNumber
+                  value= {_:destinationColumns}
+                parameter~ userClass1
+                  value= destinationWell
+                parameter~ includePriority
+                  value= No
+                parameter~ trayInputReadyOnly
+                  value= false
+                parameter~ trayLabel
+                  value= Grid
+                parameter~ sampleScanReadOnly
+                  value= false
+                parameter~ trayToTray
+                  value= true
+                parameter~ containerFileUpload
+                  value= [$$Document_Upload$$]
+
+
+      ifCondition~ {destinationType}
+        advanced~
+        equals~ New
+
+        sqlPreparedStatement~
+          - INSERT INTO containerProperties
+          -   (containerId, property, value, eventId)
+          - VALUES (?, ?, ?, ?)
+          string {trayId}
+          string trayRowNumber
+          string {destinationRows}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO containerProperties
+          -   (containerId, property, value, eventId)
+          - VALUES (?, ?, ?, ?)
+          string {trayId}
+          string trayColumnNumber
+          string {destinationColumns}
+          long {_eventId}
+
+        sqlPreparedStatement~
+          - INSERT INTO containerProperties
+          -   (containerId, property, value, eventId)
+          - VALUES (?, ?, ?, ?)
+          string {trayId}
+          string trayType
+          string {destinationTrayType}
+          long {_eventId}
+
+      include trayComponent_SQL
+        parameter~ trayColumnNumber
+          value= {destinationColumns}
+        parameter~ trayRowNumber
+          value= {destinationRows}
+        parameter~ trayId
+          value= {trayId}
+        parameter~ trayType
+          value= {destinationTrayType}
+
+      validateSql
+        - SELECT 1
+        - FROM specimenRuns
+        - WHERE currentParentId = ?
+        errorMessage This tray needs at least one sample.
+        string {trayId}
+
+      ifCondition~ {keepOnQueue}
+        advanced~
+        equals~ No
+        # Route source plate
+        include routeContainer
+          parameter~ processContainerId
+            value= {sourceTray}
+          parameter~ result
+            value= {sourceTray_Action}
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= Store
+          parameter~ routingDirection
+            value= IN
+          parameter~ routingType
+            value= group
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+      ifCondition~ [$$Queue_Destination$$]
+        advanced~
+        equals~ Yes
+        or~ {destinationType}
+          equals~ New
+        # Route Destination plate
+        include routeContainer
+          parameter~ processContainerId
+            value= {trayId}
+          parameter~ result
+            value= {trayId_Action}
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= [$$NEXT_STEP$$]
+          parameter~ routingDirection
+            value= OUT
+          parameter~ routingType
+            value= group
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}

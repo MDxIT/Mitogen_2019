@@ -1,0 +1,259 @@
+config
+  steps
+    stepGroup routingAJAX
+
+    step AjaxGetStepsByProtocol
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT  ps.displayName, ps.displayName
+          - FROM protocolLibrary pl
+          - INNER JOIN protocolSteps ps ON pl.id = ps.protocolLibraryId
+          - WHERE pl.protocolName = ? AND ps.stepName <> 'Exception Handling'
+          - UNION
+          - SELECT '',''
+          - FROM dual
+          - WHERE NOT EXISTS (SELECT 1
+          - FROM protocolLibrary pl
+          - INNER JOIN protocolSteps ps ON pl.id = ps.protocolLibraryId
+          - WHERE pl.protocolName = ?)
+          string {protocolName}
+          string {protocolName}
+
+
+    step AjaxGetStepParametersByProtocolAndStep
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT  ps.displayName, ps.displayName
+          - FROM protocolLibrary pl
+          - INNER JOIN protocolSteps ps ON pl.id = ps.protocolLibraryId
+          - WHERE pl.protocolName = ?
+          -   AND ps.displayName = ? AND ps.stepName <> 'Exception Handling'
+          string {protocolName}
+          string {sourceStep}
+
+
+    step AjaxGetRoutingByRunProtocolAndTask
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   id,
+          -   priority,
+          -   sourceStep,
+          -   routingDirection,
+          -   orderType,
+          -   specimenType,
+          -   panelCode,
+          -   testCode,
+          -   methodCode,
+          -   IFNULL(departmentId, '') AS "departmentId",
+          -   IFNULL(locationId, '') AS "locationId",
+          -   IFNULL(specimenAge, '') AS "specimenAge",
+          -   specimenQuantityQualifier,
+          -   IFNULL(specimenQuantity, '') AS "specimenQuantity",
+          -   result,
+          -   runCount,
+          -   diagnosticCode,
+          -   nextStep
+          - FROM routingMatrix
+          - WHERE routingType = 'run'
+          -   and sourceStep = ?
+          string {selectedSourceStep}
+
+
+    step AjaxGetBatchTryRoutingByProtocolAndTask
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   id,
+          -   priority,
+          -   sourceStep,
+          -   routingDirection,
+          -   orderType,
+          -   result,
+          -   runCount,
+          -   nextStep
+          - FROM routingMatrix
+          - WHERE routingType = 'group'
+          -   AND sourceStep = ?
+          string {selectedSourceStep}
+
+
+    step AjaxPostDeleteRoutingMatrixRecord
+      form
+        text matrixId
+          value= {matrixId}
+      sqlPreparedStatement
+        - DELETE FROM routingMatrix
+        - WHERE id = ?
+        string {matrixId}
+
+
+    step AjaxPostRoutingByProtocolAndTask
+      form
+        vertical
+          textarea routingMatrixJson
+
+          textarea batchTrayRoutingMatrixJson
+
+      jython
+        import json
+        import HTMLParser
+        routingMatrixSource = r'''{routingMatrixJson}'''.encode("utf-8")
+        if routingMatrixSource:
+          try:
+            routingMatrixChanges = json.loads(routingMatrixSource, strict=False)
+            sqlInsertRoutingMatrixChanges = "INSERT INTO routingMatrix (priority, routingType, routingDirection, sourceStep, orderType, specimenType, panelCode, testCode, methodCode, specimenAge, specimenQuantityQualifier, specimenQuantity, result, runCount, diagnosticCode, nextStep, eventId, departmentId, locationId) VALUES (?,'run',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            ps = switchboard.connection.prepareStatement(sqlInsertRoutingMatrixChanges)
+            sqlUpdateRoutingMatrixChanges = "UPDATE routingMatrix SET priority = ?, routingDirection = ?, orderType = ?, specimenType = ?, panelCode = ?, testCode = ?, methodCode = ?, specimenAge = ?, specimenQuantityQualifier = ?, specimenQuantity = ?, result = ?, runCount = ?, diagnosticCode = ?, nextStep = ?, eventId = ?, departmentId = ?, locationId = ? WHERE id = ?"
+            psUpdate = switchboard.connection.prepareStatement(sqlUpdateRoutingMatrixChanges)
+            for item in routingMatrixChanges:
+
+              specimenAge = item['specimenAge']
+              if specimenAge == '':
+                specimenAge = None
+              print 'specimenAge   ' +  str(specimenAge)
+
+              specimenQuantity = item['specimenQuantity']
+              if specimenQuantity == '':
+                specimenQuantity = None
+              print 'specimenQuantity   ' +  str(specimenQuantity)
+
+              runCount = item['runCount']
+              if runCount == '':
+                runCount = 0
+              print 'runCount   ' +  str(runCount)
+
+              departmentId = item['departmentId']
+              if departmentId == '':
+                departmentId = None
+
+              locationId = item['locationId']
+              if locationId == '':
+                locationId = None
+
+              specimenQuantityQualifier = HTMLParser.HTMLParser().unescape(item['specimenQuantityQualifier'])
+              if specimenQuantityQualifier == '':
+                specimenQuantityQualifier = None
+              print 'specimenQuantityQualifier   ' +  str(specimenQuantityQualifier)
+
+              diagnosticCode = item['diagnosticCode']
+              print 'diagnosticCode   ' +  str(diagnosticCode)
+              if diagnosticCode == '':
+                diagnosticCode = ''
+              print 'diagnosticCode   ' +  str(diagnosticCode)
+
+              specimenType = item['specimenType']
+              if specimenType == '':
+                specimenType = None
+              print 'specimenType   ' +  str(specimenType)
+
+              panelCode = item['panelCode']
+              if panelCode == '':
+                panelCode = None
+              print 'panelCode   ' +  str(panelCode)
+
+              testCode = item['testCode']
+              if testCode == '':
+                testCode = None
+              print 'testCode   ' +  str(testCode)
+
+              methodCode = item['methodCode']
+              if methodCode == '':
+                methodCode = None
+              print 'methodCode   ' +  str(methodCode)
+
+              if item['id'] == 'new':
+                ps.setInt(1, int(item['priority']))
+                ps.setString(2, item['routingDirection'])
+                ps.setString(3, item['fromStep'])
+                ps.setString(4, item['orderType'])
+                ps.setString(5, specimenType)
+                ps.setString(6, panelCode)
+                ps.setString(7, testCode)
+                ps.setString(8, methodCode)
+                ps.setString(9, specimenAge)
+                ps.setString(10, specimenQuantityQualifier)
+                ps.setString(11, specimenQuantity)
+                ps.setString(12, item['result'])
+                ps.setString(13, runCount)
+                ps.setString(14, diagnosticCode)
+                ps.setString(15, item['nextStep'])
+                ps.setLong(16, {_eventId})
+                ps.setString(17, departmentId)
+                ps.setString(18, locationId)
+                print ps
+                ps.execute()
+              else :
+                psUpdate.setInt(1, int(item['priority']))
+                psUpdate.setString(2, item['routingDirection'])
+                psUpdate.setString(3, item['orderType'])
+                psUpdate.setString(4, specimenType)
+                psUpdate.setString(5, panelCode)
+                psUpdate.setString(6, testCode)
+                psUpdate.setString(7, methodCode)
+                psUpdate.setString(8, specimenAge)
+                psUpdate.setString(9, specimenQuantityQualifier)
+                psUpdate.setString(10, specimenQuantity)
+                psUpdate.setString(11, item['result'])
+                psUpdate.setString(12, runCount)
+                psUpdate.setString(13, diagnosticCode)
+                psUpdate.setString(14, item['nextStep'])
+                psUpdate.setLong(15, {_eventId})
+                psUpdate.setString(16, departmentId)
+                psUpdate.setString(17, locationId)
+                psUpdate.setInt(18, int(item['id']))
+                print psUpdate
+                psUpdate.execute()
+          except Exception as e:
+            self.switchboard.log("---FAILURE TO INSERT/UPDATE ROUTING MATRIX----")
+            self.switchboard.log(str(e.message))
+
+        batchTrayRoutingMatrixSource = r'''{batchTrayRoutingMatrixJson}'''.encode("utf-8")
+        if batchTrayRoutingMatrixSource:
+          try:
+            batchTrayRoutingMatrixChanges = json.loads(batchTrayRoutingMatrixSource, strict=False)
+            sqlInsertBTRoutingMatrixChanges = "INSERT INTO routingMatrix (priority, routingType, routingDirection, sourceStep, orderType, result, runCount, nextStep, eventId) VALUES (?,'group',?,?,?,?,?,?,?)"
+            psbt = switchboard.connection.prepareStatement(sqlInsertBTRoutingMatrixChanges)
+            sqlUpdateBTRoutingMatrixChanges = "UPDATE routingMatrix SET priority = ?, routingDirection = ?, orderType = ?, result = ?, runCount = ?, nextStep = ?, eventId = ? WHERE id = ?"
+            psbtUpdate = switchboard.connection.prepareStatement(sqlUpdateBTRoutingMatrixChanges)
+            for item in batchTrayRoutingMatrixChanges:
+
+              runCountbt = item['runCount']
+              if runCountbt == '':
+                runCountbt = None
+
+              if item['id'] == 'new':
+                psbt.setInt(1, int(item['priority']))
+                psbt.setString(2, item['routingDirection'])
+                psbt.setString(3, item['fromStep'])
+                psbt.setString(4, item['orderType'])
+                psbt.setString(5, item['result'])
+                psbt.setString(6, runCountbt)
+                psbt.setString(7, item['nextStep'])
+                psbt.setLong(8, {_eventId})
+                print psbt
+                psbt.execute()
+              else :
+                psbtUpdate.setInt(1, int(item['priority']))
+                psbtUpdate.setString(2, item['routingDirection'])
+                psbtUpdate.setString(3, item['orderType'])
+                psbtUpdate.setString(4, item['result'])
+                psbtUpdate.setString(5, runCountbt)
+                psbtUpdate.setString(6, item['nextStep'])
+                psbtUpdate.setLong(7, {_eventId})
+                psbtUpdate.setInt(8, int(item['id']))
+                print psbtUpdate
+                psbtUpdate.execute()
+          except Exception as e:
+            self.switchboard.log("---FAILURE TO INSERT/UPDATE BATCH OR TRAY ROUTING MATRIX----")
+            self.switchboard.log(str(e.message))
+
+

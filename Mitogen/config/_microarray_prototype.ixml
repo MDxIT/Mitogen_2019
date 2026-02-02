@@ -1,0 +1,888 @@
+config
+  steps
+    stepGroup Microarray Prototype
+    step Microarray Import Results
+      cssLinks
+        link css/analysis/microarray.css
+      jsScripts
+        script js/analysis/microarray_import.js
+      form
+        id= importResultsForm0
+        enctype= multipart/form-data
+        autocomplete= off
+        data-parsley-validate= true
+        div
+          class= pageSection
+          div
+            class= verticalFlex
+            label Sample Id
+              for= sampleId
+            text sampleId
+              id= sampleId
+              screenLabel~ Sample Id
+              required~ true
+              data-parsley-required= true
+              validate~ SELECT sr.currentContainerId
+                - FROM specimenRuns sr
+                - INNER JOIN queues q
+                -             ON sr.runId = q.containerId
+                - AND q.step = '{_step}'
+                - AND sr.currentContainerId = '{sampleId}'
+                errorMessage~ This Sample is not queued for this step!
+            table
+              class= stdTableSort
+              sqlQuery~
+                - SELECT DISTINCT sr.currentContainerId AS 'Sample',
+                - u.NAME AS 'User',
+                - e.eventDate AS 'Date',
+                - rf.requestId as 'Order ID',
+                - rf.mrn as 'MRN',
+                - CONCAT(p.firstName, ' ', p.lastName) as 'Patient Name',
+                - t.name as 'Test Code'
+                - FROM queues q
+                - INNER JOIN events e
+                -             ON q.eventId=e.eventId
+                - LEFT JOIN userInfo u
+                -             ON e.userId=u.userId
+                - LEFT JOIN specimenRuns sr
+                -             ON q.containerId = sr.runId
+                - LEFT JOIN contents c
+                -           ON sr.currentContainerId = c.content AND c.attribute <> 'self'
+                - LEFT JOIN specimenMethods sm
+                -           ON sr.specimenMethodsId = sm.id
+                - LEFT JOIN requestSpecimens rs
+                -           ON sm.requestSpecimensId = rs.id
+                - LEFT JOIN requestForms rf
+                -           ON rs.requestId = rf.requestId
+                - LEFT JOIN tests t
+                -            ON sm.testCode = t.testCode
+                - LEFT JOIN patients p
+                -          ON p.patientId = rf.patientId
+                -          AND rs.patientId = p.patientId
+                - WHERE q.step='{_step}'
+      form
+        id= importResultsForm1
+        enctype= multipart/form-data
+        autocomplete= off
+        data-parsley-validate= true
+        script
+          src= js/analysis/microarray_import.js
+        formPreparedQuery~ SELECT sr.runId
+          - FROM specimenRuns sr
+          - INNER JOIN queues q
+          -             ON q.containerId = sr.runId
+          - WHERE sr.currentContainerId = ?
+          - AND q.step = ?
+          string {sampleId}
+          string {_step}
+        include stepInstructions
+        hidden cmaRawResultsFile
+          id= cmaRawResultsFile
+        hidden sampleId
+          value= {sampleId}
+        hidden runId
+          value= {_:runId}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span  Import Results for Sample: {sampleId} | Run: {_:runId}
+          div
+            id= microarrayImportFile
+            class= sectionContent verticalFlex
+            label Sample Id
+              for= sampleId
+            container sampleId
+              id= sampleId
+              class= container sampleId
+              required~ true
+              acceptQueue~ any
+              screenLabel~ Sample Id
+              value= {sampleId}
+              readonly=
+            databaseImportFile cmaRawResults
+              id= rawResultsFileUpload
+              required~ true
+              destinationFolderName~ ../private/cma
+              skipRowCount~ 1
+              delimiter~ TAB
+              numCols~ 20
+              sqlInsert~ INSERT INTO cmaRawResults
+                - (sampleId,
+                - filename,
+                - maxOverlap,
+                - chromosome,
+                - cytobandStart,
+                - cytobandEnd,
+                - cytoCall,
+                - interpretation,
+                - type,
+                - size,
+                - geneCount,
+                - genes,
+                - cnState,
+                - min,
+                - microarrayNomenclature,
+                - max,
+                - markerCount,
+                - omimGeneCount,
+                - omimGenes,
+                - callInterpretationBy,
+                - cytoRegions,
+                - eventId)
+                - VALUES
+                -  ('{sampleId}',
+                - '{_vector:1}',
+                - '{_vector:2}',
+                - '{_vector:3}',
+                - '{_vector:4}',
+                - '{_vector:5}',
+                - '{_vector:6}',
+                - '{_vector:7}',
+                - '{_vector:8}',
+                - '{_vector:9}',
+                - '{_vector:10}',
+                - '{_vector:11}',
+                - '{_vector:12}',
+                - '{_vector:13}',
+                - '{_vector:14}',
+                - '{_vector:15}',
+                - '{_vector:16}',
+                - '{_vector:17}',
+                - '{_vector:18}',
+                - '{_vector:19}',
+                - '{_vector:20}',
+                - {_eventId})
+      sqlPreparedStatement
+        - INSERT INTO containerFiles (containerId, fileType, fileName, location, eventId)
+        - VALUES (?, 'cmaResults', ?, 'private/cma', ?)
+        string {sampleId}
+        string {cmaRawResults}
+        long {_eventId}
+      validateSql SELECT DISTINCT sampleId FROM cmaRawResults WHERE eventId = {_eventId} AND filename LIKE '%{sampleId}%'
+        errorMessage This CMA file is not related to the sampleId chosen.
+      validateSql ! SELECT sampleId from cmaRawResults where sampleId = '{sampleId}' and eventId <> {_eventId}
+        errorMessage This sampleId has been previously imported.
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {runId}
+        parameter~ result
+          value=
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          #value= [$$NEXT_STEP$$]
+          value= Microarray Data Review
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= run
+
+
+    step Microarray Data Review
+      cssLinks
+        link css/analysis/microarray.css
+      jsScripts
+        src js/workflow.js
+      form
+        enctype= multipart/form-data
+        autocomplete= off
+        data-parsley-validate= true
+        include stepInstructions
+        div
+          class= pageSection
+          div
+            class= verticalFlex
+            label Sample ID
+              for= sampleId
+            text sampleId
+              id= sampleId
+              required~ true
+              screenLabel~ Sample Id
+              tabindex= 1
+            table
+              class= stdTableSort
+              sqlQuery~
+                - SELECT DISTINCT
+                -   sr.currentContainerId as 'Sample',
+                -   q.containerId AS 'Run ID',
+                -   CASE WHEN e.userId='_timerTask' THEN 'SYSTEM' ELSE u.name END AS 'User',
+                -   e.eventDate AS 'Date'
+                - FROM queues q
+                -   INNER JOIN specimenRuns sr
+                -           ON q.containerId = sr.runId
+                -   LEFT JOIN events e
+                -          ON q.eventId=e.eventId
+                -   LEFT JOIN userInfo u
+                -          ON e.userId=u.userId
+                - WHERE q.step='{_step}'
+      form
+        enctype= multipart/form-data
+        autocomplete= off
+        data-parsley-validate= true
+
+        include stepInstructions
+        formPreparedQuery~ SELECT sr.runId
+          - FROM specimenRuns sr
+          - INNER JOIN queues q
+          -             ON q.containerId = sr.runId
+          - WHERE sr.currentContainerId = ?
+          - AND q.step = ?
+          string {sampleId}
+          string {_step}
+        formPreparedQuery~ SELECT distinct cma.filename AS 'fileName'
+          - FROM queues q
+          - INNER JOIN events e
+          -     ON e.eventId=q.eventId
+          - INNER JOIN cmaRawResults cma
+          -     ON cma.eventId=q.eventId
+          -     AND cma.sampleId = ?
+          - UNION ALL
+          - SELECT distinct cma.filename AS 'fileName'
+          - FROM queues q
+          - INNER JOIN cmaRawResults cma
+          -     ON cma.sampleId=q.containerId
+          -     AND cma.sampleId = ?
+          -  UNION ALL select ''
+          string {sampleId}
+          string {sampleId}
+        formPreparedQuery~ SELECT cma.AOHPercent AS 'aoh'
+          - FROM queues q
+          - INNER JOIN cmaResults cma
+          -      ON cma.sampleId = q.containerId
+          - WHERE cma.cytoCall = 'High Percent AOH'
+          - AND cma.sampleId =  ?
+          - GROUP BY cma.cytoCall
+          - UNION ALL
+          - SELECT ROUND(((SUM(cma.size)/2821904)*100),3) as 'aoh'
+          - FROM queues q
+          - INNER JOIN events e
+          -      ON e.eventId = q.eventId
+          - INNER JOIN cmaRawResults cma
+          -      ON cma.eventId = q.eventId
+          - WHERE cma.cytoCall = 'High Percent AOH'
+          - AND cma.sampleId = ?
+          - GROUP BY cma.cytoCall
+          - UNION ALL
+          -  SELECT 0 as 'aoh'
+          - FROM dual
+          string {sampleId}
+          string {sampleId}
+        formPreparedQuery~
+          - SELECT
+          -    rw.value as 'referenceField'
+          - FROM  contents c
+          -   INNER JOIN reportDetails rd
+          -    ON rd.requestId=c.content
+          -   INNER JOIN reportWording rw
+          -    ON rd.reportId = rw.reportId
+          -    AND rw.field = 'referencesSave'
+          - WHERE c.containerId = ?
+          -   AND c.contentType='requestId'
+          - UNION ALL
+          -  SELECT '<br>'
+          - FROM dual
+          string {sampleId}
+        # link
+        #   rel= stylesheet
+        #   href= css/analysis/microarray.css
+        script
+          src= js/microarray.js
+
+        hidden referenceField
+          id= referenceField
+          class= referenceField
+          value= {_:referenceField}
+        hidden runId
+          id= runId
+          value= {_:runId}
+
+        div
+          id= geneDialog
+          class= geneDialog hide
+        div
+          id= refDialog
+          class= refDialog hide
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span  Review Results
+          div
+            id= reviewResultsDiv
+            class= sectionContent verticalFlex
+            container sampleId
+              id= sampleId
+              class= container readonly hide
+              required~ true
+              acceptQueue~ any
+              value= {sampleId}
+              readonly=
+            text aohPercentage
+              id= aohPercentage
+              class= readonly hide
+              #screenLabel~ Percent LOH (conservative estimate)
+              readonly=
+              value= {_:aoh}
+              required~ true
+              data-parsley-required= true
+            p  !!! <b>Sample ID:</b> {sampleId}
+            p !!! <b>File:</b>  {_:fileName}
+              id= spanFilename
+              class= fileName
+            p !!! <b>Percent LOH (conservative estimate):</b> {_:aoh}
+            br
+            div
+              checkbox checkallPath
+                id= checkallPath
+                class= checkallPath
+                value= false
+              span <b>Check All Pathogenic</b>
+              button mergeSelectedRows
+                id= mergeSelectedRows
+                class= mergeSelectedRows
+                value= Merge Selected Rows
+              button unmergeSelectedRows
+                id= unmergeSelectedRows
+                class= unmergeSelectedRows
+                value= Unmerge All Merged Rows
+            table
+              id= rawResultsTable
+              class= stdTableSort rawResultsTable
+              sqlPreparedQuery~
+                - SELECT DISTINCT a.Report AS 'Report' ,
+                -   a.maxOverlap AS 'Overlap' ,
+                -   a.chromosome AS 'Chromosome' ,
+                -   a.cytobandStart AS 'Cytoband Start' ,
+                -   a.cytobandEnd AS 'Cytoband End' ,
+                -   a.cytoCall AS 'Call' ,
+                -   a.interpretation AS 'Interpretation' ,
+                -   a.type AS 'Type' ,
+                -   a.size AS 'Size (kbp)' ,
+                -   a.genes as 'Genes' ,
+                -   a.cnState AS 'cn State' ,
+                -   a.min AS 'Min' ,
+                -   a.Nomenclature AS 'Nomenclature' ,
+                -   a.max AS 'Max' ,
+                -   a.markerCount AS 'Marker Count' ,
+                -   a.omimGenes AS 'OMIM Genes' ,
+                -   a.callInterpretationBy AS 'Interp. By' ,
+                -   a.cytoRegions AS 'Cyto Regions' ,
+                -   a.id AS '' ,
+                -   a.sampleId AS ''  ,
+                -   a.mergeId AS ''
+                - FROM
+                -   (SELECT DISTINCT cmaR.reportable AS 'Report' ,
+                -     cmaR.maxOverlap  ,
+                -     cmaR.chromosome  ,
+                -     cmaR.cytobandStart  ,
+                -     cmaR.cytobandEnd  ,
+                -     cmaR.cytoCall  ,
+                -     cmaR.interpretation  ,
+                -     cmaR.type  ,
+                -     cmaR.size ,
+                -     IF (cma.geneCount=0,cma.geneCount,CONCAT(cma.geneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=false&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'genes'  ,
+                -     cma.cnState  ,
+                -     cmaR.min  ,
+                -     cmaR.microarrayNomenclature AS 'Nomenclature'  ,
+                -     cmaR.max  ,
+                -     cma.markerCount  ,
+                -     IF (cma.omimGeneCount=0,cma.omimGeneCount,CONCAT(cma.omimGeneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=true&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'omimGenes'  ,
+                -     cma.callInterpretationBy  ,
+                -     cma.cytoRegions  ,
+                -     cmaR.rawResultId as 'Id' ,
+                -     cmaR.sampleId  ,
+                -     cmaR.mergeId
+                -    FROM queues q
+                -    INNER JOIN specimenRuns sr
+                -       ON q.containerId = sr.runId
+                -    INNER JOIN cmaResults cmaR
+                -        ON cmaR.sampleId = sr.currentContainerId
+                -    LEFT JOIN cmaRawResults cma
+                -       ON cma.sampleId = cmaR.sampleId
+                -       AND cmaR.rawResultId = cma.Id
+                -    WHERE cmaR.cytoCall NOT LIKE 'Not Reportable %'
+                -    AND cmaR.sampleId = ?
+                -    UNION ALL
+                -   SELECT DISTINCT 'false' as 'Report',
+                -     cma.maxOverlap ,
+                -     cma.chromosome ,
+                -     cma.cytobandStart ,
+                -     cma.cytobandEnd ,
+                -     cma.cytoCall ,
+                -     cma.interpretation ,
+                -     cma.type  ,
+                -     cma.size  ,
+                -     IF (cma.geneCount=0,cma.geneCount,CONCAT(cma.geneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=false&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'genes'  ,
+                -     cma.cnState  ,
+                -     cma.min  ,
+                -     CASE WHEN cma.microarrayNomenclature REGEXP 'hmz' THEN CONCAT(LEFT(cma.microarrayNomenclature, locate(' hmz',cma.microarrayNomenclature)-1), 'x2 hmz')
+                -                ELSE cma.microarrayNomenclature END AS 'Nomenclature'  ,
+                -     cma.max  ,
+                -     cma.markerCount  ,
+                -     IF (cma.omimGeneCount=0,cma.omimGeneCount,CONCAT(cma.omimGeneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=true&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'omimGenes'  ,
+                -     cma.callInterpretationBy  ,
+                -     cma.cytoRegions  ,
+                -     cma.id  ,
+                -     cma.sampleId  ,
+                -     ''
+                -    FROM queues q
+                -    INNER JOIN events e
+                -       ON e.eventId = q.eventId
+                -    INNER JOIN cmaRawResults cma
+                -       ON cma.eventId = q.eventId
+                -    WHERE cma.cytoCall NOT LIKE 'Not Reportable %'
+                -    AND cma.sampleId = ? ) a
+                -    ORDER BY a.cytoCall DESC
+                string {sampleId}
+                string {sampleId}
+              columnSpecs~ rawResultsTable
+                allowChangedRecordIds
+                column 1
+                  data-orderable= false
+                  inputType checkbox
+                    class= onReport
+                column 2
+                  data-orderable= true
+                  inputType text
+                    class= maxOverlap
+                    readonly=
+                column 3
+                  data-orderable= true
+                  inputType text
+                    class= chromosome
+                    readonly=
+                column 4
+                  data-orderable= true
+                  inputType text
+                    class= cytobandStart
+                    readonly=
+                column 5
+                  data-orderable= true
+                  inputType text
+                    class= cytoBandEnd
+                    readonly=
+                column 6
+                  data-orderable= true
+                  inputType select
+                    class= cytoCall
+                    setName~ MicroarrayCallOptions
+                column 7
+                  data-orderable= true
+                  inputType text
+                    class= interpretation
+                column 8
+                  data-orderable= true
+                  inputType text
+                    class= type
+                    readonly=
+                column 9
+                  data-orderable= true
+                  inputType text
+                    class= size
+                    readonly=
+                column 12
+                  data-orderable= true
+                  inputType text
+                    class= min
+                    readonly=
+                column 13
+                  data-orderable= true
+                  inputType text
+                    class= microaNom
+                    readonly=
+                column 14
+                  data-orderable= true
+                  inputType text
+                    class= max
+                    readonly=
+                column 19
+                  data-orderable= false
+                  inputType hidden
+                    class= rawResultId
+                    readonly=
+                column 20
+                  data-orderable= false
+                  inputType hidden
+                    class= sampleName
+                    readonly=
+                column 21
+                  data-orderable= false
+                  inputType hidden
+                    class= mergeId
+                    readonly=
+        div
+          class= pageSection
+          id= notReportableResults
+          div
+            class= sectionTitle
+            span  Not Reportable Results
+          div
+            id= reviewNonReportableResultsDiv
+            class= sectionContent verticalFlex
+            table
+              id= rawResultsTableHidden
+              class= stdTableSort rawResultsTableHidden
+              sqlPreparedQuery~
+                - SELECT DISTINCT 'false' AS 'Report' ,
+                -   a.maxOverlap AS 'Overlap' ,
+                -   a.chromosome AS 'Chromosome' ,
+                -   a.cytobandStart AS 'Cytoband Start' ,
+                -   a.cytobandEnd AS 'Cytoband End' ,
+                -   a.cytoCall AS 'Call' ,
+                -   a.interpretation AS 'Interpretation' ,
+                -   a.type AS 'Type' ,
+                -   a.size AS 'Size (kbp)' ,
+                -   a.genes as 'Genes' ,
+                -   a.cnState AS 'cn State' ,
+                -   a.min AS 'Min' ,
+                -   a.Nomenclature AS 'Nomenclature' ,
+                -   a.max AS 'Max' ,
+                -   a.markerCount AS 'Marker Count' ,
+                -   a.omimGenes AS 'OMIM Genes' ,
+                -   a.callInterpretationBy AS 'Interp. By' ,
+                -   a.cytoRegions AS 'Cyto Regions' ,
+                -   a.id AS '' ,
+                -   a.sampleId AS ''  ,
+                -   '' AS ''
+                -  FROM
+                -    ( SELECT distinct cma.maxOverlap  ,
+                -         cma.chromosome  ,
+                -         cma.cytobandStart  ,
+                -         cma.cytobandEnd  ,
+                -         cma.cytoCall  ,
+                -         cma.interpretation  ,
+                -         cma.type  ,
+                -         cma.size ,
+                -         IF(cma.geneCount=0,cma.geneCount ,CONCAT(cma.geneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=false&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>') ) AS 'genes'  ,
+                -         cma.cnState  ,
+                -         cma.min  ,
+                -         CASE WHEN cma.microarrayNomenclature
+                -                    REGEXP 'hmz'
+                -                    THEN CONCAT(left(cma.microarrayNomenclature, locate(' hmz',cma.microarrayNomenclature)-1), 'x2 hmz')
+                -                    ELSE cma.microarrayNomenclature END AS 'Nomenclature'  ,
+                -         cma.max  ,
+                -         cma.markerCount  ,
+                -         IF (cma.omimGeneCount=0,cma.omimGeneCount,CONCAT(cma.omimGeneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=true&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'omimGenes'  ,
+                -         cma.callInterpretationBy  ,
+                -         cma.cytoRegions  ,
+                -         cma.id  ,
+                -         cma.sampleId
+                -    FROM queues q
+                -      INNER JOIN specimenRuns sr
+                -         ON q.containerId = sr.runId
+                -      INNER JOIN cmaResults cmaR
+                -         ON cmaR.sampleId = sr.currentContainerId
+                -      INNER JOIN cmaRawResults cma
+                -        ON cma.sampleId = cmaR.sampleId
+                -    WHERE cma.cytoCall LIKE 'Not Reportable %'
+                -        AND cma.sampleId = ?
+                -    UNION ALL
+                -    SELECT DISTINCT cma.maxOverlap ,
+                -         cma.chromosome ,
+                -         cma.cytobandStart ,
+                -         cma.cytobandEnd ,
+                -         cma.cytoCall ,
+                -         cma.interpretation ,
+                -         cma.type  ,
+                -         cma.size  ,
+                -         IF (cma.geneCount=0,cma.geneCount,CONCAT(cma.geneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=false&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'genes'  ,
+                -         cma.cnState  ,
+                -         cma.min  ,
+                -         CASE WHEN cma.microarrayNomenclature
+                -             REGEXP 'hmz'
+                -             THEN CONCAT(left(cma.microarrayNomenclature, locate(' hmz',cma.microarrayNomenclature)-1), 'x2 hmz')
+                -              ELSE cma.microarrayNomenclature END AS 'Nomenclature'  ,
+                -         cma.max  ,
+                -         cma.markerCount  ,
+                -         IF (cma.omimGeneCount=0,cma.omimGeneCount,CONCAT(cma.omimGeneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=true&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'omimGenes'  ,
+                -         cma.callInterpretationBy  ,
+                -         cma.cytoRegions  ,
+                -         cma.id  ,
+                -         cma.sampleId
+                -     FROM queues q
+                -     INNER JOIN events e
+                -         ON e.eventId = q.eventId
+                -     INNER JOIN cmaRawResults cma
+                -         ON cma.eventId = q.eventId
+                -     WHERE cma.cytoCall
+                -         LIKE 'Not Reportable %'
+                -         AND cma.sampleId = ?)  a
+                -   ORDER BY a.cytoCall DESC
+                string {sampleId}
+                string {sampleId}
+                #SELECT 'false' AS 'Report' ,cma.maxOverlap AS 'Overlap' ,cma.chromosome AS 'Chromosome' ,cma.cytobandStart AS 'Cytoband Start' ,cma.cytobandEnd AS 'Cytoband End' ,cma.cytoCall AS 'Call' ,cma.interpretation AS 'Interpretation' ,cma.type AS 'Type' ,cma.size AS 'Size (kbp)' ,IF (cma.geneCount=0,cma.geneCount,CONCAT(cma.geneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=false&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'Genes' ,cma.cnState AS 'cn State' ,cma.min AS 'Min' ,cma.microarrayNomenclature AS 'Nomenclature' ,cma.max AS 'Max' ,cma.markerCount AS 'Marker Count' ,IF (cma.omimGeneCount=0,cma.omimGeneCount,CONCAT(cma.omimGeneCount,'<br><a class="gene" href="uniflow?callback=?&stepName=AjaxGetCMAGenesById&omim=true&mergeId=',cma.Id,'&id=',cma.Id,'">view&#160;genes</a>')) AS 'OMIM Genes' ,cma.callInterpretationBy AS 'Interp. By' ,cma.cytoRegions AS 'Cyto Regions' ,cma.id AS '' ,cma.sampleId AS ''  FROM queues q  INNER JOIN events e ON e.eventId = q.eventId  INNER JOIN cmaRawResults cma ON cma.eventId = q.eventId WHERE cma.cytoCall LIKE 'Not Reportable %' AND cma.sampleId = '{sampleId}' ORDER BY cma.cytoCall DESC*/
+              columnSpecs~ rawResultsTableHidden
+                allowChangedRecordIds
+                column 1
+                  data-orderable= false
+                  inputType checkbox
+                    class= onReport
+                    readonly=
+                    data-parsley-required= false
+                column 2
+                  data-orderable= true
+                  inputType text
+                    class= maxOverlap
+                    readonly=
+                    data-parsley-required= false
+                column 3
+                  data-orderable= true
+                  inputType text
+                    class= chromosome
+                    readonly=
+                    data-parsley-required= false
+                column 4
+                  data-orderable= true
+                  inputType text
+                    class= cytobandStart
+                    readonly=
+                    data-parsley-required= false
+                column 5
+                  data-orderable= true
+                  inputType text
+                    class= cytoBandEnd
+                    readonly=
+                    data-parsley-required= false
+                column 6
+                  data-orderable= true
+                  inputType text
+                    class= cytoCall
+                    readonly=
+                    data-parsley-required= false
+                column 7
+                  data-orderable= true
+                  inputType text
+                    class= interpretation
+                    readonly=
+                    data-parsley-required= false
+                column 8
+                  data-orderable= true
+                  inputType text
+                    class= type
+                    readonly=
+                    data-parsley-required= false
+                column 9
+                  data-orderable= true
+                  inputType text
+                    class= size
+                    readonly=
+                    data-parsley-required= false
+                column 12
+                  data-orderable= true
+                  inputType text
+                    class= min
+                    readonly=
+                    data-parsley-required= false
+                column 13
+                  data-orderable= true
+                  inputType text
+                    class= microaNom
+                    readonly=
+                    data-parsley-required= false
+                column 14
+                  data-orderable= true
+                  inputType text
+                    class= max
+                    readonly=
+                    data-parsley-required= false
+                column 19
+                  data-orderable= false
+                  inputType hidden
+                    class= rawResultId
+                    readonly=
+                    data-parsley-required= false
+                column 20
+                  data-orderable= false
+                  inputType hidden
+                    class= sampleName
+                    readonly=
+                    data-parsley-required= false
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span  References
+          div
+            id= referencesSection
+            class= sectionContent verticalFlex
+            textArea references
+              screenLabel~ References Selected
+              class= references
+              id= references
+            div
+              span Enter Pubmed Reference Id:
+              text pubmedReferenceId
+                id= pubmedReferenceId
+                class= pubmedReferenceId
+              button getPubmedReferencesButton
+                id= getPubmedReferencesButton
+                class= getPubmedReferencesButton
+                value= Get Pubmed Reference
+            div
+              id= refDisplayArea
+              class= refDisplayArea
+              div
+                id= fancyTextPanel1
+                class= fancyTextPanel1
+              div
+                id= refBox
+                class= refBox
+          vertical
+            select action
+              id= action
+              class= action
+              screenLabel~ Action:
+              required~ true
+              data-parsley-required= true
+              option Approved
+              option Rework
+              option Fail
+
+
+      sqlPreparedStatement delete from cmaResults where sampleId =  ?
+        string {sampleId}
+
+      forRows rawResultsTable
+        ifCondition select 1 from dual where '{action}' = 'Approved'
+          sqlPreparedStatement INSERT INTO cmaResults (sampleId,
+            - maxOverlap,
+            - chromosome,
+            - cytobandStart,
+            - cytobandEnd,
+            - cytoCall,
+            -  interpretation,
+            -  type,
+            - size,
+            - min,
+            - microarrayNomenclature,
+            - max,
+            - eventId,
+            - rawResultId,
+            - reportable,
+            - AOHPercent,
+            - mergeId)
+            - VALUES ( ?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?, ?,?)
+            string {_columnInput_rawResultsTable:20}
+            string {_columnInput_rawResultsTable:2}
+            string {_columnInput_rawResultsTable:3}
+            string {_columnInput_rawResultsTable:4}
+            string {_columnInput_rawResultsTable:5}
+            string {_columnInput_rawResultsTable:6}
+            string {_columnInput_rawResultsTable:7}
+            string {_columnInput_rawResultsTable:8}
+            string {_columnInput_rawResultsTable:9}
+            string {_columnInput_rawResultsTable:12}
+            string {_columnInput_rawResultsTable:13}
+            string {_columnInput_rawResultsTable:14}
+            long {_eventId}
+            string {_columnInput_rawResultsTable:19}
+            string {_columnInput_rawResultsTable:1}
+            string {aohPercentage}
+            string {_columnInput_rawResultsTable:21}
+
+      forRows rawResultsTableHidden
+        ifCondition select 1 from dual where '{action}' = 'Approved'
+          sqlPreparedStatement INSERT INTO cmaResults
+            - (sampleId,
+            - maxOverlap,
+            - chromosome,
+            - cytobandStart,
+            - cytobandEnd,
+            - cytoCall,
+            -  interpretation,
+            - type,
+            - size,
+            - min,
+            - microarrayNomenclature,
+            - max,
+            - eventId,
+            - rawResultId,
+            - reportable,
+            - AOHPercent)
+            - VALUES ( ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            string {_columnInput_rawResultsTableHidden:20}
+            string {_columnInput_rawResultsTableHidden:2}
+            string {_columnInput_rawResultsTableHidden:3}
+            string {_columnInput_rawResultsTableHidden:4}
+            string {_columnInput_rawResultsTableHidden:5}
+            string {_columnInput_rawResultsTableHidden:6}
+            string {_columnInput_rawResultsTableHidden:7}
+            string {_columnInput_rawResultsTableHidden:8}
+            string {_columnInput_rawResultsTableHidden:9}
+            string {_columnInput_rawResultsTableHidden:12}
+            string {_columnInput_rawResultsTableHidden:13}
+            string {_columnInput_rawResultsTableHidden:14}
+            long {_eventId}
+            string {_columnInput_rawResultsTableHidden:19}
+            string {_columnInput_rawResultsTableHidden:1}
+            string {aohPercentage}
+
+
+        ### LEAVING THIS HERE SO REFERENCES SECTION WILL STILL FUNCTION, WILL LIKELY NEED UPDATING WHEN REPORTING IS ADDED INTO 3.0
+
+        ifCondition select 1 from dual where '{action}' = 'Approved'
+          sqlPreparedStatement INSERT INTO reportWording (reportId, field, value, eventId)
+            - SELECT rd.reportId,
+            - 'referencesSave',
+            - ?,
+            - ?
+            - FROM contents c
+            - INNER JOIN reportDetails rd
+            -    ON rd.requestId=c.content
+            - WHERE containerId=?
+            - AND contentType='requestId'
+            - ON DUPLICATE KEY UPDATE
+            - field = 'referencesSave',
+            - value = ?
+            string {references}
+            long {_eventId}
+            string {sampleId}
+            string {references}
+
+          ## THESE WILL NEED TO BE UPDATED ONCE REPORTING IS ADDED INTO 3.0
+
+          # sqlPreparedStatement INSERT INTO queues (containerId, step, eventId)
+          #   - SELECT distinct rd.reportId,
+          #   - 'Create Report',
+          #   - ? FROM contents c
+          #   - INNER JOIN reportDetails rd
+          #   -     ON rd.requestId=c.content
+          #   -  WHERE containerId=?
+          #   - AND contentType='requestId'
+          #   long {_eventId}
+          #   string {sampleId}
+
+          # sqlPreparedStatement UPDATE sampleProcessing
+          #   - SET report = 'true'
+          #   - WHERE sampleId = ?
+          #   string {sampleId}
+
+      setFormQueryResult
+        sqlPreparedQuery~ SELECT CASE '{action}' WHEN 'Approved' THEN 'pass'
+          - WHEN 'Rework' THEN 'rework'
+          - WHEN 'Fail' THEN 'fail'
+          - END AS "microResult"
+          -  FROM dual
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {runId}
+        parameter~ result
+          value= {_:microResult}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          #value= [$$NEXT_STEP$$]
+          value= Create Report
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= run
+
+      ifCondition select 1 from dual where '{action}' = 'Rework'
+        sqlPreparedStatement DELETE FROM cmaRawResults WHERE sampleId =  ?
+          string {sampleId}
+

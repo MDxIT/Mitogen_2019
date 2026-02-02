@@ -1,0 +1,437 @@
+config
+  steps
+    stepGroup System Tools
+
+    _ step Manage Notifications
+      accessLevel 10
+      form
+        include userAccountInfo
+        fieldset
+          legend Directions
+            class= legend
+          vertical
+            li If creating a new notification or a new notification record, use the top values and check the <font color="red">Add New</font> box.
+            li If updating the recipient of an existing notification, choose their userId from the drop down and check the <font color="red">Update</font> box.
+            li To delete a notification record, check the <font color="red">Delete</font> box for that row.
+            li Each action is committed upon clicking submit.
+        vertical
+          fieldset
+            legend New Notification
+            vertical2
+              select Notification ID
+                option
+                sqlQuery~ select distinct notificationId from notifications
+              checkbox addNew
+                screenLabel~ Add New Notification
+              select User ID
+                option
+                sqlQuery~ select name, userid from userInfo where active = 'true'
+          fieldset
+            legend Existing Notifications
+            table
+              style= width:300px
+              class= stdTableSort
+              sqlQuery~ select notificationId as 'Notification', u.name as 'Name', n.eventId, '' as 'Update', '' as 'Delete' from notifications n
+                - join userInfo u on u.userId = n.userId
+              columnSpecs~ table1
+                allowChangedRecordIds
+                column 1
+                  inputType text
+                    readonly=
+                    style= border:0;
+                column 2
+                  inputType select
+                    sqlQuery~ select name, userId from userInfo where active = 'true'
+                column 3
+                  inputType text
+                    readonly=
+                    style= border:0;
+                column 4
+                  inputType checkbox
+                column 5
+                  inputType checkbox
+      forRows table1
+        ifCondition {_columnInput_table1:5}
+          advanced~
+          equals~ true
+          sqlPreparedStatement delete from notifications where notificationId = ? and eventId = ? and ? = 'true'
+            string {_columnInput_table1:1}
+            long {_columnInput_table1:3}
+            string {_columnInput_table1:5}
+        ifCondition {_columnInput_table1:4}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update notifications set userId = ?, eventId = ? where notificationId = ? and ? = 'true'
+            string {_columnInput_table1:2}
+            long {_eventId}
+            string {_columnInput_table1:1}
+            string {_columnInput_table1:4}
+      sqlPreparedStatement insert into notifications (notificationId, userId, eventId)
+        + select ?, ?, ? from dual where ? = 'true'
+        string {Notification ID}
+        string {User ID}
+        long {_eventId}
+        string {addNew}
+
+
+    step Manage SELECT Lists
+      accessLevel 10
+      jsScripts
+        src js/admin/manageSelectLists.js
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          select List Name
+            id= listOfLists
+            option
+            sqlPreparedQuery~
+              - SELECT DISTINCT setName
+              - FROM validValues
+              - WHERE systemManaged = 0
+              - ORDER BY setName
+            keepValue~
+      form
+        include userAccountInfo
+        include stepInstructions
+        vertical
+          fieldset
+            legend List:
+            span To create a new list type the new list name in the box.
+            vertical
+              text List Name
+                value= {List Name}
+          fieldset
+            legend Members:
+            table
+              class= stdTableSort
+              sqlPreparedQuery~
+                - SELECT displayValue AS 'Display Value',
+                -   value AS 'Recorded Value',
+                -   displayOrder AS 'Display Order',
+                -   'false' AS 'Delete'
+                - FROM validValues
+                - WHERE setName = ?
+                - ORDER BY displayOrder, displayValue
+                string {List Name}
+              columnSpecs~ displayOrder
+                allowChangedRecordIds
+                column 1
+                  inputType text
+                    class= readonly
+                column 2
+                  inputType text
+                    readonly=
+                    class= readonly
+                column 3
+                  inputType text
+                    style= width:90px;
+                column 4
+                  inputType checkbox
+
+          fieldset
+            legend Member Attributes:
+            span To add a new member fill out these boxes
+            vertical
+              text Display Value
+                span value displayed in the select list
+                validate~ ! select displayValue from validValues where setName = '{List Name}' and displayValue = '{Display Value}'
+                  errorMessage~ This display value is already in the list.
+              text Recorded Value
+                span value to be saved in the database
+                validate~ ! select value from validValues where setName = '{List Name}' and value = '{Recorded Value}'
+                  errorMessage~ This value is already in the list.
+              text Display Order
+                span the order in the select list
+                value= 6
+          fieldset
+            legend Comments:
+            vertical
+              comments Comments
+                screenLabel~
+
+      forRows displayOrder
+        sqlPreparedStatement
+          - UPDATE validValues
+          - SET displayValue = ? ,
+          -     displayOrder = ?
+          - WHERE setName = ?
+          - AND value = ?
+          string {_columnInput_displayOrder:1}
+          int {_columnInput_displayOrder:3}
+          string {List Name}
+          string {_columnInput_displayOrder:2}
+
+        ifCondition {_columnInput_displayOrder:4}
+          advanced~
+          equals~ true
+          sqlPreparedStatement
+            - DELETE FROM validValues
+            - WHERE setName = ?
+            - AND value = ?
+            string {List Name}
+            string {_columnInput_displayOrder:2}
+
+      ifCondition {Recorded Value}
+        advanced~
+        not~
+          isBlank~
+        sqlPreparedStatement
+          - INSERT INTO validValues (setName, displayValue, value, displayOrder, eventId)
+          - VALUES (?, ?, ?, ?, ?)
+          string {List Name}
+          string {Display Value}
+          string {Recorded Value}
+          int {Display Order}
+          long {_eventId}
+
+      ifCondition
+        advanced~
+        sqlPreparedQuery~ SELECT 1
+          - FROM validValuesLinks vvl
+          - LEFT JOIN validValues vv
+          -   ON vvl.setName = vv.setName
+          - WHERE vv.eventId IS NULL
+          -   AND vvl.setName = ?
+          string {List Name}
+
+        sqlPreparedStatement
+          - DELETE FROM validValuesLinks
+          - WHERE setName = ?
+          string {List Name}
+
+    _ step Manage Top Menu
+      accessLevel 12
+      form
+        h3 Changes will take effect after next system reload.
+        br
+        table
+          class= stdTableSort
+          sqlQuery~ select '' as 'Select', active, section, item, category from menu
+          columnSpecs~ menu
+            column 1
+              data-orderable= false
+              inputType checkbox
+            column 2
+              data-orderable= false
+              inputType select
+                option true
+                  value= true
+                option false
+                  value= false
+            column 3
+              inputType text
+                readonly=
+                class= readonly-input
+                style= width: 100%;
+            column 4
+              inputType text
+                readonly=
+                class= readonly-input
+                style= width: 100%;
+      forRows menu
+        ifCondition {_columnInput_menu:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement update menu set active = ? where section = ? and item = ?
+            string {_columnInput_menu:2}
+            string {_columnInput_menu:3}
+            string {_columnInput_menu:4}
+      exec touch {_configPath}config/Admin.ixml
+
+    _ step HL7 Settings
+      accessLevel 10
+      form
+        formOutputJython~
+          import os
+
+          def enable_hl7():
+            config_path = "{_configPath}config/HL7.ixml"
+            if os.path.isfile(config_path):
+              return 'Enabled'
+            else:
+              return 'Disabled'
+
+        p
+          label HL7 Incoming / Outgoing Messages
+          br
+          em Note: Will take effect on next timer task restart.
+        radio Enabled
+          name= enableHL7
+          value= Enabled
+          id= Enabled
+          checkIfMatches~ {_j:enable_hl7()}
+        label Enabled
+          for= Enabled
+        radio Disabled
+          name= enableHL7
+          value= Disabled
+          id= Disabled
+          checkIfMatches~ {_j:enable_hl7()}
+        label Disabled
+          for= Disabled
+        br
+        br
+      jython
+        import os
+        import time
+
+        def touch_config(config_path):
+          with open(config_path, 'ab') as fh:
+            fh.write('\n')
+          time.sleep(0.3)
+
+        hl7_config = "{_configPath}config/available/HL7.ixml"
+        config_path = "{_configPath}config/HL7.ixml"
+
+        if "{enableHL7}" == "Enabled":
+          if not os.path.isfile(config_path):
+            os.symlink(hl7_config, config_path)
+            touch_config(config_path)
+        else:
+          if os.path.isfile(config_path):
+            touch_config("{_configPath}config/Admin.ixml")
+            os.remove(config_path)
+
+    _ step Restart Timer Tasks
+      accessLevel 12
+      form
+        hidden go
+        p
+          strong Click submit to restart timer tasks.
+      jython
+        import com.uniconnect.uniflow as uniflow
+        uniflow.TimerTaskManager()
+
+    _ step Save Step Names
+      accessLevel 10
+      form
+        include userAccountInfo
+        div
+          checkbox loadSteps
+            id= loadSteps
+            value= true
+          label Load Steps and Step Groups
+            for= loadSteps
+        br
+        script
+          - $(function() { $('form').submit(function() { progressIndicator('start'); }); });
+      jython
+        sqlTruncateStepList = "TRUNCATE TABLE stepList"
+        ps = switchboard.connection.prepareStatement(sqlTruncateStepList)
+        ps.execute()
+
+        sqlInsertStep = "INSERT INTO stepList (stepName, eventId) VALUES (?, ?) ON DUPLICATE KEY UPDATE eventId = ?"
+        ps = switchboard.connection.prepareStatement(sqlInsertStep)
+        for s in switchboard.stepsHash:
+          ps.setString(1, s.strip())
+          ps.setInt(2, {_eventId})
+          ps.setInt(3, {_eventId})
+          ps.execute()
+
+        sqlTruncateStepGroupList = "TRUNCATE TABLE stepGroupList"
+        ps = switchboard.connection.prepareStatement(sqlTruncateStepGroupList)
+        ps.execute()
+
+        sqlInsertStepGroup = "INSERT INTO stepGroupList (stepGroupName, eventId) VALUES (?, ?) ON DUPLICATE KEY UPDATE eventId = ?"
+        ps = switchboard.connection.prepareStatement(sqlInsertStepGroup)
+        for sg in switchboard.stepGroups:
+          ps.setString(1, sg.strip())
+          ps.setInt(2, {_eventId})
+          ps.setInt(3, {_eventId})
+          ps.execute()
+
+    _ step SQL Query
+      authorizedGroup MITOGEN
+      accessLevel 12
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#resultField').hide();
+          -   $('#runQuery').click( function() {
+          -     $('#results').load('/uniflow', {stepName: 'Ajax Execute Query', SQL: $('#sql').val()});
+          -     $('#resultField').show();
+          -   });
+          -   $('#stepFormSubmitButton').remove();
+          - });
+        vertical
+          fieldset
+            legend SQL Query
+              class= legend
+            vertical
+              textAreaUnEscaped SQL Query
+                screenLabel~
+                id= sql
+                style= height: 150px; width: 500px
+              button runQuery
+                id= runQuery
+                value= Run Query
+          fieldset
+            id= resultField
+            style= display:none;
+            legend Results
+              class= legend
+            div
+              id= results
+
+
+
+    stepGroup hidden System Tools Steps
+
+    step Show Event
+      accessLevel 10
+      form
+        include userAccountInfo
+        table
+          caption Recent Events
+          id= myTable
+          class= stdTableSort
+          sqlQuery~
+            - select e.eventId 'Event Id'
+            - ,e.step 'Step'
+            - ,e.eventDate 'Date/Time'
+            - ,u.name 'By'
+            - ,e.comments 'Comments'
+            - from events e
+            - join userInfo u on u.userId = e.userId
+            - where e.eventId = {_recId}
+
+    step Container Detail
+      form
+        include userAccountInfo
+        vertical
+          text _recId
+            screenLabel~ Container Id
+      form
+        include userAccountInfo
+        transferTree {_recId}
+        table
+          caption Container History
+          sqlQuery~ select
+            - e.userId, e.step, e.eventDate, e.eventId, e.comments from containerHistory c, events e
+            + where c.eventId = e.eventId and c.containerId = '{_recId}' order by c.eventId
+        table
+          caption Contents
+          sqlQuery~ select attribute 'well', contentType 'type', content, eventId from contents c
+            + where c.containerId = '{_recId}'
+            + order by attribute, eventId
+        table
+          caption Contained in
+          sqlQuery~ select
+            - attribute 'well', contentType, eventId from contents c
+            + where c.content = '{_recId}'
+            + order by attribute, eventId
+        table
+          caption Queues Pending
+          sqlQuery~ select step,eventId from queues c
+            + where c.containerId = '{_recId}'
+            + order by step, eventId
+        table
+          caption Properties
+          sqlQuery~ select
+            - attribute ,property ,unitOfMeasure ,value ,eventId
+            - from containerProperties c
+            + where c.containerId = '{_recId}'
+
+

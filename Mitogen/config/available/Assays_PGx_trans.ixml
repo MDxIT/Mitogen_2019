@@ -1,0 +1,1698 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup PGx Translational
+
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step PGx Lysis
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+      form
+        
+        include userAccountInfo
+        include resourceTable
+        style
+          type= text/css
+        style
+          - [barcode=barcode] {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+        vertical
+          fieldset
+            legend Directions
+              class= legend
+            vertical
+              li Select the <b>Resources</b> used for this step in the <b>Resources</b> tab.
+              li Enter <b>Specimen Id (swab)</b> and the <b>Lysis Basket</b>.
+              li Only <b>Specimen Ids (swabs)</b> queued for this step will be available for lysis.
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~ 
+              - SELECT  
+              -   '' AS "Specimen" ,
+              -   '' AS "Extract" 
+#              -   '' AS "Comments"
+              - FROM queues
+              - WHERE step = '{_step}'
+              - LIMIT 24
+            columnSpecs~ lysis
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  barcode= barcode
+                  containerType~ oncoDxId
+                  required~ false
+                  if~ {_columnInput:2}_blank <> _blank
+                    deleteQueue~ {_step}
+              column 2
+                inputType container
+                  containerType~ lysisTubeId
+                  barcode= barcode
+                  required~ false
+                  new~ true
+                  addContent~
+                  insertQueue~ PGx Extraction Prep
+                  if~ {_thisInput}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT '{_columnInput:2}', c.attribute, c.contentType, c.content, {_eventId}
+                      - FROM contents c
+                      - WHERE c.containerId = '{_columnInput:1}')
+
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+
+    step PGx Extraction Prep
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+      form
+        script
+          - $(document).ready(function() { 
+          -   $('[name^="QiaSymphony Elution"]').css('background-image', 'url(images/barcodebkg.jpg)');
+          - });
+        include userAccountInfo
+        include resourceTable
+        vertical
+          fieldset
+            legend Directions
+              class= legend
+            vertical
+              li Scan barcodes for <b>Extraction</b> and <b>Elution</b> racks.
+              li Scan in QIAsymphony <b>Extraction</b> tubes into the <b>1x24</b> grid.
+              li Scan in QIAsymphony <b>Elution</b> tubes in the <b>6x4</b> grid.
+              li The fields tab <b>DOWN </b>the Elution rack.
+        div
+          div
+            style= float:left;
+            container sampleRack
+              new~ true
+              screenLabel~ 
+              value= SR{_getNextSequence:sampleRack}
+              addContent~
+              readOnly=
+              style= display: none;
+            grid QIAsymphony Sample Rack
+              cols 1
+              rows 24
+              addContentsTo sampleRack
+                contentType lysisTubeId
+              inputType container
+                containerType~ lysisTubeId
+                deleteQueue~ {_step}
+                required~ false
+                size= 10
+                style= background-image: url(images/barcodebkg.jpg);
+          div
+            style= float:left;width:40px;
+            span &nbsp;&nbsp;&nbsp;
+          div
+            style= float:left;
+            container elutionRack
+              new~ true
+              screenLabel~ 
+              value= ER{_getNextSequence:elutionRack}
+              addContent~
+              readOnly=
+              style= display: none;
+            plate QIAsymphony Elution Rack
+              tabIndexColumnMajor true
+              cols 6
+              rows 4
+              addContentsTo elutionRack
+                contentType elutionTubeId
+              inputType container
+                new~ true
+                addContent~ 
+                required~ false
+                size= 5
+                containerType~ elutionTubeId
+                deleteQueue~ {_step}
+                insertQueue~ PGx Load QIAgility Rack
+                style= background-image: url(images/barcodebkg.jpg);
+                class= barcodeInput
+          div
+            style= clear:both;
+      sql insert into contents select c3.content, c2.attribute, c2.contentType, c2.content, {_eventId}
+        - from contents c
+        - inner join contents c2 on c.content = c2.containerId
+        -  inner join transferMaps tm
+        - on c.attribute = tm.sourceAttribute
+        - inner join contents c3 on tm.destinationAttribute = c3.attribute
+        - where c.containerId = '{sampleRack}'
+        - and c3.containerId = '{elutionRack}'
+        - and tm.transferMap = '1x24RowTo6x4Row'
+
+
+
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step PGx Load QIAgility Rack
+      form
+        script
+          - $(document).ready(function() { 
+          -   $('[name^="QiaGility Rack"]').css('background-image', 'url(images/barcodebkg.jpg)');
+          -  $('#rackTable > tbody > tr > th').hide();
+          -  $('.QIAGilityRack_A01').change(function(){
+          -     var aliquot1 = $(this).val();
+          -     $('#aliquot1').val(aliquot1); 
+          -   });
+          -  $('.QIAGilityRack_B01').change(function(){
+          -     var aliquot2 = $(this).val();
+          -     $('#aliquot2').val(aliquot2); 
+          -   });
+          -  $('.QIAGilityRack_C01').change(function(){
+          -     var aliquot3 = $(this).val();
+          -     $('#aliquot3').val(aliquot3); 
+          -   });
+          -  $('.QIAGilityRack_D01').change(function(){
+          -     var aliquot4 = $(this).val();
+          -     $('#aliquot4').val(aliquot4); 
+          -   });
+          -  $('.QIAGilityRack_E01').change(function(){
+          -     var aliquot5 = $(this).val();
+          -     $('#aliquot5').val(aliquot5); 
+          -   });
+          -  $('.QIAGilityRack_F01').change(function(){
+          -     var aliquot6 = $(this).val();
+          -     $('#aliquot6').val(aliquot6); 
+          -   });
+          -  $('.QIAGilityRack_G01').change(function(){
+          -     var aliquot7 = $(this).val();
+          -     $('#aliquot7').val(aliquot7); 
+          -   });
+          -  $('.QIAGilityRack_H01').change(function(){
+          -     var aliquot8 = $(this).val();
+          -     $('#aliquot8').val(aliquot8); 
+          -   });
+          -  $('.QIAGilityRack_A02').change(function(){
+          -     var aliquot9 = $(this).val();
+          -     $('#aliquot9').val(aliquot9); 
+          -   });
+          -  $('.QIAGilityRack_B02').change(function(){
+          -     var aliquot10 = $(this).val();
+          -     $('#aliquot10').val(aliquot10); 
+          -   });
+          -  $('.QIAGilityRack_C02').change(function(){
+          -     var aliquot11 = $(this).val();
+          -     $('#aliquot11').val(aliquot11); 
+          -   });
+          -  $('.QIAGilityRack_D02').change(function(){
+          -     var aliquot12 = $(this).val();
+          -     $('#aliquot12').val(aliquot12); 
+          -   });
+          -  $('#NegCtrl').change(function(){
+          -     var aliquot13 = $(this).val();
+          -     $('#aliquot13').val(aliquot13); 
+          -   });
+          - });     
+        include userAccountInfo
+        include resourceTable
+        vertical
+          fieldset
+            legend Directions
+              class= legend
+            vertical
+              li Insert up to 11 Samples into each 3x8 plate.
+              li The contamination control is scanned into the plate (D02)
+              li The Negative Control will be added to the end of the plate (A24-P24).
+              li <b>NOTE:</b> Barcodes are entered <b>DOWN</b> columns.
+              li Each sample will be scanned down the plate.
+        style
+          - [barcode=barcode] {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+        vertical
+#          passiveContainer PosCtrl
+          container PCR Plate Id
+            screenLabel~ PCR Plate Id
+            style= background-image: url(images/barcodebkg.jpg); border: 1px solid red;
+            #id= pcrPlateId
+            required~ true
+            new~ true
+          text NegCtrl
+#          passiveContainer NegCtrl
+            screenLabel~ Negative Control
+            style= background-image: url(images/barcodebkg.jpg); border: 1px solid black; background-color:lightblue;
+            id= NegCtrl
+            required~ false
+            acceptQueue~ any 
+        vertical2
+          plate QIAGility Rack
+            class= rackTable
+            cols 3
+            rows 8
+            tabIndexColumnMajor true
+#             addContentsTo qiaGilityRack
+#               contentType elutionTubeId
+#            required~ false
+            inputType text
+              #required~ false
+              #containerType~ elutionTubeId
+              #deleteQueue~ {_step}
+              #insertQueue~ PGx Upload QIAgility Map
+              size= 5
+          simpleTable
+            id= qiagilityplate
+            tr
+              td Wells:
+              td A1-P2
+                colspan= 2
+              td A3-P4
+                colspan= 2
+              td A5-P6
+                colspan= 2
+              td A7-P8
+                colspan= 2
+              td A9-P10
+                colspan= 2
+              td A11-P12
+                colspan= 2
+              td A13-P14
+                colspan= 2
+              td A15-P16
+                colspan= 2
+              td A17-P18
+                colspan= 2
+              td A19-P20
+                colspan= 2
+              td A21-P22
+                colspan= 2
+              td A23-P23
+                colspan= 1
+              td A24-P24
+                colspan= 1
+
+            tr
+              td 
+              td
+                colspan= 2
+                container aliquot1
+                  id= aliquot1
+                  tabindex= 99
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot1
+                  required~ false
+                  if~ {aliquot1} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A1-P2','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot2
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot2
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot2} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A3-P4','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot3
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot3
+                  tabindex= 99
+                  required~ false
+                    - getAliquotCntr('aliquot3',value);
+                  if~ {aliquot3} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A5-P6','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot4
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot4
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot4} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A7-P8','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot5
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot5
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot5} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A9-P10','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot6
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot6
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot6} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A11-P12','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot7
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot7
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot7} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A13-P14','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot8
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot8
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot8} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A15-P16','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot9
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot9
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot9} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A17-P18','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot10
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot10
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot10} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A19-P20','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 2
+                container aliquot11
+                  class= container aliquot Barcode
+                  style= color:darkgrey;
+                  readOnly=
+                  id= aliquot11
+                  tabindex= 99
+                  required~ false
+                  if~ {aliquot11} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A21-P22','aliquotId','{_thisInput}',{_eventId})
+              td
+                colspan= 1
+                container aliquot12
+                  class= container aliquot Barcode
+                  style= background-color:lightcoral;
+                  readOnly=
+                  id= aliquot12
+                  value= ConCtrl
+                  tabindex= 99
+                  required~ false
+                  acceptQueue~ any
+                  if~ {aliquot12} != ''
+                    deleteQueue~ {_step}
+                    sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                      - values ('{PCR Plate Id}','A23-P23','ConCtrl','{_thisInput}',{_eventId})
+              td
+                colspan= 1
+                passiveContainer nc
+                  id= aliquot13
+                  value= NegCtrl
+                  tabindex= 99
+                  class= passiveContainer Barcode
+                  readOnly=
+                  style= background-color:lightblue;
+                  containerType~ control
+                  acceptQueue~ any
+                  sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                    - VALUES ('{PCR Plate Id}', 'A24-P24', 'control', '{_thisInput}', {_eventId})
+#                   sql INSERT INTO containers (containerId, containerType, eventId)
+#                     - VALUES ('{PCR Plate Id}', 'plateControl', {_eventId})
+                  sql INSERT INTO containerHistory (containerId, eventId)
+                    - VALUES ('{PCR Plate Id}', {_eventId})
+#                   sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                     - VALUES ('{PCR Plate Id}', 'A1-P3', 'plateControl', '{PCR Plate Id}-NTC', {_eventId})
+                  sql~ INSERT INTO queues (containerId, step, eventId)
+                    - VALUES ('{PCR Plate Id}', 'PGx Load Quant Studio', {_eventId})
+            tr
+              td A
+              td 1
+                style= border: 1px solid black; background-color:lightgray;
+              td 17
+                style= border: 1px solid black; background-color:lightgray;
+              td 1
+                style= border: 1px solid black;
+              td 17
+                style= border: 1px solid black;
+#               td 33
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 1
+                style= border: 1px solid black; background-color:lightgray;
+              td 17
+                style= border: 1px solid black; background-color:lightgray;
+#               td 33
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 1
+                style= border: 1px solid black;
+              td 17
+                style= border: 1px solid black;
+#               td 33
+#                 style= border: 1px solid black;
+              td 1
+                style= border: 1px solid black; background-color:lightgray;
+              td 17
+                style= border: 1px solid black; background-color:lightgray;
+#               td 33
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 1
+                style= border: 1px solid black;
+              td 17
+                style= border: 1px solid black;
+#               td 33
+#                 style= border: 1px solid black;
+              td 1
+                style= border: 1px solid black; background-color:lightgray;
+              td 17
+                style= border: 1px solid black; background-color:lightgray;
+#               td 33
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 1
+                style= border: 1px solid black;
+              td 17
+                style= border: 1px solid black;
+#               td 33
+#                 style= border: 1px solid black;
+              td 1
+                style= border: 1px solid black; background-color:lightgray;
+              td 17
+                style= border: 1px solid black; background-color:lightgray;
+#               td 33
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 1
+                style= border: 1px solid black;
+              td 17
+                style= border: 1px solid black;
+#               td 33
+#                 style= border: 1px solid black;
+              td 1
+                style= border: 1px solid black; background-color:lightgray;
+              td 17
+                style= border: 1px solid black; background-color:lightgray;
+              td 1
+                style= border: 1px solid black; background-color:lightcoral;
+              td 17
+                style= border: 1px solid black; background-color:lightblue;
+            tr    
+              td B
+              td 2
+                style= border: 1px solid black; background-color:lightgray;
+              td 18
+                style= border: 1px solid black; background-color:lightgray;
+#               td 34
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 2
+                style= border: 1px solid black;
+              td 18
+                style= border: 1px solid black;
+#               td 34
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 2
+                style= border: 1px solid black; background-color:lightgray;
+              td 18
+                style= border: 1px solid black; background-color:lightgray;
+#               td 34
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 2
+                style= border: 1px solid black;
+              td 18
+                style= border: 1px solid black;
+#               td 34
+#                 style= border: 1px solid black;
+              td 2
+                style= border: 1px solid black; background-color:lightgray;
+              td 18
+                style= border: 1px solid black; background-color:lightgray;
+#               td 34
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 2
+                style= border: 1px solid black;
+              td 18
+                style= border: 1px solid black;
+#               td 34
+#                 style= border: 1px solid black;
+              td 2
+                style= border: 1px solid black; background-color:lightgray;
+              td 18
+                style= border: 1px solid black; background-color:lightgray;
+#               td 34
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 2
+                style= border: 1px solid black;
+              td 18
+                style= border: 1px solid black;
+#               td 34
+#                 style= border: 1px solid black;
+              td 2
+                style= border: 1px solid black; background-color:lightgray;
+              td 18
+                style= border: 1px solid black; background-color:lightgray;
+#               td 34
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 2
+                style= border: 1px solid black;
+              td 18
+                style= border: 1px solid black;
+#               td 34
+#                 style= border: 1px solid black;
+              td 2
+                style= border: 1px solid black; background-color:lightgray;
+              td 18
+                style= border: 1px solid black; background-color:lightgray;
+              td 2
+                style= border: 1px solid black; background-color:lightcoral;
+              td 18
+                style= border: 1px solid black; background-color:lightblue;
+            tr    
+              td C
+              td 3
+                style= border: 1px solid black; background-color:lightgray;
+              td 19
+                style= border: 1px solid black; background-color:lightgray;
+#               td 35
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 3
+                style= border: 1px solid black;
+              td 19
+                style= border: 1px solid black;
+#               td 35
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 3
+                style= border: 1px solid black; background-color:lightgray;
+              td 19
+                style= border: 1px solid black; background-color:lightgray;
+#               td 35
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 3
+                style= border: 1px solid black;
+              td 19
+                style= border: 1px solid black;
+#               td 35
+#                 style= border: 1px solid black;
+              td 3
+                style= border: 1px solid black; background-color:lightgray;
+              td 19
+                style= border: 1px solid black; background-color:lightgray;
+#               td 35
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 3
+                style= border: 1px solid black;
+              td 19
+                style= border: 1px solid black;
+#               td 35
+#                 style= border: 1px solid black;
+              td 3
+                style= border: 1px solid black; background-color:lightgray;
+              td 19
+                style= border: 1px solid black; background-color:lightgray;
+#               td 35
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 3
+                style= border: 1px solid black;
+              td 19
+                style= border: 1px solid black;
+#               td 35
+#                 style= border: 1px solid black;
+              td 3
+                style= border: 1px solid black; background-color:lightgray;
+              td 19
+                style= border: 1px solid black; background-color:lightgray;
+#               td 35
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 3
+                style= border: 1px solid black;
+              td 19
+                style= border: 1px solid black;
+#               td 35
+#                 style= border: 1px solid black;
+              td 3
+                style= border: 1px solid black; background-color:lightgray;
+              td 19
+                style= border: 1px solid black; background-color:lightgray;
+              td 3
+                style= border: 1px solid black; background-color:lightcoral;
+              td 19
+                style= border: 1px solid black; background-color:lightblue;
+            tr    
+              td D
+              td 4
+                style= border: 1px solid black; background-color:lightgray;
+              td 20
+                style= border: 1px solid black; background-color:lightgray;
+#               td 36
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 4
+                style= border: 1px solid black;
+              td 20
+                style= border: 1px solid black;
+#               td 36
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 4
+                style= border: 1px solid black; background-color:lightgray;
+              td 20
+                style= border: 1px solid black; background-color:lightgray;
+#               td 36
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 4
+                style= border: 1px solid black;
+              td 20
+                style= border: 1px solid black;
+#               td 36
+#                 style= border: 1px solid black;
+              td 4
+                style= border: 1px solid black; background-color:lightgray;
+              td 20
+                style= border: 1px solid black; background-color:lightgray;
+#               td 36
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 4
+                style= border: 1px solid black;
+              td 20
+                style= border: 1px solid black;
+#               td 36
+#                 style= border: 1px solid black;
+              td 4
+                style= border: 1px solid black; background-color:lightgray;
+              td 20
+                style= border: 1px solid black; background-color:lightgray;
+#               td 36
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 4
+                style= border: 1px solid black;
+              td 20
+                style= border: 1px solid black;
+#               td 36
+#                 style= border: 1px solid black;
+              td 4
+                style= border: 1px solid black; background-color:lightgray;
+              td 20
+                style= border: 1px solid black; background-color:lightgray;
+#               td 36
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 4
+                style= border: 1px solid black;
+              td 20
+                style= border: 1px solid black;
+#               td 36
+#                 style= border: 1px solid black;
+              td 4
+                style= border: 1px solid black; background-color:lightgray;
+              td 20
+                style= border: 1px solid black; background-color:lightgray;
+              td 4
+                style= border: 1px solid black; background-color:lightcoral;
+              td 20
+                style= border: 1px solid black; background-color:lightblue;
+            tr    
+              td E
+              td 5
+                style= border: 1px solid black; background-color:lightgray;
+              td 21
+                style= border: 1px solid black; background-color:lightgray;
+#               td 37
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 5
+                style= border: 1px solid black; 
+              td 21
+                style= border: 1px solid black; 
+#               td 37
+#                 style= border: 1px solid black; background-color:lightcoral;
+
+              td 5
+                style= border: 1px solid black; background-color:lightgray;
+              td 21
+                style= border: 1px solid black; background-color:lightgray;
+#               td 37
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 5
+                style= border: 1px solid black;
+              td 21
+                style= border: 1px solid black;
+#               td 37
+#                 style= border: 1px solid black;
+              td 5
+                style= border: 1px solid black; background-color:lightgray;
+              td 21
+                style= border: 1px solid black; background-color:lightgray;
+#               td 37
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 5
+                style= border: 1px solid black;
+              td 21
+                style= border: 1px solid black;
+#               td 37
+#                 style= border: 1px solid black;
+              td 5
+                style= border: 1px solid black; background-color:lightgray;
+              td 21
+                style= border: 1px solid black; background-color:lightgray;
+#               td 37
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 5
+                style= border: 1px solid black;
+              td 21
+                style= border: 1px solid black;
+#               td 37
+#                 style= border: 1px solid black;
+              td 5
+                style= border: 1px solid black; background-color:lightgray;
+              td 21
+                style= border: 1px solid black; background-color:lightgray;
+#               td 37
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 5
+                style= border: 1px solid black;
+              td 21
+                style= border: 1px solid black;
+#               td 37
+#                 style= border: 1px solid black;
+              td 5
+                style= border: 1px solid black; background-color:lightgray;
+              td 21
+                style= border: 1px solid black; background-color:lightgray;
+              td 5
+                style= border: 1px solid black; background-color:lightcoral;
+              td 21
+                style= border: 1px solid black; background-color:lightblue;
+#               td 37
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr    
+              td F
+              td 6
+                style= border: 1px solid black; background-color:lightgray;
+              td 22
+                style= border: 1px solid black; background-color:lightgray;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 6
+                style= border: 1px solid black;
+              td 22
+                style= border: 1px solid black;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 6
+                style= border: 1px solid black; background-color:lightgray;
+              td 22
+                style= border: 1px solid black; background-color:lightgray;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 6
+                style= border: 1px solid black;
+              td 22
+                style= border: 1px solid black;
+#               td 38
+#                 style= border: 1px solid black;
+              td 6
+                style= border: 1px solid black; background-color:lightgray;
+              td 22
+                style= border: 1px solid black; background-color:lightgray;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 6
+                style= border: 1px solid black;
+              td 22
+                style= border: 1px solid black;
+#               td 38
+#                 style= border: 1px solid black;
+              td 6
+                style= border: 1px solid black; background-color:lightgray;
+              td 22
+                style= border: 1px solid black; background-color:lightgray;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 6
+                style= border: 1px solid black;
+              td 22
+                style= border: 1px solid black;
+#               td 38
+#                 style= border: 1px solid black;
+              td 6
+                style= border: 1px solid black; background-color:lightgray;
+              td 22
+                style= border: 1px solid black; background-color:lightgray;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 6
+                style= border: 1px solid black;
+              td 22
+                style= border: 1px solid black;
+#               td 38
+#                 style= border: 1px solid black;
+              td 6
+                style= border: 1px solid black; background-color:lightgray;
+              td 22
+                style= border: 1px solid black; background-color:lightgray;
+              td 6
+                style= border: 1px solid black; background-color:lightcoral;
+              td 22
+                style= border: 1px solid black; background-color:lightblue;
+#               td 38
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr    
+              td G
+              td 7
+                style= border: 1px solid black; background-color:lightgray;
+              td 23
+                style= border: 1px solid black; background-color:lightgray;
+#               td 39
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 7
+                style= border: 1px solid black; 
+              td 23
+                style= border: 1px solid black; 
+#               td 39
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 7
+                style= border: 1px solid black; background-color:lightgray;
+              td 23
+                style= border: 1px solid black; background-color:lightgray;
+#               td 39
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 7
+                style= border: 1px solid black;
+              td 23
+                style= border: 1px solid black;
+#               td 39
+#                 style= border: 1px solid black;
+              td 7
+                style= border: 1px solid black; background-color:lightgray;
+              td 23
+                style= border: 1px solid black; background-color:lightgray;
+#               td 39
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 7
+                style= border: 1px solid black;
+              td 23
+                style= border: 1px solid black;
+#               td 39
+#                 style= border: 1px solid black;
+              td 7
+                style= border: 1px solid black; background-color:lightgray;
+              td 23
+                style= border: 1px solid black; background-color:lightgray;
+#               td 39
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 7
+                style= border: 1px solid black;
+              td 23
+                style= border: 1px solid black;
+#               td 39
+#                 style= border: 1px solid black;
+              td 7
+                style= border: 1px solid black; background-color:lightgray;
+              td 23
+                style= border: 1px solid black; background-color:lightgray;
+#               td 39
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 7
+                style= border: 1px solid black;
+              td 23
+                style= border: 1px solid black;
+#               td 39
+#                 style= border: 1px solid black;
+              td 7
+                style= border: 1px solid black; background-color:lightgray;
+              td 23
+                style= border: 1px solid black; background-color:lightgray;
+              td 7
+                style= border: 1px solid black; background-color:lightcoral;
+              td 23
+                style= border: 1px solid black; background-color:lightblue;
+#               td 39
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr    
+              td H
+              td 8
+                style= border: 1px solid black; background-color:lightgray;
+              td 24
+                style= border: 1px solid black; background-color:lightgray;
+#               td 40
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 8
+                style= border: 1px solid black; 
+              td 24
+                style= border: 1px solid black; 
+#               td 40
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 8
+                style= border: 1px solid black; background-color:lightgray;
+              td 24
+                style= border: 1px solid black; background-color:lightgray;
+#               td 40
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 8
+                style= border: 1px solid black;
+              td 24
+                style= border: 1px solid black;
+#               td 40
+#                 style= border: 1px solid black;
+              td 8
+                style= border: 1px solid black; background-color:lightgray;
+              td 24
+                style= border: 1px solid black; background-color:lightgray;
+#               td 40
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 8
+                style= border: 1px solid black;
+              td 24
+                style= border: 1px solid black;
+#               td 40
+#                 style= border: 1px solid black;
+              td 8
+                style= border: 1px solid black; background-color:lightgray;
+              td 24
+                style= border: 1px solid black; background-color:lightgray;
+#               td 40
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 8
+                style= border: 1px solid black;
+              td 24
+                style= border: 1px solid black;
+#               td 40
+#                 style= border: 1px solid black;
+              td 8
+                style= border: 1px solid black; background-color:lightgray;
+              td 24
+                style= border: 1px solid black; background-color:lightgray;
+#               td 40
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 8
+                style= border: 1px solid black;
+              td 24
+                style= border: 1px solid black;
+#               td 40
+#                 style= border: 1px solid black;
+              td 8
+                style= border: 1px solid black; background-color:lightgray;
+              td 24
+                style= border: 1px solid black; background-color:lightgray;
+              td 8
+                style= border: 1px solid black; background-color:lightcoral;
+              td 24
+                style= border: 1px solid black; background-color:lightblue;
+#               td 40
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr    
+              td I
+              td 9
+                style= border: 1px solid black; background-color:lightgray;
+              td 25
+                style= border: 1px solid black; background-color:lightgray;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 9
+                style= border: 1px solid black; 
+              td 25
+                style= border: 1px solid black;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 9
+                style= border: 1px solid black; background-color:lightgray;
+              td 25
+                style= border: 1px solid black; background-color:lightgray;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 9
+                style= border: 1px solid black;
+              td 25
+                style= border: 1px solid black;
+#               td 41
+#                 style= border: 1px solid black;
+              td 9
+                style= border: 1px solid black; background-color:lightgray;
+              td 25
+                style= border: 1px solid black; background-color:lightgray;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 9
+                style= border: 1px solid black;
+              td 25
+                style= border: 1px solid black;
+#               td 41
+#                 style= border: 1px solid black;
+              td 9
+                style= border: 1px solid black; background-color:lightgray;
+              td 25
+                style= border: 1px solid black; background-color:lightgray;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 9
+                style= border: 1px solid black;
+              td 25
+                style= border: 1px solid black;
+#               td 41
+#                 style= border: 1px solid black;
+              td 9
+                style= border: 1px solid black; background-color:lightgray;
+              td 25
+                style= border: 1px solid black; background-color:lightgray;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 9
+                style= border: 1px solid black;
+              td 25
+                style= border: 1px solid black;
+#               td 41
+#                 style= border: 1px solid black;
+              td 9
+                style= border: 1px solid black; background-color:lightgray;
+              td 25
+                style= border: 1px solid black; background-color:lightgray;
+              td 9
+                style= border: 1px solid black; background-color:lightcoral;
+              td 25
+                style= border: 1px solid black; background-color:lightblue;
+#               td 41
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td J
+              td 10
+                style= border: 1px solid black; background-color:lightgray;
+              td 26
+                style= border: 1px solid black; background-color:lightgray;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 10
+                style= border: 1px solid black;
+              td 26
+                style= border: 1px solid black;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 10
+                style= border: 1px solid black; background-color:lightgray;
+              td 26
+                style= border: 1px solid black; background-color:lightgray;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 10
+                style= border: 1px solid black;
+              td 26
+                style= border: 1px solid black;
+#               td 42
+#                 style= border: 1px solid black;
+              td 10
+                style= border: 1px solid black; background-color:lightgray;
+              td 26
+                style= border: 1px solid black; background-color:lightgray;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 10
+                style= border: 1px solid black;
+              td 26
+                style= border: 1px solid black;
+#               td 42
+#                 style= border: 1px solid black;
+              td 10
+                style= border: 1px solid black; background-color:lightgray;
+              td 26
+                style= border: 1px solid black; background-color:lightgray;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 10
+                style= border: 1px solid black;
+              td 26
+                style= border: 1px solid black;
+#               td 42
+#                 style= border: 1px solid black;
+              td 10
+                style= border: 1px solid black; background-color:lightgray;
+              td 26
+                style= border: 1px solid black; background-color:lightgray;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 10
+                style= border: 1px solid black;
+              td 26
+                style= border: 1px solid black;
+#               td 42
+#                 style= border: 1px solid black;
+              td 10
+                style= border: 1px solid black; background-color:lightgray;
+              td 26
+                style= border: 1px solid black; background-color:lightgray;
+              td 10
+                style= border: 1px solid black; background-color:lightcoral;
+              td 26
+                style= border: 1px solid black; background-color:lightblue;
+#               td 42
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td K
+              td 11
+                style= border: 1px solid black; background-color:lightgray;
+              td 27
+                style= border: 1px solid black; background-color:lightgray;
+#               td 43
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 11
+                style= border: 1px solid black; 
+              td 27
+                style= border: 1px solid black; 
+#               td 43
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 11
+                style= border: 1px solid black; background-color:lightgray;
+              td 27
+                style= border: 1px solid black; background-color:lightgray;
+#               td 43
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 11
+                style= border: 1px solid black;
+              td 27
+                style= border: 1px solid black;
+#               td 43
+#                 style= border: 1px solid black;
+              td 11
+                style= border: 1px solid black; background-color:lightgray;
+              td 27
+                style= border: 1px solid black; background-color:lightgray;
+#               td 43
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 11
+                style= border: 1px solid black;
+              td 27
+                style= border: 1px solid black;
+#               td 43
+#                 style= border: 1px solid black;
+              td 11
+                style= border: 1px solid black; background-color:lightgray;
+              td 27
+                style= border: 1px solid black; background-color:lightgray;
+#               td 43
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 11
+                style= border: 1px solid black;
+              td 27
+                style= border: 1px solid black;
+#               td 43
+#                 style= border: 1px solid black;
+              td 11
+                style= border: 1px solid black; background-color:lightgray;
+              td 27
+                style= border: 1px solid black; background-color:lightgray;
+#               td 43
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 11
+                style= border: 1px solid black;
+              td 27
+                style= border: 1px solid black;
+#               td 43
+#                 style= border: 1px solid black;
+              td 11
+                style= border: 1px solid black; background-color:lightgray;
+              td 27
+                style= border: 1px solid black; background-color:lightgray;
+              td 11
+                style= border: 1px solid black; background-color:lightcoral;
+              td 27
+                style= border: 1px solid black; background-color:lightblue;
+#               td 43
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td L
+              td 12
+                style= border: 1px solid black; background-color:lightgray;
+              td 28
+                style= border: 1px solid black; background-color:lightgray;
+#               td 44
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 12
+                style= border: 1px solid black; 
+              td 28
+                style= border: 1px solid black; 
+#               td 44
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 12
+                style= border: 1px solid black; background-color:lightgray;
+              td 28
+                style= border: 1px solid black; background-color:lightgray;
+#               td 44
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 12
+                style= border: 1px solid black;
+              td 28
+                style= border: 1px solid black;
+#               td 44
+#                 style= border: 1px solid black;
+              td 12
+                style= border: 1px solid black; background-color:lightgray;
+              td 28
+                style= border: 1px solid black; background-color:lightgray;
+#               td 44
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 12
+                style= border: 1px solid black;
+              td 28
+                style= border: 1px solid black;
+#               td 44
+#                 style= border: 1px solid black;
+              td 12
+                style= border: 1px solid black; background-color:lightgray;
+              td 28
+                style= border: 1px solid black; background-color:lightgray;
+#               td 44
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 12
+                style= border: 1px solid black;
+              td 28
+                style= border: 1px solid black;
+#               td 44
+#                 style= border: 1px solid black;
+              td 12
+                style= border: 1px solid black; background-color:lightgray;
+              td 28
+                style= border: 1px solid black; background-color:lightgray;
+#               td 44
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 12
+                style= border: 1px solid black;
+              td 28
+                style= border: 1px solid black;
+#               td 44
+#                 style= border: 1px solid black;
+              td 12
+                style= border: 1px solid black; background-color:lightgray;
+              td 28
+                style= border: 1px solid black; background-color:lightgray;
+              td 12
+                style= border: 1px solid black; background-color:lightcoral;
+              td 28
+                style= border: 1px solid black; background-color:lightblue;
+#               td 44
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td M
+              td 13
+                style= border: 1px solid black; background-color:lightgray;
+              td 29
+                style= border: 1px solid black; background-color:lightgray;
+#               td 45
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 13
+                style= border: 1px solid black; 
+              td 29
+                style= border: 1px solid black; 
+#               td 45
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 13
+                style= border: 1px solid black; background-color:lightgray;
+              td 29
+                style= border: 1px solid black; background-color:lightgray;
+#               td 45
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 13
+                style= border: 1px solid black;
+              td 29
+                style= border: 1px solid black;
+#               td 45
+#                 style= border: 1px solid black;
+              td 13
+                style= border: 1px solid black; background-color:lightgray;
+              td 29
+                style= border: 1px solid black; background-color:lightgray;
+#               td 45
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 13
+                style= border: 1px solid black;
+              td 29
+                style= border: 1px solid black;
+#               td 45
+#                 style= border: 1px solid black;
+              td 13
+                style= border: 1px solid black; background-color:lightgray;
+              td 29
+                style= border: 1px solid black; background-color:lightgray;
+#               td 45
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 13
+                style= border: 1px solid black;
+              td 29
+                style= border: 1px solid black;
+#               td 45
+#                 style= border: 1px solid black;
+              td 13
+                style= border: 1px solid black; background-color:lightgray;
+              td 29
+                style= border: 1px solid black; background-color:lightgray;
+#               td 45
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 13
+                style= border: 1px solid black;
+              td 29
+                style= border: 1px solid black;
+#               td 45
+#                 style= border: 1px solid black;
+              td 13
+                style= border: 1px solid black; background-color:lightgray;
+              td 29
+                style= border: 1px solid black; background-color:lightgray;
+              td 13
+                style= border: 1px solid black; background-color:lightcoral;
+              td 29
+                style= border: 1px solid black; background-color:lightblue;
+#               td 45
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td N
+              td 14
+                style= border: 1px solid black; background-color:lightgray;
+              td 30
+                style= border: 1px solid black; background-color:lightgray;
+#               td 46
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 14
+                style= border: 1px solid black; 
+              td 30
+                style= border: 1px solid black; 
+#               td 46
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 14
+                style= border: 1px solid black; background-color:lightgray;
+              td 30
+                style= border: 1px solid black; background-color:lightgray;
+#               td 46
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 14
+                style= border: 1px solid black;
+              td 30
+                style= border: 1px solid black;
+#               td 46
+#                 style= border: 1px solid black;
+              td 14
+                style= border: 1px solid black; background-color:lightgray;
+              td 30
+                style= border: 1px solid black; background-color:lightgray;
+#               td 46
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 14
+                style= border: 1px solid black;
+              td 30
+                style= border: 1px solid black;
+#               td 46
+#                 style= border: 1px solid black;
+              td 14
+                style= border: 1px solid black; background-color:lightgray;
+              td 30
+                style= border: 1px solid black; background-color:lightgray;
+#               td 46
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 14
+                style= border: 1px solid black;
+              td 30
+                style= border: 1px solid black;
+#               td 46
+#                 style= border: 1px solid black;
+              td 14
+                style= border: 1px solid black; background-color:lightgray;
+              td 30
+                style= border: 1px solid black; background-color:lightgray;
+#               td 46
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 14
+                style= border: 1px solid black;
+              td 30
+                style= border: 1px solid black;
+#               td 46
+#                 style= border: 1px solid black;
+              td 14
+                style= border: 1px solid black; background-color:lightgray;
+              td 30
+                style= border: 1px solid black; background-color:lightgray;
+              td 14
+                style= border: 1px solid black; background-color:lightcoral;
+              td 30
+                style= border: 1px solid black; background-color:lightblue;
+#               td 46
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td O
+              td 15
+                style= border: 1px solid black; background-color:lightgray;
+              td 31
+                style= border: 1px solid black; background-color:lightgray;
+#               td 47
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 15
+                style= border: 1px solid black; 
+              td 31
+                style= border: 1px solid black; 
+#               td 47
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 15
+                style= border: 1px solid black; background-color:lightgray;
+              td 31
+                style= border: 1px solid black; background-color:lightgray;
+#               td 47
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 15
+                style= border: 1px solid black;
+              td 31
+                style= border: 1px solid black;
+#               td 47
+#                 style= border: 1px solid black;
+              td 15
+                style= border: 1px solid black; background-color:lightgray;
+              td 31
+                style= border: 1px solid black; background-color:lightgray;
+#               td 47
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 15
+                style= border: 1px solid black;
+              td 31
+                style= border: 1px solid black;
+#               td 47
+#                 style= border: 1px solid black;
+              td 15
+                style= border: 1px solid black; background-color:lightgray;
+              td 31
+                style= border: 1px solid black; background-color:lightgray;
+#               td 47
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 15
+                style= border: 1px solid black;
+              td 31
+                style= border: 1px solid black;
+#               td 47
+#                 style= border: 1px solid black;
+              td 15
+                style= border: 1px solid black; background-color:lightgray;
+              td 31
+                style= border: 1px solid black; background-color:lightgray;
+#               td 47
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 15
+                style= border: 1px solid black;
+              td 31
+                style= border: 1px solid black;
+#               td 47
+#                 style= border: 1px solid black;
+              td 15
+                style= border: 1px solid black; background-color:lightgray;
+              td 31
+                style= border: 1px solid black; background-color:lightgray;
+              td 15
+                style= border: 1px solid black; background-color:lightcoral;
+              td 31
+                style= border: 1px solid black; background-color:lightblue;
+#               td 47
+#                 style= border: 1px solid black; background-color:lightgray;
+            tr
+              td P
+              td 16
+                style= border: 1px solid black; background-color:lightgray;
+              td 32
+                style= border: 1px solid black; background-color:lightgray;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightblue;
+              td 16
+                style= border: 1px solid black;
+              td 32
+                style= border: 1px solid black;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightcoral;
+              td 16
+                style= border: 1px solid black; background-color:lightgray;
+              td 32
+                style= border: 1px solid black; background-color:lightgray;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 16
+                style= border: 1px solid black;
+              td 32
+                style= border: 1px solid black;
+#               td 48
+#                 style= border: 1px solid black;
+              td 16
+                style= border: 1px solid black; background-color:lightgray;
+              td 32
+                style= border: 1px solid black; background-color:lightgray;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 16
+                style= border: 1px solid black;
+              td 32
+                style= border: 1px solid black;
+#               td 48
+#                 style= border: 1px solid black;
+              td 16
+                style= border: 1px solid black; background-color:lightgray;
+              td 32
+                style= border: 1px solid black; background-color:lightgray;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 16
+                style= border: 1px solid black;
+              td 32
+                style= border: 1px solid black;
+#               td 48
+#                 style= border: 1px solid black;
+              td 16
+                style= border: 1px solid black; background-color:lightgray;
+              td 32
+                style= border: 1px solid black; background-color:lightgray;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightgray;
+              td 16
+                style= border: 1px solid black;
+              td 32
+                style= border: 1px solid black;
+#               td 48
+#                 style= border: 1px solid black;
+              td 16
+                style= border: 1px solid black; background-color:lightgray;
+              td 32
+                style= border: 1px solid black; background-color:lightgray;
+              td 16
+                style= border: 1px solid black; background-color:lightcoral;
+              td 32
+                style= border: 1px solid black; background-color:lightblue;
+#               td 48
+#                 style= border: 1px solid black; background-color:lightgray;
+      allowDuplicateContainerIds true
+
+
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+
+    step PGx Load Quant Studio
+      form
+        include userAccountInfo
+        include resourceTable
+        style
+          type= text/css
+        style
+          - [barcode=barcode] {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+        script 
+          - function showQuantRack() {
+          -   $('#quantPlate').load('/uniflow', {stepName: 'Ajax Quant Studio Search Server',
+          -     pcrPlate: $('#pcrPlate').val()
+          -   });
+          -   $('#quantPlate').dialog({ minWidth: 500 });
+          - }
+          - $(document).ready(function() {
+          - $('#showContents').click(function(){
+          -    showQuantRack();
+          -  }); });
+#       queueQuery 
+#         - SELECT q.containerId AS "Extract" ,
+#         - c.content AS "Comments" ,
+#         - e.eventDate, e.userId
+#         - FROM queues q
+#         - INNER JOIN events e
+#         - ON q.eventId = e.eventId
+#         - LEFT JOIN contents c
+#         - ON q.containerid = c.containerId
+#         - AND q.eventId = c.eventId
+#         - AND 'Notes' = c.contentType
+#         - WHERE q.step = 'PGx Load Quant Studio'
+        vertical
+          fieldset
+            legend Directions
+              class= legend
+            vertical
+              li Scan the ID of the <b> plate </b> being loaded.
+              li Click the <b>Show Plate Contents</b> button to view samples to be added to Quant Studio. 
+              li When samples are added they will be queued for <b> Translational Data Upload </b>
+
+        vertical2
+          container pcrPlate
+            id= pcrPlate
+            style= background-image: url(images/barcodebkg.jpg);
+            screenLabel~ Plate ID
+            acceptQueue~ any
+            barcode= barcode 
+            deleteQueue~ {_step}
+            sql~ insert into queues select content, 'Translational Data Upload', {_eventId} from contents where containerId = '{pcrPlate}' and contentType = 'aliquotId'
+          button Show Plate Contents
+            id= showContents
+        vertical
+          div
+            id= quantPlate
+
+#           container quantRack
+#             new~ true
+#             screenLabel~ 
+#             value= SR{_getNextSequence:sampleRack}
+#             addContent~
+#             readOnly=
+#             style= display: none;
+#           div
+#             grid QuantRack
+#               screenLabel~ Quant Studio Samples
+#               cols 1
+#               rows 12
+#               addContentsTo QuantRack
+#                 contentType elutionTubeId
+#               inputType container
+#                 containerType~ quantTube
+#                 deleteQueue~ {_step}
+#                 required~ false
+#                 size= 10
+#                 style= background-image: url(images/barcodebkg.jpg);
+
+
+
+

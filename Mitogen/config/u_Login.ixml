@@ -1,0 +1,40 @@
+config
+  steps
+    stepGroup HiddenStuff
+    step Login
+      accessLevel 20
+      ContentSecurityPolicy default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com/css; font-src https://fonts.gstatic.com/; frame-ancestors 'none'
+      form
+        id= loginForm
+        class= login
+        data-parsley-validate=
+        noscript For full functionality of this site it is necessary to enable JavaScript. <br>Here are the <a href="http://www.enable-javascript.com/" target="_blank"> instructions how to enable JavaScript in your web browser</a>.
+        div
+          div Username
+            class= item-left login
+          div 
+            class= item-right
+            text userId
+              id= userId
+              data-parsley-required= true
+              required~ true
+          br
+            class= clearfix
+          div Password
+            class= item-left login
+          div 
+            class= item-right
+            password_input password
+              autocomplete= off
+              data-parsley-required= true
+          br
+            class= clearfix
+          br
+          div &nbsp;
+            class= item-left
+          div 
+            class= item-right
+            submit
+              id= loginSubmit
+        script
+          src= js/login.js

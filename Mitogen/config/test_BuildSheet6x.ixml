@@ -1,0 +1,335 @@
+config
+  steps
+    stepGroup Compiler6x
+    step Test Compiler6x
+      accessLevel 12
+      form
+        vertical
+          file buildSheet
+            destinationFolderName~ documents
+            destinationFilePrefix~ BuildSheet_0000000
+            screenLabel~ Build Sheet to Upload
+            required~ true
+          input outFile
+            screenLabel~ Output File
+          checkbox turnOnSheetValidate
+            screenLabel~ Turn On BuildSheet Validate
+            value= false
+      jython
+        import com.uniconnect.uniflow as uniflow
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from java.util import HashMap
+        from java.util import TreeMap
+        from java.sql import Statement
+
+        fileName = "{_configPath}public/documents/{buildSheet}"
+        ixmlPath = "{_configPath}private/compiler/"
+        outFile = "{_configPath}config/{outFile}"
+        menuFile = "{_configPath}config/Menu.ixml"
+        switchboard.log(fileName)
+
+        try:
+
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+          bsi = uniflow.BuildSheet(fileName, ixmlPath)
+
+          bsi.fileLink.put("Container Component","containerComponentTemplate.ixml")
+          bsi.fileLink.put("Analysis: Review Analysis Data","AnalysisReviewAnalysisData.ixml")
+          bsi.fileLink.put("Analysis: Normalization/Normalisation","AnalysisNormalization2.ixml")
+          bsi.fileLink.put("Analysis: Quantification (Spectrophotometric)","AnalysisQuantificationSpectophotometric.ixml")
+          bsi.fileLink.put("Analysis: Quantification (qPCR)","AnalysisQuantificationQPCR.ixml")
+          bsi.fileLink.put("Analysis: To/From Instrument (Data Innovations)","AnalysisToFromDIInstrument.ixml")
+          bsi.fileLink.put("Batch: Add Resource","BatchAddResource.ixml")
+          bsi.fileLink.put("Batch: Disassemble Batch","BatchDisassembleBatch.ixml")
+          bsi.fileLink.put("Batch: Disassemble Batch w/sample Transfer","BatchDisassembleBatchwsampleTransfer.ixml")
+          bsi.fileLink.put("Batch: Container Transfer","BatchContainerTransfer.ixml")
+          bsi.fileLink.put("Batch: Batch Processing","BatchBatchProcessing.ixml")
+          bsi.fileLink.put("Batch: Merge Batches","BatchMergeBatches.ixml")
+          bsi.fileLink.put("Batch: Modify Batch","BatchModifyBatch.ixml")
+          bsi.fileLink.put("Batch: Subsample","BatchSubsample.ixml")
+          bsi.fileLink.put("Batch: Transfer to New Batch and Container(s)","BatchTransfertoNewBatchandContainer(s).ixml")
+          bsi.fileLink.put("Batch: Transfer to Tray","BatchTransfertoTray.ixml")
+          bsi.fileLink.put("General: Container Comment","GeneralContainerComment.ixml")
+          bsi.fileLink.put("General: Data Capture","GeneralDataCapture.ixml")
+          bsi.fileLink.put("General: Document Review","DocumentReviewStandAlone.ixml")
+          bsi.fileLink.put("General: Image Review","GeneralImageReview.ixml")
+          bsi.fileLink.put("General: Image Upload","GeneralImageUpload.ixml")
+          bsi.fileLink.put("General: Run Instrument","GeneralRunInstrument.ixml")
+          bsi.fileLink.put("Plate: Add Resource","PlateAddResource.ixml")
+          bsi.fileLink.put("Plate: Plate Transfer","PlatePlateTransfer.ixml")
+          bsi.fileLink.put("Tray: Tray Processing","PlatePlateProcessing.ixml")
+          bsi.fileLink.put("Plate: Merge Plates","PlateMergePlates.ixml")
+          bsi.fileLink.put("Plate: Prepare Plate","PlatePreparePlate.ixml")
+          bsi.fileLink.put("Plate: Sample Select and Transfer","PlateSampleSelectandTransfer.ixml")
+          bsi.fileLink.put("Reporting: Assign","ReportingAssign.ixml")
+          bsi.fileLink.put("Reporting: Generate Report","ReportingReport.ixml")
+          bsi.fileLink.put("Reporting: Report","ReportingReport.ixml")
+          bsi.fileLink.put("Reporting: Review","ReportingReview.ixml")
+          bsi.fileLink.put("Reporting: Sign Out","ReportingSignOut.ixml")
+          bsi.fileLink.put("Sample: Add Resource","SampleAddResource.ixml")
+          bsi.fileLink.put("Sample: Assemble New Batch","SampleAssembleNewBatch.ixml")
+          bsi.fileLink.put("Sample: Container Transfer","SampleContainerTransfer.ixml")
+          bsi.fileLink.put("Sample: Sample Processing","SampleSampleProcessing.ixml")
+          bsi.fileLink.put("Sample: Merge samples","SampleMergesamples.ixml")
+          bsi.fileLink.put("Sample: Merge samples from Plate","SampleMergesamplesfromPlate.ixml")
+          bsi.fileLink.put("Sample: Normalization/Normalisation","AnalysisNormalization.ixml")
+          bsi.fileLink.put("Sample: Serial Dilution","SampleSerialDilution.ixml")
+          bsi.fileLink.put("Sample: Subsample","SampleSubsample.ixml")
+          bsi.fileLink.put("Sample: Transfer to Plate Location","SampleTransfertoPlateLocation.ixml")
+          bsi.fileLink.put("Batch: Transfer to New Batch and Container(s)","BatchTransfertoNewBatchandContainer(s).ixml")
+          bsi.fileLink.put("Batch: Container Transfer (Destination Batch Out)","BatchContainerTransferDestinationBatchOut.ixml")
+          bsi.fileLink.put("Sample List", "sampleList.ixml")
+          bsi.fileLink.put("Sample: Pool Samples","SamplePoolSamples.ixml")
+          bsi.fileLink.put("Batch: Pool Batch (Pool Out)","BatchPoolBatchPoolOut.ixml")
+          bsi.fileLink.put("Batch: Batch Processing (Sample Out)","BatchBatchProcessingSampleOut.ixml")
+          bsi.fileLink.put("Batch: Container Transfer (Samples Out)", "BatchContainerTransferSamplesOut.ixml")
+          bsi.fileLink.put("Sample: Transfer to Tray", "SampleTransferToTray.ixml")
+          bsi.fileLink.put("Tray: Tray Transfer","TrayTrayTransfer.ixml")
+          bsi.fileLink.put("Tray: Merge Trays","TrayMergeTrays.ixml")
+          bsi.fileLink.put("Cherry Pick: Tray to Pool Sample","CherryPickTraytoPoolSample.ixml")
+          bsi.fileLink.put("Cherry Pick: Tray to Sample","CherryPickTraytoSample.ixml")
+          bsi.fileLink.put("Cherry Pick: Tray to Batch","CherryPickTraytoBatch.ixml")
+          bsi.fileLink.put("Cherry Pick: Tray to Tray","CherryPickTrayToTray.ixml")
+          bsi.fileLink.put("Cherry Pick: Merge Replicate Samples","CherryPickMergeReplicateSamples.ixml")
+          bsi.fileLink.put("Analysis: Batch Data Review","AnalysisBatchDataReview.ixml")
+          bsi.fileLink.put("Analysis: Pooled Samples Data Review","AnalysisPooledSamplesDataReview.ixml")
+          bsi.fileLink.put("Analysis: Sample Data Review","AnalysisSampleDataReview.ixml")
+          bsi.fileLink.put("Analysis: Pool Tube Data Review","AnalysisPoolTubeDataReview.ixml")
+          bsi.fileLink.put("Analysis: Tray Data Review","AnalysisTrayDataReview.ixml")
+          bsi.fileLink.put("Analysis: Manual Download Data","AnalysisManualDownload.ixml")
+          bsi.fileLink.put("Analysis: Manual Upload Data","AnalysisManualUpload.ixml")
+          bsi.fileLink.put("Analysis: Microarray Import File","AnalysisMicroarrayImportFile.ixml")
+          bsi.fileLink.put("Analysis: Microarray Data Review","AnalysisMicroarrayDataReview.ixml")
+          bsi.fileLink.put("Pool Tube: Transfer to Tray","PoolTubeTransferToTray.ixml")
+          bsi.fileLink.put("Pool Tube: Sample Processing","PoolTubeSampleProcessing.ixml")
+          bsi.fileLink.put("Sample: Series Dilution","SampleSeriesDilution.ixml")
+          bsi.fileLink.put("Pool Tube: Pool Samples","PoolTubePoolSamples.ixml")
+          bsi.fileLink.put("FISH: Upload Results (FISH step 1)","FISHUploadResults.ixml")
+          bsi.fileLink.put("FISH: Upload Images (FISH step2)","FISHUploadImages.ixml")
+          bsi.fileLink.put("FISH: Analysis (FISH step 3)","FISHAnalysis.ixml")
+          bsi.fileLink.put("FISH: View Completed Analysis (FISH step 4)","FISHViewAnalysis.ixml")
+          bsi.fileLink.put("Exception Handling","exceptionHandling.ixml")
+          bsi.fileLink.put("Culture Assignment and Dashboard","cultureAssignmentAndDashboard.ixml")
+
+          switchboard.log(bsi.getStatusMessage())
+          bsi.processBuildSheet()
+
+          ############################################################
+          ##  Parse protocol library and store info to the database
+          #############################################################
+
+          ## Protocol lib data structure format:
+          ## ProtocolLibrary
+          ##  - Key: protocol name (1, 2, 3,..)
+          ##  - Value: BuildSheetData
+          ##  BuildSheetData contains
+          ##   - protocolName, protocolComment, protocolDescription, protocolFormType, addToMenu, stepData
+          ##  stepData
+          ##  - Key: Index
+          ##  - Value: BuildSheetStepData
+          ##  BuildSheetStepData contains:
+          ##   - stepParameters, stepType, stepName, screenlabel, description, parameterColumn, dataColumn, nextStep
+          ##  stepParameters is another mapping where key is the parameter and value is the value set
+          protocol_lib = HashMap(bsi.getProtocolLibrary());
+
+
+          # SQL statements
+          delete_protocol_sql = "DELETE FROM protocolLibrary WHERE protocolName = ?"
+          delete_protocol_steps_sql = "DELETE ps.* FROM protocolLibrary pl INNER JOIN protocolSteps ps ON pl.id = ps.protocolLibraryId WHERE pl.protocolName = ?"
+          delete_protocol_step_parameters_sql = "DELETE psp.* FROM protocolLibrary pl INNER JOIN protocolSteps ps ON pl.id = ps.protocolLibraryId INNER JOIN protocolStepParameters psp ON psp.protocolStepsId = ps.id WHERE pl.protocolName = ?"
+          insert_protocol_sql = "INSERT INTO protocolLibrary (protocolName, addMenu, menuGrouping) VALUES(?, ?, ?)"
+          insert_protocol_steps_sql = "INSERT INTO protocolSteps(protocolLibraryId, stepName, displayName, stepType, nextStep) VALUES(?, ?, ?, ?, ?)"
+          insert_protocol_step_parameters_sql = "INSERT INTO protocolStepParameters(protocolStepsId, parameter, value) VALUES(?, ?, ?)"
+
+          # Iterate through protocols
+          for key_protocol in protocol_lib:
+            buildsheet_data = protocol_lib[key_protocol]
+            switchboard.log(buildsheet_data.protocolName)
+
+            # Get available info
+            protocol_id = None
+            protocol_name = buildsheet_data.protocolName
+            add_to_menu = bool(buildsheet_data.addToMenu)
+            protocol_form_type = buildsheet_data.protocolFormType
+            protocol_description = buildsheet_data.protocolDescription
+            protocol_comment = buildsheet_data.protocolComment
+
+            if protocol_name == '':
+              switchboard.formResults.put('PROTOCOLEXISTS', 'false')
+
+            # Clear protocol steps parameters
+            ps = switchboard.connection.prepareStatement(delete_protocol_step_parameters_sql)
+            ps.setString(1, protocol_name)
+            ps.executeUpdate()
+
+            # Clear protocol steps
+            ps = switchboard.connection.prepareStatement(delete_protocol_steps_sql)
+            ps.setString(1, protocol_name)
+            ps.executeUpdate()
+
+
+            # Clear protocol info
+            ps = switchboard.connection.prepareStatement(delete_protocol_sql)
+            ps.setString(1, protocol_name)
+            ps.executeUpdate()
+
+
+            # Insert new protocol info
+            ps = switchboard.connection.prepareStatement(insert_protocol_sql, Statement.RETURN_GENERATED_KEYS)
+            ps.setString(1, protocol_name)
+            ps.setBoolean(2, add_to_menu)
+            ps.setString(3, protocol_form_type)
+            ps.executeUpdate()
+            switchboard.resultSet = ps.getGeneratedKeys()
+            while switchboard.resultSet.next():
+              protocol_id = switchboard.resultSet.getInt(1)
+            switchboard.log("Protocol Id: " + str(protocol_id))
+
+
+            # Get step data
+            step_data = TreeMap(buildsheet_data.stepData)
+            for key_step in step_data:
+
+              # Step info
+              step = step_data[key_step]
+              step_name = step.stepName
+              step_type = step.stepType
+              step_screen_label = step.screenLabel
+              step_description = step.description
+              step_next_step = step.nextStep
+              protocol_step_id = None
+
+
+              ps = switchboard.connection.prepareStatement(insert_protocol_steps_sql, Statement.RETURN_GENERATED_KEYS)
+              ps.setInt(1, protocol_id)
+              ps.setString(2, step_name)
+              ps.setString(3, step_screen_label)
+              ps.setString(4, step_type)
+              ps.setString(5, step_next_step)
+              ps.executeUpdate()
+              switchboard.resultSet = ps.getGeneratedKeys()
+              while switchboard.resultSet.next():
+                protocol_step_id = switchboard.resultSet.getInt(1)
+              switchboard.log("Protocol Step Id: " + str(protocol_step_id))
+
+              switchboard.log(step.stepName)
+
+              # Get parameters and values
+              step_parameters = HashMap(step.stepParameters)
+              for step_parameter in step_parameters:
+                if step_parameter == '0':
+                  continue
+                value = step_parameters[step_parameter]
+
+                ps = switchboard.connection.prepareStatement(insert_protocol_step_parameters_sql, Statement.RETURN_GENERATED_KEYS)
+                ps.setInt(1, protocol_step_id)
+                ps.setString(2, step_parameter)
+                ps.setString(3, step_parameters[step_parameter])
+                ps.executeUpdate()
+
+
+          switchboard.log(bsi.getStatusMessage())
+
+          if'{turnOnSheetValidate}' == 'true':
+            turnOnSheetValidateVar = True
+          else:
+            turnOnSheetValidateVar = False
+
+          bsi.generateStepGroup(outFile, menuFile, turnOnSheetValidateVar)
+          switchboard.log(bsi.getStatusMessage())
+
+          if bsi.getStatusCode() == 0:
+            switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+            switchboard.log(bsi.getStatusMessage())
+          elif bsi.getStatusCode() == 2:
+            switchboard.log("---*** BuildsheetError ----")
+            switchboard.log(bsi.getStatusMessage())
+
+            errorVars = bsi.getErrorVariables()
+            switchboard.log(errorVars + " " + str(len(errorVars)))
+
+            missParams = bsi.getMissingParameters()
+            switchboard.log(missParams + " " + str(len(missParams)))
+
+            switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+            if len(errorVars) > 0 and len(missParams) == 0:
+              switchboard.handleFormError("InvalidBuildsheet",[ bsi.getErrorVariables()] , None)
+            elif len(missParams) > 0 and len(errorVars) == 0:
+              switchboard.handleFormError("InvalidBuildsheetValues",[ bsi.getMissingParameters()] , None)
+            else:
+              switchboard.handleFormError("InvalidBuildsheet",[ bsi.getErrorVariables()] , None)
+              switchboard.handleFormError("InvalidBuildsheetValues",[ bsi.getMissingParameters()] , None)
+
+            switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+          else:
+            switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+            switchboard.log(bsi.getStatusMessage())
+
+        except Exception as e:
+          switchboard.log("---*** Exception *** --- FAILURE TO INSERT/UPDATE ----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ----FAILURE TO INSERT/UPDATE ----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+          if "Duplicate entry" in e.message:
+            switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'false')
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+          else:
+            switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          switchboard.formResults.put('PROCESSINGSUCCESSFULUNIQUE', 'true')
+          switchboard.formResults.put('PROTOCOLEXISTS', 'true')
+
+
+      validateSql SELECT 1 from dual WHERE '{_:protocolExists}' = 'true'
+        errorMessage Protocol is required
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage ixml processing or generaton error
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessfulUnique}' = 'true'
+        errorMessage One or more protocols or step names already exist. Create unique names for all protocols and step names.

@@ -1,0 +1,189 @@
+config
+  steps
+
+    stepGroup Routing
+
+    step Routing Configuration
+      accessLevel 12
+      jsScripts
+        src js/fontawesome/js/all.min.js
+        src  js/nextStepPopup.js
+        src  js/routing.js
+      cssLinks
+        link /css/fontawesome/css/all.min.css
+        link /css/configuration/pdr.css
+      form
+        data-parsley-validate=
+        include stepInstructions
+
+        div
+          id= hiddenSelects
+          style= display: none
+
+          select hiddenOrderTypes
+            id= hiddenOrderTypes
+            setName~ workflows
+            required~ false
+
+          select hiddenRouteDirection
+            id= hiddenRouteDirection
+            option IN
+            option OUT
+            required~ false
+
+          select hiddenSpecimenType
+            id= hiddenSpecimenType
+            required~ false
+            sqlPreparedQuery~ SELECT
+              - DISTINCT Concat(workflow,'|' ,displayValue,'|',VALUE), Concat(workflow,'|' ,displayValue,'|',VALUE)
+              - FROM formDefinition fd
+              - INNER JOIN formInputSettings fis ON fis.formDefinitionId = fd.id
+              - INNER JOIN formConfigurableParts fcp ON fcp.id = fis.formConfigurablePartsId
+              - INNER JOIN validValuesLinks vvl ON fcp.id = vvl.formConfigurablePartsId
+              - INNER JOIN validValues vv ON vvl.setName = vv.setName
+              - WHERE inputName = 'specimenType'
+
+          select hiddenQuantityQualifier
+            id= hiddenQuantityQualifier
+            required~ false
+            option
+            option =
+            option >
+            option <
+            option >=
+            option <=
+
+          select hiddenMethodCode
+            id= hiddenMethodCode
+            required~ false
+            sqlPreparedQuery~
+              - SELECT DISTINCT Concat(t.testCode,'|', m.name,'|', m.methodCode), Concat(t.testCode,'|', m.name,'|', m.methodCode)
+              -  FROM tests t
+              -  INNER JOIN testMethods tm ON tm.testCode = t.testCode
+              -  INNER JOIN methods m ON m.methodCode = tm.methodCode
+              -  WHERE m.disabled = 0
+              -  AND t.disabled = 0
+
+          select hiddenPanelCode
+            id= hiddenPanelCode
+            required~ false
+            sqlPreparedQuery~
+              - SELECT Distinct Concat(p.type, '|', NAME, '|',p.panelCode), Concat(p.type, '|', NAME, '|',p.panelCode)
+              -  FROM panels p
+              -  WHERE p.disabled = 0
+
+          select hiddenTestCode
+            id= hiddenTestCode
+            required~ false
+            sqlPreparedQuery~
+              - SELECT Distinct Concat(tp.panelCode, '|', NAME, '|',t.testCode), Concat(tp.panelCode, '|', NAME, '|',t.testCode)
+              -  FROM tests t
+              -  INNER JOIN testPanels tp
+              -  ON t.testCode = tp.testCode
+              -  WHERE t.disabled = 0
+
+          select hiddenResult
+            id= hiddenResult
+            option
+            required~ false
+            sqlPreparedQuery~
+              - SELECT DISTINCT Concat(fd.workflow,'|' ,vv.displayValue,'|',vv.value), Concat(fd.workflow,'|' ,vv.displayValue,'|',vv.value)
+              - FROM formDefinition fd
+              - INNER JOIN formInputSettings fis ON fis.formDefinitionId = fd.id
+              - INNER JOIN formConfigurableParts fcp ON fcp.id = fis.formConfigurablePartsId
+              - INNER JOIN validValuesLinks vvl ON fcp.id = vvl.formConfigurablePartsId
+              - INNER JOIN validValues vv ON vvl.setName = vv.setName
+              - WHERE inputName = 'specimenCondition'
+              - ORDER BY vv.displayValue
+
+          select hiddenResultDefaultSpecimenCondition
+            id= hiddenResultDefaultSpecimenCondition
+            setName~ Specimen Condition
+            required~ false
+
+          select hiddenResultPassFail
+            id= hiddenResultPassFail
+            option
+            required~ false
+            sqlPreparedQuery~
+              - SELECT value FROM validValues WHERE setName = 'passfail' AND value <> 'exceptionHandling'
+
+          select hiddenDepartment
+            id= hiddenDepartment
+            option
+            required~ false
+            sqlPreparedQuery~
+              - SELECT DISTINCT CONCAT(siteId, '|', name), CONCAT(siteId, '|', name)
+              - FROM organizationSites
+              - WHERE organizationType = 'Department'
+
+          select hiddenLocation
+            id= hiddenLocation
+            option
+            required~ false
+            sqlPreparedQuery~
+              - SELECT DISTINCT CONCAT(parentSiteId, '|', name, '|', siteId), CONCAT(parentSiteId, '|', name, '|', siteId)
+              - FROM organizationSites
+              - WHERE organizationType = 'Location'
+
+        div
+          id= errorBox
+          style= display: none
+        div
+          id= modal
+          style= display: none
+
+        vertical
+          select protocolSelected
+            id= protocolSelected
+            screenLabel~ Protocol
+            option
+            sqlPreparedQuery~ SELECT pl.protocolName, pl.protocolName FROM protocolLibrary pl
+
+          br
+
+          select sourceStep
+            id= sourceStep
+            screenLabel~ From Step
+            option
+            required~ true
+            data-parsley-required= true
+          br
+
+
+
+        fieldset
+          legend Sample Routing
+
+          div
+            id= routingConfigurationDiv
+
+          br
+
+          button
+            value= Add New Path
+            id= addNewPath
+
+          br
+
+        fieldset
+          legend Batch/Tray Routing
+
+          div
+            id= routingConfigurationBatchTrayDiv
+
+          br
+
+          button
+            value= Add New Path
+            id= addNewPath2
+
+          br
+
+
+        div
+          style= clear:both;
+
+
+
+

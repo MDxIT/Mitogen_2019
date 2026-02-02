@@ -1,0 +1,312 @@
+<s11:Envelope xmlns:s11='http://schemas.xmlsoap.org/soap/envelope/'>
+  <s11:Body>
+    <ns1:getDataLoadStatus xmlns:ns1='http://www.geneinsight.com/fast/api/v1'>
+<!-- optional -->
+      <dataLoadId>?999?</dataLoadId>
+    </ns1:getDataLoadStatus>
+  </s11:Body>
+</s11:Envelope>
+
+
+    sendSOAPMultipart startUrlDataLoad
+      usePackedXML true
+      keyStore /usr/local/uniflow/geneinsight-api.pfx
+      keyStorePassword h8wkEy3
+      keystoreType pkcs12
+      sslMode true
+      host chw-fast-test-ws.geneinsight.com
+      hostURI https://chw-fast-test-ws.geneinsight.com/fast/api/v1/ws/DataLoadService
+      _ socketTimeout 3000
+      passwordType password
+      soapenv:Envelope 
+        xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+        xmlns:v1= http://www.geneinsight.com/fast/api/v1
+        soapenv:Header 
+          wsse:Security 
+            xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+            xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+            soapenv:mustUnderstand= 1
+            wsse:UsernameToken 
+              wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+              wsse:Username maddoxc@sunquestcld.com
+              wsse:Password genome@0
+                Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+        soapenv:Body 
+          v1:getDataLoadStatus 
+            dataLoadId 
+
+
+<s11:Envelope xmlns:s11='http://schemas.xmlsoap.org/soap/envelope/'>
+  <s11:Body>
+    <ns1:queryAnnotationDataVariants xmlns:ns1='http://www.geneinsight.com/fast/api/v1'>
+<!-- optional -->
+      <esSearchJSON>?XXX?</esSearchJSON>
+    </ns1:queryAnnotationDataVariants>
+  </s11:Body>
+</s11:Envelope>
+
+
+
+      sendSOAPMultipart queryAnnotationDataVariants
+        usePackedXML true
+        keyStore /usr/local/uniflow/geneinsight-api.pfx
+        keyStorePassword h8wkEy3
+        keystoreType pkcs12
+        sslMode true
+        host chw-fast-test-ws.geneinsight.com
+        hostURI https://chw-fast-test-ws.geneinsight.com/fast/api/v1/ws/QueryService
+        _ socketTimeout 3000
+        passwordType password
+        soapenv:Envelope 
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:v1= http://www.geneinsight.com/fast/api/v1
+          soapenv:Header 
+            wsse:Security 
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              soapenv:mustUnderstand= 1
+              wsse:UsernameToken 
+                wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+                wsse:Username maddoxc@sunquestcld.com
+                wsse:Password genome@0
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+          soapenv:Body 
+            v1:queryAnnotationDataVariants 
+              esSearchJSON ~{"query":~{"term":~{"conceptsInit":"pending"~}~}, "size" : 0~} 
+
+
+<s11:Envelope xmlns:s11='http://schemas.xmlsoap.org/soap/envelope/'>
+  <s11:Body>
+    <ns1:getAnnotatedSampleDataStatus xmlns:ns1='http://www.geneinsight.com/fast/api/v1'>
+<!-- optional -->
+      <annotatedSampleDataName>?XXX?</annotatedSampleDataName>
+    </ns1:getAnnotatedSampleDataStatus>
+  </s11:Body>
+</s11:Envelope>
+
+      sendSOAPMultipart getAnnotatedSampleDataStatus
+        usePackedXML true
+        keyStore /usr/local/uniflow/geneinsight-api.pfx
+        keyStorePassword h8wkEy3
+        keystoreType pkcs12
+        sslMode true
+        host chw-fast-test-ws.geneinsight.com
+        hostURI https://chw-fast-test-ws.geneinsight.com/fast/api/v1/ws/AnnotatedSampleDataService
+        _ socketTimeout 3000
+        passwordType password
+        soapenv:Envelope 
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:v1= http://www.geneinsight.com/fast/api/v1
+          soapenv:Header 
+            wsse:Security 
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              soapenv:mustUnderstand= 1
+              wsse:UsernameToken 
+                wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+                wsse:Username maddoxc@sunquestcld.com
+                wsse:Password genome@0
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+          soapenv:Body 
+            v1:getAnnotatedSampleDataStatus 
+              annotatedSampleDataName 
+
+
+<s11:Envelope xmlns:s11='http://schemas.xmlsoap.org/soap/envelope/'>
+  <s11:Body>
+    <ns1:createAnnotatedSampleData xmlns:ns1='http://www.geneinsight.com/fast/api/v1'>
+<!-- optional -->
+      <annotatedSampleDataName>?XXX?</annotatedSampleDataName>
+<!-- from 0 to unbounded -->
+      <sampleData>
+<!-- optional -->
+        <sampleDataName>?XXX?</sampleDataName>
+<!-- optional -->
+        <sampleDataLabel>?XXX?</sampleDataLabel>
+      </sampleData>
+<!-- from 0 to unbounded -->
+      <regionSet>
+<!-- optional -->
+        <regionSetName>?XXX?</regionSetName>
+<!-- optional -->
+        <applyMask>?true?</applyMask>
+      </regionSet>
+<!-- from 0 to unbounded -->
+      <customScript>?XXX?</customScript>
+<!-- optional -->
+      <savedFilter>
+<!-- optional -->
+        <filterName>?XXX?</filterName>
+<!-- optional -->
+        <applyTagsAndLabStatuses>?true?</applyTagsAndLabStatuses>
+      </savedFilter>
+<!-- from 0 to unbounded -->
+      <emailNoticeTo>?XXX?</emailNoticeTo>
+    </ns1:createAnnotatedSampleData>
+  </s11:Body>
+</s11:Envelope>
+
+      sendSOAPMultipart createAnnotatedSampleData
+        usePackedXML true
+        keyStore /usr/local/uniflow/geneinsight-api.pfx
+        keyStorePassword h8wkEy3
+        keystoreType pkcs12
+        sslMode true
+        host chw-fast-test-ws.geneinsight.com
+        hostURI https://chw-fast-test-ws.geneinsight.com/fast/api/v1/ws/AnnotatedSampleDataService
+        _ socketTimeout 3000
+        passwordType password
+        soapenv:Envelope 
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:v1= http://www.geneinsight.com/fast/api/v1
+          soapenv:Header 
+            wsse:Security 
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              soapenv:mustUnderstand= 1
+              wsse:UsernameToken 
+                wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+                wsse:Username maddoxc@sunquestcld.com
+                wsse:Password genome@0
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+          soapenv:Body 
+            v1:createAnnotatedSampleData 
+              annotatedSampleDataName 
+              regionSet
+                regionSetName ##TESTCODE##
+
+
+
+
+  timerTask vcfFileUpload
+    intervalMinutes 1
+    conditionalTransactionInstructions
+      ifCondition select 1 from queues where step = '_vcfFileUpload'
+        jython
+          switchboard.isUpdateTransaction = True
+      setFormQueryResult
+        sqlQuery~
+          - select cf.fileName, cf.containerId
+          - from containerFiles cf
+          - inner join queues q
+          - on cf.containerId = q.containerId
+          - where q.step = '_vcfFileUpload'
+          - limit 1
+      setFormQueryResult
+        sqlQuery~
+          - select rf.Id as 'requestId'
+          - from contents co
+          - inner join requestForms rf
+          - on rf.Id = co.content
+          - where co.containerId = '{_:containerId}'
+          - union select  ''
+      jython
+        import subprocess
+        import base64
+        fh = open("/sftp/geneinsight/incoming/{_:fileName}", "rb")
+        content = fh.read()
+        e_b64 = base64.b64encode(content)
+        switchboard.formResults.put('BASE64',e_b64)
+        command = ["mv", "/sftp/geneinsight/incoming/{_:fileName}", "/sftp/geneinsight/problems/{_:fileName}"]
+        subprocess.call(command)
+        ps = switchboard.connection.prepareStatement("update queues set step = '_vcfFileUpload_HOLD' where step = '_vcfFileUpload' and containerId = '{_:fileName}'")
+        ps.executeUpdate()
+      sendSOAPMultipart startUrlDataLoad
+        usePackedXML true
+        keyStore /usr/local/uniflow/geneinsight-api.pfx
+        keyStorePassword h8wkEy3
+        keystoreType pkcs12
+        sslMode true
+        host chw-fast-test-ws.geneinsight.com
+        hostURI https://chw-fast-test-ws.geneinsight.com/fast/api/v1/ws/DataLoadService
+        _ socketTimeout 3000
+        passwordType password
+        soapenv:Envelope
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:v1= http://www.geneinsight.com/fast/api/v1
+          soapenv:Header
+            wsse:Security
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              soapenv:mustUnderstand= 1
+              wsse:UsernameToken
+                wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+                wsse:Username maddoxc@sunquestcld.com
+                wsse:Password genome@0
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+          soapenv:Body
+            v1:startFileDataLoad
+              simpleFile
+                name {_:fileName}
+                data {_:BASE64}
+              referenceBuild GRCh37
+              target SAMPLE_DATA
+              emailNoticeTo clinton.maddox@geneinsight.com
+              sampleDataName {_:containerId}
+              loadConfig
+                name Sample VCF
+                recordErrorLimit 1000
+
+
+<soap:Body>
+        >   <uploadGraphic xmlns="www.example.org">
+        >    <image>
+        >      <xop (idea) nclude xmlns :x op='http://www.w3.org/2004/08/xop/include'
+        >           href='cid:http://example.org/myimage.gif'/>
+        >    </image>
+        >   </uploadGraphic>
+        >  </soap:Body>
+        > </soap:Envelope>
+
+
+    sendSOAPMultipart startUrlDataLoad
+      usePackedXML true
+      keyStore /usr/local/uniflow/geneinsight-api.pfx
+      keyStorePassword h8wkEy3
+      keystoreType pkcs12
+      sslMode true
+      host chw-fast-test-ws.geneinsight.com
+      hostURI https://chw-fast-test-ws.geneinsight.com/fast/api/v1/ws/DataLoadService
+      _ socketTimeout 3000
+      passwordType password
+      soapenv:Envelope 
+          soapenv:Body
+            uploadGraphic
+              xmlns= "www.example.org"
+              image <xop (idea) nclude xmlns :x op='http://www.w3.org/2004/08/xop/include' href='cid:http://example.org/myimage.gif'/>
+              
+
+
+    step Test Soap
+      accessLevel 12
+      form
+        vertical
+          text test
+      sendSOAPMultipart startUrlDataLoad
+        usePackedXML true
+        keyStore /home/medcomp/geneinsight-api.medcomp.pfx
+        keyStorePassword h8wkEy3
+        keystoreType pkcs12
+        sslMode true
+        host chw-fast-test-ws.geneinsight.com
+        hostURI https://mcc-fast-test-ws.geneinsight.com/fast/api/v1/ws/QueryService
+        _ socketTimeout 3000
+        passwordType password
+        soapenv:Envelope
+          xmlns:soapenv= http://schemas.xmlsoap.org/soap/envelope/
+          xmlns:v1= http://www.geneinsight.com/fast/api/v1
+          soapenv:Header
+            wsse:Security
+              xmlns:wsse= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+              xmlns:wsu= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd
+              soapenv:mustUnderstand= 1
+              wsse:UsernameToken
+                wsu:Id= UsernameToken-74F287E74032CAD33514683490534042
+                wsse:Username medcompPMDX
+                wsse:Password vuKNgUnh42Bmj
+                  Type= http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText
+          soapenv:Body
+            v1:queryAnnotationDataVariants
+              esSearchJSON ~{"query":~{"term":~{"conceptsInit":"pending"~}~}, "size" : 0~}
+
+

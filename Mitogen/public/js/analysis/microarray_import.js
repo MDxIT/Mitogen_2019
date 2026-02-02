@@ -1,0 +1,5 @@
+$(function() {
+
+    setInputFileName('#rawResultsFileUpload', '#cmaRawResultsFile');
+
+  });

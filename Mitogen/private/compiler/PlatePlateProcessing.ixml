@@ -1,0 +1,291 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+
+
+        include groupingContainer_Form0
+          parameter~ groupingContainerScreenLabel
+            value= Tray
+          parameter~ currentStep
+            value= [$$STEP_NAME$$]
+          parameter~ acceptQueue
+            value= {_step}
+          parameter~ containerType
+            value= trayId
+
+      form
+        enctype= multipart/form-data
+
+        script
+          src= js/components/container.js
+        script
+          src= js/components/printBarcode.js
+
+        data-parsley-validate=
+
+        include stepInstructions
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN '' THEN ?
+          -     WHEN 'null' THEN ?
+          -     ELSE ?
+          -   END AS "trayId"
+          string {groupingContainerId}
+          string {_recId}
+          string {_recId}
+          string {groupingContainerId}
+
+        hidden groupingContainerId
+          value= {groupingContainerId}
+        hidden _recId
+          value= {_recId}
+
+        configurePreparedQuery~
+          - SELECT value AS "trayRows"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayRowNumber'
+          string {_:trayId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT value AS "trayColumns"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayColumnNumber'
+          string {_:trayId}
+          allowEmptyResults~
+
+        configurePreparedQuery~
+          - SELECT value AS "trayType"
+          - FROM containerProperties
+          - WHERE containerId = ?
+          - AND property = 'trayType'
+          string {_:trayId}
+          allowEmptyResults~
+
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+        br
+
+        printerControls
+          configureIf~ [$$Print_Plate_Layout$$]
+            advanced~
+            equals~ Yes
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        div
+          configureIf~ {_:trayType}
+            advanced~
+            equals~ plate
+              ignoreCase~
+
+          include trayComponent
+
+            parameter~ containerCommentsInclude
+              value= [$$Plate_Comments$$]
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ plateAllowSampleDuplicates
+              value= Yes
+            parameter~ platePrintLayout
+              value= [$$Print_Plate_Layout$$]
+            parameter~ trayType
+              value= plate
+            parameter~ trayRowNumber
+              value= {_:trayRows}
+            parameter~ trayColumnNumber
+              value= {_:trayColumns}
+            parameter~ containerNameParm
+              value= trayId
+            parameter~ containerScreenLabel
+              value= Tray ID
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ acceptQueue
+              value= {_step}
+            parameter~ containerRequired
+              value= false
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:trayId}
+            parameter~ useThisSequence
+              value= No
+            parameter~ containerActionInclude
+              value= [$$Action_Option$$]
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ containerType
+              value= trayId
+            parameter~ userClass1
+              value=
+            parameter~ containerActionOptions
+              value= passfail
+            parameter~ trayInputReadyOnly
+              value= true
+            parameter~ trayLabel
+              value= Tray
+            parameter~ sampleScanReadOnly
+              value= Yes
+            parameter~ trayToTray
+              value= false
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+        div
+          configureIf~ {_:trayType}
+            advanced~
+            equals~ grid
+              ignoreCase~
+
+          include trayComponent
+
+            parameter~ containerCommentsInclude
+              value= [$$Plate_Comments$$]
+            parameter~ containerGenerateFromSequence
+              value= No
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= No
+            parameter~ plateAllowSampleDuplicates
+              value= Yes
+            parameter~ platePrintLayout
+              value= [$$Print_Plate_Layout$$]
+            parameter~ trayType
+              value= grid
+            parameter~ trayRowNumber
+              value= {_:trayRows}
+            parameter~ trayColumnNumber
+              value= {_:trayColumns}
+            parameter~ containerNameParm
+              value= trayId
+            parameter~ containerScreenLabel
+              value= Tray ID
+            parameter~ containerReadonly
+              value= true
+            parameter~ containerNew
+              value= false
+            parameter~ acceptQueue
+              value= {_step}
+            parameter~ containerRequired
+              value= false
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value= {_:trayId}
+            parameter~ useThisSequence
+              value= No
+            parameter~ containerActionInclude
+              value= [$$Action_Option$$]
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ containerType
+              value= trayId
+            parameter~ userClass1
+              value=
+            parameter~ containerActionOptions
+              value= passfail
+            parameter~ trayInputReadyOnly
+              value= true
+            parameter~ trayLabel
+              value= Tray
+            parameter~ sampleScanReadOnly
+              value= Yes
+            parameter~ trayToTray
+              value= false
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+
+      forEach SELECT sr.runId as "runId",
+        -   c.attribute AS "well"
+        - FROM contents c
+        - INNER JOIN specimenRuns sr
+        -   ON c.content = sr.currentContainerId
+        - INNER JOIN queues q
+        -   ON q.containerid = sr.runId
+        - WHERE c.containerId = ?
+        -   AND q.step = ?
+        - UNION
+        - SELECT sr.runId,
+        -   c.attribute
+        - FROM contents c
+        - INNER JOIN specimenRuns sr
+        -   ON c.content = sr.currentContainerId
+        - INNER JOIN contents c2
+        -   ON c2.content = c.content
+        - INNER JOIN queues q
+        -   ON c2.containerId = q.containerId
+        - WHERE c.containerId = ?
+        -   AND q.step = ?
+        string {trayId}
+        string {_step}
+        string {trayId}
+        string {_step}
+
+
+        ### manage run containerHistory
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1
+              - FROM containerHistory
+              - WHERE containerId = ?
+              - AND eventId = ?
+              string {_:runId}
+              long {_eventId}
+
+          sqlPreparedStatement
+            - INSERT INTO containerHistory (containerId, eventId)
+            - VALUES (?, ?)
+            string {_:runId}
+            long {_eventId}
+
+      # Route tray
+      include routeContainer
+        parameter~ processContainerId
+          value= {trayId}
+        parameter~ result
+          value= {trayId_Action}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+
+
+
+
+      allowDuplicateContainerIds
+
+
+
+

@@ -1,0 +1,24 @@
+config
+  # Date Time Properties
+  # To not perform date time conversion, set convertDateTime to false
+  #convertDateTime true
+
+  # {_dateShortFormat}
+  # default: MM/dd/yyyy
+  dateShortFormat MM/dd/yyyy
+
+  # {_dateLongFormat}
+  # default: dd MMM yyyy HH:mm
+  dateLongFormat MM/dd/yyyy HH:mm
+
+  # {_timeFormat}
+  # default:  HH:mm
+  timeFormat HH:mm
+
+  # {_timeZoneName}
+  # default: UTC
+  # timeZoneName Australia/Brisbane
+  timeZoneName America/Denver
+  
+  # SQL expression representing the DBMS date and time
+  SQLDateExpression UTC_TIMESTAMP

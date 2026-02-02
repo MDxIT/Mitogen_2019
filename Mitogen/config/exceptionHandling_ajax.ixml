@@ -1,0 +1,699 @@
+
+config
+  steps
+    stepGroup Exception Handling Ajax Servers
+    step Exception Handling Routing
+      form
+      jython
+        import json
+        import datetime
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        from general_functions import *
+        from exception_handling import *
+        from containers import GroupingContainer
+        from endRun import *
+        from create_run import *
+        from run import Run
+        from endPoolRun import *
+        from create_poolRun import *
+        from poolRun import PoolRun
+        from poolGroupingContainer import PoolGroupingContainer
+
+        switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+
+        itemsToProcessOrg = r'''{itemsToProcessJson}'''.encode("utf-8")
+        errorLocation = '<<<<< BEGIN: Exception Handling Routing >>>>>'
+        switchboard.log('<<<<<< BEGIN: Exception Handling Routing >>>>>>')
+
+        if itemsToProcessOrg:
+          try:
+            itemsToProcess = json.loads(itemsToProcessOrg, strict=False)
+
+            if itemsToProcess:
+              for item in itemsToProcess:
+
+                containerId =  item.get('containerId','')
+                print 'containerId is ' + containerId
+
+                ## handlingType = run or group
+                handlingType = item.get('handlingType', '')
+                print 'handlingType is ' + handlingType
+                switchboard.formResults.put('HANDLINGTYPE', handlingType)
+
+                action = item.get('action','')
+                print 'action ' + action
+
+                currentTriggerStep = item.get('currentTriggerStep','')
+                print 'current trigger step ' + currentTriggerStep
+
+                nextStep = item.get('nextStep','')
+                print nextStep
+
+                ## queuedItem = runId or groupingContainerId
+                queueItem = item.get('queuedItem', '')
+                print 'queueItem ' + queueItem
+                switchboard.formResults.put('QUEUEITEM', queueItem)
+
+                queueParent = item.get('queueParent', '')
+                print 'queueParent ' +  queueParent
+
+                poolRunParent = item.get('poolRunParent', '')
+                print 'poolRunParent ' +  poolRunParent
+
+                note = item.get('note', '')
+                print 'note ' +  note
+
+                eventId = {_eventId}
+
+                switchboard.log('<<<<<< Begin processing for : ' + containerId + ' and queueed item:  ' + queueItem + ' >>>>>>')
+
+                print 'handlingType is ' + handlingType
+
+                if handlingType == 'run':
+
+                  if action == 'Contact Customer':
+
+                    errorLocation = 'BEGIN Contact customer: orderContainerId '
+                    ###     get order linked to current run
+                    orderContainerId = getOrderId(switchboard, queueItem)
+                    print 'Order Container Id : ' + orderContainerId
+
+                    errorLocation = 'BEGIN Contact customer: insertContainerNote if  ', note
+                    if note != '':
+                      errorLocation = 'BEGIN Contact customer: insertContainerNote '
+                      insertContainerNotes(switchboard, queueItem, 'Exception Handling Comment', note, eventId)
+                      insertContainerNotes(switchboard, orderContainerId, 'Exception Handling Comment', note, eventId)
+
+                    ###     Order for the sample is queued to Contact customer
+                    insertQueue(switchboard, orderContainerId, 'Contact Customer', eventId)
+
+                    ######## FOR THE TIME BEING Do NOT dequeue runs in order at this time. ###########
+                    ### All runs for that order are dequeued
+                    ###   get all runs for the order
+                    # errorLocation = 'BEGIN: listOfOrderRunIds '
+                    # listOfOrderRunIds = getOrderRunIds(switchboard, orderContainerId)
+                    # print 'listOfOrderRunIds ' + str(listOfOrderRunIds)
+                    # errorLocation = 'END: listOfOrderRunIds '
+
+                    ###   loop through runId's and dequeue them
+                    # for item in listOfOrderRunIds:
+                    #   print 'order Id run ' + item
+                    #   if(item):
+                    #     deleteQueueByContainer(switchboard, item)
+
+
+                  if action == 'End Processing Discard':
+                    result = 'Discarded'
+
+                    ###  End run using endRun Class
+                    errorLocation = 'BEGIN Run End Processing Discard End run'
+                    ## MAKE OBJECT
+                    endRun = EndRun(switchboard, queueItem)
+                    ## END RUN
+                    endRun.endRun(result, eventId)
+
+                    errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote if  ', note
+                    if note != '':
+                      errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote '
+                      insertContainerNotes(switchboard, queueItem, 'Exception Handling Comment', note, eventId)
+
+                    ###     dequeued run from exceptionHandling
+                    errorLocation = 'BEGIN Run End Processing Discard dequeue'
+                    deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+
+
+                  if action == 'End Processing Send to Storage':
+                    result = 'Storage'
+
+                    ###  End run using endRun Class
+                    errorLocation = 'BEGIN Run End Processing Send to Storage end Run'
+                    ## MAKE OBJECT
+                    endRun = EndRun(switchboard, queueItem)
+                    ## END RUN
+                    endRun.endRun(result, eventId)
+
+                    errorLocation = 'BEGIN Run End Processing Send to Storage insertContainerNote if  ', note
+                    if note != '':
+                      errorLocation = 'BEGIN Run End Processing Send to Storage insertContainerNote '
+                      insertContainerNotes(switchboard, queueItem, 'Exception Handling Comment', note, eventId)
+
+                    ### Dequeued run from exceptionHandling
+                    errorLocation = 'BEGIN Run End Processing Send to Storage dequeue'
+                    deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+                    ### Queue to storage
+                    errorLocation = 'BEGIN Run End Processing Send to Storage insertQueue'
+                    insertQueue(switchboard, containerId, 'Store', eventId)
+
+
+                  if action == 'Next Step':
+                    result = 'rework'
+                    
+                    if nextStep == '':
+                      switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+                    else:
+
+                      ###     end run using endRun Class
+                      errorLocation = 'BEGIN Run Next Step end run'
+                      ## MAKE OBJECT
+                      endRun = EndRun(switchboard, queueItem)
+
+                      ###   Create new run
+                      errorLocation = '<<<<< BEGIN: createSingleRun get runId >>>>>'
+                      newRunOj = createSingleRun(switchboard, queueItem, eventId)
+                      newRunId = newRunOj.getRunId()
+                      errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                      newRunOj.saveCreateRun()
+                      ## END RUN
+                      endRun.endRun(result, eventId)
+
+                      errorLocation = 'BEGIN Run Next Step insertContainerNote if  ', note
+                      if note != '':
+                        errorLocation = 'BEGIN Run Next Step insertContainerNote '
+                        insertContainerNotes(switchboard, newRunId, 'Exception Handling Comment', note, eventId)
+
+                      ###  Dequeue original run from exceptionHandling step
+                      errorLocation = 'BEGIN Run Next Step dequeue original run'
+                      deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+                      ###  Queue new run to next step selection made
+                      errorLocation = 'BEGIN Run Next Step insertQueue new run'
+                      insertQueue(switchboard, newRunId, nextStep, eventId)
+
+
+                errorLocation = 'BEGIN Group Handling type'
+                if handlingType == 'group':
+
+                  errorLocation = 'group getContainerType'
+                  groupContainerType = getContainerType(switchboard, queueItem)
+
+                  print 'groupContainerType ' + groupContainerType
+
+                  errorLocation = 'BEGIN Run End Processing Discard'
+                  if action == 'End Processing Discard':
+                    result = 'Discarded'
+
+                    if groupContainerType == 'poolRunId' and poolRunParent == '':
+                      ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + containerId + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gc = GroupingContainer(switchboard, containerId)
+                      ## END RUNS
+                      gc.endRuns(result, eventId)
+
+                      ###  End run using endRun Class
+                      errorLocation = 'BEGIN Run End Processing Discard End run'
+                      ## MAKE OBJECT
+                      endPoolRun = EndPoolRun(switchboard, queueItem)
+                      errorLocation = 'BEGIN grouping End Processing Discard endPoolRun endPoolRun'
+                      ## END RUN
+                      endPoolRun.endPoolRun(result, eventId)
+
+
+                    elif groupContainerType == 'poolRunId' and poolRunParent != '':
+                      ### End the run of all the pool tubes in pool tube
+
+                      ###  End pool run for queued poolRun library
+                      errorLocation = 'BEGIN Run End Processing Discard End run'
+                      ## MAKE OBJECT
+                      endPoolRun = EndPoolRun(switchboard, queueItem)
+                      ## END RUN
+                      endPoolRun.endPoolRun(result, eventId)
+
+                      ## END pool runs in poolRun library
+                      # ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER pool of pools:' + containerId + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gc = PoolGroupingContainer(switchboard, containerId, containerId)
+                      ## END RUNS
+                      gc.endPoolRuns(result, eventId)
+
+                      PoolList = gc.getPoolRunIds(self)
+
+                      for pool in PoolList:
+
+                        ## LOG RESULT
+                        switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + queueItem + ' WITH RESULT: ' + result + ' >>>>>')
+                        ## MAKE OBJECT
+                        rgc = GroupingContainer(switchboard, pool)
+                        ## END RUNS
+                        rgc.endRuns(result, eventId)
+
+                    else:
+                      ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + queueItem + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gc = GroupingContainer(switchboard, queueItem)
+                      ## END RUNS
+                      gc.endRuns(result, eventId)
+
+
+                    errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote if  ', note
+                    if note != '':
+                      errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote '
+                      insertContainerNotes(switchboard, containerId, 'Exception Handling Comment', note, eventId)
+
+                    ###     dequeued grouping Container
+                    errorLocation = 'BEGIN group End Processing Discard dequeue original group'
+                    deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+
+
+                  if action == 'End Processing Send to Storage':
+                    result = 'Storage'
+
+                    if groupContainerType == 'poolRunId' and poolRunParent == '':
+                      ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + containerId + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gc = GroupingContainer(switchboard, containerId)
+                      ## END RUNS
+                      gc.endRuns(result, eventId)
+
+                      ###  End run using endRun Class
+                      errorLocation = 'BEGIN Run End Processing Discard End run'
+                      ## MAKE OBJECT
+                      endPoolRun = EndPoolRun(switchboard, queueItem)
+                      errorLocation = 'BEGIN grouping End Processing Discard endPoolRun endPoolRun'
+                      ## END RUN
+                      endPoolRun.endPoolRun(result, eventId)
+
+
+                    elif groupContainerType == 'poolRunId' and poolRunParent != '':
+                      ### End the run of all the pool tubes in pool tube
+
+                      ###  End pool run for queued poolRun library
+                      errorLocation = 'BEGIN Run End Processing Discard End run'
+                      ## MAKE OBJECT
+                      endPoolRun = EndPoolRun(switchboard, queueItem)
+                      ## END RUN
+                      endPoolRun.endPoolRun(result, eventId)
+
+                      ## END pool runs in poolRun library
+                      # ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER pool of pools:' + containerId + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gc = PoolGroupingContainer(switchboard, containerId, containerId)
+                      ## END RUNS
+                      gc.endPoolRuns(result, eventId)
+
+                      PoolList = gc.getPoolRunIds(self)
+
+                      for pool in PoolList:
+
+                        ## LOG RESULT
+                        switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + queueItem + ' WITH RESULT: ' + result + ' >>>>>')
+                        ## MAKE OBJECT
+                        rgc = GroupingContainer(switchboard, pool)
+                        ## END RUNS
+                        rgc.endRuns(result, eventId)
+                    else:
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + queueItem + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gc = GroupingContainer(switchboard, queueItem)
+                      ## END RUNS
+                      errorLocation = 'BEGIN Run End Processing Send to Storage end Run'
+                      ###  End all runs in grouping Container
+                      gc.endRuns(result, eventId)
+
+                    ## if queueItem is a batchId then queue each specimen Id inside the batch to storage otherwise just queue the queueItem to storage
+                    if groupContainerType == 'batchId':
+                      gcRuns = gc.run_ids
+                      for iRun in gcRuns:
+                        errorLocation = 'Begin grouping run loop creating each run as a run obj'
+                        origRun = Run(switchboard, iRun)
+
+                        errorLocation = 'begin getting containerId for individual group run'
+                        currentContainerId = origRun.getCurrentContainer()
+
+                        errorLocation = 'BEGIN Run End Processing Send to Storage insertQueue'
+                        insertQueue(switchboard, currentContainerId, 'Store', eventId)
+
+                    elif groupContainerType == 'poolRunId':
+                      errorLocation = 'BEGIN Run End Processing Send to Storage insertContainerNote if  ', note
+                      if note != '':
+                        errorLocation = 'BEGIN Run End Processing Send to Storage insertContainerNote '
+                        insertContainerNotes(switchboard, containerId, 'Exception Handling Comment', note, eventId)
+
+                      ###     queue to storage
+                      errorLocation = 'BEGIN Run End Processing Send to Storage insertQueue for pool tube'
+                      insertQueue(switchboard, containerId, 'Store', eventId)
+
+                    else:
+                      errorLocation = 'BEGIN Run End Processing Send to Storage insertContainerNote if  ', note
+                      if note != '':
+                        errorLocation = 'BEGIN Run End Processing Send to Storage insertContainerNote '
+                        insertContainerNotes(switchboard, queueItem, 'Exception Handling Comment', note, eventId)
+
+                      ###     queue to storage
+                      errorLocation = 'BEGIN Run End Processing Send to Storage insertQueue'
+                      insertQueue(switchboard, queueItem, 'Store', eventId)
+
+                    ###     dequeued run from exceptionHandling
+                    errorLocation = 'BEGIN Run End Processing Send to Storage dequeue'
+                    deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+
+
+                  if action == 'Next Step':
+                    result = 'rework'
+
+                    if nextStep == '':
+                      switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+                    else:
+
+                      if groupContainerType == 'poolRunId' and poolRunParent == '':
+
+                        ###  End run using endRun Class
+                        errorLocation = 'BEGIN Run End Processing Discard End run'
+                        ## MAKE OBJECT
+                        endPoolRun = EndPoolRun(switchboard, queueItem)
+                        errorLocation = 'BEGIN grouping Next step endPoolRun endPoolRun'
+                        ## END RUN
+                        endPoolRun.endPoolRun(result, eventId)
+
+                        ###   Create new Pool run
+                        errorLocation = '<<<<< CREATE: singlePoolRun for pool ' + queueItem + ' >>>>>'
+                        ## LOG RESULT
+                        switchboard.log('<<<<< Create new pool for GROUPING CONTAINER:' + containerId + ' for pool: ' + queueItem + ' >>>>>')
+                        newPoolRunOj = createSinglePoolRun(switchboard, queueItem, eventId)
+
+                        switchboard.log('<<<<< GET new pool for GROUPING CONTAINER:' + containerId + ' for pool: ' + queueItem + ' >>>>>')
+                        newPoolRunId = newPoolRunOj.getPoolRunId()
+                        print 'newPoolRunId' + newPoolRunId
+
+                        errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                        newPoolRunOj.saveCreatePoolRun()
+
+                        ## LOG RESULT
+                        switchboard.log('<<<<< new pool run for GROUPING CONTAINER:' + queueItem + ' for original pool: ' + queueItem + ' new pool is ' + newPoolRunId + ' >>>>>')
+
+                        ## LOG RESULT
+                        switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + containerId + ' WITH RESULT: ' + result + ' >>>>>')
+                        ## MAKE OBJECT
+                        gcNS = GroupingContainer(switchboard, containerId)
+                        ## END RUNS for runs in original grouping container
+                        gcNS.endRuns(result, eventId)
+
+                        ###  Create new runs for all runs in original grouping container
+                        RunsList = gcNS.run_ids
+                        for run in RunsList:
+                          ###   Create new run
+                          errorLocation = '<<<<< CREATE: singleRun for run ' + run + ' >>>>>'
+                          ## LOG RESULT
+                          switchboard.log('<<<<< Create new run for GROUPING CONTAINER:' + containerId + ' for run: ' + run + ' >>>>>')
+                          newRunOj = createSingleRun(switchboard, run, eventId)
+                          newRunId = newRunOj.getRunId()
+                          errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                          newRunOj.saveCreateRun()
+
+                          ## LOG RESULT
+                          switchboard.log('<<<<< new run for GROUPING CONTAINER:' + queueItem + ' for original run: ' + run + ' new run is ' + newRunId + ' >>>>>')
+
+                        ### insert into container notes for grouping container
+                        errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote if  ', note
+                        if note != '':
+                          errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote '
+                          insertContainerNotes(switchboard, newPoolRunId, 'Exception Handling Comment', note, eventId)
+
+                        ###     queue the grouping container to next step selected
+                        errorLocation = 'BEGIN grouping container Next Step insertQueue to new step'
+                        insertQueue(switchboard, newPoolRunId, nextStep, eventId)
+
+
+                      elif groupContainerType == 'poolRunId' and poolRunParent != '':
+
+                        ###  End run using endRun Class
+                        errorLocation = 'BEGIN Run End Processing Discard End run'
+                        ## MAKE OBJECT
+                        endPoolRun = EndPoolRun(switchboard, queueItem)
+                        errorLocation = 'BEGIN grouping Next step endPoolRun endPoolRun'
+                        ## END RUN
+                        endPoolRun.endPoolRun(result, eventId)
+
+                        ###   Create new Pool run
+                        errorLocation = '<<<<< CREATE: singlePoolRun for pool ' + queueItem + ' >>>>>'
+                        ## LOG RESULT
+                        switchboard.log('<<<<< Create new pool for GROUPING CONTAINER:' + containerId + ' for pool: ' + queueItem + ' >>>>>')
+                        newPoolRunOj = createSinglePoolRun(switchboard, queueItem, eventId)
+
+                        switchboard.log('<<<<< GET new pool for GROUPING CONTAINER:' + containerId + ' for pool: ' + queueItem + ' >>>>>')
+                        newPoolRunId = newPoolRunOj.getPoolRunId()
+                        print 'newPoolRunId' + newPoolRunId
+
+                        errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                        newPoolRunOj.saveCreatePoolRun()
+
+                        ## LOG RESULT
+                        switchboard.log('<<<<< new pool run for GROUPING CONTAINER:' + queueItem + ' for original pool: ' + queueItem + ' new pool is ' + newPoolRunId + ' >>>>>')
+                        parentPoolId = newPoolRunOj.getCurrentContainer()
+
+                        # ## LOG RESULT
+                        switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER pool of pools:' + containerId + ' WITH RESULT: ' + result + ' >>>>>')
+                        ## MAKE OBJECT
+                        gcNS = PoolGroupingContainer(switchboard, queueItem, parentPoolId)
+                        ## END RUNS
+                        gcNS.endPoolRuns(result, eventId)
+
+                        # ###  Create new runs for all runs in original grouping container
+                        RunsPoolList = gcNS.getPoolRunIds()
+                        print 'RunsPoolList'
+                        print RunsPoolList
+                        for pool in RunsPoolList:
+
+                          ###   Create new run
+                          errorLocation = '<<<<< CREATE: singlePoolRun for pool ' + pool + ' >>>>>'
+                          ## LOG RESULT
+                          switchboard.log('<<<<< Create new pool for GROUPING CONTAINER:' + queueItem + ' for pool: ' + pool + ' >>>>>')
+                          newPoolRunOj = createSinglePoolRun(switchboard, pool, eventId)
+
+                          print 'newPoolRunId'
+                          print newPoolRunId
+
+                          errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                          newPoolRunOj.saveCreatePoolRun()
+
+                          ## LOG RESULT
+                          switchboard.log('<<<<< new pool run for GROUPING CONTAINER:' + queueItem + ' for original pool: ' + pool + ' new pool is ' + newPoolRunId + ' >>>>>')
+
+                          childPoolCurrentContainer = newPoolRunOj.getCurrentContainer()
+                          print 'childPoolCurrentContainer'
+                          print childPoolCurrentContainer
+                          ## LOG RESULT
+                          switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + pool + ' WITH RESULT: ' + result + ' >>>>>')
+                          ## MAKE OBJECT
+                          gcNS = GroupingContainer(switchboard, childPoolCurrentContainer)
+                          ## END RUNS for runs in original grouping container
+                          gcNS.endRuns(result, eventId)
+
+                          ###  Create new runs for all runs in original grouping container
+                          RunsList = gcNS.run_ids
+                          print 'RunsList'
+                          print RunsList
+                          for run in RunsList:
+                            ###   Create new run
+                            errorLocation = '<<<<< CREATE: singleRun for run ' + run + ' >>>>>'
+                            ## LOG RESULT
+                            switchboard.log('<<<<< Create new run for GROUPING CONTAINER:' + pool + ' for run: ' + run + ' >>>>>')
+                            newRunOj = createSingleRun(switchboard, run, eventId)
+                            newRunId = newRunOj.getRunId()
+                            errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                            newRunOj.saveCreateRun()
+
+                            ## LOG RESULT
+                            switchboard.log('<<<<< new run for GROUPING CONTAINER:' + queueItem + ' for original run: ' + run + ' new run is ' + newRunId + ' >>>>>')
+
+                        ### insert into container notes for grouping container
+                        errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote if  ', note
+                        if note != '':
+                          errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote '
+                          insertContainerNotes(switchboard, newPoolRunId, 'Exception Handling Comment', note, eventId)
+
+                        ###     queue the grouping container to next step selected
+                        errorLocation = 'BEGIN grouping container Next Step insertQueue to new step'
+                        insertQueue(switchboard, newPoolRunId, nextStep, eventId)
+
+
+
+                      else:
+                        ## LOG RESULT
+                        switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + queueItem + ' WITH RESULT: ' + result + ' >>>>>')
+                        ## MAKE OBJECT
+                        gcNS = GroupingContainer(switchboard, queueItem)
+                        ## END RUNS
+                        gcNS.endRuns(result, eventId)
+
+                        ###  Create new runs for all runs in original grouping container
+                        RunsList = gcNS.run_ids
+                        for run in RunsList:
+                          ###   Create new run
+                          errorLocation = '<<<<< CREATE: singleRun for run ' + run + ' >>>>>'
+                          ## LOG RESULT
+                          switchboard.log('<<<<< Create new run for GROUPING CONTAINER:' + queueItem + ' for run: ' + run + ' >>>>>')
+                          newRunOj = createSingleRun(switchboard, run, eventId)
+                          newRunId = newRunOj.getRunId()
+
+                          errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                          newRunOj.saveCreateRun()
+
+                        ### insert into container notes for grouping container
+                        errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote if  ', note
+                        if note != '':
+                          errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote '
+                          insertContainerNotes(switchboard, containerId, 'Exception Handling Comment', note, eventId)
+
+
+                        ###     queue the grouping container to next step selected
+                        errorLocation = 'BEGIN grouping container Next Step insertQueue to new step'
+                        insertQueue(switchboard, queueItem, nextStep, eventId)
+
+                      ###     dequeued original grouping container from exceptionHandling
+                      errorLocation = 'BEGIN group End Processing Discard dequeue original group'
+                      deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+
+
+                # if grouping type parent of the grouping container
+                if handlingType == 'groupParent':
+                  if action == 'Next Step':
+                    if nextStep == '':
+
+                      switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+                    ## if runs on grouping container are process runs then check runs on parent container and if those are workflow runs then end the parent container runs
+                    ## otherwise nothing is needed because parent runs match grouping runs at that Point
+                    #### specimenRuns history to get all parents between parent and grouping container. -- for next version. Current version only goes up one parent.
+                    else:
+                      ###     end all runs for runs in original grouping container
+                      result = 'rework'
+
+                      ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR GROUPING CONTAINER:' + queueItem + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gcNS = GroupingContainer(switchboard, queueItem)
+                      ## END RUNS
+                      gcNS.endRuns(result, eventId)
+
+                      ###     end all runs for the runs in parent grouping container
+                      ## LOG RESULT
+                      switchboard.log('<<<<< MAKE OBJECT FOR Parent GROUPING CONTAINER:' + queueParent + ' WITH RESULT: ' + result + ' >>>>>')
+                      ## MAKE OBJECT
+                      gcParentNS = GroupingContainer(switchboard, queueParent)
+                      ## END RUNS
+                      gcParentNS.endRuns(result, eventId)
+
+
+                      ###  Create new runs for all runs in parent grouping container
+                      RunsListParentGC = gcParentNS.run_ids
+
+                      ### can not call the createAndSaveRun function without odd errors when looping.
+                      for run in RunsListParentGC:
+
+                        ###   Create new run
+                        errorLocation = '<<<<< CREATE: singleRun for run ' + run + ' >>>>>'
+                        ## LOG RESULT
+                        switchboard.log('<<<<< Create new run for GROUPING CONTAINER:' + queueParent + ' for run: ' + run + ' >>>>>')
+                        newRunOj = createSingleRun(switchboard, run, eventId)
+                        newRunId = newRunOj.getRunId()
+
+                        errorLocation = '<<<<< BEGIN: saveCreateRun get runId >>>>>'
+                        newRunOj.saveCreateRun()
+
+                        ## LOG RESULT
+                        switchboard.log('<<<<< new run for GROUPING CONTAINER:' + queueParent + ' for original run: ' + run + ' new run is ' + newRunId + ' >>>>>')
+
+                      ### insert into container notes for grouping parent container
+                      errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote if  ', note
+                      if note != '':
+                        errorLocation = 'BEGIN Run End Processing Discard  insertContainerNote '
+                        insertContainerNotes(switchboard, queueParent, 'Exception Handling Comment', note, eventId)
+
+                      ###     dequeued original grouping container from exceptionHandling
+                      errorLocation = 'BEGIN group End Processing Discard dequeue original group'
+                      deleteQueueByStepAndContainer(switchboard, queueItem, currentTriggerStep)
+
+                      ###     queue the grouping parent container to next step selected
+                      errorLocation = 'BEGIN grouping parent container Next Step insertQueue to new step'
+                      insertQueue(switchboard, queueParent, nextStep, eventId)
+
+
+          except Exception as e:
+            switchboard.log("---*** EXCEPTION ***---")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.log("ERROR MESSAGE: " + str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          except StandardError as e:
+            switchboard.log("---*** STANDRAD PYTHON ERROR ***---")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.log("ERROR MESSAGE: " + str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          except SystemException as e:
+            switchboard.log("---*** UNIFlow SystemException ***----")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.log("ERROR MESSAGE: " + str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          except SQLException as e:
+            switchboard.log("---*** SQLException ***----")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.log("ERROR MESSAGE: " + str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          except BaseException as e:
+            switchboard.log("---*** PYTHON EXCEPTION ***---")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.log("ERROR MESSAGE: " + str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          except TypeError as e:
+            switchboard.log("---*** TYPE ERROR ***----")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.log("ERROR MESSAGE: " + str(e.message))
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+          except:
+            switchboard.log("---*** UNSPECIFIED ERROR ***---")
+            switchboard.log("ERROR LOCATION: " + errorLocation)
+            switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+
+
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Exception Handling has failed.
+
+
+    step ajaxCheckParentGroupingContainer
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= CheckParentGroupingContainer
+        sqlPreparedQuery~
+          - SELECT
+          -   currentContainerId AS 'groupingContainerDifferences'
+          - FROM (
+          -       SELECT
+          -         DISTINCT currentContainerId
+          -       FROM specimenRuns
+          -       WHERE currentParentId = ?
+          -       UNION ALL
+          -       SELECT
+          -         DISTINCT currentContainerId
+          -       FROM specimenRuns
+          -       WHERE currentParentId = ?
+          -     ) a
+          - GROUP BY currentContainerId
+          - HAVING count(*) = 1
+          - UNION
+          - SELECT 'No' AS 'groupingContainerDifferences'
+          string {queuedGroupingContainer}
+          string {parentGroupingContainer}
+
+
+    step ajaxContainerOnQueue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        id= ContainerOnQueue
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   c.content AS "Queued"
+          - FROM contents c
+          -   INNER JOIN queues q ON c.content = q.containerId
+          -     AND step = 'Contact Customer'
+          - WHERE c.containerId = ?
+          -   AND c.contentType = 'requestId'
+          - UNION
+          - SELECT
+          -   'NotOnQueue' AS 'Queued'
+          string {specimen}
+

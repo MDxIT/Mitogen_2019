@@ -1,0 +1,260 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+
+    stepGroup Queues
+    step De-Queue By Container
+      accessLevel 10
+      form
+        include userAccountInfo
+        vertical
+          text Container Id
+            required~ true
+            validate~ select * from containers where containerId = '{Container Id}'
+              errorMessage~ This container is not in the database.
+      form
+        include userAccountInfo
+        vertical
+          container Container Id
+            acceptQueue~ any
+            value= {Container Id}
+          comments Comments
+        table
+          style= width:600px;
+          sqlQuery~ select step,eventId,'' as 'De-Queue'
+            - from queues
+            - where containerId = '{Container Id}'
+            - order by step
+          columnSpecs~ dequeue
+            allowChangedRecordIds
+            column 1
+              inputType text
+                readonly=
+                class= readonly
+                style= border:none;
+            column 2
+              inputType text
+                readonly=
+                class= readonly
+                style= border:none;
+            column 3
+              inputType checkbox
+
+      forRows dequeue        
+        sqlPreparedStatement delete from queues where containerId = ?
+          - and step = ?
+          - and eventId = ?
+          - and ? = 'true'
+          string {Container Id}
+          string {_columnInput_dequeue:1}
+          long {_columnInput_dequeue:2}
+          string {_columnInput_dequeue:3}
+
+
+    step De-Queue By Step
+      accessLevel 10
+      form
+        include userAccountInfo
+        vertical
+          select step
+            screenLabel~ Step
+            required~ true
+            sqlQuery~ select step from queues order by step
+      form
+        include userAccountInfo
+        script
+          - $(document).ready(function(){
+          -   $('#checkAll').change(function() {
+          -    if ($('#checkAll').is(':checked')) {
+          -      $('.checkBoxColumn').prop('checked', true);
+          -    } else {
+          -      $('.checkBoxColumn').prop('checked', false);
+          -    }
+          -   });
+          - });
+        vertical
+          text step
+            screenLabel~ Step
+            value= {step}
+            readonly=
+            style= border:none;
+          comments Comments
+        vertical
+          checkbox
+            label Check All
+              class= label
+            id= checkAll
+        table
+          style= width:600px;
+          sqlQuery~ select containerId,eventId,'' as 'De-Queue'
+            - from queues
+            - where step = '{step}'
+            - order by containerId
+          columnSpecs~ dequeue
+            allowChangedRecordIds
+            column 1
+              inputType text
+                readonly=
+                class= readonly
+                style= border:none;
+            column 2
+              inputType text
+                readonly=
+                class= readonly
+                style= border:none;
+            column 3
+              inputType checkbox
+                class= checkBoxColumn
+
+      forRows dequeue        
+        sqlPreparedStatement delete from queues where containerId = ?
+          - and step = ?
+          - and eventId = ?
+          - and ? = 'true'
+          string {_columnInput_dequeue:1}
+          string {step}
+          long {_columnInput_dequeue:2}
+          string {_columnInput_dequeue:3}
+
+
+    _step Queue for Billing Resolution By Step
+      accessLevel 10
+      form
+        include userAccountInfo
+        vertical
+          select step
+            screenLabel~ Step
+            required~ true
+            sqlQuery~ select step from queues order by step
+      form
+        include userAccountInfo
+        vertical
+          text step
+            screenLabel~ Step
+            value= {step}
+            readonly=
+            style= border:none;
+          comments Comments
+        table
+          class= stdTableSort
+          style= width:600px;
+          sqlQuery~ select containerId, eventId, '' as 'Queue To', '' as 'New Step'
+            - from queues
+            - where step = '{step}'
+            - order by containerId
+          columnSpecs~ movequeue
+            allowChangedRecordIds
+            column 1
+              inputType text
+                readonly=
+                class= readonly
+                style= border:none;
+            column 2
+              inputType text
+                readonly=
+                class= readonly
+                style= border:none;
+            column 3
+              inputType checkbox
+
+            column 4
+              inputType select
+                option
+                option On Hold For Billing
+                option Export For Billing
+
+
+      forRows movequeue        
+        sqlPreparedStatement insert into queues (containerId, step, eventId)
+          - select ?, ?, ? from dual
+          - where ? = 'true'
+          string {_columnInput_movequeue:1}
+          string {_columnInput_movequeue:4}
+          string {_columnInput_movequeue:2}
+          string {_columnInput_movequeue:3}
+
+        sqlPreparedStatement delete from queues where containerId = ? and step = ?
+          - and ? = 'true'
+          string {_columnInput_movequeue:1}
+          string {step}
+          string {_columnInput_movequeue:3}
+
+
+    step Re-Queue Container
+      accessLevel 10
+      form
+        include userAccountInfo
+        vertical
+          text Container
+            required~ true
+            validate~ select * from containers where containerId = '{Container}'
+              errorMessage~ This container is not in the database.
+      form
+        include userAccountInfo
+        formQuery~ select containerId, containerType from containers where containerId = '{Container}'
+        vertical
+          container Container
+            acceptQueue~ any
+            value= {_resultSet:containerId}
+            readonly=
+          select Queue
+            required~ true
+            option 
+            sqlQuery~ select distinct step from events e
+              - join containerHistory ch on ch.eventId = e.eventId
+              - where containerId = '{_resultSet:containerId}'
+          select Reason
+            required~ true
+            option Dropped
+            option Failed
+            option Contaminated
+            option Container Mishandled
+            option Container Missing
+            option Processing Changed
+            option Other
+          comments Notes
+      sqlPreparedStatement insert into queues (containerId, step, eventId)
+        + values (?, ?, ?)
+        string {Container}
+        string {Queue}
+        long {_eventId}
+      sqlPreparedStatement update events set comments = ? where eventId = ?
+        string {Reason}. {Notes}
+        long {_eventId}
+
+
+    step Queue a Container
+      accessLevel 10
+      form
+        include userAccountInfo
+        vertical
+          container containerId
+            screenLabel~ Container Id
+            acceptQueue~ any
+#          text queueAdd
+#            screenLabel~ Put on this queue:
+          select AddToQueue
+            required~ true
+            option 
+            sqlQuery~ select distinct step from queues
+
+
+      sqlPreparedStatement
+        - insert into queues values (?,?,?)
+        string {containerId}
+        string {AddToQueue}
+        long {_eventId}
+      sqlPreparedStatement
+        - insert into queueHistory (containerId,step,eventId) values (?,?,?)
+        string {containerId}
+        string {queueAdd}
+        long {_eventId}
+
+
+
+

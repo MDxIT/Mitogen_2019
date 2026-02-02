@@ -1,0 +1,320 @@
+    step [$$STEP_NAME$$]
+      allowDuplicateContainerIds true
+      form
+        data-parsley-validate=
+        script
+          src= js/components/container.js
+
+        script
+          src= js/components/printBarcode.js
+
+        script
+          src= js/tasks/removeSelectOption.js
+
+        include stepInstructions
+
+        # PARAMETERS FOR GENERATE NEW SEQUENCE FOR DESTINATION TRAY
+        configurePreparedQuery~
+          - SELECT
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'true'
+          -     ELSE 'false'
+          -   END AS "trayReadOnly",
+          -   CASE ?
+          -     WHEN 'Auto Generated' THEN 'false'
+          -     ELSE 'true'
+          -   END AS "trayRequired"
+          string [$$Generate_Plate_ID$$]
+          string [$$Generate_Plate_ID$$]
+
+        configurePreparedQuery~
+          - SELECT
+          - tmp.trayRows AS 'trayRows',
+          - tmp.trayColumns AS 'trayColumns',
+          - tmp.trayType AS 'trayType'
+          - FROM
+          -   trayMapProperties tmp
+          -   LEFT JOIN
+          -   trayMapStepAssignments tms ON tmp.id = tms.trayMapId
+          - WHERE tms.step = ?
+          allowEmptyResults~
+          emptyResultDefault~
+            trayRows= [$$Tray_Size_Rows$$]
+            trayColumns= [$$Tray_Size_Columns$$]
+            trayType= [$$Tray_Type$$]
+          string [$$STEP_NAME$$]
+
+        hidden trayRows
+          value= {_:trayRows}
+        hidden trayColumns
+          value= {_:trayColumns}
+        hidden trayType
+          value= {_:trayType}
+        hidden isBatch
+          id= isBatch
+          value= No
+
+        hidden editDestinationTray
+          id= editDestinationTray
+          value= Yes
+
+        include resourcesComponent
+          parameter~ includeResources
+            value= [$$QC_Resources$$]
+          parameter~ currentLoop
+            value= N/A
+
+        printerControls
+          configureIf~ [$$Print_Plate_Barcode$$]
+            advanced~
+            equals~ Yes
+          defaultPrinter~
+          defaultDocument~
+          variables~
+
+        include sampleList_table
+          parameter~ col1
+            value= [$$Sample_Display_Column_1$$]
+          parameter~ col2
+            value= [$$Sample_Display_Column_2$$]
+          parameter~ col3
+            value= [$$Sample_Display_Column_3$$]
+          parameter~ col4
+            value= [$$Sample_Display_Column_4$$]
+          parameter~ col5
+            value= [$$Sample_Display_Column_5$$]
+          parameter~ col6
+            value= [$$Sample_Display_Column_6$$]
+          parameter~ prioritySetName
+            value= priority
+          parameter~ print
+            value= No
+          parameter~ action
+            value= No
+          parameter~ comments
+            value= [$$Sample_Comments$$]
+          parameter~ commentHistory
+            value= [$$Sample_Comment_History$$]
+          parameter~ actionSetName
+            value= passfail
+          parameter~ counter
+            value= [$$Sample_Counter$$]
+          parameter~ validateOrTransfer
+            value= Validate
+          parameter~ printAll
+            value= [$$Print_Sample_Details$$]
+          parameter~ parentIdRequired
+            value= false
+          parameter~ parentId
+            value=
+          parameter~ scanAll
+            value= false
+          parameter~ containerIdGen
+            value=
+          parameter~ fileType
+            value= [$$File_Category$$]
+
+
+        div
+          configureIf~ {_:trayType}
+            advanced~
+            equals~ plate
+              ignoreCase~
+
+          include trayComponent
+
+            parameter~ containerNameParm
+              value= trayId
+            parameter~ containerScreenLabel
+              value= [$$Tray_Screen_Label$$]
+            parameter~ containerReadonly
+              value= {_:trayReadOnly}
+            parameter~ containerNew
+              value= true
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= {_step}
+            parameter~ containerType
+              value= trayId
+            parameter~ containerRequired
+              value= {_:trayRequired}
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value=
+            parameter~ useThisSequence
+              value= trayId
+            parameter~ containerCommentsInclude
+              value= [$$Plate_Comments$$]
+            parameter~ containerGenerateFromSequence
+              value= [$$Generate_Plate_ID$$]
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= [$$Print_Plate_Barcode$$]
+            parameter~ containerActionInclude
+              value= [$$Action_Option$$]
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ containerActionOptions
+              value= passfail
+            parameter~ platePrintLayout
+              value= [$$Print_Plate_Layout$$]
+            parameter~ plateAllowSampleDuplicates
+              value= [$$Duplicate_Samples$$]
+            parameter~ trayType
+              value= plate
+            parameter~ trayRowNumber
+              value= {_:trayRows}
+            parameter~ trayColumnNumber
+              value= {_:trayColumns}
+            parameter~ userClass1
+              value=
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ trayInputReadyOnly
+              value= false
+            parameter~ trayLabel
+              value= Plate
+            parameter~ sampleScanReadOnly
+              value= Yes
+            parameter~ trayToTray
+              value= false
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+        div
+          configureIf~ {_:trayType}
+            advanced~
+            equals~ grid
+              ignoreCase~
+
+          include trayComponent
+
+            parameter~ containerNameParm
+              value= trayId
+            parameter~ containerScreenLabel
+              value= [$$Tray_Screen_Label$$]
+            parameter~ containerReadonly
+              value= {_:trayReadOnly}
+            parameter~ containerNew
+              value= true
+            parameter~ containerAsSelect
+              value= false
+            parameter~ acceptQueue
+              value= any
+            parameter~ containerType
+              value= trayId
+            parameter~ containerRequired
+              value= {_:trayRequired}
+            parameter~ containerAdditionalClasses
+              value=
+            parameter~ containerValue
+              value=
+            parameter~ useThisSequence
+              value= trayId
+            parameter~ containerCommentsInclude
+              value= [$$Plate_Comments$$]
+            parameter~ containerGenerateFromSequence
+              value= [$$Generate_Plate_ID$$]
+            parameter~ containerShowStorageLocation
+              value= No
+            parameter~ containerPrintBarcode
+              value= [$$Print_Plate_Barcode$$]
+            parameter~ containerActionInclude
+              value= [$$Action_Option$$]
+            parameter~ containerCategoryInclude
+              value= [$$Container_Category$$]
+            parameter~ containerActionOptions
+              value= passfail
+            parameter~ platePrintLayout
+              value= [$$Print_Plate_Layout$$]
+            parameter~ plateAllowSampleDuplicates
+              value= [$$Duplicate_Samples$$]
+            parameter~ trayType
+              value= grid
+            parameter~ trayRowNumber
+              value= {_:trayRows}
+            parameter~ trayColumnNumber
+              value= {_:trayColumns}
+            parameter~ userClass1
+              value=
+            parameter~ includePriority
+              value= [$$Priority$$]
+            parameter~ trayInputReadyOnly
+              value= false
+            parameter~ trayLabel
+              value= Grid
+            parameter~ sampleScanReadOnly
+              value= Yes
+            parameter~ trayToTray
+              value= false
+            parameter~ containerFileUpload
+              value= [$$Document_Upload$$]
+
+        ### leave this script as the last one to run.
+        script
+          src= js/tasks/sampleTransferTray.js
+
+      include trayComponent_SQL
+        parameter~ trayColumnNumber
+          value= {trayColumns}
+        parameter~ trayRowNumber
+          value= {trayRows}
+        parameter~ trayId
+          value= {trayId}
+        parameter~ trayType
+          value= {trayType}
+
+      forRows samples
+        ifCondition {_columnInput_samples:4}
+          advanced~ true
+          not~
+            isBlank~
+          include routeContainer
+            parameter~ processContainerId
+              value= {_columnInput_samples:9}
+            parameter~ result
+              value= {_columnInput_samples:6}
+            parameter~ deleteFromStep
+              value= {_step}
+            parameter~ defaultNextStep
+              value= Store
+            parameter~ routingDirection
+              value= IN
+            parameter~ routingType
+              value= run
+            parameter~ endOfWorkflow
+              value= No
+            parameter~ sourceStep
+              value= {_step}
+
+      include routeContainer
+        parameter~ processContainerId
+          value= {trayId}
+        parameter~ result
+          value= {trayId_Action}
+        parameter~ deleteFromStep
+          value= {_step}
+        parameter~ defaultNextStep
+          value= [$$NEXT_STEP$$]
+        parameter~ routingContainerType
+          value=
+        parameter~ routingDirection
+          value= OUT
+        parameter~ routingType
+          value= group
+        parameter~ endOfWorkflow
+          value= No
+        parameter~ sourceStep
+          value= {_step}
+
+      include sampleList_SQL
+        parameter~ validateOrTransfer
+          value= Validate
+
+
+
+
+

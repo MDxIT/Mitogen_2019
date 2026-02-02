@@ -1,0 +1,7 @@
+config
+  version 3.0.1-develop
+    versionDate 20190612
+    pageFooter  &copy; 2020 Sunquest Information Systems, Inc. Sunquest<sup>&reg;</sup> and Sunquest Information Systems<sup>&reg;</sup> are registered trademarks of Sunquest Information Systems, Inc. All rights reserved. 
+    additionalInformation
+      item Unique Device Identifier (UDI)
+        value= +B236CPP7100/$$70011

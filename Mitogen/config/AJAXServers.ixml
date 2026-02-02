@@ -1,0 +1,2270 @@
+config
+  steps
+    stepGroup Ajax Servers
+
+    step Ajax Load Requisition Parts
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select instructions from fsTasks where name = ?
+          string {taskName}
+
+    step Ajax Get Batch List for PlateMap
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select q.containerId as 'container', CONCAT(en.firstName, ' ',en.lastName) as 'name'
+          - from queues q
+          - inner join requestSpecimens rs on q.containerId = rs.specimenId
+          - inner join requestForms rf on rs.reqId = rf.Id
+          - inner join entities en on rf.patientId = en.entityId
+          - where q.step = ?
+          - limit ?
+          string {step}
+          int {batchSize}
+
+    step Ajax Get Wells From PlateMap
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   tm.well as "well"
+          -   , tm.wellOrder as "order"
+          -   , tm.containerType as "containerType"
+          - FROM trayMaps tm
+          -   INNER JOIN trayMapProperties tmp on tm.trayMapId = tmp.Id
+          - WHERE tmp.trayMapName = ?
+          - ORDER BY wellOrder
+          string {plateMap}
+
+    step Ajax Get Container Type From String
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT
+          -   containerId as 'containerId'
+          -   , containerType as 'containerType'
+          - from containers
+          - where containerId in ({sampleString})
+
+
+    step Ajax Load Methods By Panel Code
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select DISTINCT m.name as 'text', m.code as 'value'
+          - from methods m
+          - inner join panelMethods pm on m.Id = pm.methodId
+          - inner join testPanels tp on pm.panelId = tp.Id
+          - where tp.panelCode = ?
+          string {panelCode}
+
+    step Ajax Load All Methods
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT tp.panelCode, m.name as 'text', m.code as 'value'
+          - FROM methods m
+          - INNER JOIN panelMethods pm on m.Id = pm.methodId
+          - INNER JOIN testPanels tp on pm.panelId = tp.Id
+          - GROUP BY tp.panelCode, m.code
+
+    step Ajax Get Sample Panels
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select tp.name as 'panelName', tp.panelCode as 'panelCode'
+          - from contents c
+          - inner join specimenMethods sm on c.content = sm.specimenId
+          - inner join testPanels tp on sm.panelCode = tp.panelCode
+          - where c.contentType = 'specimenId' and containerId = ?
+          string {sampleId}
+
+    step Ajax Get Sample Panels By Queue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT
+          - sm.specimenId,
+          - tp.name as 'panelName',
+          - tp.panelCode as 'panelCode'
+          - FROM queues q
+          - INNER JOIN contents c ON q.containerId = c.containerId
+          - AND c.contentType = 'specimenId'
+          - INNER JOIN requestSpecimens rs ON rs.specimenId = q.containerId
+          - INNER JOIN specimenMethods sm ON sm.specimenId = c.content
+          - INNER JOIN testPanels tp ON sm.panelCode = tp.panelCode
+          - WHERE q.step = ?
+          - GROUP BY sm.specimenId, tp.panelCode
+          string {queue}
+
+    step Ajax Get Next Step
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select DISTINCT qp.nextStep as 'nextStep'
+          - from specimenMethods sm
+          - left join queuePaths qp on sm.methodCode = qp.methodCode and sm.panelCode = qp.panelCode
+          - where sm.specimenId = ?
+          - and qp.sampleType = ?
+          - and qp.fromStep = ?
+          - union
+          - select 'NO QUEUE PATH'
+          - from dual
+          string {specimenId}
+          string {sampleType}
+          string {fromStep}
+
+    step Ajax Get Next Steps By Queue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT
+          - sm.specimenId,
+          - qp.panelCode,
+          - qp.sampleType,
+          - qp.fromStep,
+          - qp.nextStep
+          - FROM queues q
+          - INNER JOIN contents c ON q.containerId = c.containerId
+          - AND c.contentType = 'specimenId'
+          - INNER JOIN requestSpecimens rs ON rs.specimenId = q.containerId
+          - INNER JOIN specimenMethods sm ON sm.specimenId = c.content
+          - INNER JOIN queuePaths qp ON sm.methodCode = qp.methodCode
+          - AND sm.panelCode = qp.panelCode
+          - AND rs.sampleType = qp.sampleType
+          - WHERE q.step = ?
+          - GROUP BY sm.specimenId, qp.sampleType, qp.fromStep
+          string {queue}
+
+    step Ajax Check Next Step
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select qp.nextStep as 'nextStep'
+          - from queuePaths qp
+          - where  qp.sampleType = ?
+          - and qp.methodCode = ?
+          - and qp.panelCode = ?
+          - and qp.fromStep = ?
+          - union
+          - select 'NO QUEUE PATH' from dual limit 1
+          string {sampleType}
+          string {methodCode}
+          string {panelCode}
+          string {fromStep}
+
+    step Ajax get test panel
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select rd.panelCode as 'panelCode'
+          - from reportDetails rd
+          - where rd.reportId = ?
+          string {reportId}
+
+    step Ajax Query Viewed Reports
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        style= width:800px;
+        class= stdTableSort
+        id= reportTable
+        sqlPreparedQuery~
+          - SELECT distinct
+          -  '' AS "Select For Print"
+          - , q.containerId AS "Rep Id"
+          - , q.containerId AS "Hidden"
+          - , concat(p.lastName,', ',p.firstName) "Patient"
+          - , o.firstName AS "Customer"
+          - , concat(p1.lastName,', ',p1.firstName) AS "Physician"
+          - , date_format(e.eventDate,'%Y-%m-%d %k:%i') AS "Finalized Date"
+          - , date_format(e1.eventDate,'%Y-%m-%d %k:%i') AS "Viewed Date"
+          - FROM queues q
+          - INNER JOIN reportDetails rd on rd.reportId = q.containerId
+          - INNER JOIN requestForms r ON rd.requestId = r.Id
+          - INNER JOIN events e ON e.eventId = rd.signedEventId
+          - INNER JOIN events e1 ON e1.eventId = rd.viewedEventId
+          - INNER JOIN entities p ON p.entityId = r.patientId
+          - INNER JOIN entities p1 ON p1.entityId = r.physicianId
+          - INNER JOIN entities o ON o.entityId = r.organizationId
+          - INNER JOIN
+          - (SELECT op.entityId
+          - FROM entityRelations op
+          - INNER JOIN entities p ON op.memberId = p.entityId
+          - AND p.userId = ?
+          -  ) op
+          - ON o.entityId = op.entityId
+          - WHERE q.step = 'Final Report' AND rd.viewedEventId IS NOT NULL
+          - AND e.eventDate > str_to_date(?, '%m/%d/%Y') AND e.eventDate < date_add(str_to_date(?, '%m/%d/%Y'), interval 1 day)
+          - AND p.lastName LIKE ?
+          - ORDER BY e.eventDate DESC
+          string {_userId}
+          string {startDate}
+          string {endDate}
+          string %{patientLast}%
+        columnSpecs~ t1
+          allowChangedRecordIds
+          column 1
+            inputType checkbox
+              class= checkall
+              readonly=
+          column 3
+            inputType container
+              class= hide reportId
+              acceptQueue~ any
+
+    step AjaxGetAdaptorSequence
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select indexId, adapterType, indexSequence from adapterSequences where indexId = ? and adapterType = ?
+          string {indexAdaptor}
+          string {indexType}
+
+    step Ajax Show ICD Codes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        caption Diagnosis
+        sqlPreparedQuery~ select icd10Code from icd10Codes limit 50
+
+
+    step Ajax Quant Studio Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        caption Samples To Load
+        sqlPreparedQuery~ select content as 'Sample Id', attribute as 'Wells', contentType as 'Type' from contents where containerId = ?
+          string {pcrPlate}
+
+    step Ajax ApGen Results
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= alleleTable
+        style= border: 1px solid black
+        sqlPreparedQuery~ SELECT DISTINCT Assay,
+          - case when Allele1 like ? then Allele1
+          -   else case when Allele1 = tranWT then starWT
+          -     else case when Allele1 = tranVariant then starVariant
+          -       else Allele1 end end end as 'Allele1',
+          - case when Allele2 like ? then Allele2
+          -   else case when Allele2 = tranWT then starWT
+          -     else case when Allele2 = tranVariant then starVariant
+          -       else Allele2 end end end as 'Allele2',
+          - ag.TranslationalAssayId
+          - FROM ag_rawDataImport ag
+          - left join translationalAssays ta on ta.rs = ag.Assay
+          -  WHERE sampleId = ?
+          -  AND gene like ?
+          string *%
+          string *%
+          string {sample}
+          string {gene}%
+
+    step Ajax Person By Id Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select p.entityId as 'personId', p.entityType as 'type', concat(p.firstName,' ',p.lastName) as 'name'
+          - from entities p
+          - WHERE p.entityId = ?
+          - LIMIT 1
+          string {personId}
+
+    step Ajax POST Form Type
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        vertical
+          text formType
+      ifCondition {formType}
+        advanced~
+        not~
+          isBlank~
+        and~ {formType}
+          not~
+            equals~ All Other Available Form Types Have Been Built
+        sqlPreparedStatement insert into validValues (setName, value, displayValue, eventId) values ('formType', ?, ?, ?)
+          string {formType}
+          string {formType}
+          long {_eventId}
+
+    step Ajax POST Sample Types
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        vertical
+          text formType
+          text sampleType
+      ifCondition {formType}
+        advanced~
+        not~
+          isBlank~
+        and~ {sampleType}
+          not~
+            isBlank~
+        sqlPreparedStatement insert into validValues (setName, value, displayValue, eventId) values (?, ?, ?, ?)
+          string {formType}SampleType
+          string {sampleType}
+          string {sampleType}
+          long {_eventId}
+
+    step Ajax Practices By Physician Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~ select concat(pr.firstName, ' (', ifnull(a.city,''), ', ', ifnull(a.state,''), ')') as 'name',
+          - pr.entityId from entities pr
+          - INNER JOIN entityRelations r ON r.entityId = pr.entityId
+          - LEFT JOIN entityAddresses a on a.entityId = pr.entityId
+          - WHERE r.memberId=? AND pr.entityType='Organization'
+          string {physicianId}
+
+
+    step Ajax Phenotype For Genotype
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - (select distinct assayName1 'assay'
+          - ,mutation1 'mutation'
+          - ,genotype1 'genotype'
+          - ,phenotype1 'phenotype'
+          - ,description1 'results'
+          - ,recommendation 'recommendation'
+          - ,refs 'refs'
+          - from recommendations
+          - where assayName1 = ?xz
+          - and genotype1 = ?
+          - )
+          - union all
+          - (select distinct assayName2 'assay'
+          - ,mutation2 'mutation'
+          - ,genotype2 'genotype'
+          - ,phenotype2 'phenotype'
+          - ,description2 'results'
+          - ,recommendation 'recommendation'
+          - ,refs 'refs'
+          - from recommendations
+          - where assayName2 = ?
+          - and genotype2 = ?
+          - )
+          string {assay}
+          string {genotype}
+          string {assay}
+          string {genotype}
+
+    step Ajax Load Method Types By Panel Type
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select m.code as 'value', m.name as 'text'
+          - from methods m
+          - inner join panelMethods pm on m.id = pm.methodId
+          - inner join testPanels tp on pm.panelId = tp.Id
+          - where tp.panelCode = ?
+          string {panelCode}
+
+    step Ajax Samples From Physician Report
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select distinct CONCAT(p.firstName, p.lastName) as 'physician',
+          + (select COUNT(*) from requestForms where physicianId = r.physicianId) as 'count'
+          + from requestForms r
+          + inner join persons p on r.physicianId = p.Id
+          + inner join events e on r.eventId = e.eventId
+          + where e.eventDate between (DATE_SUB(curDate(), INTERVAL 30 DAY)) and curDate()
+          + order by count desc
+          + LIMIT 10
+
+    step Ajax Samples From Customer Report
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select distinct o.name as 'customer',
+          + (select COUNT(*) from requestForms where organizationId = o.Id) as 'count'
+          + from requestForms r
+          + inner join organizations o on r.organizationId = o.Id
+          + inner join events e on r.eventId = e.eventId
+          + where e.eventDate between (DATE_SUB(curDate(), INTERVAL 30 DAY)) and curDate()
+          + order by count desc
+          + LIMIT 10
+
+    step Ajax Tests Report
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select distinct t.abbreviation as 'abb', (SELECT COUNT(*) from reqTests where testId = t.Id) as 'count'
+          + from reqTests rt
+          + inner join tests t on rt.testid = t.Id
+          + inner join events e on rt.eventId = e.eventId
+          + where e.eventDate between (DATE_SUB(curDate(), INTERVAL 30 DAY)) and curDate()
+          + order by count desc
+
+    step Ajax Patients By Organization Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~ select concat(et.firstName,' ',et.lastName),er.memberId
+          - from entityRelations er
+          - INNER JOIN entities et ON et.entityId = er.memberId
+          - WHERE er.entityId=? AND er.role='physician'
+          string {organizationId}
+
+
+    step Ajax Final Report Patient History
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  patientHistory
+          -  from  reportData rp
+          - where rp.reportId = ?
+          string {reportId}
+
+    step Ajax Final Report Results
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select assay,mutation,result,description,reportOrder
+          + from reportResults
+          + WHERE reportId=?
+          - order by reportOrder
+          string {reportId}
+
+    step Ajax Final Report Test Data
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  *
+          -  from  reportData rp
+          - where rp.reportId = ?
+          string {reportId}
+
+    step Ajax ExtractionResults pcrImports
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        class= stdTableSort
+        sqlPreparedQuery~ select rs.specimenId as 'aliquot',p.type as 'test',p.mutationStatus,p.assay
+          - from contents co
+          - LEFT JOIN contents co1 ON co.containerId=co1.content and co1.contentType ='aliquotId'
+          - LEFT JOIN pcrImport p ON p.containerId=co1.containerId
+          - inner join requestForms rf on rf.Id = ?
+          - inner join requestSpecimens rs on rf.Id = rs.reqId
+          - WHERE co.content=?
+          string {requestId}
+          string {requestId}
+
+    step Ajax ExtractionResults GenMark
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        class= stdTableSort
+        sqlPreparedQuery~ select *
+          - from contents co
+          - LEFT JOIN contents co1 ON co.containerId=co1.content and co1.contentType ='aliquotId'
+          - LEFT JOIN GenMarkImports p ON p.containerId=co1.containerId
+          - inner join requestForms rf on rf.Id = ?
+          - WHERE co.content=?
+          string {requestId}
+          string {requestId}
+
+    step Ajax ExtrationResults
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlPreparedQuery~ select rs.specimenId,pi.mutationStatus,pi.type,pi.containerId as 'extractionTubeId'
+          - FROM contents co
+          - INNER JOIN contents co1 ON co1.containerId=co.containerId AND co1.contentType='aliquotId'
+          - INNER JOIN contents co2 ON co2.containerId=co.containerId AND co2.contentType='requestId'
+          - INNER JOIN pcrImport pi ON pi.containerId=co1.content
+          - INNER JOIN requestForms r ON r.Id=co2.content
+          - INNER JOIN requestSpecimens rs ON r.Id =rs.reqId
+          - where co.containerId=? AND co.contentType='requestId'
+          string {reportId}
+
+    step Ajax LoadLaserMicroDissectionImages
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select co.content,co1.containerId as 'slideId'
+          - ,cp.value as 'preCutImage',cp1.value as 'postCutImage'
+          -  from contents co
+          - INNER JOIN contents co1 ON co1.content=co.content
+          - INNER JOIN contents co2 ON co2.containerId=co1.containerId AND co2.contentType='SlideId' AND co2.content=co2.containerId
+          - LEFT JOIN containerProperties cp ON cp.containerId=co1.containerId and cp.property='Pre-cut Image'
+          - LEFT JOIN containerProperties cp1 ON cp1.containerId=co1.containerId and cp1.property='Post-cut Image'
+          - where co.containerId=? and co.contentType='requestId'
+          string {requestId}
+
+    step Ajax ReferencesForRequest Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  DISTINCT rd.Id,rd.description,concat('<a href="',rd.url,'">',rd.url,'</a>') 'ref'
+          -  from reqTests rt
+          -  INNER JOIN tests t ON t.Id=rt.testId
+          -  LEFT JOIN testReferences tr ON tr.testId=rt.testId
+          -  INNER JOIN referenceDocuments rd ON rd.Id=tr.refId
+          - where rt.reqId = ?
+          - order by description
+          string {requestId}
+
+    step Ajax Load GenMark Test Info
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select extractionTubeId,AccessionNumber,Protocol,CartridgeLocation
+          - ,CartridgeLotNumber,ReagentLotNumber,TestRunbyOperator,TestRunonDateTime
+          - ,TestRunonInstrument,CartridgeExpirationDate,ReagentExpirationDate,GeneorTest,Result,eventId
+          - from GenMarkTests
+          - WHERE extractionTubeId=?
+          string {extractionTubeId}
+
+    step Ajax Load Request Info
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select r.Id as 'reqId'
+          - ,p.lastName,p.firstName,p.dob,p.MRN,p.gender
+          - ,rs.specimenId,date_format(e.eventDate,'%b %d %Y') as 'eventDate',rs.sampleType,rs.collectionDate
+          - ,concat(p1.firstName,' ' ,p1.lastName) as 'physicianName'
+          - ,concat(p2.firstName,' ' ,p2.lastName) as 'additionalPhysicianName'
+          - ,o.name as 'organizationName'
+          - ,ct2.containerId 'OncoDxId'
+          - FROM contents co
+          - left JOIN requestForms r ON r.Id=co.content
+          - left JOIN requestSpecimens rs on r.Id = rs.reqId
+          - left JOIN events e ON e.eventId=r.eventId
+          - left JOIN persons p ON p.Id=r.patientId
+          - left JOIN persons p1 ON p1.Id=r.physicianId
+          - left JOIN persons p2 ON p2.Id=r.additionalPhysicianId
+          - left JOIN organizations o ON o.Id=r.organizationId
+          - join contents ct1 on ct1.content = co.content
+          - and ct1.content <> ct1.containerId
+          - join contents ct2 on ct2.containerId = ct1.containerId
+          - and ct2.contentType = 'OncoDxId'
+          - and ct2.containerId = ct2.content
+          - where co.containerId=?
+          - AND co.contentType='requestId'
+          string {reportId}
+
+    step AJax Medicines For Request
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  t.name
+          - ,case when testType = 'PDx' then REPLACE(rt.medicinesAffected,"\r\n","<br/>") else '' end as "medicinesAffected"
+          - ,case when testType = 'PDx' then REPLACE(rt.patientsWithVariants,"\r\n","<br/>") else '' end as "patientsWithVariants"
+          -  from reportTests rt
+          -  INNER JOIN tests t ON t.Id=rt.testId
+          -  INNER JOIN requestForms rf on rf.Id = rt.requestId
+          - where rt.reportId = ?
+          string {reportId}
+
+    step Ajax TestsPanels For Request
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select
+          - tp.panelCode
+          - ,replace(tp.description,'"','\"') as 'description'
+          - ,tp.interpretation
+          - ,tp.significance
+          - ,tp.dosageRecommendation
+          - ,tp.intendedUse
+          - ,tp.indication
+          - ,tp.prevalence
+          - ,tp.coAdminDrugs
+          -  from  reqTestPanels rtp
+          -  INNER JOIN testPanels tp ON rtp.panelId=tp.Id
+          - where rtp.reqId = ?
+          string {requestId}
+
+    step Ajax Tests Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select
+          - REPLACE(rt.interpretation,"\r\n","<br/>") as 'interpretation'
+          - ,REPLACE(rt.significance,"\r\n","<br/>") as 'significance'
+          - ,REPLACE(rt.description,"\r\n","<br/>") as 'description'
+          - ,case when testType = 'PDx' then REPLACE(rt.dosageRecommendation,"\r\n","<br/>") else '' end as 'dosageRecommendation'
+          - ,REPLACE(rt.intendedUse,"\r\n","<br/>") as 'intendedUse'
+          -  from reportData rt
+          -  INNER JOIN requestForms rf on rf.Id = rt.requestId
+          - where rt.requestId = ?
+          string {requestId}
+
+    step Ajax Organization Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  *
+          -  from organizations o LEFT JOIN organizationAddress oa ON oa.organizationId=o.Id
+          -  LEFT JOIN addresses a ON a.Id=oa.addressId where o.Id = ?
+          string {organizationId}
+
+    step Ajax TestPanel Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  panelCode,description
+          -  from testPanels where Id = ?
+          int {panelId}
+
+    step Ajax Test Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  *
+          -  from tests where Id = ?
+          int {testId}
+
+    step Ajax Reference Search
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select  description,url
+          -  from referenceDocuments where referenceId = ?
+          string {referenceId}
+
+    step Ajax Physician Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - select concat('<input type="checkbox" onclick="$(\'#physicianId\').val(',Id,');" />') as 'phId',
+          - case when (length(?) > 0 and soundex(firstName) like soundex(?)) then 10 else 0 end +
+          - case when (length(?) > 0 and soundex(lastName) like soundex(?)) then 13 else 0 end +
+          - case when (length(?) > 0 and p.ssn = ?) then 50 else 0 end +
+          - case when (length(?) > 0 and dob = ?) then 20 else 0 end
+          - as 'score',
+          - p.Id,
+          - p.firstName,
+          - p.lastName,
+          - p.gender,
+          - DATE_FORMAT(p.dob,'%m/%d/%Y') as 'dob',
+          - p.govtId
+          - from persons p
+          - where type='physician' and (length(?) > 0
+          - and soundex(?) like soundex(?))
+          - OR  (length(?) > 0 and p.firstName = ?)
+          - or (length(?) > 0 and p.ssn = ?)
+          - or (length(?) > 0 and dob = ?)
+          - order by score desc
+          string {firstName}
+          string {firstName}
+          string {lastName}
+          string {lastName}
+          string {SSN}
+          string {SSN}
+          string {DOB}
+          string {DOB}
+          string {lastName}
+          string {lastName}
+          string {lastName}
+          string {firstName}
+          string {firstName}
+          string {SSN}
+          string {SSN}
+          string {DOB}
+          string {DOB}
+
+
+
+    step Ajax Patient Requisition Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - select
+          - case when (length(?) > 0 and p.entityId = ?) then 100 else 0 end +
+          - case when (length(?) > 0 and p.entityId like ?) then 30 else 0 end +
+          - case when (length(?) > 0 and p.firstName like ?) then 10 else 0 end +
+          - case when (length(?) > 0 and p.firstName = ?) then 13 else 0 end +
+          - case when (length(?) > 0 and p.lastName like ?) then 13 else 0 end +
+          - case when (length(?) > 0 and p.lastName = ?) then 16 else 0 end +
+          - case when (length(?) > 0 and pa.mrn like ?) then 50 else 0 end +
+          - case when (length(?) > 0 and pa.dob = DATE_FORMAT(STR_TO_DATE(?, '%m/%d/%Y'), '%Y-%m-%d')) then 20 else 0 end +
+          - case when (length(?) > 0 and pa.gender = ?) then 20 else 0 end +
+          - case when (length(?) > 0 and rf.externalSpecimenId like ?) then 20 else 0 end +
+          - case when (length(?) > 0 and rf.externalSpecimenId = ?) then 100 else 0 end +
+          - case when (length(?) > 0 and rs.specimenId like ?) then 30 else 0 end +
+          - case when (length(?) > 0 and rs.specimenId = ?) then 100 else 0 end
+          - as 'score',
+          - rf.Id as 'Requisition Id',
+          - rf.externalSpecimenId as 'Accession Id',
+          - concat(p.firstName,' ',p.lastName) as 'Name',
+          - pa.gender as 'Gender',
+          - DATE_FORMAT(pa.dob,'%m/%d/%Y') as 'DOB',
+          - pa.mrn as 'MRN',
+          - GROUP_CONCAT(rs.specimenId SEPARATOR '</br>') as 'Specimen(s)'
+          - from entities p
+          - inner join patients pa on pa.patientId = p.entityId
+          - left join requestForms rf on p.entityId = rf.patientId
+          - left join requestSpecimens rs on rf.Id = rs.reqId
+          - where p.entityType='Patient' and p.status = 'active' and (
+          - (length(?) > 0 and p.entityId like ?)
+          - or (length(?) > 0 and p.lastName like ?)
+          - OR  (length(?) > 0 and p.firstName like ?)
+          - or (length(?) > 0 and pa.mrn like ?)
+          - or (length(?) > 0 and pa.dob = DATE_FORMAT(STR_TO_DATE(?, '%m/%d/%Y'), '%Y-%m-%d'))
+          - or (length(?) > 0 and pa.gender = ?)
+          - or (length (?) > 0 and rf.externalSpecimenId like ?)
+          - or (length (?) > 0 and rs.specimenId LIKE ?)
+          - or (length (?) > 0 and pa.ssn = ?)
+          - )
+          - group by rf.Id
+          - order by score desc
+          string {patientId}
+          string {patientId}
+          string {patientId}
+          string %{patientId}%
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {MRN}
+          string %{MRN}%
+          string {DOB}
+          string {DOB}
+          string {Gender}
+          string {Gender}
+          string {accId}
+          string %{accId}%
+          string {accId}
+          string {accId}
+          string {specimenId}
+          string %{specimenId}%
+          string {specimenId}
+          string {specimenId}
+          string {patientId}
+          string %{patientId}%
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {MRN}
+          string %{MRN}%
+          string {DOB}
+          string {DOB}
+          string {Gender}
+          string {Gender}
+          string {accId}
+          string %{accId}%
+          string {specimenId}
+          string %{specimenId}%
+          string {ssnId}
+          string {ssnId}
+
+    step Ajax Edit Patient Requisition Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - select
+          - case when (length(?) > 0 and p.entityId = ?) then 100 else 0 end +
+          - case when (length(?) > 0 and p.entityId like ?) then 30 else 0 end +
+          - case when (length(?) > 0 and p.firstName like ?) then 10 else 0 end +
+          - case when (length(?) > 0 and p.firstName = ?) then 13 else 0 end +
+          - case when (length(?) > 0 and p.lastName like ?) then 13 else 0 end +
+          - case when (length(?) > 0 and p.lastName = ?) then 16 else 0 end +
+          - case when (length(?) > 0 and pa.mrn like ?) then 50 else 0 end +
+          - case when (length(?) > 0 and pa.dob = DATE_FORMAT(STR_TO_DATE(?, '%m/%d/%Y'), '%Y-%m-%d')) then 20 else 0 end +
+          - case when (length(?) > 0 and pa.gender = ?) then 20 else 0 end +
+          - case when (length(?) > 0 and rf.externalSpecimenId like ?) then 20 else 0 end +
+          - case when (length(?) > 0 and rf.externalSpecimenId = ?) then 100 else 0 end +
+          - case when (length(?) > 0 and rs.specimenId like ?) then 30 else 0 end +
+          - case when (length(?) > 0 and rs.specimenId = ?) then 100 else 0 end
+          - as 'score',
+          - rf.Id as 'Edit ReqId',
+          - rf.externalSpecimenId as 'Accession Id',
+          - concat(p.firstName,' ',p.lastName) as 'Name',
+          - pa.gender as 'Gender',
+          - DATE_FORMAT(pa.dob,'%m/%d/%Y') as 'DOB',
+          - pa.mrn as 'MRN',
+          - GROUP_CONCAT(rs.specimenId SEPARATOR '</br>') as 'Specimen(s)'
+          - from entities p
+          - inner join patients pa on pa.patientId = p.entityId
+          - left join requestForms rf on p.entityId = rf.patientId
+          - left join requestSpecimens rs on rf.Id = rs.reqId
+          - where p.entityType='Patient' and p.status = 'active' and (
+          - (length(?) > 0 and p.entityId like ?)
+          - or (length(?) > 0 and p.lastName like ?)
+          - OR  (length(?) > 0 and p.firstName like ?)
+          - or (length(?) > 0 and pa.mrn like ?)
+          - or (length(?) > 0 and pa.dob = DATE_FORMAT(STR_TO_DATE(?, '%m/%d/%Y'), '%Y-%m-%d'))
+          - or (length(?) > 0 and pa.gender = ?)
+          - or (length (?) > 0 and rf.externalSpecimenId like ?)
+          - or (length (?) > 0 and rs.specimenId LIKE ?)
+          - )
+          - group by rf.Id
+          - order by score desc
+          string {patientId}
+          string {patientId}
+          string {patientId}
+          string %{patientId}%
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {MRN}
+          string %{MRN}%
+          string {DOB}
+          string {DOB}
+          string {Gender}
+          string {Gender}
+          string {accId}
+          string %{accId}%
+          string {accId}
+          string {accId}
+          string {specimenId}
+          string %{specimenId}%
+          string {specimenId}
+          string {specimenId}
+          string {patientId}
+          string %{patientId}%
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {MRN}
+          string %{MRN}%
+          string {DOB}
+          string {DOB}
+          string {Gender}
+          string {Gender}
+          string {accId}
+          string %{accId}%
+          string {specimenId}
+          string %{specimenId}%
+
+
+    step Ajax Billing Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select
+          -   patientId,paymentOption,medicareNumber,parentSignature,guarantor
+          -   ,policyHolderName_1,relationship_1,insuranceCompany_1,policyNumber_1,groupNumber_1,responsibleAddress1_1
+          -   ,responsibleAddress2_1,responsibleCity_1,responsibleState_1,responsibleZip_1,phone_1,policyHolderId_1
+          - , policyHolderDOB_1
+          -   ,policyHolderName_2,relationship_2,insuranceCompany_2,policyNumber_2,groupNumber_2,responsibleAddress1_2
+          -   ,responsibleAddress2_2,responsibleCity_2,responsibleState_2,responsibleZip_2,phone_2,policyHolderId_2
+          - , policyHolderDOB_2
+          -   from patientBilling
+          -   where patientId = ?
+          string {patientId}
+
+    step Ajax Clinical Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select
+          -  diagnosis, histoDiagnosis, medications, problemMedications, allergies,
+          - clinicalNotes, clinicalHistory, presentationAge, geneticCounselor, subjectId
+          -  from patientClinical
+          -  where patientId = ?
+          string {patientId}
+
+    step Ajax Aliquot Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ (select
+          - case when vv.displayOrder > 0 then concat(q.containerId,'-',cast(displayOrder as unsigned)) else '' end  as 'aliquotCntr'
+          - from validValues vv
+          - join queues q on q.containerId = vv.setName and q.step = ?
+          - where vv.setName = ?)
+          - union
+          - (select '' as 'aliquotCntr' from dual)
+          string {queueStep}
+          string {setName}
+
+
+
+    step Ajax Get Stored Sample Info
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort specInfoTable
+        sqlPreparedQuery~
+          - SELECT 'Item', ?
+          - UNION
+          - SELECT 'Container Type', containerType
+          - FROM containers
+          - WHERE containerId = ?
+          - UNION
+          - SELECT 'Type', type
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          - AND ? = 'generalSearch'
+          - UNION
+          - SELECT 'Model', model
+          - FROM storageContainerInfo
+          - WHERE storageContainerId = ?
+          - AND ? = 'generalSearch'
+          - UNION
+          - select q.desc, q.count from (
+          - select "Empty wells: " as "desc", count(tm.well) as "count", sci.type
+          - from storageContainerInfo sci
+          - inner join trayMapProperties tmp
+          - on sci.model = tmp.trayMapName
+          - inner join trayMaps tm
+          - on tmp.Id = tm.trayMapId
+          - left join storage s
+          - on sci.storageContainerId = s.storageContainerId
+          - and tm.well = s.location
+          - where sci.storageContainerId = ?
+          - and s.content is null) q
+          - where q.type = 'Storage Box'
+          - UNION
+          - SELECT sp.property, sp.value
+          - FROM contents c
+          - INNER JOIN containers co
+          - ON c.content = co.containerId
+          - INNER JOIN sampleProperties sp
+          - ON co.containerId = sp.sampleId
+          - WHERE c.containerId = ?
+          - AND (co.containerType = 'specimenId' or co.containerType = 'oncoDxId')
+          - AND (c.contentType = 'specimenId' or c.contentType = 'oncoDxId')
+          - AND c.attribute = 'self'
+          - and sp.value <> ''
+          - AND ? = 'generalSearch'
+          - UNION
+          - select q.desc, q.count from (
+          - SELECT '# Aliquots' as "desc", COUNT(DISTINCT co2.containerId) as "count", co.containerType
+          - FROM contents c
+          - INNER JOIN containers co
+          - ON c.content = co.containerId
+          - INNER JOIN contents c2
+          - ON co.containerId = c2.content
+          - INNER JOIN containers co2
+          - ON c2.containerId = co2.containerID
+          - WHERE c.containerId = ?
+          - AND (co.containerType = 'specimenId' or co.containerType = 'oncoDxId')
+          - AND (c.contentType = 'specimenId' or c.contentType = 'oncoDxId')
+          - AND c.attribute = 'self'
+          - AND co2.containerType = 'aliquotId') q
+          - where (q.containerType = 'specimenId' or q.containerType = 'oncoDxId')
+          - UNION
+          - SELECT 'Ethnicity', p.ethnicity
+          - FROM contents c
+          - INNER JOIN containers co
+          - ON c.content = co.containerId
+          - INNER JOIN contents c2
+          - ON co.containerId = c2.content
+          - INNER JOIN patients p
+          - ON c2.containerId = p.patientId
+          - WHERE c.containerId = ?
+          - AND (co.containerType = 'specimenId' or co.containerType = 'oncoDxId')
+          - AND (c.contentType = 'specimenId' or c.contentType = 'oncoDxId')
+          - AND c.attribute = 'self'
+          - AND ? = 'generalSearch'
+          string {specimenId}
+          string {specimenId}
+          string {specimenId}
+          string {show}
+          string {specimenId}
+          string {show}
+          string {specimenId}
+          string {specimenId}
+          string {show}
+          string {specimenId}
+          string {specimenId}
+          string {show}
+
+
+
+    step Ajax Get Storage Container Model
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select distinct case s.contentType when 'aliquotId' then csi.model when 'specimenId' then csi.model else csi2.model end as model
+          - from storage s
+          - left join storageContainerInfo csi
+          - on s.storageContainerId = csi.storageContainerId
+          - left join storageContainerInfo csi2
+          - on s.content = csi2.storageContainerId
+          - where s.content = ?
+          - union
+          - select '' from dual LIMIT 1
+          string {containerId}
+
+    step Ajax Get Stored Sample Parent
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= storeSearchParent
+        sqlPreparedQuery~
+          - SELECT s.storageContainerId AS "Parent ID", i.type, i.model, i.description
+          - FROM storage s
+          - LEFT JOIN storageContainerInfo i
+          - ON s.storageContainerId = i.storageContainerId
+          - WHERE s.content = ?
+          - UNION
+          - SELECT '','','',''
+          string {storedContainer}
+
+    step Ajax Get Stored Sample Children
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= storeSearchChildren
+        sqlPreparedQuery~
+          - SELECT s.content AS "Child ID", i.type, i.model, i.description
+          - FROM storage s
+          - LEFT JOIN storageContainerInfo i
+          - ON s.content = i.storageContainerId
+          - WHERE s.storageContainerId = ?
+          # - and s.contentType <> 'aliquotId'
+          # - and s.contentType <> 'specimenId'
+          # - and s.contentType <> 'oncoDxId'
+          - UNION
+          - SELECT '','','',''
+          string {storedContainer}
+
+    step Ajax Get Box Layout
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= boxLayout
+        sqlPreparedQuery~ SELECT l.loc AS ".", s.content AS "1", s2.content AS "2", s3.content AS "3", s4.content AS "4"
+          - , s5.content AS "5", s6.content AS "6", s7.content AS "7", s8.content AS "8", s9.content AS "9", s10.content AS "10"
+          - FROM (
+          -   SELECT 'A' AS "loc"
+          -   UNION
+          -   SELECT 'B'
+          -   UNION
+          -   SELECT 'C'
+          -   UNION
+          -   SELECT 'D'
+          -   UNION
+          -   SELECT 'E'
+          -   UNION
+          -   SELECT 'F'
+          -   UNION
+          -   SELECT 'G'
+          -   UNION
+          -   SELECT 'H'
+          -   UNION
+          -   SELECT 'I'
+          -   UNION
+          -   SELECT 'J'
+          - ) l
+          - LEFT JOIN storage s
+          - ON l.loc = LEFT(s.location, 1)
+          - AND RIGHT(s.location, 2) = 01
+          - AND s.storageContainerId = ?
+          - LEFT JOIN storage s2
+          - ON l.loc = LEFT(s2.location, 1)
+          - AND RIGHT(s2.location, 2) = 02
+          - AND s2.storageContainerId = ?
+          - LEFT JOIN storage s3
+          - ON l.loc = LEFT(s3.location, 1)
+          - AND RIGHT(s3.location, 2) = 03
+          - AND s3.storageContainerId = ?
+          - LEFT JOIN storage s4
+          - ON l.loc = LEFT(s4.location, 1)
+          - AND RIGHT(s4.location, 2) = 04
+          - AND s4.storageContainerId = ?
+          - LEFT JOIN storage s5
+          - ON l.loc = LEFT(s5.location, 1)
+          - AND RIGHT(s5.location, 2) = 05
+          - AND s5.storageContainerId = ?
+          - LEFT JOIN storage s6
+          - ON l.loc = LEFT(s6.location, 1)
+          - AND RIGHT(s6.location, 2) = 06
+          - AND s6.storageContainerId = ?
+          - LEFT JOIN storage s7
+          - ON l.loc = LEFT(s7.location, 1)
+          - AND RIGHT(s7.location, 2) = 07
+          - AND s7.storageContainerId = ?
+          - LEFT JOIN storage s8
+          - ON l.loc = LEFT(s8.location, 1)
+          - AND RIGHT(s8.location, 2) = 08
+          - AND s8.storageContainerId = ?
+          - LEFT JOIN storage s9
+          - ON l.loc = LEFT(s9.location, 1)
+          - AND RIGHT(s9.location, 2) = 09
+          - AND s9.storageContainerId = ?
+          - LEFT JOIN storage s10
+          - ON l.loc = LEFT(s10.location, 1)
+          - AND RIGHT(s10.location, 2) = 10
+          - AND s10.storageContainerId = ?
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+          string {box}
+
+    step Ajax Get Box Layout by Sample
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        id= boxLayout
+        sqlPreparedQuery~ SELECT l.loc AS ".", s.content AS "1", s2.content AS "2", s3.content AS "3", s4.content AS "4"
+          - , s5.content AS "5", s6.content AS "6", s7.content AS "7", s8.content AS "8", s9.content AS "9", s10.content AS "10"
+          - FROM (
+          -   SELECT 'A' AS "loc"
+          -   UNION
+          -   SELECT 'B'
+          -   UNION
+          -   SELECT 'C'
+          -   UNION
+          -   SELECT 'D'
+          -   UNION
+          -   SELECT 'E'
+          -   UNION
+          -   SELECT 'F'
+          -   UNION
+          -   SELECT 'G'
+          -   UNION
+          -   SELECT 'H'
+          -   UNION
+          -   SELECT 'I'
+          -   UNION
+          -   SELECT 'J'
+          - ) l
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 01
+          - AND samp.content = ?) s
+          - ON l.loc = s.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 02
+          - AND samp.content = ?) s2
+          - ON l.loc = s2.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 03
+          - AND samp.content = ?) s3
+          - ON l.loc = s3.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 04
+          - AND samp.content = ?) s4
+          - ON l.loc = s4.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 05
+          - AND samp.content = ?) s5
+          - ON l.loc = s5.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 06
+          - AND samp.content = ?) s6
+          - ON l.loc = s6.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 07
+          - AND samp.content = ?) s7
+          - ON l.loc = s7.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 08
+          - AND samp.content = ?) s8
+          - ON l.loc = s8.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 09
+          - AND samp.content = ?) s9
+          - ON l.loc = s9.loc
+          - LEFT JOIN (
+          - SELECT LEFT(s.location, 1) AS "loc", s.content
+          - FROM storage s
+          - INNER JOIN storage samp
+          - ON s.storageContainerId = samp.storageContainerId
+          - AND RIGHT(s.location, 2) = 10
+          - AND samp.content = ?) s10
+          - ON l.loc = s10.loc
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+          string {sample}
+
+    step Ajax Archive System Jit
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT
+          -   UPPER(s.storageContainerId) as "storageContainerId",
+          -   REPLACE(s.storageContainerId, ' ', '_') as "id",
+          -   UPPER(s.content) as "content",
+          -   REPLACE(s.content, ' ', '_') as "id2",
+          -   COALESCE(dr.color, dr2.color) AS "color"
+          - FROM storage s
+          - INNER JOIN storageContainerInfo si
+          - ON s.storageContainerId = si.storageContainerId
+          - LEFT JOIN storageDisplayRules dr
+          - ON si.type = dr.storageType
+          - LEFT JOIN storageDisplayRules dr2
+          - ON si.model = dr2.storageType
+
+    step Ajax Archive System
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT
+          -   UPPER(s.storageContainerId) as "storageContainerId",
+          -   UPPER(s.content) as "content",
+          -   COALESCE(dr.sizeCategory, dr2.sizeCategory) AS "sizeCategory"
+          - FROM storage s
+          - INNER JOIN storageContainerInfo si
+          - ON s.storageContainerId = si.storageContainerId
+          - LEFT JOIN storageDisplayRules dr
+          - ON si.type = dr.storageType
+          - LEFT JOIN storageDisplayRules dr2
+          - ON si.model = dr2.storageType
+
+    step Ajax Get Box Layout With Fields
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      plate Sample Ids
+        class= plate
+        rows 10
+        cols 10
+        sqlPreparedQuery~ select location, content from storage where storageContainerId = ?
+          string {box}
+        inputType passiveContainer
+          required~ false
+          acceptQueue~ any
+
+    step Ajax Personnel Competency
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~ select d.documentId as 'Document #', d.title as 'Title',
+          - case when q.expirationDate is null then '<span style="color: red;">NEW</span>'
+          -   when q.expirationDate < curDate() then concat('<span style="color: red;">',date_format(q.expirationDate, '%m/%d/%Y'),'</span>')
+          -   else date_format(q.expirationDate, '%m/%d/%Y') end as 'Date Due',
+          - date_format(t.competencyDate, '%m/%d/%Y') as 'Training', date_format(s.competencyDate, '%m/%d/%Y') as '6 Month Comp',
+          - case
+          -   when a1.eventId is null and a2.eventId is null and a3.eventId is not null then date_format(a3.competencyDate, '%m/%d/%Y')
+          -   when a1.eventId is null and a2.eventId is not null then date_format(a2.competencyDate, '%m/%d/%Y')
+          -   when a1.eventId is not null then date_format(a1.competencyDate, '%m/%d/%Y')
+          -   else ''
+          - end as 'Annual Comp Yr 1',
+          -
+          - case
+          -   when a1.eventId is null and a2.eventId is not null then date_format(a3.competencyDate, '%m/%d/%Y')
+          -   when a1.eventId is not null then date_format(a2.competencyDate, '%m/%d/%Y')
+          -   else ''
+          - end as 'Annual Comp Yr 2',
+          -
+          - case
+          -   when a1.eventId is not null then date_format(a3.competencyDate, '%m/%d/%Y')
+          -   else ''
+          - end as 'Annual Comp Yr 3',
+          - d.documentType as 'hidden'
+          - from containers ct
+          - inner join personnelCompetencyDocs d on d.personType = ct.containerType
+          - inner join validValues v on v.value = d.documentType and v.setName = 'labTechDocTypes'
+          - left join personnelCompetency t on t.competencyType = 'Training' and t.documentId = d.documentId and t.personId = ct.containerId
+          -   and t.eventId = (select max(eventId) from personnelCompetency where competencyType = 'Training' and documentId = d.documentId and personId = ct.containerId)
+          - left join personnelCompetency s on s.competencyType = '6 Months Comp' and s.documentId = d.documentId and s.personId = ct.containerId
+          - left join personnelCompetency a3 on a3.competencyType = 'Annual Comp' and a3.documentId = d.documentId and a3.personId = ct.containerId
+          -   and a3.eventId = (select eventId from personnelCompetency where competencyType = 'Annual Comp' and documentId = d.documentId and personId = ct.containerId
+          -     order by eventId desc limit 1)
+          - left join personnelCompetency a2 on a2.competencyType = 'Annual Comp' and a2.documentId = d.documentId and a2.personId = ct.containerId
+          -   and a2.eventId = (select eventId from personnelCompetency where competencyType = 'Annual Comp' and documentId = d.documentId and personId = ct.containerId
+          -     order by eventId desc limit 1 offset 1)
+          - left join personnelCompetency a1 on a1.competencyType = 'Annual Comp' and a1.documentId = d.documentId and a1.personId = ct.containerId
+          -   and a1.eventId = (select eventId from personnelCompetency where competencyType = 'Annual Comp' and documentId = d.documentId and personId = ct.containerId
+          -     order by eventId desc limit 1 offset 2)
+          - left join qualifications q on q.qualification = d.documentId and q.containerId = ct.containerId
+          - where ct.containerId = ? and d.status = 'active'
+          - group by d.documentId, ct.containerId
+          - order by v.displayOrder, d.documentId
+          string {personId}
+
+    step Ajax Personnel History
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~ select c.competencyType as 'Competency Type',
+          - case when ( c.competencyType = 'Training' and d.trainingTT = 'true' ) then c.trainingTT
+          -   when ( c.competencyType = 'Training' and d.trainingTT = 'false' ) then 'N/R'
+          -   else '' end as 'Technical Checkoff',
+          - case when ( c.competencyType = 'Training' and d.trainingDO = 'true' ) then c.trainingDO
+          -   when ( c.competencyType = 'Training' and d.trainingDO = 'false' ) then 'N/R'
+          -   else '' end as 'Direct Observation',
+          - case when ( c.competencyType = 'Training' and d.trainingWA = 'true' ) then c.trainingWA
+          -   when ( c.competencyType = 'Training' and d.trainingWA = 'false' ) then 'N/R'
+          -   else '' end as 'Written Assessment',
+          - date_format(c.competencyDate, '%m/%d/%Y') as 'Date Performed'
+          - from personnelCompetency c
+          - inner join personnelCompetencyDocs d on d.documentId = c.documentId
+          - where c.personId = ? and d.documentId = ?
+          - order by c.eventId asc
+          string {personId}
+          string {documentId}
+
+    step Ajax Container Type
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT containerType AS "containerType" FROM containers WHERE containerId = ?
+          - UNION SELECT '' FROM dual LIMIT 1
+          string {containerId}
+
+    step Ajax Container Property
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ SELECT value AS "containerProperty" FROM containerProperties WHERE containerId = ? AND property = ?
+          - UNION SELECT '' FROM dual LIMIT 1
+          string {containerId}
+          string {property}
+
+    step Ajax Container Comments
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort
+        sqlPreparedQuery~
+          - select cp.value AS "Comment", e.eventDate, e.userId
+          - from containerProperties cp
+          - inner join events e
+          - on cp.eventId = e.eventId
+          - where cp.containerId = ?
+          - and cp.containerId <> ''
+          - union
+          - select '', '', '' from dual
+          string {container}
+
+    step Ajax Sample Status
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - select value AS "Status", e.eventDate, e.userId
+          - from sampleProperties sp
+          - inner join events e
+          - on sp.eventId = e.eventId
+          - where sampleId = ?
+          - and property = 'Status'
+          - union
+          - select '', '', '' from dual
+          string {sample}
+
+    step Ajax Top 10 Container Types
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select c.containerType, (SELECT COUNT(containerId) from containers where containerType = c.containerType) as 'count',
+          - ROUND(((SELECT COUNT(containerId) from containers where containerType = c.containerType)/(SELECT COUNT(containerId) FROM containers) *100),2) as 'percent'
+          - from containers c
+          - group by c.containerType
+          - order by count desc
+          - limit 10
+
+    step Ajax Search for Sample Property Values
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select
+        sqlPreparedQuery~
+          - select '%' as value
+          - union
+          - select distinct value
+          - from sampleProperties
+          - where property = ?
+          string {property}
+
+    ################# NGS ######################
+    step Ajax Verify On Queue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select 'Queued' as queueStatus
+          - from queues
+          - where containerId = ?
+          - and step = ?
+          - union select 'Reagent' from reagents where reagentId = ?
+          - union select 'Control' from controls where controlId = ?
+          - union select 'NotQueued' from dual where ? <> ''
+          - union select '' from dual where ? = ''
+          - limit 1
+          string {container}
+          string {step}
+          string {container}
+          string {container}
+          string {container}
+          string {container}
+
+    step Ajax Sample Info
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          -   select
+          -   sp1.value as "value1"
+          -   ,tp.name as "testName"
+          -   ,  date_format(sp.value, '%m/%d/%Y') as "value"
+          -   from contents c
+          -   inner join sampleProperties sp
+          -   on c.content = sp.sampleId
+          -   left join sampleProperties sp1
+          -   on sp.sampleId = sp1.sampleId and sp1.property = 'Specimen Volume'
+          -   inner join requestForms rf
+          -   on c.containerId = rf.Id
+          -  inner join reqTestPanels rtp
+          -   on rf.id = rtp.reqId
+          -   inner join testPanels tp
+          -   on rtp.panelId = tp.Id
+          -   where c.content = ?
+          -   and sp.property = 'Date Received'
+          -   union select '','',''
+          -   limit 1
+          string {sample}
+
+    step Ajax Verify In Batch
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - select 'InBatch' as queueStatus
+          - from contents
+          - where containerId = ?
+          - and content = ?
+          - union select 'NotInBatch' from dual where ? <> ''
+          - union select '' from dual where ? = ''
+          - limit 1
+          string {batch}
+          string {container}
+          string {container}
+          string {container}
+
+    step Ajax Load TAT By Test Type2
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select ROUND((SUM(DATEDIFF(e.eventDate, e2.eventDate))/ COUNT(ch2.containerId)),0) as 'Count', r.questResult as 'xValue'
+          - from containerHistory ch
+          - inner join events e on ch.eventId = e.eventId
+          - inner join containerHistory ch2 on ch2.containerId = (SELECT SUBSTRING_INDEX(ch.containerId, '-', -1))
+          - inner join events e2 on ch2.eventId = e2.eventId
+          - inner join requestForms r on r.Id = ch2.containerId
+          - where e.step = 'Final Report' and e2.step = 'New Requisition'
+          - and e2.eventDate BETWEEN DATE_SUB(curDate(), INTERVAL 5 YEAR) AND curDate()
+          - group by r.testType
+
+    step Ajax Execute Query
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      authorizedGroup MITOGEN
+      accessLevel 12
+      class uniflow.AjaxQuery
+      table
+        class= stdTableSort resultsTable
+        sqlPreparedQuery~ {SQL}
+
+  ####### Master Mix and Plate Creation Ajax #########
+    step Ajax Get Tests From PCR Panels
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   testId
+          - FROM testsForPCRPanel
+          - WHERE panelId = ?
+          string {panelId}
+
+    step Ajax Get Plate Content Info
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT distinct
+          -   c.attribute as 'well'
+          -   , c.content as 'specimenId'
+          -   , e.lastName as 'patientLastName'
+          - FROM contents c
+          -   left join contents c2 on c2.containerId = c.content and c2.contentType = 'requestId'
+          -   left join requestForms rf on c2.content = rf.Id
+          -   left join entities e on rf.patientId = e.entityId
+          - WHERE c.containerId = ? and c.contentType in ('sampleId', 'specimenId')
+          string {plateId}
+
+    step Ajax Get Plate Content Info 2
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT distinct
+          -   c.attribute as 'well'
+          -   , GROUP_CONCAT(c.content SEPARATOR ', ') as 'content'
+          - FROM contents c
+          - WHERE c.containerId = ? and c.attribute <> 'self'
+          - GROUP BY c.attribute
+          string {plateId}
+
+    step Ajax Get Plate Pool Info
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT distinct
+          -   attribute as 'well'
+          -   , content as 'poolTubeId'
+          - FROM contents
+          - WHERE containerId = ? and contentType = 'poolTubeId'
+          string {plateId}
+
+    step Ajax Get Unit For Reagent
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   units AS 'unit'
+          - FROM inventoryItems
+          - WHERE inventoryItem = ?
+          string {reagentType}
+
+      ####### Master Mix Ajax
+    step Ajax Get Master Mix Reagents Obj
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   mm.code AS 'mmCode'
+          -   , mm.name AS 'mm'
+          -   , mmc.reagentType AS 'reagentType'
+          -   , CASE
+          -     WHEN mma.overageOverride = 'false'
+          -       THEN ROUND(mmc.amount*mma.count*((mm.overagePercentage/100)+1), 3)
+          -       ELSE ROUND(mmc.amount*mma.count*((mma.overage/100)+1), 3)
+          -     END AS 'amount'
+          -   , ii.units AS 'unit'
+          - FROM masterMixes mm
+          -   INNER JOIN masterMixComponents mmc on mm.Id = mmc.mmId
+          -   INNER JOIN masterMixArray mma on mm.code = mma.mmCode
+          -   INNER JOIN inventoryItems ii on mmc.reagentType = ii.inventoryItem
+          - ORDER BY mm.code
+
+    step Ajax POST Master Mix
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        textarea theData
+        text overage
+
+      jython
+        import json
+        data = json.loads('''{theData}''')
+        pt = switchboard.connection.prepareStatement("TRUNCATE table masterMixArray")
+        pt.execute();
+        ps = switchboard.connection.prepareStatement("INSERT INTO masterMixArray (mmCode, count, overage, overageOverride) VALUES (?, ?, ?, ?)")
+        for i in data:
+          name = i["name"]
+          count = i["count"]
+          overage = "{overage}"
+          overageOverride = "{overageOverride}"
+          ps.setString(1, name)
+          ps.setInt(2, count)
+          ps.setString(3, overage)
+          ps.setString(4, overageOverride)
+          ps.execute();
+
+    step Ajax POST Master Mix Reagents
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+        text reagentId
+        text reagentType
+        text reagentAmount
+      sqlPreparedStatement UPDATE reagents SET quantity = quantity - ? WHERE reagentId = ?
+        string {reagentAmount}
+        string {reagentId}
+      sqlPreparedStatement UPDATE reagents SET openDate = curDate() WHERE reagentId = ? and openDate IS NULL
+        string {reagentId}
+      sqlPreparedStatement update inventoryItems set quantity = (quantity - ?) where inventoryItem = ?
+        string {reagentAmount}
+        string {reagentType}
+
+    step Ajax Get Master Mix Instructions and Volumes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table mmInstructions
+        id= mmInstructions
+        sqlPreparedQuery~
+          - SELECT
+          -   x.code as 'Master Mix Code'
+          -   , x.name as 'Master Mix Name'
+          -   , GROUP_CONCAT( distinct y.instruction SEPARATOR '<br />') as 'Instructions'
+          -   , GROUP_CONCAT( distinct x.Recipe SEPARATOR '<br />') as 'Per Sample Volumes'
+          -   , GROUP_CONCAT( distinct x.Totals SEPARATOR '<br />') as 'Total Volumes'
+          - FROM
+          -   ( select distinct
+          -       mm.code
+          -       , mm.name
+          -       , concat(mmc.reagentType, ': ', mmc.amount, ' ', ii.units) as 'Recipe'
+          -       , CASE
+          -           WHEN mma.overageOverride = 'false' THEN concat(mmc.reagentType, ': ', ROUND(mmc.amount*mma.count*((mm.overagePercentage/100)+1), 3), ' ', ii.units)
+          -           ELSE concat(mmc.reagentType, ': ', ROUND((mmc.amount*mma.count*((mma.overage/100)+1)), 3), ' ', ii.units)
+          -         END as 'Totals'
+          -     from masterMixes mm
+          -       inner join masterMixComponents mmc on mm.Id = mmc.mmId
+          -       inner join inventoryItems ii on mmc.reagentType = ii.inventoryItem
+          -       inner join masterMixArray mma on mm.code = mma.mmCode) x
+          -   INNER JOIN
+          -     ( select distinct
+          -         mm.code
+          -         , concat(mmi.`order`, '. ', mmi.instruction) as 'instruction'
+          -         , mmi.`order`
+          -       from masterMixInstructions mmi
+          -       inner join masterMixes mm on mmi.mmId = mm.Id
+          -       inner join masterMixArray mma on mm.code = mma.mmCode
+          -       order by mmi.`order`) y
+          -     ON x.code = y.code
+          - GROUP BY x.code
+          - ORDER BY y.`order`
+
+    ####### Master Mix and Plate Creation Ajax END #########
+    step Ajax Get Plate Contents
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~ select c.attribute as 'well', c.content as 'container', c.contentType as 'type'
+          - from contents c where c.containerId = ?
+          string {plateId}
+
+    ####### Primer Status ########
+    step Ajax Get Matching Primer Table
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   y.Select
+          -   , y.primer
+          -   , y.gene
+          -   , y.geneName
+          -   , y.primerInfo
+          - FROM
+          - (SELECT '' as 'Select','Order Primer' as 'primer','' as 'gene','' as 'geneName','N/A' as 'primerInfo' FROM DUAL
+          - UNION ALL
+          - SELECT
+          -   '' as 'Select'
+          -   , primerId as 'primer'
+          -   , gene
+          -   , geneName
+          -   , concat('Primer Id: ', ifnull(primerId, ''),
+          -       '<br>Forward Primer: ', ifnull(forwardPrimer, ''),
+          -       '<br>Forward Sequence: ', ifnull(forwardPrimerM13, ''),
+          -       '<br>Reverse Primer: ', ifnull(reversePrimer, ''),
+          -       '<br>Reverse Sequence: ', ifnull(reversePrimerM13, ''),
+          -       '<br>Product Length: ', ifnull(ampliconLength, ''),
+          -       '<br>Product Coordinates: ', ifnull(primerLocation, ''),
+          -       '<br>Forward Location: ', ifnull(forwardLocation, ''),
+          -       '<br>Reverse Location: ', ifnull(reverselocation, ''),
+          -       '<br>Dilution Location: ', ifnull(dilutionLocation, '')) as 'primerInfo'
+          - FROM primers
+          - WHERE ? = substring_index(primerLocation, ':', 1)
+          -   AND ? >=  substring_index(substring_index(primerLocation, ':', -1), '-', 1)+50
+          -   AND ? <= substring_index(substring_index(primerLocation, ':', -1), '-', -1)-50) as y
+          string {chromosome}
+          long {coordinate1}
+          long {coordinate2}
+
+    ####### Batch Processing ########
+    step Ajax Get Samples In Batch
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   c1.content as 'Sample'
+          -   , rf.Id as 'Accession'
+          -   , concat(p.lastName, ', ', p.firstName) as 'Patient'
+          -   , GROUP_CONCAT(distinct tp.name SEPARATOR ', ') as 'Panel'
+          -   , cp.value as 'Test'
+          - FROM contents c1
+          - INNER JOIN contents c2
+          -   ON c1.content = c2.containerId
+          -   AND c2.contentType = 'specimenId'
+          - INNER JOIN sampleProcessing sp
+          -   ON sp.sampleId = c2.content
+          - INNER JOIN requestForms rf
+          -   ON sp.reqId = rf.Id
+          - INNER JOIN entities p
+          -   ON rf.patientId = p.entityId
+          -   AND p.entityType = 'Patient'
+          - INNER JOIN testPanels tp
+          -   ON sp.panelCode = tp.panelCode
+          - LEFT JOIN containerProperties cp
+          -   ON cp.containerId = c2.containerId
+          -   AND (property = 'workflowIdentifier' or property = 'Workflow Identifier')
+          - WHERE c1.containerId = ?
+          -   AND c1.contentType NOT LIKE ?
+          - GROUP BY c1.content
+          - UNION
+          - SELECT c1.content,'','','',cp.value as 'Test'
+          - FROM contents c1
+          - INNER JOIN contents c2
+          -   ON c1.content = c2.containerId
+          - INNER JOIN controls c
+          -   ON c2.content = c.controlId
+          - LEFT JOIN containerProperties cp
+          -   ON cp.containerId = c2.containerId
+          -   AND (property = 'workflowIdentifier' or property = 'Workflow Identifier')
+          - WHERE c1.containerId = ?
+          -   AND c1.contentType NOT LIKE ?
+          -   and c2.contentType = 'Control'
+          - ORDER BY Test
+          string {batchId}
+          string batch-%
+          string {batchId}
+          string batch-%
+
+    step Ajax Get Samples In Batch Grouped By Workflow Identifier
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   c1.content as 'Sample'
+          -   , rf.Id as 'Accession'
+          -   , concat(p.lastName, ', ', p.firstName) as 'Patient'
+          -   , GROUP_CONCAT(DISTINCT tp.name SEPARATOR ', ') as 'Panel'
+          -   , cp.value as 'Test'
+          - FROM contents c1
+          - INNER JOIN containerProperties cp
+          -   ON cp.containerid = c1.content
+          -   AND (cp.property = 'workflowIdentifier' or cp.property = 'Workflow Identifier')
+          -   AND cp.value = ?
+          - INNER JOIN contents c2
+          -   ON cp.containerid = c2.containerId
+          -   AND c2.contentType = 'specimenId'
+          - INNER JOIN sampleProcessing sp
+          -   ON sp.sampleId = c2.content
+          - INNER JOIN requestForms rf
+          -   ON sp.reqId = rf.Id
+          - INNER JOIN entities p
+          -   ON rf.patientId = p.entityId
+          -   AND p.entityType = 'Patient'
+          - INNER JOIN testPanels tp
+          -   ON sp.panelCode = tp.panelCode
+          - WHERE c1.containerId = ?
+          -   AND c1.contentType NOT LIKE ?
+          - GROUP BY c1.content
+          - UNION
+          - SELECT
+          -   c1.content
+          -   ,''
+          -   ,''
+          -   ,''
+          -   ,cp.value as 'Test'
+          - FROM contents c1
+          - INNER JOIN containerProperties cp
+          -   ON cp.containerid = c1.content
+          -   AND (cp.property = 'workflowIdentifier' or cp.property = 'Workflow Identifier')
+          -   AND cp.value = ?
+          - INNER JOIN contents c2
+          -   ON cp.containerid = c2.containerId
+          - INNER JOIN controls c
+          -   ON c2.content = c.controlId
+          - WHERE c1.containerId = ?
+          -   AND c1.contentType NOT LIKE ?
+          - ORDER BY Test
+          string {workflowIdentifier}
+          string {batchId}
+          string batch-%
+          string {workflowIdentifier}
+          string {batchId}
+          string batch-%
+
+    step Ajax Get Samples From Queue
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          -   SELECT distinct
+          -     q.containerId as 'Sample'
+          -     , rf.Id as 'Accession'
+          -     , concat(p.lastName, ', ', p.firstName) as 'Patient'
+          -     ,GROUP_CONCAT(DISTINCT tp.name SEPARATOR ', ') as 'Panel'
+          -   FROM queues q
+          -   LEFT JOIN contents c1 on q.containerId = c1.containerId and c1.contentType = 'specimenId'
+          -   LEFT JOIN sampleProcessing sp on sp.sampleId = c1.content
+          -   LEFT JOIN requestForms rf on sp.reqId = rf.Id
+          -   LEFT JOIN entities p on rf.patientId = p.entityId and p.entityType = 'Patient'
+          -   LEFT JOIN testPanels tp on sp.panelCode = tp.panelCode
+          -   WHERE q.step = ?
+          -   GROUP By q.containerId
+          string {queueName}
+
+    step Ajax Get Previous Batches
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   c.content AS "Batch"
+          -   , c.contentType AS "Batch Type"
+          -   , e.step AS "Step"
+          -   , e.eventDate AS "Batch Creation"
+          -   , e.userId AS "Created By"
+          - FROM contents c
+          -   INNER JOIN containers co ON c.content = co.containerId
+          -   INNER JOIN events e on co.eventId = e.eventId
+          - WHERE c.containerId = ?
+          -   AND c.contentType like ?
+          string {batchId}
+          string batch-%
+
+    step AjaxGetSangerConfirmSampleList
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= stdTable
+        sqlPreparedQuery~ select q.containerId as 'Sample'
+          - , e.userId as 'Result Review User'
+          - , DATE_FORMAT(e.eventDate, '%m/%d/%Y') as 'Result Review Date'
+          - from queues q
+          - inner join events e on q.eventId = e.eventId
+          - where q.step = '_completedSangerConfirm'
+          -   and DATE_FORMAT(e.eventDate, '%m/%d/%Y') >= ? and DATE_FORMAT(e.eventDate, '%m/%d/%Y') <= ?
+          string {beginDate}
+          string {endDate}
+
+    step AjaxGetRUUCompleteSampleList
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxQuery
+      table
+        class= stdTable
+        sqlPreparedQuery~ select distinct rr.sampleId as "Sample Name"
+          -    , concat(ifnull(e.lastName,''), ', ', ifnull(e.firstName,'')) as "Patient Name"
+          -    , p.MRN
+          -    , rf.id as "Requisition ID"
+          -    , ev.userId as 'Result Review User'
+          -    , DATE_FORMAT(ev.eventDate, '%m/%d/%Y') as 'Result Review Date'
+          -  from ruuResults rr
+          -  inner join sampleProcessing sp on sp.sampleId = rr.sampleId
+          -  inner join requestForms rf on sp.reqId = rf.Id
+          -  inner join entities e on rf.patientId = e.entityId and e.entityType = 'Patient'
+          -  inner join patients p on rf.patientId = p.patientid
+          -  inner join events ev on ev.eventId = rr.eventId
+          -  where DATE_FORMAT(ev.eventDate, '%m/%d/%Y') >= ? and DATE_FORMAT(ev.eventDate, '%m/%d/%Y') <= ?
+          string {beginDate}
+          string {endDate}
+
+    step Ajax Lookup Tests for Panels
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT t.Id
+          - FROM testPanels tp
+          -   INNER JOIN testsForPanel tfp
+          -     ON tp.Id = tfp.panelId
+          -   INNER JOIN tests t
+          -     ON tfp.testId = t.Id
+          - WHERE tp.Id = ?
+          string {panelId}
+
+    step Ajax Lookup Tests for Drugs
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT t.Id
+          - FROM testPanels tp
+          -   INNER JOIN testsForPanel tfp
+          -     ON tp.Id = tfp.panelId
+          -   INNER JOIN tests t
+          -     ON tfp.testId = t.Id
+          - WHERE tp.Id = ?
+          string {drugId}
+
+    step Ajax Physicians By Organization Search Server
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      accessLevel 2
+      class uniflow.AjaxSelect
+      select
+        option
+        sqlPreparedQuery~ SELECT
+          - CONCAT(p.first_name, ' ', p.last_name) AS 'name',
+          - p.physicianId
+          - FROM physicians p
+          - INNER JOIN physicianSites ps
+          -   ON p.physicianId = ps.physicianId
+          -   AND ps.active = 1
+          - WHERE ps.siteId = ?
+          string {organizationId}
+
+
+    step Get Form Settings JSON
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT fsj.jsonObject AS 'JSON'
+          - FROM
+          - formDefinition fd
+          - INNER JOIN formSettingsJSON fsj
+          -   ON fd.id = fsj.formDefinitionId
+          - WHERE fd.formType = ?
+          -   AND fd.instance = ?
+          -   AND fd.workflow = ?
+          string {formType}
+          string {instance}
+          string {workflow}
+
+
+    step getBatchSampleData
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   vV.displayValue AS "orderPriority",
+          -   UPPER(sr.currentContainerId) AS "sampleId",
+          -   CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "patientName",
+          -   CONCAT(IFNULL(os.siteId, ''), '-', IFNULL(rf.mrn, '')) AS "MRN",
+          -   rs.specimenType AS "specimenType",
+          -   CONCAT(p.name , ' ' , IFNULL(t.name,'')) AS "tests",
+          -   os.name AS "customerName",
+          -   GROUP_CONCAT(DISTINCT(IFNULL(cn.note, '')) SEPARATOR '<br><br>') AS "commentHistory",
+          -   sr.runId
+          - FROM specimenRuns sr
+          - LEFT JOIN contents c
+          -   ON sr.currentContainerId = c.content
+          -   AND c.attribute <> 'self'
+          - INNER JOIN specimenMethods sm
+          -   ON sr.specimenMethodsId = sm.id
+          - INNER JOIN requestSpecimens rs
+          -   ON sm.requestSpecimensId = rs.id
+          - INNER JOIN requestForms rf
+          -   ON rs.requestId = rf.requestId
+          - LEFT JOIN validValues vV
+          -   ON vV.setName = 'priority'
+          -   AND vV.value = rf.priority
+          - LEFT JOIN patients pa
+          -   ON pa.patientId = rf.patientId
+          -   AND rs.patientId = pa.patientId
+          - INNER JOIN organizationSites os
+          -   ON os.siteId = rf.physicianSiteId
+          - INNER JOIN panels p
+          -   ON sm.panelCode = p.panelCode
+          - LEFT JOIN tests t
+          -   ON sm.testCode = t.testCode
+          - LEFT JOIN storage s
+          -   ON s.content = sr.currentContainerId
+          - LEFT JOIN containerNotes cn
+          -   ON cn.containerId = sr.runId
+          - LEFT JOIN physicians ph
+          -   ON ph.physicianId = rf.physicianId
+          - WHERE sr.currentContainerId = ?
+          - GROUP BY sr.currentContainerId, t.name
+          - ORDER BY IF(ISNULL(c.attribute), '', c.attribute) ASC
+          string {tubeId}
+
+
+
+
+    step Ajax Specimen Search Server
+      accessLevel 2
+      class uniflow.AjaxQuery
+      table
+        id= sampleSearchTable
+        class= stdTableBasic
+        sqlPreparedQuery~
+          - SELECT
+          -   CASE WHEN (length(?) > 0 AND p.firstName like ?) THEN 10 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND p.firstName = ?) THEN 12 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND p.lastName like ?) THEN 12 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND p.lastName = ?) THEN 15 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND rf.mrn = ?) THEN 20 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND p.dob =  str_to_date(?, '%m/%d/%Y')) THEN 20 ELSE 0 END +
+          -   CASE WHEN (length(?) > 0 AND p.geneticGender = ?) THEN 10
+          - ELSE 0 END AS 'Hidden'
+          - , CONCAT('<a href="/uniflow?lastForm=Y&stepName=Lookup+Sample+Report&recId=',rs.specimenId,'">',rs.specimenId,'</a>') AS 'Sample ID'
+          - , concat(p.firstName,' ',p.lastName) AS 'Name'
+          - , p.geneticGender AS 'Gender'
+          - , DATE_FORMAT(p.dob, '%m/%d/%Y') AS 'DOB'
+          - , rf.mrn AS 'MRN'
+          - FROM requestSpecimens rs
+          -   INNER JOIN requestForms rf ON rs.requestId = rf.requestId
+          -   INNER JOIN patients p ON rs.patientId = p.patientId
+          - WHERE ((length(?) > 0 AND p.lastName like ?)
+          - OR  (length(?) > 0 AND p.firstName like ?)
+          - OR (length(?) > 0 AND p.dob =  str_to_date(?, '%m/%d/%Y'))
+          - OR (length(?) > 0 AND rf.mrn = ?)
+          - OR (length(?) > 0 AND geneticGender = ?)
+          - )
+          - AND rs.specimenId <> ''
+          - ORDER BY Hidden DESC
+          string {firstName}
+          string %{firstName}%
+          string {firstName}
+          string {firstName}
+          string {lastName}
+          string %{lastName}%
+          string {lastName}
+          string {lastName}
+          string {MRN}
+          string {MRN}
+          string {DOB}
+          string {DOB}
+          string {gender}
+          string {gender}
+          string {lastName}
+          string %{lastName}%
+          string {firstName}
+          string %{firstName}%
+          string {DOB}
+          string {DOB}
+          string {MRN}
+          string {MRN}
+          string {gender}
+          string {gender}
+
+    ### FISH ANALYSIS ####
+    step Ajax Get FISH Probes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   DISTINCT probe
+          - FROM fishProbeCutOff
+          - WHERE probe <> 'NEW'
+
+    step Ajax Get Interpretations by Probes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT '' AS "displayValue"
+          - UNION ALL
+          - SELECT DISTINCT
+          -   displayValue AS "displayValue"
+          - FROM fishIscn
+          - WHERE probe = ?
+          -   AND status = 'TRUE'
+          string {selectProbe}
+
+    step Ajax Get FISH Comments by Probes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   comment
+          - FROM fishIscn
+          - WHERE probe = ?
+          string {selectProbe}
+
+    step Ajax Get Fish Report Values
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT
+          -   result AS "fishResult",
+          -   interpretation AS "fishInterpretation",
+          -   iscn AS "fishISCN",
+          -   comment AS "fishComment"
+          - FROM fishIscn
+          - WHERE displayValue = ?
+          string {displayValue}
+
+    step ajaxGetSlideNameCellLabelbyProbes
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT DISTINCT
+          -   CONCAT(slideName,' & ',cellLabel) AS "slideNameSlideLabel",
+          -   id AS "fishCaseResultsId"
+          - FROM fishCaseResults
+          - WHERE runId = ?
+          -   AND probeName = ?
+          - ORDER BY probeName
+          string {runId}
+          string {selectedProbe}
+
+    step Ajax Get Total Wells
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT (cp.value * cp2.value) AS "totalWells"
+          - FROM containerProperties cp
+          - INNER JOIN containerProperties cp2
+          -   ON cp.containerid = cp2.containerid
+          -   AND cp2.property = 'trayRowNumber'
+          - WHERE cp.containerid = ?
+          -   AND cp.property = 'trayColumnNumber'
+          string {destination}
+
+    step Ajax Get Filled Cells
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      table
+        sqlPreparedQuery~
+          - SELECT COUNT(*) AS "filledCells"
+          - FROM
+          -   (
+          -     SELECT sr.runId
+          -     FROM specimenRuns sr
+          -     WHERE sr.currentParentId = ?
+          -     UNION ALL
+          -     SELECT pr.poolRunId
+          -     FROM poolRuns pr
+          -     WHERE pr.currentParentId = ?
+          -     UNION ALL 
+          -     SELECT cr.controlRunId
+          -     FROM controlRuns cr 
+          -     WHERE cr.currentParentId = ?
+          -   ) x
+          string {destinationTray}
+          string {destinationTray}
+          string {destinationTray}
+
+    step Ajax Series Dilution Error Check
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      form
+      jython
+        import json
+        from com.uniconnect.uniflow.exception import SystemException
+        from java.sql import SQLException
+        errorLocation = '<<<<< dilution check >>>>>'
+        switchboard.log('<<<<<< dilution check  >>>>>>')
+        try:
+          containersString = r'''{thisContainer}'''.encode("utf-8")
+          containerArr = containersString.split(',')
+          existingContainers = []
+          getContainersQuery = '''SELECT containerId FROM containers WHERE containerId = ?'''
+          getContainersQueryStmt = switchboard.connection.prepareStatement(getContainersQuery)
+          for con in containerArr:
+            getContainersQueryStmt.setString(1, con)
+            errorLocation = '<<<<< getContainersQueryStmt execute query >>>>>'
+            theIds = getContainersQueryStmt.executeQuery()
+            errorLocation = '<<<<< while loop: theIds >>>>>'
+            while theIds.next():
+              containerIds = theIds.getString('containerId')
+              existingContainers.append(containerIds)
+          if len(existingContainers) > 0:
+            switchboard.formResults.put('HASDUPLICATES', 'Duplicates')
+          else:
+            switchboard.formResults.put('HASDUPLICATES', 'NoDuplicates')
+          theIds.close()
+          getContainersQueryStmt.close()
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'true')
+        except Exception as e:
+          switchboard.log("---FAILURE TO INSERT/UPDATE CORRECTED REPORT DATA----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except StandardError as e:
+          switchboard.log("---*** Standard Py Error *** ")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except SystemException as e:
+          switchboard.log("---*** UNIFlow SystemException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except SQLException as e:
+          switchboard.log("---*** SQLException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except BaseException as e:
+          switchboard.log("---*** PyException ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except TypeError as e:
+          switchboard.log("---*** TypeError ***----")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+        except:
+          switchboard.log("*** Unspecified Error *****")
+          switchboard.log("ERROR LOCATION: " + errorLocation)
+          switchboard.log(str(e.message))
+          switchboard.formResults.put('PROCESSINGSUCCESSFUL', 'false')
+      validateSql SELECT 1 from dual WHERE '{_:hasDuplicates}' = 'NoDuplicates'
+        errorMessage Containers already exist
+      validateSql SELECT 1 from dual WHERE '{_:processingSuccessful}' = 'true'
+        errorMessage Error occured.
+

@@ -1,0 +1,610 @@
+config
+  includes
+    includeable split_sample_form0
+      ### PARAMETERS IN
+      ###   prioritySetName - display value for priority
+      ### PARAMETERS OUT
+      ###   specimenId
+      script
+        src= js/splitSamples/splitSamples_form0.js
+
+
+      vertical
+        container specimenId
+          screenLabel~ Specimen Id
+          class= barcodeBackground
+          acceptQueue~ any
+          validate~ SELECT 1 FROM queues q
+            - INNER JOIN specimenRuns sr
+            -   ON q.containerId = sr.runId
+            - WHERE sr.currentContainerId = ? AND q.step = ?
+            string {_thisInput}
+            string {_step}
+            errorMessage~ Cannot find Specimen Id. Please enter Specimen Id that exists in this queue.
+
+      br
+      br
+      vertical
+        table
+          id= splitSample_list
+          class= stdTableBasic
+          sqlPreparedQuery~ SELECT
+            - DISTINCT
+            - CONCAT('<a href="/uniflow?lastForm=Y&stepName=', ?, '&recId=', sr.currentContainerId, '">', sr.currentContainerId, '</a>') AS "Sample Id",
+            - rf.requestId AS "Order Number",
+            - vV.displayValue AS "Order Priority",
+            - IFNULL(rf.mrn, '') AS "MRN",
+            - CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "Patient Name",
+            - CONCAT(s.storageContainerId, IF(s.location = 'storage', '', CONCAT(':', s.location))) AS "Storage Location",
+            - rs.specimenType AS "Specimen Type",
+            - p.name AS "Panel",
+            - t.name AS "Test",
+            - m.name AS "Method",
+            - DATE(e.eventDate) AS "Queue Date",
+            - e.userId AS "Queued By"
+            - FROM queues q
+            - INNER JOIN specimenRuns sr
+            -   ON q.containerId = sr.runid
+            - INNER JOIN specimenMethods sm
+            -   ON sr.specimenMethodsId = sm.id
+            - LEFT JOIN requestSpecimens rs
+            -   ON sm.requestSpecimensId = rs.id
+            - INNER JOIN requestForms rf
+            -   ON rs.requestId = rf.requestId
+            - LEFT JOIN panels p
+            -   ON sm.panelCode = p.panelCode
+            - LEFT JOIN tests t
+            -   ON sm.testCode = t.testCode
+            - LEFT JOIN methods m
+            -   ON sm.methodCode = m.methodCode
+            - INNER JOIN events e
+            -   ON q.eventId = e.eventId
+            - LEFT JOIN validValues vV
+            -   ON vV.setName = ? AND vV.value = rf.priority
+            - LEFT JOIN patients pa
+            -   ON pa.patientId = rf.patientId
+            -   AND rs.patientId = pa.patientId
+            - LEFT JOIN storage s
+            -   ON s.content = sr.currentContainerId
+            - WHERE q.step = ?
+            string {_step}
+            string {_includeParm:prioritySetName}
+            string {_step}
+
+    includeable split_sample_form1
+      ### PARAMETERS IN
+      ###   showPatientName - Yes/No
+      ###   showMrn - Yes/No
+      ###   showSpecimenType - Yes/No
+      ###   showCollectionDate - Yes/No
+      ###   showParentTestAndMethods - Yes/No
+      ###   showTestAndMethods - Yes/No
+      ###   comments - Yes/No
+      ###   print - Yes/No
+      ###   action - Yes/No
+      ###   actionSetName - setName for actions column
+      ###   minSamples - Set the minimum default sample entries
+      ###   addSamples - Add/Remove the ability to dynamically add new rows
+      ###   setnameUnits  - Specify the setName for the units
+      script
+        src= js/splitSamples/splitSamples_form1.js
+
+      formPreparedQuery~ SELECT
+        - rf.requestId AS "requestId",
+        - sr.runId AS "runId",
+        - CONCAT(IFNULL(pa.firstName, ''), ' ', IFNULL(pa.lastName, '')) AS "patientName",
+        - IFNULL(rf.mrn, '') AS "mrn",
+        - rs.specimenType AS "specimenType",
+        - DATE(rs.collectionDate) AS "collectionDate",
+        - sm.testCode AS "test",
+        - sm.methodCode AS "method",
+        - sm.id AS "specimenMethodsId"
+        - FROM queues q
+        - INNER JOIN specimenRuns sr
+        -   ON q.containerId = sr.runId
+        - INNER JOIN specimenMethods sm
+        -   ON sr.specimenMethodsId = sm.id
+        - LEFT JOIN requestSpecimens rs
+        -   ON sm.requestSpecimensId = rs.id
+        - INNER JOIN requestForms rf
+        -   ON rs.requestId = rf.requestId
+        - LEFT JOIN patients pa
+        -   ON pa.patientId = rf.patientId
+        -   AND rs.patientId = pa.patientId
+        - WHERE sr.currentContainerId = ? AND q.step = ?
+        string {_includeParm:specimenId}
+        string {_step}
+
+      formPreparedQuery~
+        - SELECT
+        -   value AS "quantity",
+        -   'Yes' AS "recordedQuantity"
+        - FROM containerProperties
+        - WHERE containerId = ? AND property = 'Sample Quantity'
+        allowEmptyResults~
+        emptyResultDefault~
+          recordedQuantity= No
+        string {_includeParm:specimenId}
+
+      formPreparedQuery~
+        - SELECT
+        -   value AS "units",
+        -   'Yes' AS "recordedUnits"
+        - FROM containerProperties
+        - WHERE containerId = ? AND property = 'Sample Quantity Units'
+        allowEmptyResults~
+        emptyResultDefault~
+          recordedUnits= No
+        string {_includeParm:specimenId}
+
+      hidden runId
+        value= {_:runId}
+
+      hidden specimenMethodsId
+        value= {_:specimenMethodsId}
+
+      hidden specimenId
+        value= {_includeParm:specimenId}
+
+      hidden requestId
+        value= {_:requestId}
+
+      hidden minSamples
+        id= splitSample_minSamples
+        value= {_includeParm:minSamples}
+
+      formQuery~ collectionDate
+        formatDate~
+        value= {_:collectionDate}
+      div
+        hidden quantityRequired
+          id= quantityRequired
+          value= {_includeParm:quantityRequired}
+        hidden unitsRequired
+          id= unitsRequired
+          value= {_includeParm:unitsRequired}
+
+      div
+        class= additionalColumns
+        hidden print
+          id= enablePrint
+          value= {_includeParm:print}
+        hidden action
+          id= enableAction
+          value= {_includeParm:action}
+        hidden comments
+          id= enableComments
+          value= {_includeParm:comments}
+        hidden testAndMethods
+          id= enableTestAndMethods
+          value= {_includeParm:showTestAndMethods}
+        hidden parentTestAndMethods
+          id= enableParentTestAndMethods
+          value= {_includeParm:showParentTestAndMethods}
+
+      div
+        id= splitSampleSection
+        div
+          configureIf~ {_includeParm:showPatientName}
+            advanced~
+            equals~ Yes
+          vertical
+            text patientName
+              screenLabel~ Patient Name
+              value= {_:patientName}
+              readonly=
+        div
+          configureIf~ {_includeParm:showMrn}
+            advanced~
+            equals~ Yes
+          vertical
+            text mrn
+              screenLabel~ MRN
+              value= {_:mrn}
+              readonly=
+        div
+          configureIf~ {_includeParm:showSpecimenType}
+            advanced~
+            equals~ Yes
+          vertical
+            text specimenType
+              screenLabel~ Specimen Type
+              value= {_:specimenType}
+              readonly=
+        div
+          configureIf~ {_includeParm:showCollectionDate}
+            advanced~
+            equals~ Yes
+          vertical
+            date collectionDate
+              convert~ false
+              class= datePicker
+              screenLabel~ Collection Date
+              value= {_:collectionDate}
+
+        div
+          vertical2
+            number quantity
+              screenLabel~ Quantity
+              value= {_:quantity}
+              id= splitSample_parent_quantity
+              class= textboxNumber
+              required~ {_includeParm:quantityRequired} == Yes
+            select units
+              id= splitSample_parent_units
+              setName~ {_includeParm:setNameUnits}
+              screenLabel~ Units
+              value= {_:units}
+              required~ {_includeParm:unitsRequired} == Yes
+        div
+          configureIf~ {_includeParm:showParentTestAndMethods}
+            advanced~
+            equals~ Yes
+          vertical2
+            select test
+              id= splitSample_parent_test
+              screenLabel~ Test
+              sqlPreparedQuery~ SELECT distinct
+                - t.name, t.testcode
+                - FROM reqPanels rp
+                - INNER JOIN testPanels tp
+                -   ON rp.panelCode = tp.panelCode
+                - INNER JOIN tests t
+                -   ON tp.testcode = t.testCode
+                - WHERE rp.requestId = ?
+                string {_:requestId}
+              value= {_:test}
+
+
+            select testMethod
+              id= splitSample_parent_testMethod
+              screenLabel~ Method
+              value= {_:method}
+      br
+      br
+      vertical
+        table
+          id= splitSample_table
+          sqlPreparedQuery~ SELECT
+            - '' AS "Sample",
+            - '' AS "Test",
+            - '' AS "Method",
+            - '' AS "Quantity",
+            - '{_:units}' AS "Units",
+            - '' AS "Action",
+            - '' AS "Comments",
+            - '' AS "Print"
+          columnSpecs~ splitSamples
+            allowChangedRecordIds
+            column 1
+              inputType container
+                class= barcodeBackground splitSample_containerId
+                new~ true
+                addContent~
+                containerType~ aliquotId
+                contentType~ aliquotId
+                required~ false
+            column 2
+              inputType select
+                class= splitSample_test
+                sqlPreparedQuery~ SELECT distinct
+                  - t.name, t.testcode
+                  - FROM reqPanels rp
+                  - INNER JOIN testPanels tp
+                  -   ON rp.panelCode = tp.panelCode
+                  - INNER JOIN tests t
+                  -   ON tp.testcode = t.testCode
+                  - WHERE rp.requestId = ?
+                  string {_:requestId}
+            column 3
+              inputType select
+                class= splitSample_testMethod
+                required~ false
+            column 4
+              inputType text
+                class= splitSample_quantity textboxNumber
+                validate~ SELECT 1 FROM DUAL
+                  - WHERE (? <> '' AND ? = 'Yes' AND ? <> '') OR (? <> 'Yes')
+                  - OR (? = '')
+                  string {_columnInput:1}
+                  string {_includeParm:quantityRequired}
+                  string {_thisInput}
+                  string {_includeParm:quantityRequired}
+                  string {_columnInput:1}
+                  errorMessage~ Sample and quantity are required.
+            column 5
+              inputType text
+                class= splitSample_units
+                readonly= true
+            column 6
+              inputType select
+                setName~ {_includeParm:actionSetName}
+                required~ false
+            column 7
+              inputType textArea
+                class= splitSample_comments
+            column 8
+              inputType hidden
+                class= printButton
+
+        div
+          configureIf~ {_includeParm:addSamples}
+            advanced~
+            equals~ Yes
+          vertical
+            button Add New Row
+              id= splitSample_addRow
+
+
+    includeable split_sample_sql
+      ### PARAMETERS IN
+      ###   showParentTestAndMethods - Yes/No
+      ###   showTestAndMethods - Yes/No
+      ###   routeDefaultNextStep - Default Next Step for the parameter driven routing
+      ifCondition~ {_includeParm:showParentTestAndMethods}
+        advanced~
+        equals~ Yes
+
+        ### update test/method if changed for parent sample
+        sqlPreparedStatement
+          - UPDATE specimenMethods
+          - SET testCode = ?,
+          -     methodCode = ?
+          - WHERE id = ?
+          string {test}
+          string {testMethod}
+          int {_:specimenMethodsId}
+
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1 FROM requestSpecimens rs
+              - INNER JOIN specimenMethods sm
+              - ON rs.id = sm.requestSpecimensId
+              - WHERE rs.specimenId = ?
+              string {specimenId}
+
+          setFormQueryResult
+            sqlPreparedQuery~ SELECT id AS "requestSpecimensId"
+              - FROM requestSpecimens rs
+              - WHERE rs.specimenId = ?
+              string {specimenId}
+
+          # Insert test
+          sqlPreparedStatement~ INSERT
+            - INTO specimenMethods
+            - (requestSpecimensId, testCode, methodCode, runCount, eventId)
+            - VALUES (?, ?, ?, 1, ?)
+            string {_:requestSpecimensId}
+            string {test}
+            string {testMethod}
+            long {_eventId}
+
+          setFormQueryResult
+            sqlQuery~ SELECT LAST_INSERT_ID() AS "specimenMethodsId"
+
+          # Else: Update
+          else
+            sqlPreparedStatement~ UPDATE
+              - requestSpecimens rs
+              - INNER JOIN specimenMethods sm
+              -   ON rs.id = sm.requestSpecimensId
+              - SET
+              - sm.testCode = ?,
+              - sm.methodCode = ?
+              - WHERE rs.specimenId = ?
+              string {test}
+              string {testMethod}
+              string {specimenId}
+
+            setFormQueryResult
+              sqlPreparedQuery~ SELECT sm.id AS "specimenMethodsId"
+                - FROM requestSpecimens rs
+                - INNER JOIN specimenMethods sm
+                -   ON rs.id = sm.requestSpecimensId
+                - WHERE rs.specimenId = ?
+                string {specimenId}
+
+        include routeContainer
+          parameter~ processContainerId
+            value= {runId}
+          parameter~ result
+            value=
+          parameter~ deleteFromStep
+            value= {_step}
+          parameter~ defaultNextStep
+            value= {_includeParm:routeDefaultNextStep}
+          parameter~ routingType
+            value= run
+          parameter~ routingDirection
+            value= IN
+          parameter~ endOfWorkflow
+            value= No
+          parameter~ sourceStep
+            value= {_step}
+
+
+      # Check if 'Sample Quantity' property exists. Do an insert or update
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1 FROM containerProperties cp
+            - WHERE cp.property = 'Sample Quantity' AND cp.containerId = ?
+            string {specimenId}
+
+        # Insert quantity
+        sqlPreparedStatement~ INSERT
+          - INTO containerProperties
+          - (containerId, property, value, eventId)
+          - VALUES (?, 'Sample Quantity', ?, ?)
+          string {specimenId}
+          string {quantity}
+          long {_eventId}
+
+        # Else: Update
+        else
+          sqlPreparedStatement~ UPDATE containerProperties cp
+            - SET cp.value = ?,
+            - cp.eventId = ?
+            - WHERE
+            -   cp.property = 'Sample Quantity'
+            -   AND cp.containerId = ?
+            string {quantity}
+            long {_eventId}
+            string {specimenId}
+
+      # Check if 'Sample Quantity Units' property exists. Do an insert or update
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1 FROM containerProperties cp
+            - WHERE cp.property = 'Sample Quantity Units' AND cp.containerId = ?
+            string {specimenId}
+
+        # Insert units
+        sqlPreparedStatement~ INSERT
+          - INTO containerProperties
+          - (containerId, property, value, eventId)
+          - VALUES (?, 'Sample Quantity Units', ?, ?)
+          string {specimenId}
+          string {units}
+          long {_eventId}
+
+
+        # Else: Update
+        else
+          sqlPreparedStatement~ UPDATE containerProperties cp
+            - SET cp.value = ?,
+            - cp.eventId = ?
+            - WHERE
+            -   cp.property = 'Sample Quantity Units'
+            -   AND cp.containerId = ?
+            string {units}
+            long {_eventId}
+            string {specimenId}
+
+
+      # Handle aliquots
+      forRows splitSamples
+        ifCondition {_columnInput_splitSamples:1}
+          advanced~
+          not~
+            isBlank~
+
+          # Copy contents from parent specimenId
+          sqlPreparedStatement~ INSERT INTO
+            - contents (containerId, attribute, contentType, content, eventId)
+            - SELECT ?, attribute, contentType, content, ?
+            - FROM contents WHERE containerId = ? AND contentType <> 'aliquotId'
+            string {_columnInput_splitSamples:1}
+            long {_eventId}
+            string {specimenId}
+
+          ifCondition~ {_columnInput_splitSamples:4}
+            advanced~
+            not~
+              isBlank~
+            # Insert volume
+            sqlPreparedStatement~ INSERT
+              - INTO containerProperties
+              - (containerId, property, value, eventId)
+              - VALUES (?, 'Sample Quantity', ?, ?)
+              string {_columnInput_splitSamples:1}
+              string {_columnInput_splitSamples:4}
+              long {_eventId}
+
+          ifCondition~ {_columnInput_splitSamples:5}
+            advanced~
+            not~
+              isBlank~
+            # Insert units
+            sqlPreparedStatement~ INSERT
+              - INTO containerProperties
+              - (containerId, property, value, eventId)
+              - VALUES (?, 'Sample Quantity Units', ?, ?)
+              string {_columnInput_splitSamples:1}
+              string {_columnInput_splitSamples:5}
+              long {_eventId}
+
+
+          ifCondition~ {_columnInput_splitSamples:2}
+            advanced~
+            not~
+              isBlank~
+            and~ {_includeParm:showTestAndMethods}
+              equals~ Yes
+            # NOTE: Insert to requestSpecimens if tests/panels are configured
+            sqlPreparedStatement~ INSERT
+              - INTO requestSpecimens
+              - (requestId, patientId, specimenType, specimenSource, collectionDate,
+              - collectionTime, receivedDate, collectorName, specimenCondition,
+              - specimenId, specimenQuantity,
+              - specimenQuantityUnits, status, eventId)
+              - SELECT requestId, patientId, specimenType, specimenId, collectionDate,
+              - collectionTime, receivedDate, collectorName, specimenCondition, ?, ?,
+              -  ?, status, ?
+              - FROM requestSpecimens rs
+              - WHERE specimenId = ?
+              string {_columnInput_splitSamples:1}
+              string {_columnInput_splitSamples:4}
+              string {_columnInput_splitSamples:5}
+              long {_eventId}
+              string {specimenId}
+
+            # Insert test
+            sqlPreparedStatement~ INSERT
+              - INTO specimenMethods
+              - (requestSpecimensId, testCode, methodCode, runCount, eventId)
+              - VALUES (LAST_INSERT_ID(), ?, ?, 1, ?)
+              string {_columnInput_splitSamples:2}
+              string {_columnInput_splitSamples:3}
+              long {_eventId}
+
+            setFormQueryResult
+              sqlQuery~ SELECT LAST_INSERT_ID() AS "specimenMethodsId"
+
+            include createNewRun
+              parameter~ specimenMethodsId
+                value= {_:specimenMethodsId}
+              parameter~ processContainerId
+                value= {_columnInput_splitSamples:1}
+              parameter~ runType
+                value= workflow
+              parameter~ processRunWorkflowParentRunId
+                value=
+              parameter~ currentParentId
+                value=
+              parameter~ currentParentPosition
+                value=
+
+            # Insert comments
+            ifCondition {_columnInput_splitSamples:7}
+              advanced~
+              not~
+                isBlank~
+              sqlPreparedStatement~ INSERT INTO
+                - containerNotes (containerId, noteType, note, eventId)
+                - VALUES (?, 'comment', ?, ?)
+                string {_:runId}
+                string {_columnInput_splitSamples:7}
+                long {_eventId}
+
+            include routeContainer
+              parameter~ processContainerId
+                value= {_:runId}
+              parameter~ result
+                value=
+              parameter~ deleteFromStep
+                value=
+              parameter~ defaultNextStep
+                value= {_includeParm:routeDefaultNextStep}
+              parameter~ routingType
+                value= run
+              parameter~ routingDirection
+                value= OUT
+              parameter~ endOfWorkflow
+                value= No
+              parameter~ sourceStep
+                value= {_step}
+
+

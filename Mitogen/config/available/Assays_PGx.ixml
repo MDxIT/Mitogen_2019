@@ -1,0 +1,2004 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup PGx
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step PGx Extraction  
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+      form
+        include userAccountInfo
+        style
+          type= text/css
+        style
+          - [barcode=barcode] {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+
+        fieldset
+          legend Lock Samples to User
+          vertical
+            checkbox lockSamples
+              screenLabel~ 
+              span Lock Samples
+
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~ 
+              - SELECT 	
+              -   '' AS "Specimen" ,
+              -   '' AS "Extract" ,
+              -   '' AS "Comments"
+              - FROM queues
+              - WHERE step = '{_step}'
+              - LIMIT 24
+            columnSpecs~ extraction
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  barcode= barcode
+                  required~ false
+                  if~ {_columnInput:2}_blank <> _blank
+                    deleteQueue~ {_step}
+              column 2
+                inputType container
+                  containerType~ extractionTubeId
+                  barcode= barcode
+                  required~ false
+                  new~ true
+                  addContent~
+                  insertQueue~ PGx Quant
+                  if~ {_thisInput}_BLANK <> _BLANK
+                    if~ {lockSamples} == true
+                      sql insert into contents (containerId, attribute, contentType, content, eventId)
+                        - values ('{_columnInput:2}', 'self', 'userId', '{_userId}', {_eventId})
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT '{_columnInput:2}', c.attribute, c.contentType, c.content, {_eventId}
+                      - FROM contents c
+                      - WHERE c.containerId = '{_columnInput:1}')
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent1}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent1}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent2}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent2}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent3}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent3}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent4}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent4}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent5}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent5}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent6}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent6}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent7}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent7}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{reagent8}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{reagent8}', {_eventId})
+                  if~ SELECT 'Exists' 
+                    - FROM dual
+                    - WHERE '{_thisInput}' <> ''
+                    - AND '{instrument}' <> ''
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Reagent', '{instrument}', {_eventId})
+                  if~ {_columnInput:3}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Notes', '{_columnInput:3}', {_eventId})
+              column 3
+                inputType text
+                  style= width:250px
+        fieldset
+          legend Resources 
+#(not functioning yet, waiting for Reagent System to come online)
+          #  style= color:red;
+          #  span <br/>Questions about how to assign the reagents to a table of samples.
+          vertical2
+            passiveContainer reagent1
+              barcode= barcode
+              screenLabel~ PBS
+              required~ false
+            passiveContainer reagent2
+              barcode= barcode
+              screenLabel~ Buffer AL
+              required~ false
+            passiveContainer reagent3
+              barcode= barcode
+              screenLabel~ QIAGEN Protease
+              required~ false
+            passiveContainer reagent4
+              barcode= barcode
+              screenLabel~ QIAamp spin column
+              required~ false
+            passiveContainer reagent5
+              barcode= barcode
+              screenLabel~ Ethanol
+              required~ false
+            passiveContainer reagent6
+              barcode= barcode
+              screenLabel~ Buffer AW1
+              required~ false
+            passiveContainer reagent7
+              barcode= barcode
+              screenLabel~ Buffer AW2
+              required~ false
+            passiveContainer reagent8
+              barcode= barcode
+              screenLabel~ Buffer AE
+              required~ false
+            passiveContainer instrument
+              barcode= 	barcode
+              screenLabel~ QIAcube Equipment ID
+              required~ false
+              value= E00090
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step PGx Quant
+      queueQuery 
+        - SELECT q.containerId AS "Extract" ,
+        - c.content AS "Comments" ,
+        - e.eventDate, e.userId
+        - FROM queues q
+        - INNER JOIN events e
+        - ON q.eventId = e.eventId
+        - LEFT JOIN contents c
+        - ON q.containerid = c.containerId
+        - AND q.eventId = c.eventId
+        - AND 'Notes' = c.contentType
+        - WHERE q.step = 'PGx Quant'
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+      form
+        style
+          type= text/css
+        style
+          - [barcode=barcode] {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#supOverride').hide();
+          -   if ($('#errorId').length > 0) {
+          -     $('#supOverride').show();
+          -   };
+          -   $('.hideCol').addClass('hide');
+          -   $('.hideCol').parent().addClass('hide');
+          -   $('th:contains("hiddenCol")').addClass('hide');
+          -   $('.hide').hide();
+          -   $('.conc').change(function() {
+          -     if(parseFloat($(this).val()) < 2.5) {
+          -       $(this).parent().siblings().children('.result').val('Fail');
+          -     } else {
+          -       $(this).parent().siblings().children('.result').val('Pass');
+          -       var DNAvol = (5/parseFloat($(this).val())) * 50;
+          -       var H2Ovol = 250 - DNAvol;
+          -       $(this).parent().siblings().children('.dna').val(DNAvol.toFixed(2));
+          -       $(this).parent().siblings().children('.h2o').val(H2Ovol.toFixed(2));
+          -     }
+          -   });
+          -   $('.extract').change(function() {
+          -     $('#userId').val('');
+          -     $('#password').val('');
+          -   });
+          -   $('.reading').change(function() {
+          -     var r1 = $(this).val();
+          -     var r2 = $(this).parent().siblings().children('.reading').first().val();
+          -     var r3 = $(this).parent().siblings().children('.reading').last().val();
+          -     var sum = Number(r1) + Number(r2) + Number(r3);
+          -     var count = $(this).parent('td').parent('tr').children('td').children('.reading[value!=""]').length;
+          -     var ave = sum/count;
+          -     $(this).parent('td').siblings('td').children('.conc').val(ave);
+          -     if(parseFloat(ave) < 2.5) {
+          -       $(this).parent().siblings().children('.result').val('Fail');
+          -       $(this).parent().siblings().children('.dna').val('');
+          -       $(this).parent().siblings().children('.h2o').val('');
+          -     } else {
+          -       $(this).parent().siblings().children('.result').val('Pass');
+          -       var DNAvol = (5/parseFloat(ave)) * 50;
+          -       var H2Ovol = 250 - DNAvol;
+          -       $(this).parent().siblings().children('.dna').val(DNAvol.toFixed(2));
+          -       $(this).parent().siblings().children('.h2o').val(H2Ovol.toFixed(2));
+          -     }
+          -   });
+          - });
+        fieldset
+          id= supOverride
+          legend Supervisor Override
+          vertical
+            text user
+              id= userId
+              screenLabel~ Supervisor Login
+              validate~ select 1 from userInfo where (userId = '{user}' and accessLevel > 9) or '{user}' = ''
+                errorMessage~ You must be a supervisor with access level 10 to override the sample lock.
+            password_input Password
+              id= password
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~ 
+              - SELECT 
+              -   '' AS "Extract" ,
+              -   '' AS "Reading #1 hiddenCol" ,
+              -   '' AS "Reading #2 hiddenCol" ,
+              -   '' AS "Reading #3 hiddenCol" ,
+              -   '' AS "Ave Reading (ng/&micro;L)" ,
+              -   '' AS "DNA" ,
+              -   '' AS "H<sub>2</sub>0" ,
+              -   '' AS "Dilution hiddenCol" ,
+              -   '' AS "Result" ,
+              -   '' AS "Comments"
+              - FROM queues 
+              - WHERE step = '{_step}'
+              - LIMIT 24
+            columnSpecs~ extraction
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  class= extract
+                  validate~ select 1 from dual 
+                    - where exists (select 1 
+                    -                 from contents 
+                    -                 where containerId = '{_thisInput}' 
+                    -                 and contentType = 'userId' 
+                    -                 and content = '{_userId}')
+                    - or not exists (select 1 
+                    -                 from contents 
+                    -                 where containerId = '{_thisInput}' 
+                    -                 and contentType = 'userId')
+                    - or '{user}' <> ''
+                    errorMessage~ These samples are locked to the extraction user.
+                  required~ false
+                  barcode= barcode
+                  sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                    - VALUES ('{_thisInput}', 'dilution', 'DNA Volume', '{_columnInput:6}', {_eventId})
+                  sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                    - VALUES ('{_thisInput}', 'dilution', 'H2O Volume', '{_columnInput:7}', {_eventId})
+                  if~ {reagent1}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'reagent', 'Qubit dsDNA BR Kit', '{reagent1}', {_eventId})
+                  if~ {reagent2}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'reagent', 'dH2O', '{reagent2}', {_eventId})
+                  if~ {instrument}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'reagent', 'Qubit analyzer', '{instrument}', {_eventId})
+                  if~ {_columnInput:9} == Pass
+                    insertQueue~ PGx PCR Setup
+                    deleteQueue~ {_step}
+                  if~ {_columnInput:9} == QNS
+                    deleteQueue~ {_step}
+                    sql INSERT INTO containers (containerId, containerType, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'reportId', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO containerHistory (containerId, eventId)
+                      - (SELECT CONCAT('REPORT-', content), {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'self', 'reportId', CONCAT('REPORT-', content), {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'self', 'requestId', content, {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT CONCAT('REPORT-', c.content), 'pateintId', 'patientId', rf.patientId, {_eventId}
+                      -  FROM contents c
+                      -  INNER JOIN requestForms rf
+                      -  ON c.content = rf.Id
+                      -  WHERE c.containerId = '{_thisInput}'
+                      -  AND c.contentType = 'requestId')
+                    sql~ insert into containerProperties (containerId,property,value,eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'title',  'DME - High Risk Panel', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO queues (containerId, step, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'Sign Out Report', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO pcrImport (containerId, assay, result, metric, eventId)
+                      - (SELECT DISTINCT c.containerId, t.abbreviation, 'QNS', 'QNS', {_eventId}
+                      - FROM contents c
+                      - INNER JOIN reqTests rt
+                      - ON c.content = rt.reqId
+                      - INNER JOIN tests t
+                      - ON rt.testId = t.id
+                      - WHERE c.containerId = '{_thisInput}')
+                  if~ {_columnInput:9}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Notes', 'Quant Result: {_columnInput:9}. {_columnInput:10}', {_eventID})
+                  if~ {_columnInput:9} == ReQuant
+                    insertQueue~ PGx Quant
+                    deleteQueue~ {_step}
+                  if~ {_columnInput:9} == Fail
+                    if~ select content from containerProperties cp join contents co on co.content = cp.containerId 
+                      - where co.containerId = '{_thisInput}' and contentType = 'requestId'
+                      - and property = 'contactCustomer' and value like 'Quant Fail%'
+                      deleteQueue~ {_step}
+                      sql INSERT INTO queues (containerId, step, eventID) values ('{_thisInput}', 'Failed Quant Review', {_eventId})
+#                         - (SELECT content, 'Failed Quant Review', {_eventId}
+#                         -  FROM contents 
+#                         -  WHERE containerId = '{_thisInput}'
+#                         -  AND contentType = 'requestId')
+                    sql INSERT INTO containerProperties (containerId, property, value, eventId)
+                      - (SELECT content, 'contactCustomer', 'Quant Fail. {_columnInput:10}', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+              column 2
+                inputType text
+                  class= text r1 reading hideCol
+                  style= width:50px;
+              column 3
+                inputType text
+                  class= text r2 reading hideCol
+                  style= width:50px;
+              column 4
+                inputType text
+                  class= text r3 reading hideCol
+                  style= width:50px;
+              column 5
+                inputType text
+                  class= text conc
+#                  style= width:50px;border:0;
+              column 6
+                inputType text
+                  class= text dna
+                  style= width:50px;border:0;
+              column 7
+                inputType text
+                  class= text h2o
+                  style= width:50px;border:0;
+              column 8
+                inputType container
+                  barcode= barcode
+                  class= hideCol
+                  new~ true
+                  required~ false
+                  containerType~ dilutionTubeId
+#                  if~ {_columnInput:9} == Pass
+#                    insertQueue~ PGx PCR Setup
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - VALUES ('{_thisInput}', 'dilution', 'DNA Volume', '{_columnInput:6}', {_eventId})
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - VALUES ('{_thisInput}', 'dilution', 'H2O Volume', '{_columnInput:7}', {_eventId})
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - (SELECT '{_thisInput}', attribute, contentType, content, {_eventId}
+#                      -  FROM contents
+#                      -  WHERE containerId = '{_columnInput:1}')
+#                  if~ {_columnInput:9}_BLANK <> _BLANK
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - VALUES ('{_thisInput}', 'self', 'Notes', 'Quant Result: {_columnInput:9}. {_columnInput:10}', {_eventID})
+              column 9
+                inputType select
+                  class= text result
+                  option Pass
+                  option ReQuant
+                  option QNS
+                  option Fail
+              column 10
+                inputType text
+                  style= width:180px
+        fieldset
+          legend Resources 
+#(not functioning yet, waiting for Reagent System to come online)
+          #  style= color:red;
+          #  span <br/>Questions about how to assign the reagents to a table of samples.
+          vertical
+            passiveContainer reagent1
+              screenLabel~ Qubit dsDNA BR Kit
+              required~ false
+              barcode= barcode
+            passiveContainer reagent2
+              screenLabel~ dH2O
+              required~ false
+              barcode= barcode
+            passiveContainer instrument
+              screenLabel~ Qubit analyzer Equipment ID:
+              required~ false
+              value= E00134
+              barcode= barcode
+
+      execClassMethod uniflow.Switchboard.validatePassword
+        userIdField user
+        passwordField Password
+        minimumAccessLevel 6
+
+    step Failed Quant Review
+      form
+        include userAccountInfo
+        style
+          - [barcode=barcode] {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+        script
+          - $(document).ready(function() {
+          -   $('.hideCol').addClass('hide');
+          -   $('.hideCol').parent().addClass('hide');
+          -   $('th:contains("hiddenCol")').addClass('hide');
+          -   $('.hide').hide();
+          -   $('.conc').change(function() {
+          -     if(parseFloat($(this).val()) < 2.5) {
+          -       $(this).parent().siblings().children('.result').val('Fail');
+          -     } else {
+          -       $(this).parent().siblings().children('.result').val('Pass');
+          -       var DNAvol = (5/parseFloat($(this).val())) * 50;
+          -       var H2Ovol = 250 - DNAvol;
+          -       $(this).parent().siblings().children('.dna').val(DNAvol.toFixed(2));
+          -       $(this).parent().siblings().children('.h2o').val(H2Ovol.toFixed(2));
+          -     }
+          -   });
+          -   $('.reading').change(function() {
+          -     var r1 = $(this).val();
+          -     var r2 = $(this).parent().siblings().children('.reading').first().val();
+          -     var r3 = $(this).parent().siblings().children('.reading').last().val();
+          -     var sum = Number(r1) + Number(r2) + Number(r3);
+          -     var count = $(this).parent('td').parent('tr').children('td').children('.reading[value!=""]').length;
+          -     var ave = sum/count;
+          -     $(this).parent('td').siblings('td').children('.conc').val(ave);
+          -     if(parseFloat(ave) < 2.5) {
+          -       $(this).parent().siblings().children('.result').val('Fail');
+          -       $(this).parent().siblings().children('.dna').val('');
+          -       $(this).parent().siblings().children('.h2o').val('');
+          -     } else {
+          -       $(this).parent().siblings().children('.result').val('Pass');
+          -       var DNAvol = (5/parseFloat(ave)) * 50;
+          -       var H2Ovol = 250 - DNAvol;
+          -       $(this).parent().siblings().children('.dna').val(DNAvol.toFixed(2));
+          -       $(this).parent().siblings().children('.h2o').val(H2Ovol.toFixed(2));
+          -     }
+          -   });
+          - });
+        fieldset
+          legend Directions
+            class= legend
+          vertical
+            li Samples below have failed Quant more than once and need Supervisor Review.  
+        vertical
+          table
+            class= stdTableSort
+            sqlQuery~ 
+              - SELECT 
+              -   '' AS "Extract" ,
+              -   '' AS "Reading #1 hiddenCol" ,
+              -   '' AS "Reading #2 hiddenCol" ,
+              -   '' AS "Reading #3 hiddenCol" ,
+              -   '' AS "Ave Reading (ng/&micro;L)" ,
+              -   '' AS "DNA" ,
+              -   '' AS "H<sub>2</sub>0" ,
+              -   '' AS "Dilution hiddenCol" ,
+              -   '' AS "Result" ,
+              -   '' AS "Comments"
+              - FROM queues 
+              - WHERE step = '{_step}'
+              - LIMIT 24
+            columnSpecs~ extraction
+              allowChangedRecordIds
+              column 1
+                inputType container
+                  required~ false
+                  barcode= barcode
+                  sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                    - VALUES ('{_thisInput}', 'dilution', 'DNA Volume', '{_columnInput:6}', {_eventId})
+                  sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                    - VALUES ('{_thisInput}', 'dilution', 'H2O Volume', '{_columnInput:7}', {_eventId})
+                  if~ {reagent1}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'reagent', 'Qubit dsDNA BR Kit', '{reagent1}', {_eventId})
+                  if~ {reagent2}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'reagent', 'dH2O', '{reagent2}', {_eventId})
+                  if~ {instrument}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'reagent', 'Qubit analyzer', '{instrument}', {_eventId})
+                  if~ {_columnInput:9} == Pass
+                    insertQueue~ PGx PCR Setup
+                    deleteQueue~ {_step}
+                  if~ {_columnInput:9} == QNS
+                    deleteQueue~ {_step}
+                    sql INSERT INTO containers (containerId, containerType, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'reportId', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO containerHistory (containerId, eventId)
+                      - (SELECT CONCAT('REPORT-', content), {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'self', 'reportId', CONCAT('REPORT-', content), {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'self', 'requestId', content, {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - (SELECT CONCAT('REPORT-', c.content), 'pateintId', 'patientId', rf.patientId, {_eventId}
+                      -  FROM contents c
+                      -  INNER JOIN requestForms rf
+                      -  ON c.content = rf.Id
+                      -  WHERE c.containerId = '{_thisInput}'
+                      -  AND c.contentType = 'requestId')
+                    sql~ insert into containerProperties (containerId,property,value,eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'title',  'DME - High Risk Panel', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO queues (containerId, step, eventId)
+                      - (SELECT CONCAT('REPORT-', content), 'Sign Out Report', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO pcrImport (containerId, assay, result, metric, eventId)
+                      - (SELECT DISTINCT c.containerId, t.abbreviation, 'QNS', 'QNS', {_eventId}
+                      - FROM contents c
+                      - INNER JOIN reqTests rt
+                      - ON c.content = rt.reqId
+                      - INNER JOIN tests t
+                      - ON rt.testId = t.id
+                      - WHERE c.containerId = '{_thisInput}')
+                  if~ {_columnInput:9}_BLANK <> _BLANK
+                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Notes', 'Quant Result: {_columnInput:9}. {_columnInput:10}', {_eventID})
+                  if~ {_columnInput:9} == ReQuant
+                    insertQueue~ PGx Quant
+                    deleteQueue~ {_step}
+                  if~ {_columnInput:9} == Fail
+                    deleteQueue~ {_step}
+#                     if~ select containerId from containerProperties where containerId = '{_thisInput}'
+#                       - and property = 'contactCustomer' and value like 'Quant Fail%'
+                    sql INSERT INTO queues (containerId, step, eventID)
+                      - (SELECT content, 'Contact Customer', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+                    sql INSERT INTO containerProperties (containerId, property, value, eventId)
+                      - (SELECT content, 'contactCustomer', 'Quant Fail. {_columnInput:10}', {_eventId}
+                      -  FROM contents 
+                      -  WHERE containerId = '{_thisInput}'
+                      -  AND contentType = 'requestId')
+              column 2
+                inputType text
+                  class= text r1 reading hideCol
+                  style= width:50px;
+              column 3
+                inputType text
+                  class= text r2 reading hideCol
+                  style= width:50px;
+              column 4
+                inputType text
+                  class= text r3 reading hideCol
+                  style= width:50px;
+              column 5
+                inputType text
+                  class= text conc
+#                  style= width:50px;border:0;
+              column 6
+                inputType text
+                  class= text dna
+                  style= width:50px;border:0;
+              column 7
+                inputType text
+                  class= text h2o
+                  style= width:50px;border:0;
+              column 8
+                inputType container
+                  barcode= barcode
+                  class= hideCol
+                  new~ true
+                  required~ false
+                  containerType~ dilutionTubeId
+#                  if~ {_columnInput:9} == Pass
+#                    insertQueue~ PGx PCR Setup
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - VALUES ('{_thisInput}', 'dilution', 'DNA Volume', '{_columnInput:6}', {_eventId})
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - VALUES ('{_thisInput}', 'dilution', 'H2O Volume', '{_columnInput:7}', {_eventId})
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - (SELECT '{_thisInput}', attribute, contentType, content, {_eventId}
+#                      -  FROM contents
+#                      -  WHERE containerId = '{_columnInput:1}')
+#                  if~ {_columnInput:9}_BLANK <> _BLANK
+#                    sql INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+#                      - VALUES ('{_thisInput}', 'self', 'Notes', 'Quant Result: {_columnInput:9}. {_columnInput:10}', {_eventID})
+              column 9
+                inputType select
+                  class= text result
+                  option Pass
+                  option ReQuant
+                  option QNS
+                  option Fail
+              column 10
+                inputType text
+                  style= width:180px
+        fieldset
+          legend Resources 
+#(not functioning yet, waiting for Reagent System to come online)
+          #  style= color:red;
+          #  span <br/>Questions about how to assign the reagents to a table of samples.
+          vertical
+            passiveContainer reagent1
+              screenLabel~ Qubit dsDNA BR Kit
+              required~ false
+              barcode= barcode
+            passiveContainer reagent2
+              screenLabel~ dH2O
+              required~ false
+              barcode= barcode
+            passiveContainer instrument
+              screenLabel~ Qubit analyzer Equipment ID:
+              required~ false
+              value= E00134
+              barcode= barcode
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step Tube Notes Management
+      form
+        include userAccountInfo
+        vertical
+          container Tube ID
+            acceptQueue~ any
+      form
+        include userAccountInfo
+        vertical
+          table
+            sqlQuery~
+              - SELECT DISTINCT eventId AS "ID" , containerId AS "Tube" , content AS "Note" , '' AS "New Note" , 'false' AS "Remove" 
+              - FROM contents
+              - WHERE containerId = '{Tube ID}'
+              - AND contentType = 'Notes'
+            columnSpecs~
+              column 1
+                inputType text
+                  readonly=
+                  style= border:0; background-color:transparent;
+              column 2
+                inputType container
+                  acceptQueue~ any
+                  readonly=
+                  style= border:0; background-color:transparent;
+                  if~ {_columnInput:4}_BLANK <> _BLANK
+                    sql UPDATE contents
+                      - SET contentType = 'Notes_History_Updated'
+                      - WHERE eventId = {_columnInput:1}
+                      - AND contentType = 'Notes'
+                    sql INSERT INTO contents (containerid, attribute, contentType, content, eventId)
+                      - VALUES ('{_thisInput}', 'self', 'Notes', '{_columnInput:4}', {_eventId})
+                  if~ {_columnInput:5} == true
+                    sql UPDATE contents
+                      - SET contentType = 'Notes_History_Deleted'
+                      - WHERE eventId = {_columnInput:1}
+                      - AND contentType = 'Notes'
+              column 3
+                inputType textArea
+                  readonly=
+                  style= border:0; background-color:transparent;
+              column 4
+                inputType textArea
+              column 5
+                inputType checkbox
+      allowDuplicateContainerIds true
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step PGx PCR Setup
+      nextStep PGx Requeue Samples 
+        recId {PCR Plate Id}
+        formNumber 1    
+      queueQuery 
+        - SELECT q.containerId AS "Extract" ,
+        - c.content AS "Comments" ,
+        - e.eventDate, e.userId
+        - FROM queues q
+        - INNER JOIN events e
+        - ON q.eventId = e.eventId
+        - LEFT JOIN contents c
+        - ON q.containerid = c.containerId
+        - AND q.eventId = c.eventId
+        - AND 'Notes' = c.contentType
+        - WHERE q.step = 'PGx PCR Setup'
+
+      form
+        style
+          type= text/css
+        style
+          - .Barcode {
+          - background-image: url(images/barcodebkg.jpg);
+          - }
+          - .dilution {
+          - width:40px;
+          - }
+          - #PCRSetupTable tr td input{
+          -   width:84px;
+          -   text-align:center;
+          - }
+          - #PCRSetupTable {
+          -  text-align:center;
+          - }
+        include userAccountInfo
+        script
+          - $(document).ready(function() {
+          -   $('#aliquot1').focus();
+          -   CalculateTotalVolumes();
+          -   $(".Barcode:not(.Locked)").focusin(function() {
+          -     if($(this).css("color") == "rgb(169, 169, 169)" ){
+          -       $(this).val('');
+          -       $(this).css("color","black");
+          -     }
+          -   });
+          -   $(".aliquot").change(function() {
+### Calc MM volumes as samples are added
+          -     CalculateTotalVolumes();
+#          -     getDilution($(this).attr('name'), $(this).val());
+          -   });
+### recalculation of volumes based on chane to master mix volume
+#          -   $("#masterMixVol").keyup(function() {
+#          -     $("#totalRxnVol").val(+$(this).val() + +$("#sampleVol").val());
+#          -     $("#singleTotVol").val($(this).val());
+#          -     $("#singleCtrlVol").val($(this).val() - $("#singleTaqVol").val());
+#          -     CalculateTotalVolumes();
+#          -   });
+### recalculation of volumes based on changes to Control Rxn Mix volume
+          -   $("#singleCtrlVol").keyup(function() {
+          -     $("#singleTaqVol").val($("#masterMixVol").val() - $(this).val());
+          -     CalculateTotalVolumes();
+          -   });
+### recalculaton of volumes vased on changes to taq volume
+          -   $("#singleTaqVol").keyup(function() {
+          -     $("#singleCtrlVol").val($("#masterMixVol").val() - $(this).val());
+          -     CalculateTotalVolumes();
+          -   });
+#          -  $('#sampleVol').keyup(function() {
+#          -    $('#totalRxnVol').val(+parseFloat($('#masterMixVol').val()) + parseFloat($('#sampleVol').val()));
+#          -  });
+          -   $('#focusHere').focus();
+          - });
+### Total volume calculation function
+          - function CalculateTotalVolumes() {
+          -     var SampCount = $(".aliquot[value!='']").length + 2;
+          -     var RxnMixTot = SampCount * 48 * $("#singleCtrlVol").val();
+          -     var TaqTot = SampCount * 48 * $("#singleTaqVol").val();
+          -     $("#SampleCount").val(SampCount);
+          -     $("#totalCtrlVol").val(RxnMixTot);
+          -     $("#totalTaqVol").val(TaqTot);
+          -     $("#totalTotVol").val(RxnMixTot + TaqTot);
+          -     $('#totalRxnVol').val(+parseFloat($('#masterMixVol').val()) + parseFloat($('#sampleVol').val()));
+          - }
+          - function getDilution(name, sample){
+          -   if (sample == '') return;
+          -   var DilName = name.replace('aliquot', 'dilution');
+          -   $.getJSON('/uniflow?callback=?&stepName=Ajax+Content+Server&containerId=' + sample + '&attribute=self&contentType=DilutionFactor&queueStep=EGFR Assay Setup' ,{},
+          -     function(data,status) {
+          -       $('.dilution[name="' + DilName + '"]').val(data[0].Content);
+          -       if (data[0].Content != '') {
+          -         $('.dilution[name="' + DilName + '"]').css("background-color","tomato");
+          -       }
+          -     }  // end of subfunction
+          -   ); // end of getJSON
+          - } // end of main function
+          - function BarcodeValue(value) {
+          - 
+          - }
+
+        vertical
+          container PCR Plate Id
+            id= focusHere
+            screenLabel~ PCR Plate ID
+            new~ true
+            addContent~
+            insertQueue~ PGx Plate QC
+            class= newContainer Barcode
+            sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+              - VALUES ('{_thisInput}', 'well', 'RxnMixVolume_uL', '{singleCtrlVol}', {_eventId})
+            sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+              - VALUES ('{_thisInput}', 'well', 'SampleVolume_uL', '{sampleVol}', {_eventId})
+            sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+              - VALUES ('{_thisInput}', 'self', 'Reagent', '{ReactionMix}', {_eventId})
+          number Sample Count
+            readonly=
+            autocomplete= off
+            id= SampleCount
+            value= 0
+        vertical2
+          div
+            fieldset
+              legend Master Mix
+              rowGroups
+                rowGroup
+                  span <b>Master Mix Reagent</b>
+                  span <b>Sample Vol.</b>
+                  span <b>Total Vol.</b>
+
+                rowGroup
+                  passiveContainer ReactionMix
+                    screenLabel~ Taq Universal Master Mix II, (no UNG)
+                    required~ false
+                    acceptQueue~ any
+                    class= text Barcode
+                    style= color:darkgrey;
+                  text singleCtrlVol
+                    screenLabel~ 
+                    style= width:50px;
+                    id= singleCtrlVol
+                    value= 5
+                  text totalCtrlVol
+                    readOnly= true
+                    screenLabel~
+                    style= width:50px; border:none; background-color:red; color:black; font-weight: bold;
+                    id= totalCtrlVol
+
+                rowGroup
+                  text taqMan
+                    screenLabel~ Normalized DNA (1ng/µl)
+                    readonly=
+                    style= border:0; background:transparent;
+                  text singleTaqVol
+                    style= width:50px;
+                    screenLabel~
+                    id= singleTaqVol
+                    value= 5
+                  text totalTaqVol
+                    style= width:50px; border:none; background-color:red; color:black; font-weight: bold;
+                    screenLabel~
+                    readOnly= true
+                    id= totalTaqVol
+                rowGroup
+                  div
+                  hr
+                  hr
+                rowGroup
+                  span Total Volumes:
+                  text singleTotVol
+                    screenLabel~ 
+                    readOnly= true
+                    style= width:50px;border:none; color:black; font-weight: bold;
+                    id= singleTotVol
+                    value= 10
+                  text totalTotVol
+                    screenLabel~ 
+                    readOnly= true
+                    style= width:50px;border:none; color:black; font-weight: bold;
+                    id= totalTotVol
+        simpleTable
+          id= PCRSetupTable
+          tr
+            td Wells:
+            td A1-P3
+              colspan= 3
+            td A4-P6
+              colspan= 3
+            td A7-P9
+              colspan= 3
+            td A10-P12
+              colspan= 3
+            td A13-P15
+              colspan= 3
+            td A16-P18
+              colspan= 3
+            td A19-P21
+              colspan= 3
+            td A22-P24
+              colspan= 3
+          tr
+            td 
+            td
+              colspan= 3
+              passiveContainer nc
+                id= nc
+                value= NTC
+                class= passiveContainer Barcode
+               # style= color:darkgrey;
+                containerType~ control
+                acceptQueue~ any
+                sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                  - VALUES ('{PCR Plate Id}', 'A1-P3', 'control', '{_thisInput}', {_eventId})
+                sql INSERT INTO containers (containerId, containerType, eventId)
+                  - VALUES ('{PCR Plate Id}-NTC', 'plateControl', {_eventId})
+                sql INSERT INTO containerHistory (containerId, eventId)
+                  - VALUES ('{PCR Plate Id}-NTC', {_eventId})
+                sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                  - VALUES ('{PCR Plate Id}', 'A1-P3', 'plateControl', '{PCR Plate Id}-NTC', {_eventId})
+                sql~ INSERT INTO queues (containerId, step, eventId)
+                  - VALUES ('{PCR Plate Id}-NTC', 'Upload PGx Results', {_eventId})
+            td
+              colspan= 3
+              passiveContainer pc
+                id= pc
+                value= PTC
+                class= passiveContainer Barcode
+                containerType~ control
+             #   style= color:darkgrey;
+                acceptQueue~ any
+                sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                  - VALUES ('{PCR Plate Id}', 'A4-P6', 'control', '{_thisInput}', {_eventId})
+                sql INSERT INTO containers (containerId, containerType, eventId)
+                  - VALUES ('{PCR Plate Id}-PC', 'plateControl', {_eventId})
+                sql INSERT INTO containerHistory (containerId, eventId)
+                  - VALUES ('{PCR Plate Id}-PC', {_eventId})
+                sql~ INSERT INTO contents (containerId, attribute, contentType, content, eventId)
+                  - VALUES ('{PCR Plate Id}', 'A4-P6', 'plateControl', '{PCR Plate Id}-PC', {_eventId})
+                sql~ INSERT INTO queues (containerId, step, eventId)
+                  - VALUES ('{PCR Plate Id}-PC', 'Upload PGx Results', {_eventId})
+            td
+              colspan= 3
+              container aliquot1
+                class= container aliquot Barcode
+                id= aliquot1
+                required~ false
+                if~ {aliquot1} != ''
+                  #insertQueue~ Upload PGx Results
+                  deleteQueue~ {_step}
+                  sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                    - values ('{PCR Plate Id}','A7-P9','aliquotId','{_thisInput}',{_eventId})
+            td
+              colspan= 3
+              container aliquot2
+                class= container aliquot Barcode
+                id= aliquot2
+                required~ false
+                if~ {aliquot2} != ''
+                  #insertQueue~ Upload PGx Results
+                  deleteQueue~ {_step}
+                  sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                    - values ('{PCR Plate Id}','A10-P12','aliquotId','{_thisInput}',{_eventId})
+            td
+              colspan= 3
+              container aliquot3
+                class= container aliquot Barcode
+                id= aliquot3
+                required~ false
+                  - getAliquotCntr('aliquot3',value);
+                if~ {aliquot3} != ''
+                  #insertQueue~ Upload PGx Results
+                  deleteQueue~ {_step}
+                  sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                    - values ('{PCR Plate Id}','A13-P15','aliquotId','{_thisInput}',{_eventId})
+            td
+              colspan= 3
+              container aliquot4
+                class= container aliquot Barcode
+                id= aliquot4
+                required~ false
+                if~ {aliquot4} != ''
+                  #insertQueue~ Upload PGx Results
+                  deleteQueue~ {_step}
+                  sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                    - values ('{PCR Plate Id}','A16-P18','aliquotId','{_thisInput}',{_eventId})
+            td
+              colspan= 3
+              container aliquot5
+                class= container aliquot Barcode
+                id= aliquot5
+                required~ false
+                if~ {aliquot5} != ''
+                  #insertQueue~ Upload PGx Results
+                  deleteQueue~ {_step}
+                  sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                    - values ('{PCR Plate Id}','A19-P21','aliquotId','{_thisInput}',{_eventId})
+            td
+              colspan= 3
+              container aliquot6
+                class= container aliquot Barcode
+                id= aliquot6
+                required~ false
+                if~ {aliquot6} != ''
+                  #insertQueue~ Upload PGx Results
+                  deleteQueue~ {_step}
+                  sql~ insert into contents (containerId, attribute, contentType, content, eventId)
+                    - values ('{PCR Plate Id}','A22-P24','aliquotId','{_thisInput}',{_eventId})
+          tr
+            td A
+            td 1
+              style= border: 1px solid black; background-color:lightblue;
+            td 17
+              style= border: 1px solid black; background-color:lightblue;
+            td 33
+              style= border: 1px solid black; background-color:lightblue;
+            td 1
+              style= border: 1px solid black; background-color:lightcoral;
+            td 17
+              style= border: 1px solid black; background-color:lightcoral;
+            td 33
+              style= border: 1px solid black; background-color:lightcoral;
+            td 1
+              style= border: 1px solid black; background-color:lightgray;
+            td 17
+              style= border: 1px solid black; background-color:lightgray;
+            td 33
+              style= border: 1px solid black; background-color:lightgray;
+            td 1
+              style= border: 1px solid black;
+            td 17
+              style= border: 1px solid black;
+            td 33
+              style= border: 1px solid black;
+            td 1
+              style= border: 1px solid black; background-color:lightgray;
+            td 17
+              style= border: 1px solid black; background-color:lightgray;
+            td 33
+              style= border: 1px solid black; background-color:lightgray;
+            td 1
+              style= border: 1px solid black;
+            td 17
+              style= border: 1px solid black;
+            td 33
+              style= border: 1px solid black;
+            td 1
+              style= border: 1px solid black; background-color:lightgray;
+            td 17
+              style= border: 1px solid black; background-color:lightgray;
+            td 33
+              style= border: 1px solid black; background-color:lightgray;
+            td 1
+              style= border: 1px solid black;
+            td 17
+              style= border: 1px solid black;
+            td 33
+              style= border: 1px solid black;
+          tr    
+            td B
+            td 2
+              style= border: 1px solid black; background-color:lightblue;
+            td 18
+              style= border: 1px solid black; background-color:lightblue;
+            td 34
+              style= border: 1px solid black; background-color:lightblue;
+            td 2
+              style= border: 1px solid black; background-color:lightcoral;
+            td 18
+              style= border: 1px solid black; background-color:lightcoral;
+            td 34
+              style= border: 1px solid black; background-color:lightcoral;
+            td 2
+              style= border: 1px solid black; background-color:lightgray;
+            td 18
+              style= border: 1px solid black; background-color:lightgray;
+            td 34
+              style= border: 1px solid black; background-color:lightgray;
+            td 2
+              style= border: 1px solid black;
+            td 18
+              style= border: 1px solid black;
+            td 34
+              style= border: 1px solid black;
+            td 2
+              style= border: 1px solid black; background-color:lightgray;
+            td 18
+              style= border: 1px solid black; background-color:lightgray;
+            td 34
+              style= border: 1px solid black; background-color:lightgray;
+            td 2
+              style= border: 1px solid black;
+            td 18
+              style= border: 1px solid black;
+            td 34
+              style= border: 1px solid black;
+            td 2
+              style= border: 1px solid black; background-color:lightgray;
+            td 18
+              style= border: 1px solid black; background-color:lightgray;
+            td 34
+              style= border: 1px solid black; background-color:lightgray;
+            td 2
+              style= border: 1px solid black;
+            td 18
+              style= border: 1px solid black;
+            td 34
+              style= border: 1px solid black;
+          tr    
+            td C
+            td 3
+              style= border: 1px solid black; background-color:lightblue;
+            td 19
+              style= border: 1px solid black; background-color:lightblue;
+            td 35
+              style= border: 1px solid black; background-color:lightblue;
+            td 3
+              style= border: 1px solid black; background-color:lightcoral;
+            td 19
+              style= border: 1px solid black; background-color:lightcoral;
+            td 35
+              style= border: 1px solid black; background-color:lightcoral;
+            td 3
+              style= border: 1px solid black; background-color:lightgray;
+            td 19
+              style= border: 1px solid black; background-color:lightgray;
+            td 35
+              style= border: 1px solid black; background-color:lightgray;
+            td 3
+              style= border: 1px solid black;
+            td 19
+              style= border: 1px solid black;
+            td 35
+              style= border: 1px solid black;
+            td 3
+              style= border: 1px solid black; background-color:lightgray;
+            td 19
+              style= border: 1px solid black; background-color:lightgray;
+            td 35
+              style= border: 1px solid black; background-color:lightgray;
+            td 3
+              style= border: 1px solid black;
+            td 19
+              style= border: 1px solid black;
+            td 35
+              style= border: 1px solid black;
+            td 3
+              style= border: 1px solid black; background-color:lightgray;
+            td 19
+              style= border: 1px solid black; background-color:lightgray;
+            td 35
+              style= border: 1px solid black; background-color:lightgray;
+            td 3
+              style= border: 1px solid black;
+            td 19
+              style= border: 1px solid black;
+            td 35
+              style= border: 1px solid black;
+          tr    
+            td D
+            td 4
+              style= border: 1px solid black; background-color:lightblue;
+            td 20
+              style= border: 1px solid black; background-color:lightblue;
+            td 36
+              style= border: 1px solid black; background-color:lightblue;
+            td 4
+              style= border: 1px solid black; background-color:lightcoral;
+            td 20
+              style= border: 1px solid black; background-color:lightcoral;
+            td 36
+              style= border: 1px solid black; background-color:lightcoral;
+            td 4
+              style= border: 1px solid black; background-color:lightgray;
+            td 20
+              style= border: 1px solid black; background-color:lightgray;
+            td 36
+              style= border: 1px solid black; background-color:lightgray;
+            td 4
+              style= border: 1px solid black;
+            td 20
+              style= border: 1px solid black;
+            td 36
+              style= border: 1px solid black;
+            td 4
+              style= border: 1px solid black; background-color:lightgray;
+            td 20
+              style= border: 1px solid black; background-color:lightgray;
+            td 36
+              style= border: 1px solid black; background-color:lightgray;
+            td 4
+              style= border: 1px solid black;
+            td 20
+              style= border: 1px solid black;
+            td 36
+              style= border: 1px solid black;
+            td 4
+              style= border: 1px solid black; background-color:lightgray;
+            td 20
+              style= border: 1px solid black; background-color:lightgray;
+            td 36
+              style= border: 1px solid black; background-color:lightgray;
+            td 4
+              style= border: 1px solid black;
+            td 20
+              style= border: 1px solid black;
+            td 36
+              style= border: 1px solid black;
+          tr    
+            td E
+            td 5
+              style= border: 1px solid black; background-color:lightblue;
+            td 21
+              style= border: 1px solid black; background-color:lightblue;
+            td 37
+              style= border: 1px solid black; background-color:lightblue;
+            td 5
+              style= border: 1px solid black; background-color:lightcoral;
+            td 21
+              style= border: 1px solid black; background-color:lightcoral;
+            td 37
+              style= border: 1px solid black; background-color:lightcoral;
+            td 5
+              style= border: 1px solid black; background-color:lightgray;
+            td 21
+              style= border: 1px solid black; background-color:lightgray;
+            td 37
+              style= border: 1px solid black; background-color:lightgray;
+            td 5
+              style= border: 1px solid black;
+            td 21
+              style= border: 1px solid black;
+            td 37
+              style= border: 1px solid black;
+            td 5
+              style= border: 1px solid black; background-color:lightgray;
+            td 21
+              style= border: 1px solid black; background-color:lightgray;
+            td 37
+              style= border: 1px solid black; background-color:lightgray;
+            td 5
+              style= border: 1px solid black;
+            td 21
+              style= border: 1px solid black;
+            td 37
+              style= border: 1px solid black;
+            td 5
+              style= border: 1px solid black; background-color:lightgray;
+            td 21
+              style= border: 1px solid black; background-color:lightgray;
+            td 37
+              style= border: 1px solid black; background-color:lightgray;
+            td 5
+              style= border: 1px solid black;
+            td 21
+              style= border: 1px solid black;
+            td 37
+              style= border: 1px solid black;
+          tr    
+            td F
+            td 6
+              style= border: 1px solid black; background-color:lightblue;
+            td 22
+              style= border: 1px solid black; background-color:lightblue;
+            td 38
+              style= border: 1px solid black; background-color:lightblue;
+            td 6
+              style= border: 1px solid black; background-color:lightcoral;
+            td 22
+              style= border: 1px solid black; background-color:lightcoral;
+            td 38
+              style= border: 1px solid black; background-color:lightcoral;
+            td 6
+              style= border: 1px solid black; background-color:lightgray;
+            td 22
+              style= border: 1px solid black; background-color:lightgray;
+            td 38
+              style= border: 1px solid black; background-color:lightgray;
+            td 6
+              style= border: 1px solid black;
+            td 22
+              style= border: 1px solid black;
+            td 38
+              style= border: 1px solid black;
+            td 6
+              style= border: 1px solid black; background-color:lightgray;
+            td 22
+              style= border: 1px solid black; background-color:lightgray;
+            td 38
+              style= border: 1px solid black; background-color:lightgray;
+            td 6
+              style= border: 1px solid black;
+            td 22
+              style= border: 1px solid black;
+            td 38
+              style= border: 1px solid black;
+            td 6
+              style= border: 1px solid black; background-color:lightgray;
+            td 22
+              style= border: 1px solid black; background-color:lightgray;
+            td 38
+              style= border: 1px solid black; background-color:lightgray;
+            td 6
+              style= border: 1px solid black;
+            td 22
+              style= border: 1px solid black;
+            td 38
+              style= border: 1px solid black;
+          tr    
+            td G
+            td 7
+              style= border: 1px solid black; background-color:lightblue;
+            td 23
+              style= border: 1px solid black; background-color:lightblue;
+            td 39
+              style= border: 1px solid black; background-color:lightblue;
+            td 7
+              style= border: 1px solid black; background-color:lightcoral;
+            td 23
+              style= border: 1px solid black; background-color:lightcoral;
+            td 39
+              style= border: 1px solid black; background-color:lightcoral;
+            td 7
+              style= border: 1px solid black; background-color:lightgray;
+            td 23
+              style= border: 1px solid black; background-color:lightgray;
+            td 39
+              style= border: 1px solid black; background-color:lightgray;
+            td 7
+              style= border: 1px solid black;
+            td 23
+              style= border: 1px solid black;
+            td 39
+              style= border: 1px solid black;
+            td 7
+              style= border: 1px solid black; background-color:lightgray;
+            td 23
+              style= border: 1px solid black; background-color:lightgray;
+            td 39
+              style= border: 1px solid black; background-color:lightgray;
+            td 7
+              style= border: 1px solid black;
+            td 23
+              style= border: 1px solid black;
+            td 39
+              style= border: 1px solid black;
+            td 7
+              style= border: 1px solid black; background-color:lightgray;
+            td 23
+              style= border: 1px solid black; background-color:lightgray;
+            td 39
+              style= border: 1px solid black; background-color:lightgray;
+            td 7
+              style= border: 1px solid black;
+            td 23
+              style= border: 1px solid black;
+            td 39
+              style= border: 1px solid black;
+          tr    
+            td H
+            td 8
+              style= border: 1px solid black; background-color:lightblue;
+            td 24
+              style= border: 1px solid black; background-color:lightblue;
+            td 40
+              style= border: 1px solid black; background-color:lightblue;
+            td 8
+              style= border: 1px solid black; background-color:lightcoral;
+            td 24
+              style= border: 1px solid black; background-color:lightcoral;
+            td 40
+              style= border: 1px solid black; background-color:lightcoral;
+            td 8
+              style= border: 1px solid black; background-color:lightgray;
+            td 24
+              style= border: 1px solid black; background-color:lightgray;
+            td 40
+              style= border: 1px solid black; background-color:lightgray;
+            td 8
+              style= border: 1px solid black;
+            td 24
+              style= border: 1px solid black;
+            td 40
+              style= border: 1px solid black;
+            td 8
+              style= border: 1px solid black; background-color:lightgray;
+            td 24
+              style= border: 1px solid black; background-color:lightgray;
+            td 40
+              style= border: 1px solid black; background-color:lightgray;
+            td 8
+              style= border: 1px solid black;
+            td 24
+              style= border: 1px solid black;
+            td 40
+              style= border: 1px solid black;
+            td 8
+              style= border: 1px solid black; background-color:lightgray;
+            td 24
+              style= border: 1px solid black; background-color:lightgray;
+            td 40
+              style= border: 1px solid black; background-color:lightgray;
+            td 8
+              style= border: 1px solid black;
+            td 24
+              style= border: 1px solid black;
+            td 40
+              style= border: 1px solid black;
+          tr    
+            td I
+            td 9
+              style= border: 1px solid black; background-color:lightblue;
+            td 25
+              style= border: 1px solid black; background-color:lightblue;
+            td 41
+              style= border: 1px solid black; background-color:lightblue;
+            td 9
+              style= border: 1px solid black; background-color:lightcoral;
+            td 25
+              style= border: 1px solid black; background-color:lightcoral;
+            td 41
+              style= border: 1px solid black; background-color:lightcoral;
+            td 9
+              style= border: 1px solid black; background-color:lightgray;
+            td 25
+              style= border: 1px solid black; background-color:lightgray;
+            td 41
+              style= border: 1px solid black; background-color:lightgray;
+            td 9
+              style= border: 1px solid black;
+            td 25
+              style= border: 1px solid black;
+            td 41
+              style= border: 1px solid black;
+            td 9
+              style= border: 1px solid black; background-color:lightgray;
+            td 25
+              style= border: 1px solid black; background-color:lightgray;
+            td 41
+              style= border: 1px solid black; background-color:lightgray;
+            td 9
+              style= border: 1px solid black;
+            td 25
+              style= border: 1px solid black;
+            td 41
+              style= border: 1px solid black;
+            td 9
+              style= border: 1px solid black; background-color:lightgray;
+            td 25
+              style= border: 1px solid black; background-color:lightgray;
+            td 41
+              style= border: 1px solid black; background-color:lightgray;
+            td 9
+              style= border: 1px solid black;
+            td 25
+              style= border: 1px solid black;
+            td 41
+              style= border: 1px solid black;
+          tr
+            td J
+            td 10
+              style= border: 1px solid black; background-color:lightblue;
+            td 26
+              style= border: 1px solid black; background-color:lightblue;
+            td 42
+              style= border: 1px solid black; background-color:lightblue;
+            td 10
+              style= border: 1px solid black; background-color:lightcoral;
+            td 26
+              style= border: 1px solid black; background-color:lightcoral;
+            td 42
+              style= border: 1px solid black; background-color:lightcoral;
+            td 10
+              style= border: 1px solid black; background-color:lightgray;
+            td 26
+              style= border: 1px solid black; background-color:lightgray;
+            td 42
+              style= border: 1px solid black; background-color:lightgray;
+            td 10
+              style= border: 1px solid black;
+            td 26
+              style= border: 1px solid black;
+            td 42
+              style= border: 1px solid black;
+            td 10
+              style= border: 1px solid black; background-color:lightgray;
+            td 26
+              style= border: 1px solid black; background-color:lightgray;
+            td 42
+              style= border: 1px solid black; background-color:lightgray;
+            td 10
+              style= border: 1px solid black;
+            td 26
+              style= border: 1px solid black;
+            td 42
+              style= border: 1px solid black;
+            td 10
+              style= border: 1px solid black; background-color:lightgray;
+            td 26
+              style= border: 1px solid black; background-color:lightgray;
+            td 42
+              style= border: 1px solid black; background-color:lightgray;
+            td 10
+              style= border: 1px solid black;
+            td 26
+              style= border: 1px solid black;
+            td 42
+              style= border: 1px solid black;
+          tr
+            td K
+            td 11
+              style= border: 1px solid black; background-color:lightblue;
+            td 27
+              style= border: 1px solid black; background-color:lightblue;
+            td 43
+              style= border: 1px solid black; background-color:lightblue;
+            td 11
+              style= border: 1px solid black; background-color:lightcoral;
+            td 27
+              style= border: 1px solid black; background-color:lightcoral;
+            td 43
+              style= border: 1px solid black; background-color:lightcoral;
+            td 11
+              style= border: 1px solid black; background-color:lightgray;
+            td 27
+              style= border: 1px solid black; background-color:lightgray;
+            td 43
+              style= border: 1px solid black; background-color:lightgray;
+            td 11
+              style= border: 1px solid black;
+            td 27
+              style= border: 1px solid black;
+            td 43
+              style= border: 1px solid black;
+            td 11
+              style= border: 1px solid black; background-color:lightgray;
+            td 27
+              style= border: 1px solid black; background-color:lightgray;
+            td 43
+              style= border: 1px solid black; background-color:lightgray;
+            td 11
+              style= border: 1px solid black;
+            td 27
+              style= border: 1px solid black;
+            td 43
+              style= border: 1px solid black;
+            td 11
+              style= border: 1px solid black; background-color:lightgray;
+            td 27
+              style= border: 1px solid black; background-color:lightgray;
+            td 43
+              style= border: 1px solid black; background-color:lightgray;
+            td 11
+              style= border: 1px solid black;
+            td 27
+              style= border: 1px solid black;
+            td 43
+              style= border: 1px solid black;
+          tr
+            td L
+            td 12
+              style= border: 1px solid black; background-color:lightblue;
+            td 28
+              style= border: 1px solid black; background-color:lightblue;
+            td 44
+              style= border: 1px solid black; background-color:lightblue;
+            td 12
+              style= border: 1px solid black; background-color:lightcoral;
+            td 28
+              style= border: 1px solid black; background-color:lightcoral;
+            td 44
+              style= border: 1px solid black; background-color:lightcoral;
+            td 12
+              style= border: 1px solid black; background-color:lightgray;
+            td 28
+              style= border: 1px solid black; background-color:lightgray;
+            td 44
+              style= border: 1px solid black; background-color:lightgray;
+            td 12
+              style= border: 1px solid black;
+            td 28
+              style= border: 1px solid black;
+            td 44
+              style= border: 1px solid black;
+            td 12
+              style= border: 1px solid black; background-color:lightgray;
+            td 28
+              style= border: 1px solid black; background-color:lightgray;
+            td 44
+              style= border: 1px solid black; background-color:lightgray;
+            td 12
+              style= border: 1px solid black;
+            td 28
+              style= border: 1px solid black;
+            td 44
+              style= border: 1px solid black;
+            td 12
+              style= border: 1px solid black; background-color:lightgray;
+            td 28
+              style= border: 1px solid black; background-color:lightgray;
+            td 44
+              style= border: 1px solid black; background-color:lightgray;
+            td 12
+              style= border: 1px solid black;
+            td 28
+              style= border: 1px solid black;
+            td 44
+              style= border: 1px solid black;
+          tr
+            td M
+            td 13
+              style= border: 1px solid black; background-color:lightblue;
+            td 29
+              style= border: 1px solid black; background-color:lightblue;
+            td 45
+              style= border: 1px solid black; background-color:lightblue;
+            td 13
+              style= border: 1px solid black; background-color:lightcoral;
+            td 29
+              style= border: 1px solid black; background-color:lightcoral;
+            td 45
+              style= border: 1px solid black; background-color:lightcoral;
+            td 13
+              style= border: 1px solid black; background-color:lightgray;
+            td 29
+              style= border: 1px solid black; background-color:lightgray;
+            td 45
+              style= border: 1px solid black; background-color:lightgray;
+            td 13
+              style= border: 1px solid black;
+            td 29
+              style= border: 1px solid black;
+            td 45
+              style= border: 1px solid black;
+            td 13
+              style= border: 1px solid black; background-color:lightgray;
+            td 29
+              style= border: 1px solid black; background-color:lightgray;
+            td 45
+              style= border: 1px solid black; background-color:lightgray;
+            td 13
+              style= border: 1px solid black;
+            td 29
+              style= border: 1px solid black;
+            td 45
+              style= border: 1px solid black;
+            td 13
+              style= border: 1px solid black; background-color:lightgray;
+            td 29
+              style= border: 1px solid black; background-color:lightgray;
+            td 45
+              style= border: 1px solid black; background-color:lightgray;
+            td 13
+              style= border: 1px solid black;
+            td 29
+              style= border: 1px solid black;
+            td 45
+              style= border: 1px solid black;
+          tr
+            td N
+            td 14
+              style= border: 1px solid black; background-color:lightblue;
+            td 30
+              style= border: 1px solid black; background-color:lightblue;
+            td 46
+              style= border: 1px solid black; background-color:lightblue;
+            td 14
+              style= border: 1px solid black; background-color:lightcoral;
+            td 30
+              style= border: 1px solid black; background-color:lightcoral;
+            td 46
+              style= border: 1px solid black; background-color:lightcoral;
+            td 14
+              style= border: 1px solid black; background-color:lightgray;
+            td 30
+              style= border: 1px solid black; background-color:lightgray;
+            td 46
+              style= border: 1px solid black; background-color:lightgray;
+            td 14
+              style= border: 1px solid black;
+            td 30
+              style= border: 1px solid black;
+            td 46
+              style= border: 1px solid black;
+            td 14
+              style= border: 1px solid black; background-color:lightgray;
+            td 30
+              style= border: 1px solid black; background-color:lightgray;
+            td 46
+              style= border: 1px solid black; background-color:lightgray;
+            td 14
+              style= border: 1px solid black;
+            td 30
+              style= border: 1px solid black;
+            td 46
+              style= border: 1px solid black;
+            td 14
+              style= border: 1px solid black; background-color:lightgray;
+            td 30
+              style= border: 1px solid black; background-color:lightgray;
+            td 46
+              style= border: 1px solid black; background-color:lightgray;
+            td 14
+              style= border: 1px solid black;
+            td 30
+              style= border: 1px solid black;
+            td 46
+              style= border: 1px solid black;
+          tr
+            td O
+            td 15
+              style= border: 1px solid black; background-color:lightblue;
+            td 31
+              style= border: 1px solid black; background-color:lightblue;
+            td 47
+              style= border: 1px solid black; background-color:lightblue;
+            td 15
+              style= border: 1px solid black; background-color:lightcoral;
+            td 31
+              style= border: 1px solid black; background-color:lightcoral;
+            td 47
+              style= border: 1px solid black; background-color:lightcoral;
+            td 15
+              style= border: 1px solid black; background-color:lightgray;
+            td 31
+              style= border: 1px solid black; background-color:lightgray;
+            td 47
+              style= border: 1px solid black; background-color:lightgray;
+            td 15
+              style= border: 1px solid black;
+            td 31
+              style= border: 1px solid black;
+            td 47
+              style= border: 1px solid black;
+            td 15
+              style= border: 1px solid black; background-color:lightgray;
+            td 31
+              style= border: 1px solid black; background-color:lightgray;
+            td 47
+              style= border: 1px solid black; background-color:lightgray;
+            td 15
+              style= border: 1px solid black;
+            td 31
+              style= border: 1px solid black;
+            td 47
+              style= border: 1px solid black;
+            td 15
+              style= border: 1px solid black; background-color:lightgray;
+            td 31
+              style= border: 1px solid black; background-color:lightgray;
+            td 47
+              style= border: 1px solid black; background-color:lightgray;
+            td 15
+              style= border: 1px solid black;
+            td 31
+              style= border: 1px solid black;
+            td 47
+              style= border: 1px solid black;
+          tr
+            td P
+            td 16
+              style= border: 1px solid black; background-color:lightblue;
+            td 32
+              style= border: 1px solid black; background-color:lightblue;
+            td 48
+              style= border: 1px solid black; background-color:lightblue;
+            td 16
+              style= border: 1px solid black; background-color:lightcoral;
+            td 32
+              style= border: 1px solid black; background-color:lightcoral;
+            td 48
+              style= border: 1px solid black; background-color:lightcoral;
+            td 16
+              style= border: 1px solid black; background-color:lightgray;
+            td 32
+              style= border: 1px solid black; background-color:lightgray;
+            td 48
+              style= border: 1px solid black; background-color:lightgray;
+            td 16
+              style= border: 1px solid black;
+            td 32
+              style= border: 1px solid black;
+            td 48
+              style= border: 1px solid black;
+            td 16
+              style= border: 1px solid black; background-color:lightgray;
+            td 32
+              style= border: 1px solid black; background-color:lightgray;
+            td 48
+              style= border: 1px solid black; background-color:lightgray;
+            td 16
+              style= border: 1px solid black;
+            td 32
+              style= border: 1px solid black;
+            td 48
+              style= border: 1px solid black;
+            td 16
+              style= border: 1px solid black; background-color:lightgray;
+            td 32
+              style= border: 1px solid black; background-color:lightgray;
+            td 48
+              style= border: 1px solid black; background-color:lightgray;
+            td 16
+              style= border: 1px solid black;
+            td 32
+              style= border: 1px solid black;
+            td 48
+              style= border: 1px solid black;
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step PGx Plate QC
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+      form
+        include userAccountInfo
+        vertical
+          container pcrPlate
+            screenLabel~ PCR Plate
+            deleteQueue~ {_step}
+            if~ {Comments}_BLANK <> _BLANK
+              sql insert into contents (containerId, attribute, contentType, content, eventId)
+                - values ('{_thisInput}', 'self', 'Notes', 'Plate PCR: {result}. {Comments}', {_eventId})
+              sql insert into contents (containerId, attribute, contentType, content, eventId)
+                - select content, 'self', 'Notes', 'Plate PCR: {result}. {Comments}', {_eventId}
+                - from contents 
+                - where containerId = '{_thisInput}'
+                - and contentType = 'aliquotId'
+            if~ {result} == Pass
+              sql insert into queues (containerId, step, eventId)
+                - select content, 'Upload PGx Results', {_eventId}
+                - from contents 
+                - where containerId = '{_thisInput}'
+                - and contentType = 'aliquotId'
+            if~ {result} == Re-Amp
+              sql insert into queues (containerId, step, eventId)
+                - select content, 'PGx PCR Setup', {_eventId}
+                - from contents 
+                - where containerId = '{_thisInput}'
+                - and contentType = 'aliquotId'
+            if~ {result} == Fail
+              sql insert into queues (containerId, step, eventId)
+                - select c2.content, 'Contact Customer', {_eventId}
+                - from contents c
+                - inner join contents c2
+                - on c.content = c2.containerId
+                - where c.containerId = '{_thisInput}'
+                - and c.contentType = 'aliquotId'
+                - and c2.contentType = 'requestId'
+              sql insert into containerProperties (containerId, property, value, eventId)
+                - select c2.content, 'contactCustomer', 'PCR Plate Fail: {_thisInput}. {Comments}',  {_eventId}
+                - from contents c
+                - inner join contents c2
+                - on c.content = c2.containerId
+                - where c.containerId = '{_thisInput}'
+                - and c.contentType = 'aliquotId'
+                - and c2.contentType = 'requestId'
+          select result
+            screenLabel~ Plate QC Result
+            option Pass
+            option Re-Amp
+            option Fail
+          textArea Comments
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+    step Upload PGx Results
+# stepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstepstep
+      form
+        include userAccountInfo
+        fieldset
+          legend Directions
+            class= legend
+          li Upload the files from the analyzer.
+          li This will parse the file and enter results into the data table for reporting.
+          li Data from the analyzer will be associated with the request and customer sample for reporting. 
+        fieldset
+          legend Upload Results File
+            class= legend
+          vertical
+            text InstrumentId
+              screenLabel~ InstrumentId 
+            databaseImportFile Allele Calls File
+              required~ false
+              destinationFolderName~ pcrImports  
+              skipRowCount~ 18
+              numCols~ 5
+              sqlInsert~ UPDATE ag_rawDataImport di
+                - INNER JOIN ag_assayNames an
+                - ON di.assay = an.rs OR di.assay = an.star
+                - SET di.Allele1 = '{_vector:4}', di.Allele2 = '{_vector:5}', di.eventId = {_eventId}, di.assay = '{_vector:3}'
+                - WHERE di.SampleId = '{_vector:1}'
+                - AND di.Gene = '{_vector:2}'
+                - AND (an.star = '{_vector:3}' OR an.rs = '{_vector:3}')
+              sqlInsert~ INSERT INTO ag_rawDataImport (SampleID, Gene, Assay, Allele1, Allele2, eventId)
+                - (SELECT '{_vector:1}', '{_vector:2}', '{_vector:3}', '{_vector:4}', '{_vector:5}', {_eventId}
+                -  FROM dual
+                -  WHERE '{_vector:1}' <> ''
+                -  AND NOT EXISTS (SELECT DISTINCT 1 
+                -                   FROM ag_rawDataImport di 
+                -                   INNER JOIN ag_assayNames an 
+                -                   ON di.assay = an.rs OR di.assay = an.star 
+                -                   WHERE SampleId = '{_vector:1}' 
+                -                   AND Gene = '{_vector:2}' 
+                -                   AND (an.rs = '{_vector:3}' OR an.star = '{_vector:3}')))
+            databaseImportFile Copy Number File
+              required~ false
+              destinationFolderName~ pcrImports_copyNo  
+              skipRowCount~ 65
+              numCols~ 19
+              sqlInsert~ UPDATE ag_rawDataImport
+                - SET cnCalculated = CASE WHEN '{_vector:5}' = '' THEN 0 WHEN ISNULL('{_vector:5}') = 1 THEN 0 ELSE '{_vector:5}' END,
+                - cnRange = CASE WHEN '{_vector:19}' = '' THEN 0 WHEN ISNULL('{_vector:19}') = 1 THEN 0 ELSE '{_vector:19}' END,
+                - replicatesAnalyzed = CASE WHEN '{_vector:10}' = '' THEN 0 WHEN ISNULL('{_vector:10}') = 1 THEN 0 ELSE '{_vector:10}' END,
+                - eventId = {_eventId}
+                - WHERE SampleID = '{_vector:1}'
+                - AND Gene = '{_vector:2}'
+              sqlInsert~ INSERT INTO ag_rawDataImport (SampleID, Gene, Assay, cnCalculated, cnRange, replicatesAnalyzed, eventId)
+                - (SELECT DISTINCT
+                -   '{_vector:1}', 
+                -   '{_vector:2}', 
+                -   rs,
+                -   CASE WHEN '{_vector:5}' = '' THEN 0 WHEN ISNULL('{_vector:5}') = 1 THEN 0 ELSE '{_vector:5}' END,
+                -   CASE WHEN '{_vector:19}' = '' THEN 0 WHEN ISNULL('{_vector:19}') = 1 THEN 0 ELSE '{_vector:19}' END,
+                -   CASE WHEN '{_vector:10}' = '' THEN 0 WHEN ISNULL('{_vector:10}') = 1 THEN 0 ELSE '{_vector:10}' END,
+                -   {_eventId}
+                - FROM  ag_snplist
+                - WHERE '{_vector:1}' <> ''
+                - AND rs NOT IN ('gene duplication', 'complete gene deletion', '', 'wild-type')
+                - AND Gene = 'CYP2D6'
+                - AND NOT EXISTS (SELECT 1 FROM ag_rawDataImport WHERE SampleId = '{_vector:1}' AND Gene = '{_vector:2}'))
+      sql insert into pgxUploads (fileName, uploadFile, destinationFolder, eventId) 
+        - values ('{Copy Number File}', '{_eventId}.csv', 'pcrImport', {_eventId})
+      sql insert into pgxUploads (fileName, uploadFile, destinationFolder, eventId) 
+        - values ('{Allele Calls File}', '{_eventId}.csv', 'pcrImport', {_eventId})
+      forEach SELECT DISTINCT SampleID FROM ag_rawDataImport WHERE eventId = {_eventId}
+#        sql INSERT INTO queues (containerId, step, eventId)
+#          - (SELECT '{_resultSet:SampleID}', 'PGx View Imported Data', {_eventId} FROM dual WHERE NOT EXISTS (SELECT 1 FROM queues WHERE containerId = '{_resultSet:SampleID}' AND step = 'PGx View Imported Data'))
+        sql INSERT INTO containerHistory (containerId, eventId)
+          - VALUES ('{_resultSet:SampleID}', {_eventId})
+        sql DELETE FROM queues
+          - WHERE containerId = '{_resultSet:SampleID}'
+          - AND step = '{_step}'
+        sql delete from ag_rawDataImport WHERE SampleID = '{_:SampleID}' and eventId <> {_eventId}
+    ### SPROC required for making calls from raw data imported to be displayed on the report. 
+        sql CALL agGetResults('{_resultSet:SampleID}', {_eventId})
+
+    stepGroup Hidden PGx Steps
+    step PGx Requeue Samples
+      nextStep PGx PCR Setup
+        formNumber 0 
+      form 
+        include userAccountInfo 
+        vertical 
+          text _recId
+            screenLabel~ PCR Plate Id  
+            value= {_recId}
+      form 
+        include userAccountInfo 
+        vertical 
+          fieldset 
+            legend Instructions 
+              class= legend
+            vertical 
+              li Please select all samples you wish to queue back to PGx PCR Setup
+              li Submit form 
+
+        vertical 
+          table 
+            sqlQuery~ select DISTINCT '' as 'ReQueue', c.attribute as 'wells', c.content as 'Sample'
+              - from contents c 
+              - where c.containerId = '{_recId}' 
+              - and c.contentType = 'aliquotId' 
+            columnSpecs~ requeueTable 
+              allowChangedRecordIds
+              column 1 
+                inputType checkbox
+                  sql insert into queues (containerId, step, eventId)
+                    - select '{_columnInput:3}', 'PGx PCR Setup', {_eventId}
+                    - from dual 
+                    - where '{_columnInput:1}' = 'true' 
+                    
+              column 3 
+                inputType text 
+                  readonly=
+                  style= border:none; background:transparent; 
+
+

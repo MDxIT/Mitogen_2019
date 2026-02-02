@@ -1,0 +1,44 @@
+config
+  includes
+    includeable containerFilesRendering
+      ## The content security policy will need to be added to the page that includes this includeable 
+      # ContentSecurityPolicy default-src https: 'unsafe-eval' 'unsafe-inline'; frame-src data:; img-src data: https:; object-src https: data:; frame-ancestors 'self'
+      # Cache-Control no-cache
+      # Cache-Control no-store
+      ### PARAMETERS IN
+      ###   IsStandAlone - will trigger display of removable column
+      ### PARAMETERS OUT
+      ###   documentReview table
+      script
+        src= js/components/containerFilesRendering.js
+
+      hidden docHere
+        id= docHere
+        value= {_includeParm:docHere}
+
+      table
+        id= documentFilesTable
+        sqlPreparedQuery~
+          -  SELECT '' AS "Remove"
+          -   , CONCAT('<a class="existingFiles" data-url="',CONCAT(if(left(cf.location,10) = '../private',replace(cf.location,'../private', '{_configPath}private'), cf.location) , CASE WHEN RIGHT(cf.location, 1) = '/' THEN '' ELSE '/' END , cf.fileName),'" href="', if(Right(cf.fileName,4) <> '.pdf' AND Right(cf.fileName,4) <> '.jpg' AND Right(cf.fileName,4) <> '.png' AND Right(cf.fileName,5) <> '.jpeg', CONCAT('/uniflow?stepName=DownloadFileReview&fileName=',cf.fileName,'&filePath=',REPLACE(cf.location, '../private', '/private')),'#') ,'">', cf.fileName,'</a>') AS "File Name"
+          -   , cf.fileType AS "Type"
+          -   , cf.Id AS "Hidden"
+          -   , cf.containerId AS "Hidden"
+          - FROM containerFiles cf
+          - WHERE cf.containerId IN (?)
+          -   AND cf.containerId <> ''
+          - AND cf.Id NOT IN (SELECT cp.value FROM containerProperties cp WHERE cp.property = 'fileDeleted')
+          string {_includeParm:currentContainerId}
+        columnSpecs~ filesUploaded
+          allowChangedRecordIds
+          column 1
+            inputType checkbox
+              class= removeImage
+          column 4
+            inputType hidden
+              readonly=
+              class= hide hideColumn
+          column 5
+            inputType hidden
+              readonly=
+              class= hide hideColumn

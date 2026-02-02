@@ -1,0 +1,126 @@
+.tableSize {
+  width:1000px;
+}
+
+.demoTable .col0 {
+  width:150px;
+}
+
+.demoTable .col1 {
+  width:200px;
+}
+
+.mainBodyCenterTop {
+  width: 400px;
+  float: left;
+}
+
+.mainBodyLeftTop {
+  width: 400px;
+  float: left;
+  margin-left:60px;
+}
+
+.demiContents {
+  margin-top: 2px;
+  text-align: left;
+}
+
+.bodyContents {
+  margin-top: 50px;
+  margin-bottom: 50px;
+  text-align: left;
+}
+
+#spinnerDiv {
+  position: fixed;
+  width: 150px;
+  left: 50%;
+  margin-left: -75px;
+}
+
+#imageSpinerDiv {
+  width:150px;
+}
+
+.displayNone {
+  display: none;
+}
+
+.backgroundStyle {
+  background-color: transparent;
+  border: none;
+}
+
+#action{
+  border-color: red;
+}
+
+.textAreaStyle {
+  width: 200px;
+  height: 200px;
+}
+
+.largeTextArea {
+  width: 800px;
+  height: 100px;
+}
+
+.mediumTextArea {
+  width: 500px;
+  height: 100px;
+}
+
+.selectStyle {
+  width: 200px;
+}
+
+.fancyTextPanels {
+  width: 350px;
+}
+
+.fancyTextDiv {
+  min-height: 50px;
+  font-size: 10pt;
+}
+
+.fontSize {
+  font-size: 30px;
+}
+
+.commentFieldset {
+  width: 500px;
+}
+
+.orderField {
+  width: 20px;
+}
+
+.tabs {
+  width: 1225px;
+}
+
+.divHeight {
+  height: 60px;
+}
+
+.clearBoth {
+  clear: both;
+}
+
+#specimenInfoDiv {
+  float: left;
+  margin-top: 10px;
+}
+
+
+#patientInfo {
+  float: left;
+  width: 55%;
+}
+
+#orderInfo {
+  float: left;
+  width: 43%;
+}
+

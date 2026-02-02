@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	
+	<link rel="stylesheet" type="text/css" href="reportPDFPrint.css">
+	
+	<script>
+	function substitute() {
+		var vars = {};
+		var x = window.location.search.substring(1).split('&');
+		for (var i in x) {
+			var z = x[i].split('=',2);
+			vars[z[0]] = unescape(z[1]);
+		}
+		
+		var subst = [
+			// Defaults
+			'page', 'frompage', 'topage', 'webpage', 
+			'section', 'subsection', 'date', 'isodate', 'time', 
+			'title', 'doctitle', 'sitepage', 'sitepages', 
+			// User
+			 'reportType', 'clientName', 'address1', 'cityStateZip', 'npiNumber', 'addressBlock'
+		];
+		for (var i in subst) {
+			var y = document.getElementsByClassName(subst[i]);
+			var c = y.length;
+			for (var j = 0; j < c; ++j) {
+				if(j == c-1){
+					console.log(y[j])
+					y[j].innerHTML = vars[subst[i]];
+				} else {
+					y[j].textContent = vars[subst[i]];
+				}
+			}
+		}
+	}
+	</script>
+</head>
+	<body onload="substitute();">
+		<div id="printHeader">
+	    <div id="mainLogoHeader">  
+				<div id="headerOverlay">
+					<h1 class="reportType"></h1>
+				</div>
+				<div id="reportLogoSection">
+					<img src= ../images/logoUploads/reportLogo.png />
+				</div>
+				<div id="clientAddress" class= "addressBlock">
+				<!-- 	<p class= "clientName"></p>
+					<p class= "address1"></p>
+					<p class= "cityStateZip"></p>
+					<p class= "npiNumber"></p> -->
+				</div>
+	    </div>
+	</body>
+</html>

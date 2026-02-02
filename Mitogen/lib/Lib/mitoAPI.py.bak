@@ -1,0 +1,1283 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+import os
+import json
+import base64
+from java.sql import SQLException, Date
+import sys
+import mitoDB
+import mitoHL7
+import java.util.Date
+import mitoAPI
+import datetime
+
+
+class apiResponse(object):
+    def __init__(self, requestData, endPoint):
+        self.request = requestData
+        self.endPoint = str(endPoint)
+        self.payload = {"data":[]}
+
+    def releaseLoggedResponse(self, sw):
+        parms = []
+        parms.append(mitoDB.apiSQLParm())
+        parms[len(parms)-1].datatype = "string"
+        parms[len(parms)-1].value = str(self.request)
+        parms.append(mitoDB.apiSQLParm())
+        parms[len(parms)-1].datatype = "string"
+        parms[len(parms)-1].value = self.endPoint
+        parms.append(mitoDB.apiSQLParm())
+        parms[len(parms)-1].datatype = "string"
+        parms[len(parms)-1].value = str(self.payload)
+
+        db = mitoDB.apiDatabaseActions(sw)
+
+        #rs = db.executeUpdate(db.procLogAPIResponse, parms)
+
+        return self.payload
+
+class apiEndPointConfig(object):
+    def __init__(self, mitoLookupBranch, customerLookupBranch, hl7QueryBranch):
+        self.mitoLookupBranch = mitoLookupBranch
+        self.customerLookupBranch = customerLookupBranch
+        self.hl7QueryBranch = hl7QueryBranch
+        self.orderTaskName = "processOrder"
+        self.resultTaskName = "processResult"
+        self.unsolicitedTaskName = "processUnsolicitedResult"
+        self.singleSite = True
+        self.maxResults = 100
+        self.allowUnsolicitedResults = False
+        self.hl7Path = ""
+        self.pathDelimiter = "/"
+
+class logData(object):
+    def __init__(self):
+        self.logName = ""
+        self.messageType = ""
+        self.messageSource = ""
+        self.messageData = ""
+        self.messageTime = ""
+
+class orderData(object):
+    def __init__(self):
+        self.containerId = ""
+        self.orderId = ""
+        self.data = ""
+        self.status = ""
+        self.site = ""
+        self.messageType = ""
+        self.queue = ""
+        self.ormFileName = ""
+        self.oruFileName = ""
+        self.orm = []
+        self.oru = []
+        self.processingComplete = 0
+        self.originalContainerId = ""
+        self.isUnsolicited = False
+
+#default response messages
+class apiMessages(object):
+    def __init__(self):
+        self.noProcessingForYou = "data not processed"
+        self.nothingToDo = "nothing to do"
+        self.queueIsEmpty = "queue is empty"
+        self.noContainers = "no containerIds specified"
+        self.hl7 = {}
+        self.hl7["failedB64DecodeORM"] = "failed to decode orm segment: "
+        self.hl7["failedB64DecodeORU"] = "failed to decode oru segment: "
+        self.hl7["ormMissing"] = "ORM Segments missing"
+        self.hl7["oruMissing"] = "ORU Segments missing"
+        self.orders = {}
+        self.orders["unknownOrderType"] = "unknown order data type"
+        self.orders["noOrderId"] = "orderId missing at index: "
+        self.orders["orderExists"] = "order already exists"
+        self.orders["cannotFindOrder"] = "unable to lookup order at index:"
+        self.orders["orderDoesNotExist"] = "order does not exist"
+        self.log = {}
+        self.log["couldNotSave"] = "Could not save message"
+        self.log["noText"] = "No Message Text"
+        self.log["noSource"] = "No Message Source"
+        self.log["noType"] = "No Message Type"
+        self.log["noLog"] = "No Message Log"
+        self.containers = {}
+        self.containers["containerExists"] = "containerId already \\exists"
+        self.containers["notExist"] = "containerId does not exist"
+        self.containers["wrongSite"] = "containerId does not belong to this site"
+        self.containers["aleadyOnQueue"] = "containerId is already on queue"
+        self.false = "false"
+        self.true = "true"
+        self.success = "success"
+        self.userError = "user error"
+        self.information = "information"
+        self.error = "error"
+
+class logMessages(object):
+    def __init__(self):
+        self.getOrder = "Getting Order Id...."
+        self.hl7Encoded = "HL7 Encoded Order Data Detected"
+        self.hl7Decoding = "Decoding Data and updating type"
+        self.orderDataHL7 = "HL7 Order Data Detected"
+        self.resultDataHL7 = "HL7 Result Data Detected"
+        self.orderDataJSON = "JSON Order Data Detected"
+
+#creates the ability to support multiple languages
+class apiMessageBundle(object):
+    def __init__(self):
+        self.languages = {}
+        self.languages['eng_us'] = apiMessages()
+
+class orderDataTypes(object):
+    def __init__(self):
+        self.hl7b64 = "hl7b64"
+        self.hl7 = "hl7"
+        self.json = "json"
+
+class apiConfig(object):
+    def __init__(self):
+        self.charSet = "utf-8"
+        self.language = "eng_us"
+
+class apiEndPoints(object):
+  def __init__(self, uSwitchBoard, eventId):
+    self.switchboard = uSwitchBoard
+    self.eventId = eventId
+
+  def ReconcileOrder(self, cntrId, cntrType, mitoLookupBranch, customerLookupBranch, customerContainerType = ""):
+    cntrQueriesiXML = mitoLookupBranch
+    if customerContainerType != "":
+      cntrQueriesiXML = customerLookupBranch
+      cntrType = customerContainerType
+
+    currChild = 0
+
+    dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+    while currChild < cntrQueriesiXML.getChildCount():
+      lookupType = cntrQueriesiXML.getChildAt(currChild).value
+      if lookupType == cntrType:
+        currQuery = cntrQueriesiXML.getChildAt(currChild).getChildAt(0).value
+        parms = []
+        parms.append(mitoDB.apiSQLParm())
+        parms[len(parms)-1].datatype = "string"
+        parms[len(parms)-1].value = cntrId
+        rs = dbQueries.getData(currQuery, parms)
+        if rs.next():
+          return rs.getString(1), "requestId"
+      currChild += 1
+    return None, None
+
+  def orders(self, orderConfig):
+    cfg = mitoAPI.apiConfig()
+    lmsg = mitoAPI.logMessages()
+    msg = mitoAPI.apiMessageBundle().languages[cfg.language]
+    containerCount = 0
+    customerContainerCount = 0
+    reqCount = 0
+    resultCount = 0
+    responseJSON = json.dumps({"data":[{"code":400, "status":msg.error, "message":msg.userError, "errors":"No Request Data"}]})
+
+    if self.switchboard.requestJson:
+      res = mitoAPI.apiResponse(self.switchboard.requestJson.decode(cfg.charSet), "apiOrders")
+      order_list = []
+
+      try:
+        req = json.loads(self.switchboard.requestJson.decode(cfg.charSet))
+        odt = mitoAPI.orderDataTypes()
+
+        if 'data' in req:
+#           self.switchboard.log(json.dumps(req))
+
+          if 'orders' in req['data']:
+            for order in req['data']['orders']:
+              if 'orderId' in order:
+                res.payload['data'].append({"orderId":order['orderId'], "containerId":"", "data":"false", "status":"data not processed"})
+          else:
+            if 'data' in req['data']:
+              res.payload['data'].append({"code":200, "status":"success", "message":"OK", "payload":[{"data":[{"code":204, "status":"nothing to do", "message":"nothing to do"}]}]})
+
+        responseJSON = str(json.dumps(res.releaseLoggedResponse(self.switchboard)))
+      except Exception as e:
+        self.switchboard.log(str(e.message))
+        res.payload['data'].append({"code":400, "status":msg.error, "message":msg.userError, "errors":str(e.message)})
+
+    return responseJSON
+
+
+
+#             currOrder = 0
+#             for order in req['data']['orders']:
+#               o = mitoAPI.orderData()
+#               o.site = "%"
+#               try:
+#                 # if you want to return data
+#                 self.switchboard.log(json.dumps(order))
+#                 self.switchboard.log(lmsg.getOrder)
+#                 currOrder += 1
+
+#                 if 'orderId' in order:
+#                   o.orderId = order['orderId']
+#                   o.messageType = order['type']
+#                   o.site = "%"
+#                   if 'siteId' in order:
+#                     if str(order['siteId']) != '' and orderConfig.singleSite == False:
+#                       o.site = order['siteId']
+#                   dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+#                   parms = []
+
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = o.orderId
+
+#                   rs = dbQueries.getData(dbQueries.checkProcessingQueueForOrder, parms)
+#                   if rs.next():
+#                     o.data = msg.false
+#                     o.status = msg.orders["orderExists"]
+#                     o.containerId = rs.getString("containerId")
+#                   else:
+#                     if 'containerId' in order:
+#                       o.containerId = order['containerId']
+
+#                   if o.containerId == "":
+#                     nextReqId = self.switchboard.generateNextInSequence('reqId')
+#                     o.containerId = 'R'
+#                     o.containerId += format(nextReqId, '09')
+#                   else:
+#                     parms = []
+#                     parms.append(mitoDB.apiSQLParm())
+#                     parms[len(parms)-1].datatype = "string"
+#                     parms[len(parms)-1].value = o.containerId
+#                     parms.append(mitoDB.apiSQLParm())
+#                     parms[len(parms)-1].datatype = "string"
+#                     parms[len(parms)-1].value = "%"
+#                     parms.append(mitoDB.apiSQLParm())
+#                     parms[len(parms)-1].datatype = "string"
+#                     parms[len(parms)-1].value = "%"
+
+#                     rs = dbQueries.getData(dbQueries.checkForContainer, parms)
+#                     if rs.next():
+#                       o.data = msg.false
+#                       o.status = msg.containers["containerExists"]
+
+#                   if o.messageType == odt.hl7b64:
+#                     self.switchboard.log(lmsg.hl7Encoded)
+#                     self.switchboard.log(lmsg.hl7Decoding)
+#                     if 'orm' in order:
+#                       ormSegments = order['orm']
+#                       order['orm'] = []
+#                       currSegment = 1
+#                       try:
+#                         self.switchboard.log("attempting decode")
+#                         for orm in ormSegments:
+#                           self.switchboard.log(str(currSegment))
+#                           self.switchboard.log(str(orm))
+#                           order['orm'].append(base64.standard_b64decode(orm))
+#                           currSegment += 1
+#                         o.messageType = odt.hl7
+#                       except Exception as e:
+#                         self.switchboard.log(str(e.message))
+#                         o.data = msg.false
+#                         o.status = msg.hl7["failedB64DecodeORM"]
+#                         o.status += str(currSegment)
+#                         o.containerId = ""
+#                     else:
+#                       o.data = msg.false
+#                       o.status = msg.hl7["ormMissing"]
+#                       o.containerId = ""
+
+#                     if 'oru' in order:
+#                       oruSegments = order['oru']
+#                       order['oru'] = []
+#                       currSegment = 1
+#                       try:
+#                         for oru in oruSegments:
+#                           order['oru'].append(base64.standard_b64decode(oru))
+#                           currSegment += 1
+#                       except Exception as e:
+#                         self.switchboard.log(str(e.message))
+#                         o.data = msg.false
+#                         o.status = msg.hl7["failedB64DecodeORU"]
+#                         o.status += str(currSegment)
+#                         o.containerId = ""
+
+#                   if o.orderId == "":
+#                     o.data = msg.false
+#                     o.status = msg.orders["noOrderId"]
+#                     o.status += str(currOrder)
+#                     o.containerId = ""
+
+#                   if o.data == "":
+#                     if "queue" in order:
+#                       o.queue = order['queue']
+#                     if o.messageType == odt.hl7:
+#                       if 'orm' in order:
+#                         self.switchboard.log(lmsg.orderDataHL7)
+#                         o.ormFileName = self.switchboard.configPath
+#                         o.ormFileName += "private/hl7/incoming/"
+#                         o.ormFileName += datetime.datetime.today().strftime('%Y%m%d%H%M%S')
+#                         o.ormFileName += "_" + str(self.eventId) + "_" + str(currOrder) + "_orm.hl7"
+#                         ormFilePointer = open(o.ormFileName,'w')
+#                         for orm in order['orm']:
+#                           ormFilePointer.write(str(orm))
+#                           ormFilePointer.write("\n")
+#                         ormFilePointer.flush()
+#                         ormFilePointer.close()
+#                         if 'oru' in order:
+#                           self.switchboard.log(lmsg.resultDataHL7)
+#                           o.oruFileName = self.switchboard.configPath
+#                           o.oruFileName = 'private/hl7/incoming/'
+#                           o.oruFileName += datetime.datetime.today().strftime('%Y%m%d%H%M%S')
+#                           o.oruFileName += "_" + str(self.eventId) + "_" + str(currOrder) + "_oru.hl7"
+#                           oruFilePointer = open(o.oruFileName,'w')
+#                           for oru in order['oru']:
+#                             oruFilePointer.write(oru)
+#                             oruFilePointer.write("\n")
+#                           oruFilePointer.flush()
+#                           oruFilePointer.close()
+#                       else:
+#                         o.data = msg.false
+#                         o.status = msg.hl7["ormMissing"]
+#                         o.containerId = ""
+
+#                     elif o.messageType == odt.json:
+#                       self.switchboard.log(lmsg.orderDataJSON)
+#                       o.ormFileName = self.switchboard.configPath
+#                       o.ormFileName += 'private/hl7/incoming/'
+#                       o.ormFileName += datetime.datetime.today().strftime('%Y%m%d%H%M%S')
+#                       o.ormFileName += "_" + str(self.eventId) + "_" + str(currOrder) + "_orm.json"
+#                       jsonFilePointer = open(o.ormFileName,'w')
+#                       jsonFilePointer.write(order)
+#                       jsonFilePointer.flush()
+#                       jsonFilePointer.close()
+#                     else:
+#                       o.data = msg.false
+#                       o.status = msg.orders["unknownOrderType"]
+#                       o.containerId = ""
+
+#                   if o.data == "":
+#                     apiDB = mitoDB.apiDatabaseActions(self.switchboard)
+#                     queries = mitoDB.apiQueryQuickList()
+#                     self.switchboard.log(apiDB.procCreateContainer)
+#                     queries.addQuery(apiDB.procCreateContainer)
+#                     queries.addParm("string", o.containerId)
+#                     queries.addParm("string", "requestId")
+#                     if o.site == "%":
+#                       queries.addParm("string", None)
+#                     else:
+#                       queries.addParm("string", o.site)
+#                     queries.addParm("long", self.eventId)
+#                     queries.addQuery(apiDB.procCreateContainerHistory)
+#                     self.switchboard.log(apiDB.procCreateContainerHistory)
+#                     queries.addParm("string", o.containerId)
+#                     queries.addParm("long", self.eventId)
+
+#                     queries.addQuery(apiDB.procQueueOrderFile)
+#                     self.switchboard.log("query added")
+
+#                     queries.addParm("string", o.containerId)
+#                     queries.addParm("string", o.orderId)
+#                     queries.addParm("string", orderConfig.orderTaskName)
+#                     queries.addParm("string", o.queue)
+#                     queries.addParm("long", self.eventId)
+#                     queries.addParm("string", o.ormFileName)
+
+#                     if o.oruFileName != "":
+#                       queries.addQuery(apiDB.procQueueOrderFile)
+#                       self.switchboard.log("query added")
+
+#                       queries.addParm("string", o.containerId)
+#                       queries.addParm("string", o.orderId)
+#                       queries.addParm("string", orderConfig.resultTaskName)
+#                       queries.addParm("string", o.queue)
+#                       queries.addParm("long", self.eventId)
+#                       queries.addParm("string", o.oruFileName)
+
+#                     if apiDB.executeUpdateList(queries.queryList, True).hadFailure:
+#                       o.data = msg.false
+#                       o.status = msg.noProcessingForYou
+#                     else:
+#                       o.data = msg.true
+#                       o.status = msg.success
+
+#                 else:
+#                   o.data = msg.false
+#                   o.status = msg.orders["noOrderId"]
+#                   o.status += str(currOrder)
+#                   o.containerId = ""
+
+#               except Exception as e:
+#                 self.switchboard.handleFormError("Error", [str(e.message)], None)
+
+#               order_list.append(o)
+
+#             if len(order_list) > 0:
+#               for orderdata in order_list:
+#                 res.payload['data'].append({"orderId":orderdata.orderId, "containerId":orderdata.containerId, "data":orderdata.data, "status":orderdata.status})
+#             else:
+#               res.payload['data'].append({"code":204, "status":str(msg.nothingToDo), "message":str(msg.nothingToDo)})
+
+#           else:
+#             if 'data' in req['data']:
+#               dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+#               containerList = {}
+#               orderList = {}
+#               specimenList = {}
+#               newRes = {}
+#               siteId = "%"
+#               lookupCntr = ""
+
+#               for queueRequest in req['data']['data']:
+#                 if 'siteId' in queueRequest:
+#                   if str(queueRequest['siteId']) != "" and orderConfig.singleSite == False:
+#                     siteId = str(queueRequest['siteId'])
+#                 if 'queue' in queueRequest:
+#                   queueCount = 0
+#                   parms = []
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = queueRequest['queue']
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+
+#                   rs = dbQueries.getData(dbQueries.getContainersForQueue, parms)
+#                   while rs.next():
+#                     queueCount += 1
+#                     containerCount += 1
+#                     cntrId = rs.getString(1)
+#                     cntrType = rs.getString(2)
+#                     if cntrType != 'requestId':
+#                       lookupCntr, cntrType = self.ReconcileOrder(cntrId, cntrType, orderConfig.mitoLookupBranch, orderConfig.customerLookupBranch)
+#                     else:
+#                       lookupCntr = cntrId
+#                     if not cntrId in containerList:
+#                       reqCount += 1
+#                       containerList[cntrId] = lookupCntr
+#                   if queueCount == 0:
+#                     res.payload['data'].append({"code":204, "status":str(msg.queueIsEmpty), "message":str(queueRequest['queue'] + " " + msg.queueIsEmpty)})
+
+#                 elif 'containerId' in queueRequest:
+#                   parms = []
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = queueRequest['containerId']
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+#                   containerCount += 1
+#                   rs = dbQueries.getData(dbQueries.checkForContainer, parms)
+#                   while rs.next():
+#                     cntrId = rs.getString(1)
+#                     cntrType = rs.getString(2)
+#                     if cntrType != 'requestId':
+#                       lookupCntr, cntrType = self.ReconcileOrder(cntrId, cntrType, orderConfig.mitoLookupBranch, orderConfig.customerLookupBranch)
+#                     else:
+#                       lookupCntr = cntrId
+#                     if not cntrId in containerList:
+#                       reqCount += 1
+#                       containerList[cntrId] = lookupCntr
+
+#                 elif 'specimenId' in queueRequest or 'orderId' in queueRequest:
+#                   custContainerType = 'orderId'
+#                   customerContainerCount += 1
+#                   if 'specimenId' in queueRequest:
+#                     custContainerType = 'specimenId'
+#                     cntrId, cntrType = self.ReconcileOrder(str(queueRequest['specimenId']), '', orderConfig.mitoLookupBranch, orderConfig.customerLookupBranch, custContainerType)
+#                     specimenList[cntrId] = str(queueRequest['specimenId'])
+#                   if 'orderId' in queueRequest:
+#                     cntrId, cntrType = self.ReconcileOrder(str(queueRequest['orderId']), '', orderConfig.mitoLookupBranch, orderConfig.customerLookupBranch, custContainerType)
+#                     orderList[cntrId] = str(queueRequest['orderId'])
+
+#                   if not cntrId is None:
+#                     if not cntrId in containerList:
+#                       reqCount += 1
+#                       containerList[cntrId] = cntrId
+
+#               hl7QueryList = {}
+#               hl7SegmentOrder = {}
+#               currChild = 0
+#               currCount = 0
+
+#               if len(containerList) > 0 and orderConfig.hl7QueryBranch.getChildCount() > 0:
+#                 while currChild < orderConfig.hl7QueryBranch.getChildCount():
+#                   currSegment = orderConfig.hl7QueryBranch.getChildAt(currChild).value
+#                   currQuery = orderConfig.hl7QueryBranch.getChildAt(currChild).getChildAt(0).value
+#                   self.switchboard.log(currSegment)
+#                   hl7QueryList[currSegment] = currQuery
+#                   hl7SegmentOrder[currChild] = currSegment
+#                   currChild += 1
+
+#                 for cntrId,lookupCntr in containerList.iteritems():
+#                   if currCount < orderConfig.maxResults:
+#                     currCount += 1
+#                     currChild = 0
+#                     hl7Map = {}
+#                     segCounter = 0
+
+#                     newRes = {"containerId":cntrId, "status":"complete", "type":"hl7", "data":[]}
+#                     if cntrId in specimenList:
+#                       newRes["specimenId"] = specimenList[cntrId]
+#                     if cntrId in orderList:
+#                       newRes["orderId"] = orderList[cntrId]
+#                     while currChild < len(hl7SegmentOrder):
+#                       seg = hl7SegmentOrder[currChild]
+#                       parms = []
+#                       parms.append(mitoDB.apiSQLParm())
+#                       parms[len(parms)-1].datatype = "string"
+#                       parms[len(parms)-1].value = lookupCntr
+#                       rs = dbQueries.getData(hl7QueryList[seg], parms)
+#                       hl7Helper = mitoHL7.apiHL7Helper();
+#                       hl7Map[seg] = mitoHL7.HL7SegmentMapper()
+#                       while rs.next():
+#                         if seg.find("HL7APPEND_") == 0:
+#                           segText = ""
+#                         else:
+#                           segText = seg
+#                         colCount = rs.getMetaData().getColumnCount()
+#                         currColumn = 1
+#                         segData = mitoHL7.HL7Segment()
+#                         while currColumn <= colCount:
+
+#                           colName = str(rs.getMetaData().getColumnLabel(currColumn))
+
+#                           segValue = rs.getString(colName)
+#                           self.switchboard.log(colName + ": " + str(segValue))
+
+#                           if colName == "parentSegment":
+#                             self.switchboard.log("Parent Map Found!")
+#                             hl7Map[seg].parentSegment = segValue
+#                           elif colName == "childSegment":
+#                             self.switchboard.log("Child Map Found!")
+#                             hl7Map[seg].childSegment = segValue
+#                           elif colName == "joinCondition":
+#                             self.switchboard.log("Join Condition Found!")
+#                             segData.joinCondition = segValue
+#                           else:
+#                             if currColumn == 1 and seg == "MSH":
+#                               segText += "|" + hl7Helper.endcodingMSHDefault
+
+#                             if seg.find("HL7APPEND_") == 0 and currColumn == 1:
+#                               segText += ""
+#                             else:
+#                               if colName.find('.0') == -1:
+#                                 segText += "^"
+#                               else:
+#                                 segText += "|"
+
+#                             if segValue is None:
+#                               segText += ""
+#                             else:
+#                               segText += hl7Helper.escapeEncoders(str(segValue))
+
+#                           currColumn += 1
+
+#                         segData.segment = str(segText)
+#                         segData.sortOrder = segCounter
+#                         segCounter += 1
+
+#                         hl7Map[seg].segmentData[segData.sortOrder] = segData
+
+#                       rs = dbQueries.getData('select @setId:=0 as "1.0" from dual', [])
+#                       currChild += 1
+
+#                     currChild = 0
+#                     skipIds = []
+#                     while currChild < len(hl7SegmentOrder):
+#                       for HL7SegDataCounter, HL7SegData in hl7Map[hl7SegmentOrder[currChild]].segmentData.iteritems():
+#                         #if HL7Data[hl7SegmentOrder[currChild]].sortOrder
+#                         if not HL7SegDataCounter in skipIds:
+#                           newRes['data'].append(str(HL7SegData.segment))
+#                           self.switchboard.log(HL7SegData.segment)
+#                           if hl7Map[hl7SegmentOrder[currChild]].childSegment != "":
+#                             for HL7SegDataCounter2, HL7SegData2 in hl7Map[hl7Map[hl7SegmentOrder[currChild]].childSegment].segmentData.iteritems():
+#                               if HL7SegData.joinCondition == HL7SegData2.joinCondition:
+#                                 self.switchboard.log("Found Child!")
+#                                 self.switchboard.log(HL7SegData2.segment)
+#                                 newRes['data'].append(str(HL7SegData2.segment))
+#                                 skipIds.append(HL7SegDataCounter2)
+#                       currChild += 1
+#                       rs = dbQueries.getData('select @setId:=0 as "1.0" from dual', [])
+
+#                     res.payload['data'].append(newRes)
+#                   else:
+#                     if not "moreResults" in res.payload:
+#                       res.payload['moreResults']= "true"
+#               else:
+#                 res.payload['data'].append({"code":204, "status":str(msg.nothingToDo), "message":str(msg.nothingToDo)})
+#             else:
+#               res.payload['data'].append({"code":204, "status":str(msg.nothingToDo), "message":str(msg.nothingToDo)})
+#         else:
+#           res.payload['data'].append({"code":204, "status":str(msg.nothingToDo), "message":str(msg.nothingToDo)})
+#       except Exception as e:
+#         self.switchboard.log(str(e.message))
+#         res.payload['data'].append({"code":400, "status":msg.error, "message":msg.userError, "errors":str(e.message)})
+
+
+
+
+#       responseJSON = str(json.dumps(res.releaseLoggedResponse(self.switchboard)))
+
+#       self.switchboard.log(msg.containers["containerExists"])
+
+#       self.switchboard.log(str(res.releaseLoggedResponse(self.switchboard)))
+
+
+#     return responseJSON
+
+  def results(self, resultConfig):
+    cfg = mitoAPI.apiConfig()
+    lmsg = mitoAPI.logMessages()
+    msg = mitoAPI.apiMessageBundle().languages[cfg.language]
+    containerCount = 0
+    customerContainerCount = 0
+    reqCount = 0
+    resultCount = 0
+    responseJSON = json.dumps({"data":[{"code":400, "status":msg.error, "message":msg.userError, "errors":"No Request Data"}]})
+    if resultConfig.hl7Path == "":
+      resultConfig.hl7Path = resultConfig.pathDelimiter+"sftp"+resultConfig.pathDelimiter+"sunquest"+resultConfig.pathDelimiter+"incoming"+resultConfig.pathDelimiter
+    if resultConfig.hl7Path.endswith(resultConfig.pathDelimiter) == False:
+      resultConfig.hl7Path += resultConfig.pathDelimiter
+
+
+    if self.switchboard.requestJson:
+      try:
+        req = json.loads(self.switchboard.requestJson.encode(cfg.charSet))
+        res = mitoAPI.apiResponse(req, "apiResults")
+        odt = mitoAPI.orderDataTypes()
+        order_list = []
+
+        if 'data' in req:
+          self.switchboard.log(json.dumps(req))
+          if 'orders' in req['data']:
+            siteId = "%"
+            currOrder = 0
+            for order in req['data']['orders']:
+              o = mitoAPI.orderData()
+              try:
+                # if you want to return data
+                self.switchboard.log(json.dumps(order))
+                self.switchboard.log(lmsg.getOrder)
+                currOrder += 1
+                dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+                if 'siteId' in order:
+                  if order['siteId'] != "" and resultConfig.singleSite == False:
+                    siteId = str(order['siteId'])
+
+                if 'containerId' in order:
+                  lookupContainerId = order['containerId']
+                  o.originalContainerId = lookupContainerId
+                  if lookupContainerId != "":
+                    parms = []
+                    parms.append(mitoDB.apiSQLParm())
+                    parms[len(parms)-1].datatype = "string"
+                    parms[len(parms)-1].value = lookupContainerId
+                    parms.append(mitoDB.apiSQLParm())
+                    parms[len(parms)-1].datatype = "string"
+                    parms[len(parms)-1].value = siteId
+                    parms.append(mitoDB.apiSQLParm())
+                    parms[len(parms)-1].datatype = "string"
+                    parms[len(parms)-1].value = siteId
+
+                    rs = dbQueries.getData(dbQueries.checkForContainer, parms)
+                    if rs.next():
+                      containerType = rs.getString("containerType")
+                      if containerType == "requestId":
+                        o.containerId = lookupContainerId
+                      else:
+                        o.containerId, containerType = self.ReconcileOrder(lookupContainerId, containerType, resultConfig.mitoLookupBranch, resultConfig.customerLookupBranch)
+                  if o.containerId == "":
+                    if 'orderId' in order:
+                      if order["orderId"] != "":
+                        o.containerId, containerType = self.ReconcileOrder(o.containerId,'', resultConfig.mitoLookupBranch, resultConfig.customerLookupBranch, 'orderId')
+                    elif 'specimenId' in order:
+                      if order["specimenId"] != "":
+                        o.containerId, containerType = self.ReconcileOrder(o.containerId,'', resultConfig.mitoLookupBranch, resultConfig.customerLookupBranch, 'specimenId')
+
+                  if 'type' in order:
+                    o.messageType = order['type']
+
+                  if o.containerId == "" or o.containerId is None:
+                    self.switchboard.log("Unsolicited Result Detected")
+                    if 'allowUnsolicitedResults' in req['data']:
+                      self.switchboard.log("Unsolicited Flag Detected")
+                      self.switchboard.log("Value = " + str(req['data']['allowUnsolicitedResults']))
+                      self.switchboard.log("Unsolicited Allowed")
+                      self.switchboard.log("Value = " + str(resultConfig.allowUnsolicitedResults))
+                      if str(req['data']['allowUnsolicitedResults']).upper() == 'TRUE' and resultConfig.allowUnsolicitedResults == True and 'containerId' in order:
+                        o.containerId = order["containerId"]
+                        o.isUnsolicited = True
+
+                  if o.containerId != "" and not o.containerId is None:
+                    if o.messageType == odt.hl7b64:
+                      self.switchboard.log(lmsg.hl7Encoded)
+                      self.switchboard.log(lmsg.hl7Decoding)
+                      if 'messages' in order:
+                        oruSegments = order['messages']
+                        order['messages'] = []
+                        currSegment = 1
+                        try:
+                          for oru in oruSegments:
+                            order['data'].append(base64.standard_b64decode(oru))
+                            currSegment += 1
+                        except Exception as e:
+                          self.switchboard.log(str(e.message))
+                          o.data = msg.false
+                          o.status = msg.hl7["failedB64DecodeORU"]
+                          o.status += str(currSegment)
+                      else:
+                        o.data = msg.false
+                        o.status = msg.hl7["oruMissing"]
+
+                    if o.data == "":
+                      if "queue" in order:
+                        o.queue = order['queue']
+                      if o.messageType == odt.hl7:
+                        if 'messages' in order:
+                          self.switchboard.log("containerId:" + str(o.containerId))
+                          self.switchboard.log(lmsg.resultDataHL7)                         
+
+                          o.oruFileName = resultConfig.hl7Path
+                          o.oruFileName += datetime.datetime.today().strftime('%Y%m%d%H%M%S')                         
+                          o.oruFileName += "_" + str(self.eventId) + "_" + str(currOrder) + "_oru.hl7"
+                          oruFilePointer = open(o.oruFileName,'w')
+                          self.switchboard.log("File Opened")
+                          for oru in order['messages']:
+                            oruFilePointer.write(oru)
+                            oruFilePointer.write("\n")
+                          oruFilePointer.flush()
+                          oruFilePointer.close()
+                        else:
+                          o.data = msg.false
+                          o.status = msg.hl7["ormMissing"]
+                      else:
+                        o.data = msg.false
+                        o.status = msg.orders["unknownOrderType"]
+
+                      if o.data == "":
+                        o.data = msg.true
+                        o.status = msg.success
+#                       apiDB = mitoDB.apiDatabaseActions(self.switchboard)
+#                       queries = mitoDB.apiQueryQuickList()
+
+#                       queries.addQuery(apiDB.procQueueOrderFile)
+#                       self.switchboard.log("query added")
+
+#                       queries.addParm("string", o.originalContainerId)
+#                       queries.addParm("string", o.orderId)
+#                       if o.isUnsolicited == False:
+#                         queries.addParm("string", resultConfig.resultTaskName)
+#                       else:
+#                         queries.addParm("string", resultConfig.unsolicitedTaskName)
+#                       queries.addParm("string", o.queue)
+#                       queries.addParm("long", self.eventId)
+#                       queries.addParm("string", o.oruFileName)
+
+#                       if apiDB.executeUpdateList(queries.queryList, True).hadFailure:
+#                         o.data = msg.false
+#                         o.status = msg.noProcessingForYou
+#                       else:
+#                         o.data = msg.true
+#                         o.status = msg.success
+                  else:
+                    if 'orderId' in order:
+                        o.orderId = str(order["orderId"])
+                    o.originalContainerId = lookupContainerId
+                    o.data = msg.false
+                    o.status = msg.orders["cannotFindOrder"]
+                    o.status += str(currOrder)
+                else:
+                  if 'orderId' in order:
+                    o.orderId = str(order["orderId"])
+                  o.data = msg.false
+                  o.status = msg.orders["cannotFindOrder"]
+                  o.status += str(currOrder)
+                  o.originalContainerId = ""
+
+              except Exception as e:
+                self.switchboard.handleFormError("Error", [str(e.message)], None)
+
+              order_list.append(o)
+
+            for orderdata in order_list:
+
+              res.payload['data'].append({"orderId":orderdata.orderId, "containerId":orderdata.originalContainerId, "data":orderdata.data, "status":orderdata.status})
+
+            responseJSON = json.dumps(res.payload)
+          else:
+            if 'getResults' in req['data']:
+              newRes = {}
+              dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+              for resultRequest in req['data']['getResults']:
+                if 'queue' in resultRequest:
+                  parms = []
+                  parms.append(mitoDB.apiSQLParm())
+                  parms[len(parms)-1].datatype = "string"
+                  parms[len(parms)-1].value = resultRequest['queue']
+                  rs = dbQueries.getData(dbQueries.getQueueContainers, parms)
+                  while rs.next():
+                    newRes = {"orderId":"", "containerId":rs.getString(1), "status":"not ready", "type":"hl7", "data":[]}
+                elif 'containerId' in resultRequest:
+                  newRes = {"orderId":"", "containerId":resultRequest['containerId'], "status":"not ready", "type":"hl7", "data":[]}
+                elif 'orderId' in resultRequest:
+                  newRes = {"orderId":resultRequest['orderId'], "containerId":"", "status":"not ready", "type":"hl7", "data":[]}
+                elif 'specimenId' in resultRequest:
+                  parms = []
+                  parms.append(mitoDB.apiSQLParm())
+                  parms[len(parms)-1].datatype = "string"
+                  parms[len(parms)-1].value = resultRequest['specimenId']
+                  rs = dbQueries.getData(dbQueries.getRequestIdFromSpecimenId, parms)
+                  if rs.next():
+                    newRes = {"orderId":rs.getString(1), "containerId":"", "status":"not ready", "type":"hl7", "data":[]}
+
+              res.payload['data'].append(newRes)
+
+
+#              containerList = {}
+#               newRes = {}
+#               lookupContainerId = ""
+#               dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+#               for resultRequest in req['data']['getResults']:
+#                 siteId = "%"
+#                 if 'siteId' in resultRequest:
+#                   if resultRequest['siteId'] != "" and resultConfig.singleSite == False:
+#                     siteId = str(resultRequest['siteId'])
+#                 if 'queue' in resultRequest:
+#                   queueCount = 0
+#                   parms = []
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = resultRequest['queue']
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+#                   rs = dbQueries.getData(dbQueries.getContainersForQueue, parms)
+#                   while rs.next():
+#                     queueCount += 1
+#                     cntrId = rs.getString(1)
+#                     cntrType = rs.getString(2)
+#                     if cntrType != 'requestId':
+#                       lookupContainerId, cntrType = self.ReconcileOrder(cntrId, cntrType, resultConfig.mitoLookupBranch, resultConfig.customerLookupBranch)
+#                     else:
+#                       lookupContainerId = cntrId
+#                     if not cntrId in containerList:
+#                       containerList[cntrId] = lookupContainerId
+#                   if queueCount == 0:
+#                     res.payload['data'].append({"code":204, "status":str(msg.queueIsEmpty), "message":str(resultRequest['queue'] + " " + msg.queueIsEmpty)})
+
+#                 elif 'containerId' in resultRequest:
+#                   self.switchboard.log('container')
+#                   parms = []
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = resultRequest['containerId']
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+#                   parms.append(mitoDB.apiSQLParm())
+#                   parms[len(parms)-1].datatype = "string"
+#                   parms[len(parms)-1].value = siteId
+
+#                   rs = dbQueries.getData(dbQueries.checkForContainer, parms)
+#                   while rs.next():
+#                     cntrId = rs.getString(1)
+#                     cntrType = rs.getString(2)
+#                     if cntrType != 'requestId':
+#                       cntrId, cntrType = self.ReconcileOrder(cntrId, cntrType, resultConfig.mitoLookupBranch, resultConfig.customerLookupBranch)
+#                     if not cntrId in containerList:
+#                       containerList[cntrId] = cntrType
+#                 elif 'specimenId' in resultRequest or 'orderId' in resultRequest:
+#                   custContainerType = 'orderId'
+
+#                   if 'specimenId' in resultRequest:
+#                     custContainerType = 'specimenId'
+#                     cntrId = resultRequest['specimenId']
+#                   if 'orderId' in resultRequest:
+#                     cntrId = resultRequest['orderId']
+
+#                   cntrId, cntrType = self.ReconcileOrder(cntrId, '', resultConfig.mitoLookupBranch, resultConfig.customerLookupBranch, custContainerType)
+
+#                   if not cntrId is None:
+#                     parms = []
+#                     parms.append(mitoDB.apiSQLParm())
+#                     parms[len(parms)-1].datatype = "string"
+#                     parms[len(parms)-1].value = resultRequest['containerId']
+#                     parms.append(mitoDB.apiSQLParm())
+#                     parms[len(parms)-1].datatype = "string"
+#                     parms[len(parms)-1].value = siteId
+#                     parms.append(mitoDB.apiSQLParm())
+#                     parms[len(parms)-1].datatype = "string"
+#                     parms[len(parms)-1].value = siteId
+
+#                     rs = dbQueries.getData(dbQueries.checkForContainer, parms)
+#                     if rs.next():
+#                       if not cntrId in containerList:
+#                         containerList[cntrId] = cntrId
+
+#                 hl7QueryList = {}
+#                 hl7SegmentOrder = {}
+
+#                 currChild = 0
+
+#                 if len(containerList) > 0 and resultConfig.hl7QueryBranch.getChildCount() > 0:
+#                   while currChild < resultConfig.hl7QueryBranch.getChildCount():
+#                     self.switchboard.log(str(resultConfig.hl7QueryBranch.getChildAt(currChild).tag))
+#                     currSegment = resultConfig.hl7QueryBranch.getChildAt(currChild).value
+#                     currQuery = resultConfig.hl7QueryBranch.getChildAt(currChild)
+#                     self.switchboard.log(currSegment)
+#                     hl7QueryList[currSegment] = currQuery
+#                     hl7SegmentOrder[currChild] = currSegment
+#                     currChild += 1
+#                     hl7Helper = mitoHL7.apiHL7Helper()
+#                     currCount = 0
+
+#                   for cntrId,lookupCntr in containerList.iteritems():
+#                     if currCount < resultConfig.maxResults:
+#                       currCount += 1
+#                       currChild = 0
+#                       hl7Map = {}
+#                       segCounter = 0
+#                       newRes = {"orderId":"", "containerId":cntrId, "status":"", "type":"hl7", "data":[]}
+#                       while currChild < len(hl7SegmentOrder):
+#                         seg = hl7SegmentOrder[currChild]
+#                         parms = []
+#                         parms.append(mitoDB.apiSQLParm())
+#                         parms[len(parms)-1].datatype = "string"
+#                         parms[len(parms)-1].value = lookupCntr
+#                         rs = dbQueries.getData(hl7QueryList[seg].getChildAt(0).value, parms)
+#                         hl7Map[seg] = mitoHL7.HL7SegmentMapper()
+#                         while rs.next():
+#                           if seg.find("HL7APPEND_") == 0:
+#                             segText = ""
+#                           else:
+#                             segText = seg
+#                           colCount = rs.getMetaData().getColumnCount()
+#                           currColumn = 1
+#                           segData = mitoHL7.HL7Segment()
+#                           while currColumn <= colCount:
+#                             colName = str(rs.getMetaData().getColumnLabel(currColumn))
+#                             segValue = rs.getString(colName)
+#                             self.switchboard.log(colName + ": " + str(segValue))
+
+#                             if colName == "parentSegment":
+#                               self.switchboard.log("Parent Map Found!")
+#                               hl7Map[seg].parentSegment = segValue
+#                             elif colName == "childSegment":
+#                               self.switchboard.log("Child Map Found!")
+#                               hl7Map[seg].childSegment = segValue
+#                             elif colName == "joinCondition":
+#                               self.switchboard.log("Join Condition Found!")
+#                               segData.joinCondition = segValue
+#                             else:
+#                               if currColumn == 1 and seg == "MSH":
+#                                 segText += "|" + hl7Helper.endcodingMSHDefault
+
+#                               if seg.find("HL7APPEND_") == 0 and currColumn == 1:
+#                                 segText += ""
+#                               else:
+#                                 if colName.find('.0') == -1:
+#                                   segText += "^"
+#                                 else:
+#                                   segText += "|"
+
+#                               if segValue is None:
+#                                 segText += ""
+#                               else:
+#                                 segText += hl7Helper.escapeEncoders(str(segValue))
+
+#                             currColumn += 1
+
+#                           segData.segment = str(segText)
+#                           segData.sortOrder = segCounter
+#                           segCounter += 1
+
+#                           hl7Map[seg].segmentData[segData.sortOrder] = segData
+
+#   #                      newRes['data'].append(str(segText))
+
+#                         if hl7QueryList[seg].getChildCount() > 1:
+#                           hl7subSegment = 0
+#                           while hl7subSegment < hl7QueryList[seg].getChildCount():
+#                             hl7subSegment += 1
+
+#                         currChild += 1
+#                         rs = dbQueries.getData('select @setId:=0 as "1.0" from dual', [])
+
+#                       currChild = 0
+#                       skipIds = []
+#                       while currChild < len(hl7SegmentOrder):
+#                         for HL7SegDataCounter, HL7SegData in hl7Map[hl7SegmentOrder[currChild]].segmentData.iteritems():
+#                           #if HL7Data[hl7SegmentOrder[currChild]].sortOrder
+#                           if not HL7SegDataCounter in skipIds:
+#                             newRes['data'].append(str(HL7SegData.segment))
+#                             self.switchboard.log(HL7SegData.segment)
+#                             if hl7Map[hl7SegmentOrder[currChild]].childSegment != "":
+#                               for HL7SegDataCounter2, HL7SegData2 in hl7Map[hl7Map[hl7SegmentOrder[currChild]].childSegment].segmentData.iteritems():
+#                                 if HL7SegData.joinCondition == HL7SegData2.joinCondition:
+#                                   self.switchboard.log("Found Child!")
+#                                   self.switchboard.log(HL7SegData2.segment)
+#                                   newRes['data'].append(str(HL7SegData2.segment))
+#                                   skipIds.append(HL7SegDataCounter2)
+#                         currChild += 1
+
+#                       res.payload['data'].append(newRes)
+
+#                       if len(newRes['data']) > 0:
+#                         newRes['status'] = "complete"
+#                         resultCount += 1
+#                       else:
+#                         newRes['status'] = "not ready"
+
+#                     else:
+#                       if not "moreResults" in res.payload:
+#                         res.payload['moreResults']= "true"
+
+#                   res.payload['resultCount'] = str(resultCount)
+
+#             else:
+#               res.payload['data'].append({"code":400, "status":"error", "message":"User errors", "errors":str(msg.noProcessingForYou)})
+        else:
+          res.payload['data'].append({"code":400, "status":"error", "message":"User errors", "errors": str(msg.noProcessingForYou)})
+
+      except Exception as e:
+        self.switchboard.log(str(e.message))
+        res.payload['data'].append({"code":400, "status":"error", "message":"User errors", "errors":str(e.message)})
+
+      responseJSON = str(json.dumps(res.releaseLoggedResponse(self.switchboard)))
+
+    return responseJSON
+
+
+  def containers(self, singleSite = True):
+
+    cfg = mitoAPI.apiConfig()
+    lmsg = mitoAPI.logMessages()
+    msg = mitoAPI.apiMessageBundle().languages[cfg.language]
+    responseJSON = json.dumps({"data":[{"code":400, "status":msg.error, "message":msg.userError, "errors":"No Request Data"}]})
+    if self.switchboard.requestJson:
+
+      container_list = []
+      dequeueStep = ""
+      nextQueue = ""
+      containerAction = ""
+      siteId = "%"
+
+      try:
+        req = json.loads(self.switchboard.requestJson.encode(cfg.charSet))
+        res = mitoAPI.apiResponse(req, "apiContainers")
+        dequeueCount = 0
+        insertQueueCount = 0
+        if 'data' in req:
+          self.switchboard.log(json.dumps(req))
+          currContainer = 0
+          emptyContainerRequest = True
+          if 'action' in req['data']:
+            containerAction = req['data']['action']
+          if containerAction == "transferQueue":
+            if 'parameters' in req['data']:
+              if 'siteId' in req['data']['parameters']:
+                if req['data']['parameters']['siteId'] != '' and singleSite == False:
+                  siteId = str(req['data']['parameters']['siteId'])
+              if 'deQueueStepName' in req['data']['parameters']:
+                dequeueStep = req['data']['parameters']['deQueueStepName']
+              if 'newQueueStepName' in req['data']['parameters']:
+                nextQueue = req['data']['parameters']['newQueueStepName']
+
+          if containerAction == "insertQueue":
+            if 'parameters' in req['data']:
+              if 'siteId' in req['data']['parameters']:
+                if req['data']['parameters']['siteId'] != '' and singleSite == False:
+                  siteId = str(req['data']['parameters']['siteId'])
+              if 'newQueueStepName' in req['data']['parameters']:
+                nextQueue = req['data']['parameters']['newQueueStepName']
+
+          if containerAction == "deQueue":
+            if 'parameters' in req['data']:
+              if 'siteId' in req['data']['parameters']:
+                if req['data']['parameters']['siteId'] != '' and singleSite == False:
+                  siteId = str(req['data']['parameters']['siteId'])
+              if 'deQueueStepName' in req['data']['parameters']:
+                dequeueStep = req['data']['parameters']['deQueueStepName']
+
+          if 'containerIds' in req['data']:
+            if len(req['data']['containerIds']) > 0:
+              emptyContainerRequest = False
+            for container in req['data']['containerIds']:
+              parms = []
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = container
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = "%"
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = "%"
+              dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+
+              rs = dbQueries.getData(dbQueries.checkForContainer, parms)
+
+              if rs.next():
+
+                containerSiteId = "%"
+
+                if siteId != "%":
+                  containerSiteId = rs.getString("projectId")
+
+                if siteId == "%" or siteId == containerSiteId:
+                  container_list.append(container)
+                elif siteId != containerSiteId:
+                  res.payload['data'].append({"containerId":container, "data":msg.false, "result":str(msg.containers["wrongSite"])})
+              else:
+                res.payload['data'].append({"containerId":container, "data":msg.false, "result":str(msg.containers["notExist"])})
+
+          if emptyContainerRequest == True and dequeueStep != "":
+            parms = []
+            parms.append(mitoDB.apiSQLParm())
+            parms[len(parms)-1].datatype = "string"
+            parms[len(parms)-1].value = dequeueStep
+            parms[len(parms)-1].datatype = "string"
+            parms[len(parms)-1].value = siteId
+            parms[len(parms)-1].datatype = "string"
+            parms[len(parms)-1].value = siteId
+
+            dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+            rs = dbQueries.getData(dbQueries.getContainersForQueue, parms)
+            while rs.next():
+              cntrId = rs.getString(1)
+              cntrType = rs.getString(2)
+              if not cntrId in containerList:
+                container_list[cntrId] = cntrType
+
+        if len(container_list) > 0:
+          for container in container_list:
+            alreadyQueued = False
+            qry = mitoDB.apiQueryQuickList()
+            actions = mitoDB.apiDatabaseActions(self.switchboard)
+            if containerAction == "transferQueue" or containerAction == "deQueue":
+              qry.addQuery(actions.procDeQueue)
+              qry.addParm("string", container)
+              qry.addParm("string", dequeueStep)
+              dequeueCount += 1
+            if containerAction == "transferQueue" or containerAction == "insertQueue":
+
+              parms = []
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = container
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = nextQueue
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = siteId
+              parms.append(mitoDB.apiSQLParm())
+              parms[len(parms)-1].datatype = "string"
+              parms[len(parms)-1].value = siteId
+
+              dbQueries = mitoDB.apiDatabaseQueries(self.switchboard)
+              rs = dbQueries.getData(dbQueries.checkForContainerOnQueue, parms)
+              if not rs.next():
+                self.switchboard.log("NOT On Queue!")
+                qry.addQuery(actions.procInsertQueue)
+                qry.addParm("string", container)
+                qry.addParm("string", nextQueue)
+                qry.addParm("long", self.eventId)
+              else:
+                self.switchboard.log("NOT On Queue!")
+                alreadyQueued = True
+
+            if len(qry.queryList) > 0:
+              result = actions.executeUpdateList(qry.queryList, True)
+              if result.hadFailure == False:
+                res.payload['data'].append({"containerId":container, "data":msg.true, "result":msg.success})
+              else:
+                res.payload['data'].append({"containerId":container, "data":msg.false, "result":msg.error})
+            else:
+              res.payload['data'].append({"containerId":container, "data":msg.false, "result":msg.nothingToDo})
+        else:
+          res.payload['data'].append({"code":204, "status":msg.nothingToDo, "message":msg.nothingToDo, "errors":msg.noContainers})
+
+      except Exception as e:
+        self.switchboard.log(str(e.message))
+        res.payload['data'].append({"code":400, "status":"error", "message":msg.userError, "errors":str(e.message)})
+
+      responseJSON = str(json.dumps(res.releaseLoggedResponse(self.switchboard)))
+
+    return responseJSON
+
+#   def logging(self):
+#     cfg = mitoAPI.apiConfig()
+#     msg = mitoAPI.apiMessageBundle().languages[cfg.language]
+#     responseJSON = json.dumps({"data":[{"code":400, "status":msg.error, "message":msg.userError, "errors":"No Request Data"}]})
+
+#     if self.switchboard.requestJson:
+#       res = mitoAPI.apiResponse(self.switchboard.requestJson.encode(cfg.charSet), "apiLog")
+#       try:
+#         req = json.loads(self.switchboard.requestJson.encode(cfg.charSet))
+#         if 'data' in req:
+#           if 'messages' in req['data']:
+#             for logMessage in req['data']['messages']:
+#               messageGroupNo = 0
+#               if 'log' in logMessage:
+#                 logEntry = mitoAPI.logData()
+#                 logEntry.logName = logMessage['log']
+#                 if 'messageType' in logMessage:
+#                   self.switchboard.log("Message Type!")
+#                   logEntry.messageType = logMessage['messageType']
+#                   if  'messageSource' in logMessage:
+#                     logEntry.messageSource = logMessage['messageSource']
+#                     if 'messageData' in logMessage:
+#                       apiDB = mitoDB.apiDatabaseActions(self.switchboard)
+#                       queries = mitoDB.apiQueryQuickList()
+#                       for messageText in logMessage['messageData']:
+#                         queries.addQuery(apiDB.procSaveLogEntry)
+
+#                         logEntry.messageData = messageText
+#                         queries.addParm("string", logEntry.logName)
+#                         queries.addParm("string", logEntry.messageType)
+#                         queries.addParm("string", logEntry.messageSource)
+#                         queries.addParm("string", logEntry.messageData)
+#                         queries.addParm("long", self.eventId)
+#                         messageNo = 0
+#                         for sqlResult in apiDB.executeUpdateList(queries.queryList, False).results:
+#                           if sqlResult == True:
+#                             res.payload['data'].append({"messageGroup":str(messageGroupNo), "messageNo":str(messageNo), "data":str(sqlResult), "result":msg.success})
+#                           else:
+#                             res.payload['data'].append({"messageGroup":str(messageGroupNo), "messageNo":str(messageNo), "data":str(sqlResult), "result":msg.log["couldNotSave"]})
+#                           messageNo += 1
+#                     else:
+#                       res.payload['data'].append({"code":400, "status":msg.error, "messageGroup":str(messageGroupNo), "message":msg.userError, "errors":msg.log["noText"]})
+#                   else:
+#                     res.payload['data'].append({"code":400, "status":msg.error, "messageGroup":str(messageGroupNo), "message":msg.userError, "errors":msg.log["noSource"]})
+#                 else:
+#                   res.payload['data'].append({"code":400, "status":msg.error, "messageGroup":str(messageGroupNo), "message":msg.userError, "errors":msg.log["noType"]})
+#               else:
+#                 res.payload['data'].append({"code":400, "status":msg.error, "messageGroup":str(messageGroupNo), "message":msg.userError, "errors":msg.log["noLog"]})
+#               messageGroupNo += 1
+#           else:
+#             res.payload['data'].append({"code":400, "status":msg.error, "message":msg.userError, "errors":"No Message Data"})
+#         else:
+#           res.payload['data'].append({"code":400, "status":msg.error, "message":msg.userError, "errors":"No Request Data"})
+
+#       except Exception as e:
+#         self.switchboard.log(str(e.message))
+#         res.payload['data'].append({"code":400, "status":msg.error, "message":msg.userError, "errors":str(e.message)})
+
+
+#       responseJSON = str(json.dumps(res.releaseLoggedResponse(self.switchboard)))
+
+#     return responseJSON
+
+if __name__ == "__main__":
+    pass

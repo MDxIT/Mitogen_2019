@@ -1,0 +1,700 @@
+config
+  steps
+    stepGroup CAP Checklist
+    step CAP Checklist Association
+      form
+        include userAccountInfo
+        include combobox
+        include stepInstructions
+
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Edit Checklist Associations
+          div
+            class= sectionContent
+            table
+              class= stdTableBasic
+              sqlPreparedQuery~
+                - SELECT
+                -   '' AS "Edit",
+                -   cc.step AS "Task",
+                -   cc.capId AS "CAP Checklist",
+                -   '' AS "Delete",
+                -   cc.id AS ""
+                - from capChecklist cc
+                - ORDER BY cc.step
+              columnSpecs~ editCheck
+                allowChangedRecordIds true
+                column 1
+                  inputType checkbox
+                column 2
+                  inputType text
+                    size= 40
+                    readonly= true
+                column 3
+                  inputType select
+                    class= combobox required
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      -   cc.capId
+                      - FROM capChecklist cc
+                      - ORDER BY cc.capId
+                column 4
+                  inputType checkbox
+                column 5
+                  data-orderable= false
+                  inputType hidden
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span New Checklist Associations
+          div
+            class= sectionContent
+            table
+              sqlPreparedQuery~
+                - SELECT
+                -   '' AS "Task",
+                -   '' AS "CAP Checklist"
+                - FROM numbers LIMIT 3
+              columnSpecs~ newCheck
+                allowChangedRecordIds true
+                column 1
+                  inputType select
+                    sqlPreparedQuery~
+                      - SELECT
+                      -   displayName
+                      - FROM protocolSteps
+                      - WHERE stepName <> 'Order Form'
+                      -   AND stepName <> 'Specimen Receiving'
+                      -  ORDER BY displayName
+                column 2
+                  inputType select
+                    class= combobox
+                    sqlPreparedQuery~
+                      - SELECT DISTINCT
+                      -   cc.capId
+                      - FROM capChecklist cc
+                      - ORDER BY cc.capId
+
+      forRows editCheck
+        validateSql ! select 1 from dual where ? = 'true' and ? = ''
+          string {_columnInput_editCheck:1}
+          string {_columnInput_editCheck:3}
+          errorMessage CAP Checklist cannot be left blank.
+        validateSql ! select 1 from capChecklist cc where '{_columnInput_editCheck:1}' = 'true' and ? = cc.step and ? = cc.capId and '{_columnInput_editCheck:5}' <> cc.id
+          string {_columnInput_editCheck:2}
+          string {_columnInput_editCheck:3}
+          errorMessage Task, CAP ID assocaiation already exists.
+        validateSql ! select 1 from capChecklist cc where '{_columnInput_editCheck:1}' = 'true' and '{_columnInput_editCheck:4}' = 'true'
+          errorMessage The Edit and Delete checkboxes cannot be both checked at the same time.
+        ifCondition {_columnInput_editCheck:1}
+          advanced~
+          equals~ true
+
+          ifCondition
+            advanced~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM capChecklist cc WHERE ? = 'true' AND ? = cc.step AND ? = cc.capId AND ? <> cc.id
+                string {_columnInput_editCheck:1}
+                string {_columnInput_editCheck:2}
+                string {_columnInput_editCheck:3}
+                int {_columnInput_editCheck:5}
+            sqlPreparedStatement UPDATE capChecklist
+              - set capId = ?, eventId = ?
+              - where step = ? and id = ?
+              string {_columnInput_editCheck:3}
+              long {_eventId}
+              string {_columnInput_editCheck:2}
+              string {_columnInput_editCheck:5}
+        ifCondition {_columnInput_editCheck:4}
+          advanced~
+          equals~ true
+          sqlPreparedStatement DELETE FROM capChecklist where id = ?
+            string {_columnInput_editCheck:5}
+
+      forRows newCheck
+        validateSql ! select 1 from dual where (? = '' and ? <> '' ) or (? <> '' and ? = '')
+          string {_columnInput_newCheck:1}
+          string {_columnInput_newCheck:2}
+          string {_columnInput_newCheck:1}
+          string {_columnInput_newCheck:2}
+          errorMessage Both task and CAP Checklist must be filled out.
+        validateSql ! select 1 from capChecklist where step = ? and capId = ?
+          string {_columnInput_newCheck:1}
+          string {_columnInput_newCheck:2}
+          errorMessage Task, CAP Checklist assocaiation already exists.
+
+
+
+        ifCondition {_columnInput_newCheck:1}
+          advanced~
+          not~
+            isBlank~
+          and~ {_columnInput_newCheck:2}
+            not~
+              isBlank~
+          and~
+            not~
+              sqlPreparedQuery~ SELECT 1 FROM capChecklist WHERE step = ? AND capId = ?
+                string {_columnInput_newCheck:1}
+                string {_columnInput_newCheck:2}
+
+          sqlPreparedStatement INSERT INTO capChecklist (step, capId, eventId) VALUES (?, ?, ?)
+            string {_columnInput_newCheck:1}
+            string {_columnInput_newCheck:2}
+            long  {_eventId}
+
+
+    step CAP Report
+      jsScripts
+        src js/capReport.js
+      form
+        include userAccountInfo
+        include combobox
+        include stepInstructions
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        div
+          class= verticalFlex
+          label CAP Checklist
+          select cap
+            id= capId
+
+          label Protocol
+          select workflow
+            id= workflowId
+            class= combobox
+
+          label Step
+          select capStep
+            id= stepId
+            class= combobox
+
+        br
+        hr
+        div
+          class= horizontalFlex
+          div
+            class= verticalFlex
+            label Start Date
+            date startDate
+              class= datePickerNow required
+              placeholder= mm/dd/yyyy
+              autocomplete= off
+              required~ true
+              validate~ select 1 from dual where ? <= ?
+                string {startDate}
+                string {endDate}
+                errorMessage~ Start Date must be before End Date
+            label End Date
+            date endDate
+              class= datePickerNow required
+              placeholder= mm/dd/yyyy
+              autocomplete= off
+              required~ true
+
+      form
+        include userAccountInfo
+        include stepInstructions
+
+        formPreparedQuery~
+          - SELECT
+          -   ifNull( GROUP_CONCAT( distinct cc.capId SEPARATOR "', '" ), '' ) AS "capReqs",
+          -   ifNull( GROUP_CONCAT( distinct ps.displayName SEPARATOR "', '" ), '' ) AS "steps",
+          -   ifNull( CONCAT( "'", ps.displayName, "'" ), '' ) AS "name",
+          -   'grouping' AS "group",
+          -   ifNull( CONCAT( "'", cc.capId, "'" ), '') AS "capId"
+          - FROM protocolLibrary pl
+          -   INNER JOIN protocolSteps ps ON pl.id = ps.protocolLibraryId
+          -   LEFT JOIN capChecklist cc ON ps.displayName = cc.step
+          - WHERE pl.protocolName <> 'Orders'
+          -   AND ( cc.capId = ? OR ? = '' )
+          -   AND ( pl.protocolName = ? OR ? = '' )
+          -   AND ( ps.displayName = ? OR ? = '' )
+          string {cap}
+          string {cap}
+          string {workflow}
+          string {workflow}
+          string {capStep}
+          string {capStep}
+
+        formPreparedQuery~ select DATE_ADD(?, INTERVAL 1 DAY) as 'newendDate'
+          string {endDate}
+
+        hidden cap
+          value= {cap}
+        hidden workflow
+          value= {workflow}
+        hidden capStep
+          value= {capStep}
+        hidden startDate
+          value= {startDate}
+        hidden endDate
+          value= {endDate}
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+        vertical
+          h3 !!! CAP Checklist: {cap}
+            configureIf~ {cap}
+              advanced~
+              not~
+                isBlank~
+          h3 !!! Protocol: {workflow}
+            configureIf~ {workflow}
+              advanced~
+              not~
+                isBlank~
+          h3 !!! Step: {capStep}
+            configureIf~ {capStep}
+              advanced~
+              not~
+                isBlank~
+          legend Specimens
+            table
+              class= stdTableBasic
+              sqlPreparedQuery~
+                - SELECT
+                - CONCAT('<a href=# class= viewOrder>',rs.requestId,'</a>') as "Request ID",
+                -   rs.specimenId AS "Specimen",
+                -   GROUP_CONCAT(distinct ch.containerId SEPARATOR ', ') AS "Sample",
+                -   CONCAT(e.step, ': ', cc.capId) AS "Step : CAP Checklist",
+                -   e.userId AS "User",
+                -   DATE(e.eventDate) AS "Date Time"
+                - FROM containerHistory ch
+                -   INNER JOIN events e
+                -     ON ch.eventId = e.eventId
+                -   INNER JOIN capChecklist cc
+                -     ON e.step = cc.step
+                -   INNER JOIN requestSpecimens rs
+                -     ON ch.containerId = rs.specimenId
+                - WHERE ( cc.capId IN ('{_:capReqs}')
+                -   OR e.step IN ('{_:steps}') )
+                -   AND e.eventDate <= ?
+                -   AND e.eventDate >= ?
+                - GROUP BY rs.specimenId, e.eventDate, CONCAT(e.step, ': ', cc.capId)
+                - ORDER BY rs.specimenId, e.eventDate
+                string {_:newendDate}
+                string {startDate}
+              columnSpecs~ capSamplesTable
+                allowChangedRecordIds true
+                column 6
+                  formatDate~
+                  convertDateTime~ false
+
+        # vertical
+          # legend Reports
+          #   table
+          #     class= stdTableBasic
+          #     sqlPreparedQuery~ select DISTINCT c1.content as 'Request Id'
+          #       - , r.reportId as 'Report Id'
+          #       - , c.content as 'Specimen'
+          #       - , GROUP_CONCAT(DISTINCT cc.capId ORDER BY cc.capId SEPARATOR ', ') as 'CAP Checklist'
+          #       - from containerHistory ch
+          #       - inner join events e
+          #       - on ch.eventId = e.eventId
+          #       - inner join capChecklist cc
+          #       - on e.step = cc.step
+          #       - inner join contents c
+          #       - on ch.containerId = c.containerId
+          #       - inner join contents c1
+          #       - on c.content = c1.containerId
+          #       - inner join sampleProcessing sp
+          #       - on c.content = sp.sampleId
+          #       - inner join reportDetails r
+          #       - on c1.content = r.requestId and sp.panelCode = r.panelCode
+          #       - WHERE cc.capId IN (?)
+          #       - and e.step IN (?)
+          #       - and e.eventDate <= ? and e.eventDate >= ?
+          #       - and c.contentType = 'specimenId'
+          #       - and c1.contentType = 'requestId'
+          #       - and r.signedEventId IS NOT NULL
+          #       - GROUP BY r.reportId
+          #       - ORDER BY c1.content
+          #       string {_:capReqs}
+          #       string {_:steps}
+          #       string {_:newendDate}
+          #       string {startDate}
+          #     columnSpecs~ capReportsTable
+        vertical
+          legend Resources
+
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Reagents
+            div
+              class= sectionContent
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   r.reagentId AS "Reagent",
+                  -   r.reagentType AS "Reagent Type",
+                  -   r.lotNumber AS "Lot Number",
+                  -   r.expirationDate AS "Expiration Date",
+                  -   CONCAT(e.step, ': ', cc.capId) AS "Task: CAP Checklist",
+                  -   DATE(e.eventDate) AS "Date Time"
+                  - FROM resourceHistory rh
+                  -   INNER JOIN events e
+                  -     ON rh.eventId = e.eventId
+                  -   INNER JOIN capChecklist cc
+                  -     ON e.step = cc.step
+                  -   INNER JOIN reagents r
+                  -     ON rh.containerId = r.reagentId
+                  - WHERE ( cc.capId IN ('{_:capReqs}')
+                  -   OR e.step IN ('{_:steps}') )
+                  -   AND e.eventDate <= ?
+                  -   AND e.eventDate >= ?
+                  string {_:newendDate}
+                  string {startDate}
+                columnSpecs~ capReagentsTable
+                  allowChangedRecordIds true
+                  column 4
+                    formatDate~
+                    convertDateTime~ false
+                  column 6
+                    formatDate~
+                    convertDateTime~ false
+
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Consumables
+            div
+              class= sectionContent
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   c.consumableId AS "Consumable",
+                  -   c.consumableType AS "Consumable Type",
+                  -   c.lotNumber AS "Lot Number",
+                  -   c.expirationDate AS "Expiration Date",
+                  -   CONCAT(e.step, ': ', cc.capId) AS "Task: CAP Checklist",
+                  -  DATE(e.eventDate) AS "Date Time"
+                  - FROM resourceHistory rh
+                  -   INNER JOIN events e
+                  -     ON rh.eventId = e.eventId
+                  -   INNER JOIN capChecklist cc
+                  -     ON e.step = cc.step
+                  -   INNER JOIN consumables c
+                  -     ON rh.containerId = c.consumableId
+                  - WHERE ( cc.capId IN ('{_:capReqs}')
+                  -   OR e.step IN ('{_:steps}') )
+                  -   AND e.eventDate <= ?
+                  -   AND e.eventDate >= ?
+                  string {_:newendDate}
+                  string {startDate}
+                columnSpecs~ capConsumablesTable
+                  allowChangedRecordIds true
+                  column 4
+                    formatDate~
+                    convertDateTime~ false
+                  column 6
+                    formatDate~
+                    convertDateTime~ false
+
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Controls
+            div
+              class= sectionContent
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   c.controlId AS "Control",
+                  -   c.controlType AS "Control Type",
+                  -   c.lotNumber AS "Lot Number",
+                  -   c.expirationDate AS "Expiration Date",
+                  -   CONCAT(e.step, ': ', cc.capId) AS "Task: CAP Checklist",
+                  -   DATE(e.eventDate) AS "Date Time"
+                  - FROM resourceHistory rh
+                  -   INNER JOIN events e
+                  -     ON rh.eventId = e.eventId
+                  -   INNER JOIN capChecklist cc
+                  -     ON e.step = cc.step
+                  -   INNER JOIN controls c
+                  -     ON rh.containerId = c.controlId
+                  - WHERE ( cc.capId IN ('{_:capReqs}')
+                  -   OR e.step IN ('{_:steps}') )
+                  -   AND e.eventDate <= ?
+                  -   AND e.eventDate >= ?
+                  string {_:newendDate}
+                  string {startDate}
+                columnSpecs~ capControlsTable
+                  allowChangedRecordIds true
+                  column 4
+                    formatDate~
+                    convertDateTime~ false
+                  column 6
+                    formatDate~
+                    convertDateTime~ false
+
+          div
+            class= pageSection
+            div
+              class= sectionTitle
+              span Instruments
+            div
+              class= sectionContent
+              table
+                class= stdTableBasic
+                sqlPreparedQuery~
+                  - SELECT
+                  -   i.instrumentId AS "Instrument",
+                  -   i.instrumentType AS "Instrument Type",
+                  -   CONCAT(e.step, ': ', cc.capId) AS "Task: CAP Checklist",
+                  -  DATE(e.eventDate) AS "Date Time"
+                  - FROM resourceHistory rh
+                  -   INNER JOIN events e
+                  -     ON rh.eventId = e.eventId
+                  -   INNER JOIN capChecklist cc
+                  -     ON e.step = cc.step
+                  -   INNER JOIN instruments i
+                  -     ON rh.containerId = i.instrumentId
+                  - WHERE ( cc.capId IN ('{_:capReqs}')
+                  -   OR e.step IN ('{_:steps}') )
+                  -   AND e.eventDate <= ?
+                  -   AND e.eventDate >= ?
+                  string {_:newendDate}
+                  string {startDate}
+                columnSpecs~ capInstrumentsTable
+                  allowChangedRecordIds true
+                  column 4
+                    formatDate~
+                    convertDateTime~ false
+
+##################### AJAX Calls for FORM 0 SELECTS on CAP REPORTS ###################
+    stepGroup CAP Ajax Servers
+
+    step ajaxResetCapChecklist
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select cap
+        option
+        sqlPreparedQuery~
+          - SELECT DISTINCT capId
+          - FROM capChecklist
+          - ORDER BY capId
+
+    step getProtocolList
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select workflow
+        option
+        sqlPreparedQuery~ SELECT DISTINCT pl.protocolName
+          - FROM capChecklist ccl
+          - INNER JOIN protocolSteps ps
+          -   ON ccl.step = ps.displayName
+          - INNER JOIN protocolLibrary pl
+          -   ON ps.protocolLibraryId = pl.id
+          - WHERE ccl.capId = ?
+          string {selectedCapId}
+
+
+    step getStepList
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select capStep
+        option
+        sqlPreparedQuery~ SELECT DISTINCT ps.displayName
+          - FROM capChecklist ccl
+          - INNER JOIN protocolSteps ps
+          -   ON ccl.step = ps.displayName
+          - INNER JOIN protocolLibrary pl
+          -   ON ps.protocolLibraryId = pl.id
+          - WHERE ccl.capId = ?
+          -   AND pl.protocolName = ?
+          string {selectedCapId}
+          string {selectedProtocol}
+
+    step ajaxResetOptions
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxSelect
+      select reset
+        option
+
+### extra scenarios commented out pending user feedback ###
+
+    # step ajaxGetStepByCapChecklistProtocol
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select capStep
+    #     sqlPreparedQuery~ SELECT ? FROM dual
+    #       - UNION
+    #       - SELECT * FROM (SELECT a.name as 'step' FROM
+    #       - (SELECT ft.name as 'name'
+    #       - FROM fsProtocols fp
+    #       - inner join fsTasks ft
+    #       -   on ft.protocolId = fp.id
+    #       - inner join capChecklist cc
+    #       -   on ft.name = cc.step
+    #       - where fp.tag <> 'Accession'
+    #       -   and fp.tag <> 'Integration'
+    #       -   and fp.active = 'Y'
+    #       -   and cc.capId = ?
+    #       -   and fp.name = ?
+    #       - UNION
+    #       - SELECT fr.name as 'name'
+    #       - FROM fsProtocols fp
+    #       - inner join fsRoutines fr
+    #       -   on fr.protocolId = fp.id
+    #       - inner join capChecklist cc
+    #       -   on fr.name = cc.step
+    #       - where fp.tag <> 'Accession'
+    #       -   and fp.tag <> 'Integration'
+    #       -   and fp.active = 'Y'
+    #       -   and cc.capId = ?
+    #       -   and fp.name = ?) a
+    #       - ORDER BY a.name) b
+    #       string {currentStep}
+    #       string {selectedCapId}
+    #       string {selectedProtocol}
+    #       string {selectedCapId}
+    #       string {selectedProtocol}
+    #     option
+
+    # step ajaxGetChecklistByStep
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select cap
+    #     sqlPreparedQuery~ SELECT ? FROM dual
+    #       - UNION
+    #       - SELECT DISTINCT cc.capId as 'capId'
+    #       - from capChecklist cc
+    #       - where cc.step = ?
+    #       string {currentCapId}
+    #       string {selectedStep}
+    #     option
+
+    # step ajaxGetProtocolByStep
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select workflow
+    #     sqlPreparedQuery~ SELECT ? FROM dual
+    #       - UNION
+    #       - SELECT  fp.name as 'protocol'
+    #       - from fsTasks ft
+    #       - inner join fsProtocols fp
+    #       - on ft.protocolId = fp.id
+    #       - where ft.name = ?
+    #       - UNION
+    #       - SELECT  fp.name as 'protocol'
+    #       - from fsRoutines fr
+    #       - inner join fsProtocols fp
+    #       - on fr.protocolId = fp.id
+    #       - where fr.name = ?
+    #       string {currentWorkflow}
+    #       string {selectedStep}
+    #       string {selectedStep}
+    #     option
+
+    # step ajaxGetStepByProtocol
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select capStep
+    #     sqlPreparedQuery~ SELECT ? FROM dual
+    #       - UNION
+    #       - SELECT * FROM (SELECT a.name as 'step' FROM
+    #       - (SELECT ft.name as 'name'
+    #       - FROM fsProtocols fp
+    #       - inner join fsTasks ft
+    #       -   on ft.protocolId = fp.id
+    #       - inner join capChecklist cc
+    #       -   on ft.name = cc.step
+    #       - where fp.tag <> 'Accession'
+    #       -   and fp.tag <> 'Integration'
+    #       -   and fp.active = 'Y'
+    #       -   and fp.name = ?
+    #       - UNION
+    #       - SELECT fr.name as 'name'
+    #       - FROM fsProtocols fp
+    #       - inner join fsRoutines fr
+    #       -   on fr.protocolId = fp.id
+    #       - inner join capChecklist cc
+    #       -   on fr.name = cc.step
+    #       - where fp.tag <> 'Accession'
+    #       -   and fp.tag <> 'Integration'
+    #       -   and fp.active = 'Y'
+    #       -   and fp.name = ?) a
+    #       - ORDER BY a.name) b
+    #       string {currentStep}
+    #       string {selectedProtocol}
+    #       string {selectedProtocol}
+    #     option
+
+    # step ajaxGetChecklistByProtocol
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select cap
+    #     sqlPreparedQuery~ SELECT ? FROM dual
+    #       - UNION
+    #       - SELECT * FROM (SELECT a.name as 'checklist' FROM
+    #       - (SELECT cc.capId as 'name'
+    #       - FROM fsProtocols fp
+    #       - inner join fsTasks ft
+    #       -   on ft.protocolId = fp.id
+    #       - inner join capChecklist cc
+    #       -   on ft.name = cc.step
+    #       - where fp.tag <> 'Accession'
+    #       -   and fp.tag <> 'Integration'
+    #       -   and fp.active = 'Y'
+    #       -   and fp.name = ?
+    #       - UNION
+    #       - SELECT cc.capId as 'name'
+    #       - FROM fsProtocols fp
+    #       - inner join fsRoutines fr
+    #       -   on fr.protocolId = fp.id
+    #       - inner join capChecklist cc
+    #       -   on fr.name = cc.step
+    #       - where fp.tag <> 'Accession'
+    #       -   and fp.tag <> 'Integration'
+    #       -   and fp.active = 'Y'
+    #       -   and fp.name = ?) a
+    #       - ORDER BY a.name) b
+    #       string {currentCapId}
+    #       string {selectedProtocol}
+    #       string {selectedProtocol}
+    #     option
+
+    # step ajaxResetCapWorkflow
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select workflow
+    #     sqlPreparedQuery~ SELECT ? FROM DUAL UNION
+    #       - SELECT * FROM (SELECT * from
+    #       - (SELECT fp.name as 'name' FROM fsProtocols fp
+    #       -  inner join fsTasks ft on ft.protocolId = fp.id
+    #       -  inner join capChecklist cc on ft.name = cc.step
+    #       - where fp.tag <> 'Accession' and fp.tag <> 'Integration'
+    #       - and fp.active = 'Y' UNION SELECT fp.name as 'name' FROM fsProtocols fp
+    #       - inner join fsRoutines fr on fr.protocolId = fp.id inner join capChecklist cc
+    #       - on fr.name = cc.step where fp.tag <> 'Accession' and fp.tag <> 'Integration'
+    #       - and fp.active = 'Y') a ORDER BY a.name) b
+    #       string {currentWorkflow}
+    #     option
+
+    # step ajaxResetCapStep
+    #   ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+    #   class uniflow.AjaxSelect
+    #   select capStep
+    #     option
+    #     sqlPreparedQuery~ SELECT DISTINCT step
+    #       - FROM capChecklist
+    #       - ORDER BY step
+

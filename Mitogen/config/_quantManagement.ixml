@@ -1,0 +1,317 @@
+#------------------------------------------------------------------------#
+#                            UNIconnect LC                               #
+#                 UNIFLOW Demonstration Process Definition               #
+#                       CONFIDENTIAL INFORMATION                         #
+#        Copyright (C) 2001-2016 UNIConnect LC.  All rights reserved.    #
+#------------------------------------------------------------------------#
+config
+  steps
+    stepGroup Quantitation Management
+    step Manage Quantitation Thresholds
+      form 
+        include userAccountInfo
+        include combobox
+        vertical
+          fieldSet
+          legend Edit Quantitate Thresholds
+            table
+              class= stdTableBasic
+              sqlQuery~ select '' as 'Edit'
+                - , qt.quantStep as 'Task'
+                - , qt.quantThreshold as 'Threshold'
+                - , qt.panelCode as 'Panel Code'
+                - , '' as 'Delete'
+                - from quantThreshold qt
+                - ORDER BY qt.quantStep
+              columnSpecs~ quantThresh
+                allowChangedRecordIds true
+                column 1
+                  inputType checkbox
+                column 2
+                  inputType text
+                    size= 40
+                    readonly= true
+                column 3
+                  inputType number
+                    min~ 0
+                column 4
+                  inputType text
+                    readonly= true
+                column 5
+                  inputType checkbox
+
+
+          hr
+                   
+          fieldSet
+            legend Add New Threshold
+            table
+              sqlQuery~ SELECT 
+                - '' as 'Task'
+                - , '' as 'Threshold'
+                - , '' as 'Panel Code'
+                - FROM numbers LIMIT 3
+              columnSpecs~ quantThreshNew
+                allowChangedRecordIds true
+                column 1
+                  inputType select
+                    class= combobox
+                    sqlQuery~ select fr.name from fsRoutines fr inner  join fsTasks ft  on ft.Id = fr.taskId where (ft.tag = 'Quantitate' or ft.tag = 'Normalize and Quantitate')  and ft.isReusable = 1
+                column 2
+                  inputType number
+                    min~ 0
+                column 3
+                  inputType select
+                    option
+                    option CONTTHRESH
+                    sqlQuery~ select panelCode from testPanels
+
+      forRows quantThresh
+        validateSql ! select 1 from dual where '{_columnInput_quantThresh:1}' = 'true' and '{_columnInput_quantThresh:3}' = '' 
+          errorMessage Threshold cannot be left blank.
+        ifCondition '{_columnInput_quantThresh:1}' == 'true'
+          ifCondition '{_columnInput_quantThresh:5}' <> 'true'
+            sqlPreparedStatement UPDATE quantThreshold 
+              - SET quantThreshold = ?, eventId = ?
+              - where quantStep = ?
+              - and ifnull(panelCode, '') = ?
+              string {_columnInput_quantThresh:3}
+              long {_eventId}
+              string {_columnInput_quantThresh:2}
+              string {_columnInput_quantThresh:4}
+
+        ifCondition '{_columnInput_quantThresh:5}' == 'true'
+          sqlPreparedStatement DELETE FROM quantThreshold
+            - where quantStep = ?
+            - and ifnull(panelCode, '') = ?
+            string {_columnInput_quantThresh:2}
+            string {_columnInput_quantThresh:4}
+
+      forRows quantThreshNew
+        validateSql ! select 1 from dual where ('{_columnInput_quantThreshNew:1}' = '' and ('{_columnInput_quantThreshNew:2}' <> '' or '{_columnInput_quantThreshNew:3}' <> '')) or ('{_columnInput_quantThreshNew:1}' <> '' and '{_columnInput_quantThreshNew:2}' = '')
+          errorMessage Both task and threshold must be filled out.
+        validateSql ! select 1 from quantThreshold where quantStep = '{_columnInput_quantThreshNew:1}' and ifnull(panelCode, '') = '{_columnInput_quantThreshNew:3}'
+          errorMessage Record exists for that Task & Panel Code combination.
+        ifCondition '{_columnInput_quantThreshNew:1}' != ''
+          ifCondition '{_columnInput_quantThreshNew:2}' != ''
+            sqlPreparedStatement INSERT INTO quantThreshold (quantStep, quantThreshold, panelCode, eventId)
+              - VALUES(?,?,?,?)
+              string {_columnInput_quantThreshNew:1}
+              string {_columnInput_quantThreshNew:2}
+              string {_columnInput_quantThreshNew:3}
+              long {_eventId}
+
+
+    step Manage Normalization Targets
+      form 
+        include userAccountInfo
+        include combobox
+        vertical
+          fieldSet
+          legend Edit Targets
+            table
+              class= stdTableBasic
+              sqlQuery~ SELECT DISTINCT
+                - '' as 'Edit'
+                - , nt.normStep as 'Task'
+                - , nt.targetConcentration as 'Target Concentration'
+                - , nt.targetVolume as 'Target Volume'
+                - , '' as 'Delete'
+                - from normalizationTargets nt
+                - ORDER BY nt.normStep
+              columnSpecs~ normTargets
+                allowChangedRecordIds true
+                column 1
+                  inputType checkbox
+                column 2
+                  inputType text
+                    size= 40
+                    readonly= true
+                column 3
+                  inputType number
+                    min~ 0
+                column 4
+                  inputType number
+                    min~ 0
+                column 5
+                  inputType checkbox
+          hr
+                   
+          fieldSet
+            legend Add New Threshold
+            table
+              sqlQuery~ SELECT 
+                - '' as 'Task'
+                - , '' as 'Target Concentration'
+                - , '' as 'Target Volume'
+                - FROM numbers LIMIT 3
+              columnSpecs~ normTargetsNew
+                allowChangedRecordIds true
+                column 1
+                  inputType select
+                    class= combobox
+                    sqlQuery~ select fr.name as 'name' from fsRoutines fr inner  join fsTasks ft on ft.Id = fr.taskId where (ft.tag = 'Normalize' or ft.tag = 'Normalize and Quantitate') and fr.name NOT IN (select normStep from normalizationTargets)
+                column 2
+                  inputType number
+                column 3
+                  inputType number
+                    min~ 0
+
+      forRows normTargets
+        validateSql ! select 1 from dual where '{_columnInput_normTargets:1}' = 'true' and ('{_columnInput_normTargets:3}' = '' or '{_columnInput_normTargets:4}' = '')
+          errorMessage Task and and both targets must be filled out.
+        ifCondition '{_columnInput_normTargets:1}' == 'true'
+          ifCondition '{_columnInput_normTargets:5}' != 'true'
+            sqlPreparedStatement UPDATE normalizationTargets 
+              - SET targetVolume = ?, targetConcentration = ?, eventId = ?
+              - where normStep = ?
+              string {_columnInput_normTargets:4}
+              string {_columnInput_normTargets:3}
+              long {_eventId}
+              string {_columnInput_normTargets:2}
+          
+
+        ifCondition '{_columnInput_normTargets:5}' == 'true'
+          sqlPreparedStatement DELETE FROM normalizationTargets 
+            - where normStep = ?
+            string {_columnInput_normTargets:2}
+
+      forRows normTargetsNew
+        validateSql ! select 1 from dual where ('{_columnInput_normTargetsNew:1}' = '' and ('{_columnInput_normTargetsNew:2}' <> '' or '{_columnInput_normTargetsNew:3}' <> '')) or (('{_columnInput_normTargetsNew:1}' <> '' or '{_columnInput_normTargetsNew:3}' <> '') and '{_columnInput_normTargetsNew:2}' = '') or (('{_columnInput_normTargetsNew:1}' <> '' or '{_columnInput_normTargetsNew:2}' <> '') and '{_columnInput_normTargetsNew:3}' = '')
+          errorMessage Task and and both targets must be filled out.
+        validateSql ! select 1 from normalizationTargets where normStep = '{_columnInput_normTargetsNew:1}'
+          errorMessage Targets already exisits for this task.
+        ifCondition '{_columnInput_normTargetsNew:1}' != ''
+          ifCondition '{_columnInput_normTargetsNew:2}' != ''
+            ifCondition '{_columnInput_normTargetsNew:3}' != ''
+              sqlPreparedStatement INSERT INTO normalizationTargets (normStep, targetConcentration, targetVolume, eventId)
+                - VALUES (?,?,?,?)
+                - ON DUPLICATE KEY UPDATE
+                - normStep = ?, targetConcentration = ?, targetVolume = ?, eventId = ?
+                string {_columnInput_normTargetsNew:1}
+                string {_columnInput_normTargetsNew:2}
+                string {_columnInput_normTargetsNew:3}
+                long {_eventId}
+                string {_columnInput_normTargetsNew:1}
+                string {_columnInput_normTargetsNew:2}
+                string {_columnInput_normTargetsNew:3}
+                long {_eventId}
+
+    step Manage Task Maps
+      form 
+        include userAccountInfo
+        include combobox
+        include hideScript
+
+        vertical
+          fieldSet
+            legend Edit Exisiting Maps
+            table
+              class= stdTableBasic
+              sqlQuery~ SELECT 
+                - '' as 'Edit'
+                - , tm.fromstep as 'From Task'
+                - , tm.mapCondition as 'Map Condition'
+                - , tm.nextStep as ' Next Task'
+                - , tm.panelCode as 'Panel Code'
+                - , '' as 'Delete'
+                - , tm.id as ''
+                - from taskMaps tm
+              columnSpecs~ taskMapManage
+                allowChangedRecordIds true
+                column 1
+                  inputType checkbox              
+                column 2
+                  inputType text
+                    size= 40
+                    readonly= true
+                column 3
+                  inputType select
+                    setName~ mapConditions
+                column 4
+                  inputType text
+                    size= 40
+                column 5
+                  inputType select
+                    option
+                    sqlQuery~ select panelCode from testPanels 
+                column 6
+                  inputType checkbox 
+                column 7
+                  inputType hidden
+
+          hr
+
+          fieldSet
+            legend Create New Maps
+            table
+              sqlQuery~ SELECT 
+                - '' as 'From Task'
+                - , '' as 'Map Condition'
+                - , '' as ' Next Task'
+                - , '' as 'Panel Code'
+                - FROM numbers LIMIT 1
+              columnSpecs~ taskMapNew
+                allowChangedRecordIds true
+                column 1
+                  inputType select
+                    class= combobox
+                    sqlQuery~ select fr.name from fsRoutines fr inner  join fsTasks ft on ft.Id = fr.taskId where (ft.tag = 'Quantitate' or ft.tag = 'Normalize' or ft.tag = 'Normalize and Quantitate') UNION select tm.nextStep from taskMaps tm left join (select fr.name from fsRoutines fr inner join fsTasks ft on ft.Id = fr.taskId where (ft.tag = 'Quantitate' or ft.tag = 'Normalize' or ft.tag = 'Normalize and Quantitate')) q on tm.nextStep = q.name where q.name is null
+                column 2
+                  inputType select
+                    required~ false
+                    setName~ mapConditions
+                column 3
+                  inputType select
+                    class= combobox
+                    sqlQuery~ select fr.name from fsRoutines fr inner  join fsTasks ft on ft.Id = fr.taskId where (ft.tag = 'Quantitate' or ft.tag = 'Normalize' or ft.tag = 'Normalize and Quantitate') UNION select tm.nextStep from taskMaps tm left join (select fr.name from fsRoutines fr inner join fsTasks ft on ft.Id = fr.taskId where (ft.tag = 'Quantitate' or ft.tag = 'Normalize' or ft.tag = 'Normalize and Quantitate')) q on tm.nextStep = q.name where q.name is null
+                column 4
+                  inputType select
+                    sqlQuery~ select panelCode from testPanels 
+      
+
+      forRows taskMapManage
+        validateSql ! select 1 from dual where '{_columnInput_taskMapManage:1}' = 'true' and ('{_columnInput_taskMapManage:3}' = '' or '{_columnInput_taskMapManage:4}' = '')
+          errorMessage From Task, Map Condition, and Next Task must all be filled out on edited rows.
+        validateSql ! select 1 from taskMaps where fromStep = '{_columnInput_taskMapManage:2}' and mapCondition = '{_columnInput_taskMapManage:3}' and nextStep = '{_columnInput_taskMapManage:4}' and panelCode = '{_columnInput_taskMapManage:5}' and id <> '{_columnInput_taskMapManage:7}'
+          errorMessage Other task Map exists for this combination of from task, mapCondition, next task, panelCode
+        ifCondition ! select 1 from taskMaps where fromStep = '{_columnInput_taskMapManage:2}' and mapCondition = '{_columnInput_taskMapManage:3}' and nextStep = '{_columnInput_taskMapManage:4}' and panelCode = '{_columnInput_taskMapManage:5}' and id <> '{_columnInput_taskMapManage:7}'
+          ifCondition '{_columnInput_taskMapManage:1}' == 'true'
+            ifCondition '{_columnInput_taskMapManage:6}' != 'true'
+              sqlPreparedStatement UPDATE taskMaps
+                - SET mapCondition = ?, nextStep = ?, panelCode = ?, eventId = ?
+                - where id = ?
+                string {_columnInput_taskMapManage:3}
+                string {_columnInput_taskMapManage:4}
+                string {_columnInput_taskMapManage:5}
+                long {_eventId}
+                string {_columnInput_taskMapManage:7}
+            
+          ifCondition '{_columnInput_taskMapManage:6}' == 'true'
+            sqlPreparedStatement DELETE FROM taskMaps 
+              - where id = ?
+              string {_columnInput_taskMapManage:7}
+
+      forRows taskMapNew
+        validateSql ! select 1 from dual where ('{_columnInput_taskMapNew:1}' = '' and ('{_columnInput_taskMapNew:2}' <> '' or '{_columnInput_taskMapNew:3}' <> '')) or (('{_columnInput_taskMapNew:1}' <> '' or '{_columnInput_taskMapNew:3}' <> '') and '{_columnInput_taskMapNew:2}' = '') or (('{_columnInput_taskMapNew:1}' <> '' or '{_columnInput_taskMapNew:2}' <> '') and '{_columnInput_taskMapNew:3}' = '')
+          errorMessage From Task, Map Condition, and Next Task must all be filled out.
+        validateSql ! select 1 from taskMaps where fromStep = '{_columnInput_taskMapNew:1}' and mapCondition = '{_columnInput_taskMapNew:2}' and nextStep = '{_columnInput_taskMapNew:3}' and ifnull(panelCode,'') = '{_columnInput_taskMapNew:4}'
+          errorMessage Task Map already exists for this combination of from task, map condition, next task, panelCode
+        ifCondition '{_columnInput_taskMapNew:1}' != ''
+          ifCondition '{_columnInput_taskMapNew:2}' != ''
+            ifCondition '{_columnInput_taskMapNew:3}' != ''              
+              sqlPreparedStatement INSERT INTO taskMaps (fromStep, mapCondition, nextStep, panelCode, eventId)
+                - VALUES(?,?,?,?,?)
+                - ON DUPLICATE KEY UPDATE
+                - fromStep = ?, mapCondition = ?, nextStep = ?, panelCode = ?, eventId = ?
+                string {_columnInput_taskMapNew:1}
+                string {_columnInput_taskMapNew:2}
+                string {_columnInput_taskMapNew:3}
+                string {_columnInput_taskMapNew:4}
+                long {_eventId}
+                string {_columnInput_taskMapNew:1}
+                string {_columnInput_taskMapNew:2}
+                string {_columnInput_taskMapNew:3}
+                string {_columnInput_taskMapNew:4}
+                long {_eventId}
+

@@ -1,0 +1,167 @@
+/* Classes to add basic DataTable styling */
+table.stdTableSort {}
+table.stdTableBasic {}
+table.stdTableButtons {}
+
+table.dataTable  thead, table.dataTable tr.thRow {
+  border-bottom: 2px solid #42444f !important;
+}
+table.dataTable thead th, table.dataTable thead td {
+  border-bottom: 2px solid #42444f !important;
+}
+
+
+table.dataTable thead th {
+	background-color: #ffffff !important;
+	color: #1F2025 !important;
+ 	background-image: none !important;
+	font-size:12px;
+	font-family: inherit !important;
+}
+
+table.dataTable tbody th:last-child, table tbody td:last-child {
+	border-right: none!important;
+}
+table.dataTable tbody td {
+	font-size:12px !important;
+	color: #1F2025 !important;
+	vertical-align: top;
+  padding: 12px;
+}
+
+table.dataTable thead .sorting,
+table.dataTable thead .sorting_asc,
+table.dataTable thead .sorting_desc,
+table.dataTable thead .sorting_asc_disabled,
+table.dataTable thead .sorting_desc_disabled {
+  cursor: pointer;
+  *cursor: hand;
+  background-repeat: no-repeat;
+  background-position: center right;
+}
+table.dataTable thead .sorting {
+  background-image: url("images/sort_both.png");
+}
+table.dataTable thead .sorting_asc {
+  background-image: url("images/sort_asc.png");
+}
+table.dataTable thead .sorting_desc {
+  background-image: url("images/sort_desc.png");
+}
+table.dataTable thead .sorting_asc_disabled {
+  background-image: url("images/sort_asc_disabled.png");
+}
+table.dataTable thead .sorting_desc_disabled {
+  background-image: url("images/sort_desc_disabled.png");
+}
+
+table.dataTable.stripe tbody tr.odd, table.dataTable.display tbody tr.odd td {
+	background: #ffffff !important;
+	border: solid 0px #eaeaea;
+}
+
+table.dataTable.stripe tbody tr.even, table.dataTable.display tbody tr.even td {
+  background: #F1F1F1 !important;
+  border: solid 0px #eaeaea;
+}
+
+table.dataTable thead th, table.dataTable thead td {
+    padding: 10px 18px 10px 12px;
+    vertical-align: bottom;
+}
+
+table.dataTable.no-footer {
+    border-bottom: 1px solid #111;
+}
+
+.dataTables_length {
+  margin-right: 30px;
+  margin-bottom: 30px;
+  display: flex;
+}
+.dataTables_length label{
+  vertical-align: middle;
+}
+.dataTables_length select{
+  background-color: #ffffff;
+  height: 25px !important;
+  width: auto !important;
+}
+
+.dataTables_filter{
+  position: relative;
+  float: left !important;
+  vertical-align: bottom !important;
+  display: flex;
+}
+
+.dataTables_filter input {
+   vertical-align: middle;
+}
+
+.dataTables_filter input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border-radius: 5px !important;
+  width: 200px !important;
+  height: 25px !important;
+  color: #004e87;
+}
+/*.dataTables_filter label:after {
+  content: url('../../../images/icon-search.png');
+  color: #004e87;
+  display: inline-block;
+  position: absolute;
+  top: 5px;
+  right: 25px;
+}*/
+
+
+@media only screen and (max-width: 1024px) {
+    table thead th {
+	font-size:12px !important;
+    }
+    table tbody td{
+	font-size:12px !important;
+    }
+}
+
+ul.ui-tabs-nav > li{
+	border: 0px solid #fbd850 !important;
+	color: #1976D2 !important;
+	padding-bottom: 3px !important;
+	background: #fff !important;
+}
+ul.ui-tabs-nav > li a{
+	padding: 0.8em !important;
+}
+ul.ui-tabs-nav > li a,
+ul.ui-tabs-nav > li a:hover,
+ul.ui-tabs-nav > li a:visited{
+	color: #1976D2 !important;
+	font-size: 16px !important;
+	font-weight: 300 !important;
+	outline: 0;
+}
+ul.ui-tabs-nav > li.ui-tabs-tab.ui-corner-top.ui-state-default.ui-tab.ui-tabs-active.ui-state-active{
+	color: #1976D2 !important;
+	border-bottom: 3px solid #1976D2 !important;
+}
+
+ul.ui-tabs-nav > li a:focus{
+	outline-color: transparent !important;
+	outline: 0;
+}
+.dataTables_wrapper .dataTables_paginate .fg-button{
+	background: #ebebeb;
+}
+
+li.ui-tabs-tab.ui-corner-top.ui-state-default.ui-tab.ui-tabs-active.ui-state-active.ui-state-focused.ui-state-focus a,
+.ui-tabs-anchor {
+	border: 0px solid #ffffff !important;
+}
+
+.dataTables_wrapper .dataTables_info {
+  color: #333;
+}

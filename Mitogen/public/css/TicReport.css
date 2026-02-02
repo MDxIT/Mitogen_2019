@@ -1,0 +1,39 @@
+.page {position:relative;height:1272px;}
+.logodiv{position: absolute; top: 20px;}
+.infoHeader {color:#000;font-size:18px;padding:10px;margin:0}
+.infoTable {background-color:transparent;border:0;margin-left:10px}
+.infoTable tr {background-color:transparent;border:0}
+.infoTable tr td.col0 {background-color:transparent;border:0;color:#000;font-size:12px}
+.infoTable tr td.col1 {background-color:transparent;border:0;color:#000;font-weight:bold;font-size:12px}
+.infoTableMini {background-color:transparent;border:0;margin:0 auto;width:700px;}
+.infoTableMini tr {background-color:transparent;border:0}
+.infoTableMini tr th{ background-color:transparent;border:0;color:#000;font-size:12px;text-align:left;width:120px;padding:0;}
+.infoTableMini tr td {background-color:transparent;border:0;color:#000;font-weight:bold;font-size:12px;text-align:left;padding-left:10px;}
+.resultsTable {background-color:transparent;border:0}
+.resultsTable tr {background-color:transparent;border:0}
+.resultsTable tr th {background-color:transparent;border:0;font-size:16px;color:#000;text-align:left;border-bottom:2px solid #ddd;border-right:1px dotted #ddd}
+.resultsTable tr td {
+    background-color:transparent;
+    border:0;
+    font-size:12px;
+    color:#000;
+          #-     padding:10px;
+    border-bottom:1px solid #ddd;
+    border-right:1px dotted #ddd;
+    vertical-align:middle;
+    min-height: 25px;}
+.resultsTable tr td span {vertical-align:middle}
+.resultsTable tr td.col0 {width:121px;}
+.resultsTable tr td.col1 {width:125px}
+.resultsTable tr td.col2 {width:320px}
+.resultsTable tr td.col3 {width:320px}
+.sectionHeader {color:#000}
+.sectionHeaderDescription {color:#000}
+.sectionHeaderAll {font-size:20px;margin:0;padding: 60px 0 15px 0}
+.drugList {width:200px;text-align:center;}
+.drugList tbody tr {width:100%;}
+.drugList thead tr th {height:65px;font-size:12px;align:center;vertical-align:middle;color:#000;padding:5px;}
+.drugList tbody tr td {width:100%;text-align:center;font-size:12px;}
+.drugListGreen thead tr th {background-color:#2ECC40}
+.drugListYellow thead tr th {background-color:#FFDC00}
+.drugListRed thead tr th {background-color:#FF4136}

@@ -1,0 +1,155 @@
+config
+  steps
+  
+  _HL7Listener Receive HL7 Transfer 1
+    port 9600
+    ifCondition 1 == 1
+      jython
+        #print 'testing listener Receive HL7 Transfer'
+        import java.lang.StringBuilder
+        import java.util.Date
+        import java.text.SimpleDateFormat
+        import urllib
+        import urllib2
+#         import javax.json.Json
+#         import javax.json.JsonArray
+#         import javax.json.JsonObject
+#         import javax.json.JsonReader
+#         import javax.json.JsonValue
+#         import java.io.StringReader
+#         import org.apache.http.HttpEntity
+#         import org.apache.http.client.fluent.Form
+#         import org.apache.http.client.fluent.Request
+#         import org.apache.http.client.methods.CloseableHttpResponse
+#         import org.apache.http.client.methods.HttpPost
+#         import org.apache.http.entity.ContentType
+#         import org.apache.http.entity.mime.MultipartEntityBuilder
+#         import org.apache.http.entity.mime.content.FileBody
+#         import org.apache.http.entity.mime.content.StringBody
+#         import org.apache.http.impl.client.CloseableHttpClient
+#         import org.apache.http.impl.client.HttpClients
+#         import org.apache.http.util.EntityUtils
+
+        if True:
+          # Define the handler object
+          handler = switchboard.objectBlackboard1
+
+          # Retrieve the message string from the result set
+          receivedMessage = """{_resultSet:_HL7RequestMessage}""".replace('\r', '\n')
+          
+          # Define variables
+          messageControlId = "AAA-111-BBB-222-CCC"
+          dateFormat = java.text.SimpleDateFormat("yyyyMMddHHmmss");
+          currentTime = dateFormat.format(java.util.Date());
+          m = java.lang.StringBuilder(1000)
+
+          # parse the message into a dictionary.  
+          # Key value is element 0
+          # Value is an array of the remaining elements from the pipe split
+
+          segments = ~{~}
+          messageParts = receivedMessage.split('\n')
+          for segment in messageParts:
+            segmentParts = segment.split('|')
+            segments[segmentParts[0]] = segmentParts[1:]
+
+          # Define key parameters from MSH segement (array is rebased to zero when stored in the dictionary)
+          messageControlId = str(segments['MSH'][8])
+          messageType = str(segments['MSH'][7])
+          switchboard.log(" -------------- messageControlId ------------- ")
+          switchboard.log(messageControlId)
+
+          # insert message into the hl7Communication table, regardless of the message code
+          insertMsg = switchboard.connection.prepareStatement("insert into hl7Communication (message, messageGUID, eventId) values (?, ?, ?  )")
+          insertMsg.setString(1, receivedMessage)
+          insertMsg.setString(2, messageControlId)
+          insertMsg.setLong(3, {_eventId})
+          insertMsg.executeUpdate()
+          switchboard.log("INSERT Incoming message")
+
+          # ------------------------------------------------------------------------------------------------
+          # Responses to result messages
+
+#           if messageType == "OUL^R22^OUL_R22":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^R22^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "OUL^R24^OUL_R24":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^R24^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "ESU^U01^ESU_U01":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^U01^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "ESR^U02^ESR_U02":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^U02^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "EAN^U09^EAN_U09":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^U09^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "NMD^N02^NMD_N02":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^N02^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "INU^U05^INU_U05":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^U05^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('SFT|ADD|9.10|Architect|""')
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)
+
+#           if messageType == "INU^U06^INU_U06":
+#             m.append(handler.START_OF_BLOCK)
+#             m.append("MSH|^~\&|ARCHITECT|67417|||" + currentTime + "||ACK^U06^ACK|" + messageControlId + "|P|2.5.1||||||UNICODE UTF-8")
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('SFT|ADD|9.10|Architect|""')
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append('MSA|AA|')
+#             m.append(messageControlId)
+#             m.append(handler.CARRIAGE_RETURN)
+#             m.append(handler.END_OF_BLOCK)
+#             m.append(handler.CARRIAGE_RETURN)

@@ -1,0 +1,646 @@
+config
+  steps
+    stepGroup Contact Customer
+    step Contact Customer
+      accessLevel= 6
+      queueSelectRecId
+      queueQuery SELECT rf.requestId AS "Request ID",
+        -    CONCAT(ph.first_name, ' ', ph.last_name) AS "Physician",
+        -    os.name AS "Customer",
+        -    CONCAT(pa.firstName, ' ', pa.lastName) AS "Patient",
+        -    rf.mrn AS "MRN",
+        -    GROUP_CONCAT(DISTINCT rs.specimenId SEPARATOR '<br>') AS "Sample ID(s)",
+        -    GROUP_CONCAT(DISTINCT cn.note SEPARATOR '<br>') AS "Order Comments"
+        - FROM queues q
+        -    INNER JOIN requestForms rf
+        -       ON q.containerId = rf.requestId
+        -    LEFT JOIN requestSpecimens rs
+        -      ON rf.requestId = rs.requestId
+        -    LEFT JOIN physicians ph
+        -      ON rf.physicianId = ph.physicianId
+        -    LEFT JOIN organizationSites os
+        -      ON rf.physicianSiteId = os.siteId
+        -    INNER JOIN patients pa
+        -      ON rf.patientId = pa.patientId
+        -    LEFT JOIN containerNotes cn
+        -      ON rf.requestId = cn.containerId
+        -   WHERE q.step = 'Contact Customer'
+        -   GROUP BY rf.requestId
+      cssLinks
+        link css/orderEntry/contactCustomer.css
+      jsScripts
+        src js/contactCustomer.js
+
+      form
+        include stepInstructions
+        id= contactCustomerForm0
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Enter Request ID
+          div
+            class= verticalFlex
+            label Request ID
+              for= requestFormId
+            text _recId
+              id= requestFormId
+              class= searchInput
+              required~ false
+              validate~ select requestId from requestForms where requestId = ?
+                string {_recId}
+                errorMessage~ This Request ID does not exist.
+              validate~ select containerId from queues where step = ? and containerId = ?
+                string {_step}
+                string {_recId}
+                errorMessage~ This Request ID is not queued for Contact Customer.
+              keepValue~
+              value= {_recId}
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Select Queued Request ID
+          div
+            class= verticalFlex
+            table
+              class= stdTableBasic
+              sqlPreparedQuery~ SELECT rf.requestId AS "Request ID",
+                -    CONCAT(ph.first_name, ' ', ph.last_name) AS "Physician",
+                -    os.name AS "Customer",
+                -    CONCAT(pa.firstName, ' ', pa.lastName) AS "Patient",
+                -    rf.mrn AS "MRN",
+                -    GROUP_CONCAT(DISTINCT rs.specimenId SEPARATOR '<br>') AS "Sample ID(s)",
+                -    GROUP_CONCAT(DISTINCT cn.note SEPARATOR '<br>') AS "Order Comments"
+                - FROM queues q
+                -    INNER JOIN requestForms rf
+                -       ON q.containerId = rf.requestId
+                -    LEFT JOIN physicians ph
+                -      ON rf.physicianId = ph.physicianId
+                -    LEFT JOIN organizationSites os
+                -      ON rf.physicianSiteId = os.siteId
+                -    INNER JOIN patients pa
+                -      ON rf.patientId = pa.patientId
+                -    LEFT JOIN requestSpecimens rs
+                -      ON rf.requestId = rs.requestId
+                -    LEFT JOIN containerNotes cn
+                -      ON rf.requestId = cn.containerId
+                - WHERE q.step = ?
+                - GROUP BY rf.requestId
+                string {_step}
+
+      form
+        include stepInstructions
+        id= contactCustomerForm1
+        ## formQuery to see if specimesn have all been received, for queuing
+
+
+        hidden _recId
+          value= {_recId}
+
+        hidden dateFormat
+          id= dateFormat
+          value= {_dateShortFormat}
+
+
+        div
+          class= horizontalFlex
+          div
+            include orderCardFull
+              parameter~ requestId
+                value= {_recId}
+            hidden orderType
+              id= orderType
+              value= {_:orderType}
+
+          div
+            class= spacer
+          div
+            include fullPatientCard
+              parameter~ patientId
+                value= {_:patientId}
+
+        div
+          class= expand
+          span <i class="far fa-plus-square"></i> Expand All
+            class= expandAll
+          span &nbsp &nbsp &nbsp
+          span <i class="far fa-minus-square"></i> Collapse All
+            class= collapseAll
+        br
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Specimens
+          div
+            id= orderSamples
+            class= sectionContent  verticalFlex
+            table
+              class= stdTableSort
+              sqlPreparedQuery~
+                - SELECT
+                -   rs.specimenId AS 'Specimen ID',
+                -   rs.specimenType AS 'Type' ,
+                -   rs.collectionDate AS 'Collection Date',
+                -   rs.receivedDate AS 'Received Date',
+                -   rs.specimenCondition AS 'Condition',
+                -   rs.status AS 'Status'
+                - FROM requestSpecimens rs
+                - WHERE rs.requestId = ?
+                string {_recId}
+              columnSpecs~ contactInfo
+                allowChangedRecordIds
+                column 3
+                  formatDate~
+                column 4
+                  formatDate~
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Contact Information
+          div
+            id= contactInfo
+            class= sectionContent  verticalFlex
+            div
+              id= address
+              table
+                class= stdTableSort
+                sqlPreparedQuery~
+                  - SELECT
+                  - os.name AS "<b>Site</b>",
+                  - os.address1 AS "<b>Address 1</b>",
+                  - os.address2 AS "<b>Address 2</b>",
+                  - os.city AS "<b>City</b>",
+                  - os.state AS "<b>State</b>",
+                  - os.postalCode AS "<b>Zip</b>",
+                  - os.country AS "<b>Country</b>",
+                  - os.email AS "<b>Email</b>",
+                  - os.phone1 AS "<b>Phone 1</b>",
+                  - os.phone2 AS "<b>Phone 2</b>",
+                  - os.fax1 AS "<b>Fax 1</b>",
+                  - os.fax2 AS "<b>Fax 2</b>"
+                  - FROM organizationSites os
+                  - WHERE os.siteId = ?
+                  string {_:siteId}
+
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Holds
+          div
+            id= orderHolds
+            class= sectionContent horizontalFlex
+            div
+              div
+                class= verticalFlex
+                label Order Action &nbsp <i class="fas fa-info-circle"></i>
+                  for= complete
+                  title= Select Receive New Samples when there are samples are ready to receive.
+                    - Select Rework Existing Samples when samples are ready for rework.
+                    - Select Resolved when no receiving or rework is needed.  The Order will be dequeued.
+                    - No matter what is selected, the Order will stay queued to Contact Customer if there are unresolved holds.
+                    -  If all holds are resolved, the order will be removed from Contact Customer.
+                    - Leave the selection on Save Data when submitting Holds or Communications and no further action for the order is needed.
+                select complete
+                  id= complete
+                  class= required
+                  option Save Data
+                    value= save
+                  # option Receive New Samples
+                  #   value= receive
+                  # option Rework Existing Samples
+                  #   value= rework
+                  option Resolved
+                    value= resolved
+                  # option Receive New Samples and Remove from Queue
+                  #   value= receiveRemove
+                  # option Rework Samples and Remove from Queue
+                  #   value= reworkRemove
+                  # option Receive New Samples and Remain on Queue
+                  #   value= receiveRemain
+                  # option Rework Samples and Remain on Queue
+                  #   value= reworkRemain
+                label Create New Hold
+                  for= holdTypes
+                select holds
+                  id= holdTypes
+                  option
+                  sqlPreparedQuery~
+                    - select
+                    -   distinct hold, Id
+                    - from reqHoldDescriptions
+                    - order by hold
+
+                label Related Specimen (Optional)
+                  for= relatedSpecimen
+                select relatedSpecimen
+                  id= relatedSpecimen
+                  option
+                  sqlPreparedQuery~
+                    - SELECT rs.specimenID
+                    - FROM requestSpecimens rs
+                    - WHERE rs.requestId = ?
+                    string {_recId}
+
+                label Comments
+                comments Comments
+                  rows= 10
+                  cols= 45
+            div
+              class= verticalFlex-stretch
+              table
+                id= activeHolds
+                caption ACTIVE HOLDS
+                sqlPreparedQuery~
+                  - SELECT
+                  - '' AS 'Resolved',
+                  - rhd.hold AS 'Hold Type',
+                  - e.eventDate AS 'Date',
+                  - e.userId AS 'Created By' ,
+                  - cn.note AS 'Comment',
+                  - rh.id AS ''
+                  - FROM reqHolds rh
+                  - INNER JOIN reqHoldDescriptions rhd
+                  -    ON rh.reqHoldId = rhd.id
+                  - INNER JOIN events e
+                  -    ON rh.eventId = e.eventId
+                  - LEFT JOIN containerNotes cn
+                  -    ON rh.eventId = cn.eventId
+                  -    AND cn.containerId = ?
+                  - WHERE rh.reqId = ?
+                  - AND rh.active = 1
+                  string {_recId}
+                  string {_recId}
+                columnSpecs~ activeHolds
+                  allowChangedRecordIds
+                  column 1
+                    inputType checkbox
+                  column 3
+                    formatDateTime~
+                  column 6
+                    inputType text
+                      readonly=
+                      class= hideColumn
+
+              table
+                caption RESOLVED HOLDS
+                sqlPreparedQuery~
+                  - SELECT rhd.hold AS 'Hold Type',
+                  - e.eventDate AS 'Date',
+                  - e.userId AS 'Created By',
+                  - cn.note AS 'Comment'
+                  - FROM reqHolds rh
+                  - INNER JOIN reqHoldDescriptions rhd
+                  -    ON rh.reqHoldId = rhd.id
+                  - INNER JOIN events e
+                  -    ON rh.eventId = e.eventId
+                  - LEFT JOIN containerNotes cn
+                  -    ON rh.eventId = cn.eventId
+                  -    AND cn.containerId = ?
+                  - WHERE rh.reqId = ?
+                  - AND rh.active = 0
+                  string {_recId}
+                  string {_recId}
+                columnSpecs~ resolvedHolds
+                  column 2
+                    formatDateTime~
+
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Communications
+          div
+            id= orderComms
+            class= sectionContent
+            div
+              class= horizontalFlex
+              div
+                class= verticalFlex
+                label Employee
+                  for= employee
+                select employee
+                  id= employee
+                  value= {_userId}
+                  option
+                  sqlPreparedQuery~
+                    - SELECT userId
+                    - FROM userInfo
+                    - WHERE active = 'true'
+                    -   AND accessLevel >= 6
+                    - order by userId
+                label Person Contacted
+                  for= personContacted
+                text personContacted
+                  id= personContacted
+                label Contact Type
+                  for= contactType
+                select contactType
+                  id= contactType
+                  option
+                  option Call
+                  option Text
+                  option Email
+                  option Mail
+                  option Fax
+                  option In Person
+                  option Other
+
+
+              div
+                class= verticalFlex
+                label Date
+                  for= contactDate
+                date contactDate
+                  id= contactDate
+                  class= datePicker
+                  value= {_currentDateFormatted}
+                label Time of Contact
+                  for= contactTime
+                text contactTime
+                  id= contactTime
+                  class= timePicker
+                  value= {_currentTimeFormatted}
+                  # value= {_currentTime}
+
+              div
+                class= verticalFlex
+                label Communication Note
+                  for= commsNote
+                textArea commsNote
+                  id= commsNote
+                  rows= 10
+                  cols= 50
+            div
+              id= orderCommsHistory
+              class= sectionContent verticalFlex-stretch
+              table
+                caption Prior Communication
+                sqlPreparedQuery~
+                  - SELECT DATE(contactDate) AS 'Date',
+                  - timeToReach AS 'Time',
+                  - note AS 'Note',
+                  - employeeId AS 'Employee' ,
+                  - contactType AS 'Contact Type ',
+                  - personContacted AS 'Person Contacted'
+                  - FROM customerCommunications
+                  - WHERE reqId = ?
+                  string {_recId}
+                columnSpecs~ priorComms
+                  allowChangedRecordIds
+                  column 1
+                    formatDate~
+
+
+        div
+          class= pageSection
+          div
+            class= sectionTitle
+            span Comments
+          div
+            id= orderComments
+            class= sectionContent  verticalFlex-stretch
+            table
+              caption All Prior Comments
+              sqlPreparedQuery~
+                - SELECT cn.note AS 'Prior Comment',
+                - cn.noteType as 'Comment Type',
+                - e.userId AS 'By',
+                - e.eventDate AS 'Date'
+                - FROM containerNotes cn
+                - INNER JOIN events e
+                -    ON cn.eventid = e.eventId
+                - WHERE cn.containerId = ?
+                string {_recId}
+              columnSpecs~ priorComments
+                column 4
+                  formatDateTime~
+
+
+      ifCondition {holds}
+        advanced~
+        not~
+          isBlank~
+
+        sqlPreparedStatement
+          - UPDATE requestForms
+          -   SET status = 'Hold',
+          -   statusEventId = ?
+          - WHERE requestId = ?
+          long {_eventId}
+          string {_recId}
+
+        sqlPreparedStatement INSERT INTO reqHolds (reqId, reqHoldId, active, eventId)
+          - VALUES(?,?,?,?)
+          string {_recId}
+          string {holds}
+          int 1
+          long {_eventId}
+
+        ifCondition {Comments}
+          advanced~
+          not~
+            isBlank~
+
+          sqlPreparedStatement INSERT INTO containerNotes (containerId, noteType, note ,eventId)
+            - SELECT ?,?,CONCAT(?, '  ', ?),?
+            - FROM dual
+            string {_recId}
+            string Contact Customer Hold Comment
+            string {relatedSpecimen}
+            string {Comments}
+            long {_eventId}
+
+      forRows activeHolds
+
+        ifCondition {_columnInput_activeHolds:1}
+          advanced~
+          equals~ true
+          sqlPreparedStatement UPDATE reqHolds SET active = 0 WHERE id = '{_columnInput_activeHolds:6}'
+
+      ifCondition
+        advanced~
+        not~
+          sqlPreparedQuery~ SELECT 1 from reqHolds where reqId = ? AND active = 1
+            string {_recId}
+
+        sqlPreparedStatement
+          - UPDATE requestForms
+          -   SET status = 'In Lab',
+          -   statusEventId = ?
+          - WHERE requestId = ?
+          long {_eventId}
+          string {_recId}
+
+
+      ifCondition {personContacted}
+        advanced~
+        not~
+          isBlank~
+        and~ {contactType}
+          not~
+            isBlank~
+        sqlPreparedStatement
+          - INSERT INTO customerCommunications (reqId, contactDate, employeeId, personContacted, timeToReach, contactType, note, eventId)
+          - SELECT ?, ?, ?, ?, ?, ?, ?, ?
+          - FROM dual
+          string {_recId}
+          string {contactDate}
+          string {employee}
+          string {personContacted}
+          string {contactTime}
+          string {contactType}
+          string {commsNote}
+          long {_eventId}
+
+      # ifCondition {complete}
+      #   advanced~
+      #   equals~ receive
+      #   ## IF ORDER REVIEW IS WHERE SPECIMENS ARE RECEIVED SEND THERE, ELSE SEND TO SPECIMEN RECEIVING
+      #   sqlPreparedStatement
+      #     - INSERT INTO queues (containerId, step, eventId)
+      #     - SELECT ?, CASE WHEN fis.showField = 'true' THEN 'Order Review' ELSE 'Specimen Receiving' END, ?
+      #     - FROM formInputSettings fis
+      #     - INNER JOIN formConfigurableParts fcp ON fis.formConfigurablePartsId = fcp.id
+      #     - INNER JOIN formDefinition fd ON fis.formDefinitionId = fd.id
+      #     - WHERE fcp.inputName = 'receiveAtOrderReview'
+      #     - AND fd.formType = 'Accessioning' AND fd.instance = 'Receiving' AND fd.workflow = ?
+      #     - AND NOT EXISTS (SELECT 1 FROM queues WHERE containerId = ? AND step = CASE WHEN fis.showField = 'true' THEN 'Order Review' ELSE 'Specimen Receiving' END)
+      #     string {_recId}
+      #     long {_eventId}
+      #     string {orderType}
+      #     string {_recId}
+
+      ## IF ANY ACTIVE HOLDS ARE PRESENT, DO NOT DE QUEUE
+      # ifCondition
+      #   advanced~
+      #   not~
+      #     sqlPreparedQuery~ SELECT 1 from reqHolds where reqId = ? AND active = 1
+      #       string {_recId}
+
+      #   sqlPreparedStatement
+      #     - DELETE FROM queues WHERE step = ? AND containerId = ?
+      #     string {_step}
+      #     string {_recId}
+
+
+      # ifCondition {complete}
+      #   advanced~
+      #   equals~ rework
+      #   sqlPreparedStatement
+      #     - INSERT INTO queues (containerId, step, eventId)
+      #     - VALUES (?, ?, ?)
+      #     string {_recId}
+      #     string Rework
+      #     string {_eventId}
+
+      #   ## IF ANY ACTIVE HOLDS ARE PRESENT, DO NOT DE QUEUE
+      #   ifCondition
+      #     advanced~
+      #     not~
+      #       sqlPreparedQuery~ SELECT 1 from reqHolds where reqId = ? AND active = 1
+      #         string {_recId}
+
+      #     sqlPreparedStatement
+      #       - DELETE FROM queues WHERE step = ? AND containerId = ?
+      #       string {_step}
+      #       string {_recId}
+
+
+      ifCondition {complete}
+        advanced~
+        equals~ resolved
+
+        ## IF ANY ACTIVE HOLDS ARE PRESENT, DO NOT DE QUEUE
+        ifCondition
+          advanced~
+          not~
+            sqlPreparedQuery~ SELECT 1 from reqHolds where reqId = ? AND active = 1
+              string {_recId}
+
+
+          sqlPreparedStatement
+            - DELETE FROM queues WHERE step = ? AND containerId = ?
+            string {_step}
+            string {_recId}
+
+          sqlPreparedStatement
+            - INSERT INTO queues (containerId, step, eventId)
+            - VALUES (?, 'Order Review', ?)
+            string {_recId}
+            long {_eventId}
+
+
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1 from queues where containerId = ? AND step = ?
+            string {_recId}
+            string Specimen Receiving
+
+          sqlPreparedStatement
+            - DELETE FROM queues WHERE step = ? AND containerId = ?
+            string Order Review
+            string {_recId}
+
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1
+            - FROM specimenMethods sm
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - INNER JOIN events e
+            -   ON sr.lastUpdatedEventId = e.eventId
+            - WHERE sm.requestId = ?
+            -   AND e.step = 'Order Form'
+            string {_recId}
+
+          ifCondition
+            advanced~
+            sqlPreparedQuery~ SELECT 1
+              - FROM specimenRuns sr
+              - INNER JOIN specimenMethods sm
+              -   ON sr.specimenMethodsId = sm.Id
+              - INNER JOIN queues q
+              -   ON q.containerId = sr.RunId
+              - WHERE sm.requestId = ?
+              string {_recId}
+
+            sqlPreparedStatement
+              - DELETE FROM queues WHERE step = ? AND containerId = ?
+              string Order Review
+              string {_recId}
+
+        ifCondition
+          advanced~
+          sqlPreparedQuery~ SELECT 1
+            - FROM specimenMethods sm
+            - INNER JOIN specimenRuns sr
+            -   ON sm.id = sr.specimenMethodsId
+            - INNER JOIN events e
+            -   ON sr.lastUpdatedEventId = e.eventId
+            - WHERE sm.requestId = ?
+            -   AND e.step <> 'Order Form'
+            string {_recId}
+
+          sqlPreparedStatement
+            - DELETE FROM queues WHERE step = ? AND containerId = ?
+            string Order Review
+            string {_recId}
+
+
+
+
+
+
+
+
+
+
+
+

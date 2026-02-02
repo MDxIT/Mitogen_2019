@@ -1,0 +1,27 @@
+config
+  steps
+    step getSecureMedia
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      secureMediaServer
+        token= {token}
+
+    step getSecureMediaToken
+      ContentSecurityPolicy default-src 'none'; frame-ancestors 'none'
+      class uniflow.AjaxJSONObjects
+      jython
+        import com.uniconnect.uniflow as uniflow
+        
+        fileName = '{fileURL}'
+        fileType = fileName.rsplit(".",1)[1]
+        mediaType = 'image/jpg'
+        domType = 'img'
+
+        if fileType.lower() == 'pdf':
+          mediaType = 'application/pdf'
+          domType = 'embed'
+
+        fileToken = switchboard.registerSecureFileRequest('{_userId}', fileName, mediaType, domType)
+      table
+        sqlPreparedQuery~
+          - SELECT '{_j:fileToken}' as 'secureToken' FROM dual

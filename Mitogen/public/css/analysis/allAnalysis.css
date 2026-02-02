@@ -1,0 +1,57 @@
+/* Analysis and fixedColumn Styles*/
+
+.dataTables_scrollBody::-webkit-scrollbar {
+    -webkit-appearance: none;
+}
+.dataTables_scrollBody::-webkit-scrollbar:horizontal {
+    height: 11px;
+}
+.dataTables_scrollBody::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    border: 2px solid white;
+    background-color: rgba(0, 0, 0, .5);
+}
+.dataTables_scrollBody::-webkit-scrollbar-track { 
+    background-color: #fff; 
+    border-radius: 8px; 
+} 
+
+#analysisDataTableDiv , #controlTableDiv {
+  width: 100%;
+  max-width: 1280px;
+
+}
+
+#analysisDataTableDiv .DTFC_LeftBodyWrapper, #controlTableDiv .DTFC_LeftBodyWrapper {
+  margin-top: 14px;
+}
+
+
+#analysisDataTableDiv tbody tr, #controlTableDiv tbody tr {
+  height: 120px;
+}
+
+
+#analysisDataTableDiv tbody tr td, #controlTableDiv tbody tr td {
+    vertical-align: middle;
+}
+
+.DTFC_LeftWrapper {
+
+    height: -webkit-calc(100% - 25px);
+    height:    -moz-calc(100% - 25px);
+    height:         calc(100% - 25px);
+    border-right: 1px solid black;
+}
+
+.DTFC_LeftBodyLiner {
+	width: 100%;
+}
+
+textarea {
+	max-height: 79px;
+}
+
+
+
+/* END Analysis and fixedColumn Styles*/

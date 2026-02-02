@@ -1,0 +1,282 @@
+@import url('https://fonts.googleapis.com/css?family=Raleway:300,400,500,700,900|Roboto:300,400,500,700,900|Montserrat:300,400,500,700,900&display=swap');
+
+/* NOTE: wkhtmltopdg only partially supports flexbox */;
+
+/*REPORT BODY*/
+#reportBody{
+  border: 1px solid #000000;
+  margin: 0 auto;
+  font-family: Roboto;
+  font-weight: normal;
+  padding: 30px;
+  font-size: 12px;
+}
+.letterSize {
+    width: 800px;
+}
+
+/*REPORT HEAD*/
+.headerSection {
+  margin: 0 auto;
+  vertical-align: middle;
+  text-align: center;
+}
+.primarySiteName{
+  font-size: 20px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.departmentName {
+  font-size: 20px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.locationName {
+  font-size: 18px;
+  font-weight: 700;
+}
+.primaryAddressBar {
+  font-weight: 700;
+}
+.primaryAddressBar span{
+  margin-right: 10px;
+}
+/*METADATA*/
+.metaDataSection{
+  width: 80%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-top:20px;
+  font-weight: 700;
+}
+.metaDataDiv{
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+}
+.metaDataLabel {
+  font-weight: normal;
+  font-size: 12px;
+}
+.metaDataValue {
+   font-weight: normal;
+   font-size: 12px;
+}
+.qualificationNums{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-evenly;
+  font-weight: 700;
+}
+/* REPORT CONTENT */
+.referralReason {
+  margin-top: 30px;
+  margin-bottom: 30px;
+}
+#referralReasonText{
+   text-decoration: underline;
+}
+.reportTitleSection{
+  margin: 0 auto;
+  font-size: 16px;
+  text-align: center;
+}
+.titlehr{
+  border-bottom: 2px solid #000;
+}
+.reportSection{
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+.sectionLabel {
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+/*RESULTS*/
+.reportResults {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    margin-bottom: 20px;
+}
+#resultTable_fish {
+  border: 1px solid black;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+#resultTable_fish th {
+  background-color: #D0CECE;
+  padding: 5px;
+  color: #000;
+  font-weight: 700;
+}
+#resultTable_fish td {
+  padding: 5px;
+  width: 200px;
+  border: 1px solid #000;
+}
+.overallReportInterpretation {
+  margin-top: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+}
+.methodology{
+  margin-left: 50px;
+  margin-right: 50px;
+  margin-top:20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+}
+.methodTable {
+   border: 1px solid black;
+   border-collapse: collapse;
+   width: 100%;
+}
+.methodTable th{
+  background-color: #D0CECE;
+  color: #000000;
+  padding-left: 5px;
+  font-size:10px;
+}
+.methodTable td{
+  padding: 1px 5px 1px 5px;
+  font-size:10px;
+  max-width:400px;
+  border: 1px solid #000;
+}
+.signatureArea {
+  display: flex;
+  align-content: center;
+  justify-content: space-around;
+}
+#reportFooter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-evenly;
+}
+.methodExplanation {
+  font-size: 9px;
+}
+.referenceText{
+  font-size:11px;
+  margin-left: 15px;
+}
+
+.hide {
+  display: none;
+}
+
+
+/*** AVAILABLE LAYOUT CLASSES ****/
+.horizontalFlex{
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+ }
+ .horizontalFlex-spacearound {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-around;
+ }
+ .horizontalFlex-spacearound-centered {
+  display: flex;
+  align-content: center;
+  justify-content: space-around;
+ }
+  .horizontalFlex-flexend {
+  display: flex;
+  align-content: flex-end;
+  justify-content: flex-end;
+ }
+  .horizontalFlex-center {
+  display: flex;
+  align-content: flex-start;
+  justify-content: center;
+ }
+  .horizontalFlex-spacebetween {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-between;
+ }
+  .horizontalFlex-spaceevenly {
+  display: flex;
+  align-content: flex-start;
+  justify-content: space-evenly;
+ }
+ .horizontalFlex-leftpadded {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-left: 10px;
+ }
+ .verticalFlex {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 10px;
+ }
+  .verticalFlex-flexEnd{
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 10px;
+ }
+ .verticalFlex-stretch {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-direction: column;
+    padding: 10px;
+    align-content: stretch;
+ }
+ .verticalFlex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 10px;
+    align-content: stretch;
+ }
+.noPadding{
+    padding: 0px;
+}
+.pageSection{
+  border: 1px solid #cdcdcd;
+  border-radius: 10px;
+  width: 100%;
+}
+.sectionHeader{
+  font-size: 20px;
+  font-weight: 600;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: 0.5px;
+}
+.sectionTitle{
+  padding: 10px
+  font-size: 24px;
+  font-weight: 600;
+  font-style: normal;
+  font-stretch: normal;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  color: #2b2b2b;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sectionContent {
+  padding: 15px;
+}

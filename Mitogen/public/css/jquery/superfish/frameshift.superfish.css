@@ -1,0 +1,73 @@
+.sf-menu, .sf-menu * {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+ 
+.sf-menu {
+	float: left;
+	margin-bottom: 1em;
+	font-family: Roboto, Leto, sans-serif;
+	font-weight: 400;
+	font-size: 14px;
+	width: 100%;
+}
+.sf-menu a {
+	padding: .5em 1em;
+	text-decoration: none;
+	border-left: none;
+	border-top: none;
+}
+.sf-menu li a,
+.sf-menu li a:visited {
+    color: #fff;
+    height: 20px;
+    top: 5px;
+}
+.sf-menu li li a,
+.sf-menu li li a:visited {
+	color: #757575;
+	font-size: 14px;
+	height: 35px;
+	top: 2px;
+}
+
+.sf-menu li a:hover,
+.sf-menu li li a:hover {
+	color: #fff;
+}
+
+.sf-menu li {
+	background: transparent;
+	height: 40px;
+}
+.sf-menu li.user-menu {
+	float: right;
+	margin-right: 260px;
+}
+.sf-menu li li {
+	background: #f1f1f1;
+	height: 35px;
+}
+.sf-menu li li li {
+	background: #f1f1f1;
+}
+
+.sf-menu li:hover{
+	background-color: #BDBDBD;
+}
+
+.sf-menu li:hover,
+.sf-menu li.sfHover {
+	background: #BDBDBD;
+}
+
+/*** arrows (for all except IE7) **/
+/* styling for both css and generated arrows */
+.sf-arrows .sf-with-ul:after {
+	border-top-color: #757575;
+}
+/* styling for right-facing arrows */
+.sf-arrows ul .sf-with-ul:after {
+	border-left-color: #757575;
+}

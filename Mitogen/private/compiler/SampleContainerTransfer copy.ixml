@@ -1,0 +1,63 @@
+    step [$$STEP_NAME$$]
+      form
+        include stepInstructions
+        vertical
+          text Text1
+            value= [$$select_sample$$]
+
+          text Text2
+            value= [$$sample_Comments$$]
+
+          text Text3
+            value= [$$sample_Comments_History$$]
+
+          text Text4
+            value= [$$generate_sample_id$$]
+
+          text Text5
+            value= [$$print_sample_barcode$$]
+
+          text Text6
+            value= [$$scan_source_sample$$]
+
+          text Text7
+            value= [$$sample_counter$$]
+
+          text Text8
+            value= [$$sample_display_column_1$$]
+
+          text Text9
+            value= [$$sample_display_column_2$$]
+
+          text Text10
+            value= [$$sample_display_column_3$$]
+
+          text Text11
+            value= [$$sample_display_column_4$$]
+
+          text Text12
+            value= [$$order_by_1$$]
+
+          text Text13
+            value= [$$order_by_2$$]
+
+          text Text14
+            value= [$$order_by_3$$]
+
+          text Text15
+            value= [$$order_by_4$$]
+
+          text Text16
+            value= [$$source_sample_routing$$]
+
+          text Text17
+            value= [$$destination_sample_routing$$]
+
+          text Text18
+            value= [$$qc_resources$$]
+
+          text Text19
+            value= [$$master_mix$$]
+
+          text Text20
+            value= [$$data_element$$]

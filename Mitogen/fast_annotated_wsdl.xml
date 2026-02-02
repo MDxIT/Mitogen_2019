@@ -1,0 +1,194 @@
+<wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://www.geneinsight.com/fast/api/v1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="AnnotatedSampleDataService" targetNamespace="http://www.geneinsight.com/fast/api/v1">
+<wsdl:types>
+<xs:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://www.geneinsight.com/fast/api/v1" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" elementFormDefault="unqualified" targetNamespace="http://www.geneinsight.com/fast/api/v1" version="1.0">
+<xs:element name="cancelAnnotatedSampleData" type="tns:cancelAnnotatedSampleData"/>
+<xs:element name="cancelAnnotatedSampleDataResponse" type="tns:cancelAnnotatedSampleDataResponse"/>
+<xs:element name="createAnnotatedSampleData" type="tns:createAnnotatedSampleData"/>
+<xs:element name="createAnnotatedSampleDataResponse" type="tns:createAnnotatedSampleDataResponse"/>
+<xs:element name="deleteAnnotatedSampleData" type="tns:deleteAnnotatedSampleData"/>
+<xs:element name="deleteAnnotatedSampleDataResponse" type="tns:deleteAnnotatedSampleDataResponse"/>
+<xs:element name="getAnnotatedSampleDataStatus" type="tns:getAnnotatedSampleDataStatus"/>
+<xs:element name="getAnnotatedSampleDataStatusResponse" type="tns:getAnnotatedSampleDataStatusResponse"/>
+<xs:complexType name="cancelAnnotatedSampleData">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="cancelAnnotatedSampleDataResponse">
+<xs:sequence/>
+</xs:complexType>
+<xs:complexType name="createAnnotatedSampleData">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="sampleData" type="tns:sampleDataLinkage"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="regionSet" type="tns:regionSet"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="customScript" type="xs:string"/>
+<xs:element minOccurs="0" name="savedFilter" type="tns:savedFilter"/>
+<xs:element maxOccurs="unbounded" minOccurs="0" name="emailNoticeTo" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="sampleDataLinkage">
+<xs:sequence>
+<xs:element minOccurs="0" name="sampleDataName" type="xs:string"/>
+<xs:element minOccurs="0" name="sampleDataLabel" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="regionSet">
+<xs:sequence>
+<xs:element minOccurs="0" name="regionSetName" type="xs:string"/>
+<xs:element minOccurs="0" name="applyMask" type="xs:boolean"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="savedFilter">
+<xs:sequence>
+<xs:element minOccurs="0" name="filterName" type="xs:string"/>
+<xs:element minOccurs="0" name="applyTagsAndLabStatuses" type="xs:boolean"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="createAnnotatedSampleDataResponse">
+<xs:sequence/>
+</xs:complexType>
+<xs:complexType name="deleteAnnotatedSampleData">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="deleteAnnotatedSampleDataResponse">
+<xs:sequence/>
+</xs:complexType>
+<xs:complexType name="getAnnotatedSampleDataStatus">
+<xs:sequence>
+<xs:element minOccurs="0" name="annotatedSampleDataName" type="xs:string"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="getAnnotatedSampleDataStatusResponse">
+<xs:sequence>
+<xs:element minOccurs="0" name="return" type="tns:annotatedSampleDataStatus"/>
+</xs:sequence>
+</xs:complexType>
+<xs:complexType name="annotatedSampleDataStatus">
+<xs:sequence>
+<xs:element minOccurs="0" name="name" type="xs:string"/>
+<xs:element minOccurs="0" name="status" type="tns:status"/>
+<xs:element minOccurs="0" name="message" type="xs:string"/>
+<xs:element minOccurs="0" name="percentComplete" type="xs:int"/>
+<xs:element minOccurs="0" name="estimatedCompletion" type="xs:dateTime"/>
+</xs:sequence>
+</xs:complexType>
+<xs:simpleType name="status">
+<xs:restriction base="xs:string">
+<xs:enumeration value="PENDING"/>
+<xs:enumeration value="RUNNING"/>
+<xs:enumeration value="SUCCESSFUL"/>
+<xs:enumeration value="FAILED"/>
+<xs:enumeration value="CANCELED"/>
+</xs:restriction>
+</xs:simpleType>
+</xs:schema>
+</wsdl:types>
+<wsdl:message name="deleteAnnotatedSampleDataResponse">
+<wsdl:part element="tns:deleteAnnotatedSampleDataResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="createAnnotatedSampleData">
+<wsdl:part element="tns:createAnnotatedSampleData" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="deleteAnnotatedSampleData">
+<wsdl:part element="tns:deleteAnnotatedSampleData" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getAnnotatedSampleDataStatus">
+<wsdl:part element="tns:getAnnotatedSampleDataStatus" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="createAnnotatedSampleDataResponse">
+<wsdl:part element="tns:createAnnotatedSampleDataResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="cancelAnnotatedSampleData">
+<wsdl:part element="tns:cancelAnnotatedSampleData" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="cancelAnnotatedSampleDataResponse">
+<wsdl:part element="tns:cancelAnnotatedSampleDataResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:message name="getAnnotatedSampleDataStatusResponse">
+<wsdl:part element="tns:getAnnotatedSampleDataStatusResponse" name="parameters"></wsdl:part>
+</wsdl:message>
+<wsdl:portType name="AnnotatedSampleData">
+<wsdl:operation name="cancelAnnotatedSampleData">
+<wsdl:input message="tns:cancelAnnotatedSampleData" name="cancelAnnotatedSampleData"></wsdl:input>
+<wsdl:output message="tns:cancelAnnotatedSampleDataResponse" name="cancelAnnotatedSampleDataResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="createAnnotatedSampleData">
+<wsdl:input message="tns:createAnnotatedSampleData" name="createAnnotatedSampleData"></wsdl:input>
+<wsdl:output message="tns:createAnnotatedSampleDataResponse" name="createAnnotatedSampleDataResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="deleteAnnotatedSampleData">
+<wsdl:input message="tns:deleteAnnotatedSampleData" name="deleteAnnotatedSampleData"></wsdl:input>
+<wsdl:output message="tns:deleteAnnotatedSampleDataResponse" name="deleteAnnotatedSampleDataResponse"></wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getAnnotatedSampleDataStatus">
+<wsdl:input message="tns:getAnnotatedSampleDataStatus" name="getAnnotatedSampleDataStatus"></wsdl:input>
+<wsdl:output message="tns:getAnnotatedSampleDataStatusResponse" name="getAnnotatedSampleDataStatusResponse"></wsdl:output>
+</wsdl:operation>
+</wsdl:portType>
+<wsdl:binding name="AnnotatedSampleDataServiceSoapBinding" type="tns:AnnotatedSampleData">
+<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+<wsdl:operation name="cancelAnnotatedSampleData">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="cancelAnnotatedSampleData">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="cancelAnnotatedSampleDataResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="createAnnotatedSampleData">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="createAnnotatedSampleData">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="createAnnotatedSampleDataResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="deleteAnnotatedSampleData">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="deleteAnnotatedSampleData">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="deleteAnnotatedSampleDataResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="getAnnotatedSampleDataStatus">
+<soap:operation soapAction="" style="document"/>
+<wsdl:input name="getAnnotatedSampleDataStatus">
+<soap:body use="literal"/>
+<wsp:PolicyReference xmlns:wsp="http://schemas.xmlsoap.org/ws/2004/09/policy" URI="#UsernameUnsecureTransportPolicy"/>
+</wsdl:input>
+<wsdl:output name="getAnnotatedSampleDataStatusResponse">
+<soap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+</wsdl:binding>
+<wsdl:service name="AnnotatedSampleDataService">
+<wsdl:port binding="tns:AnnotatedSampleDataServiceSoapBinding" name="AnnotatedSampleDataPort">
+<soap:address location="https://chw-fast.geneinsight.com/fast/api/v1/ws/AnnotatedSampleDataService"/>
+</wsdl:port>
+</wsdl:service>
+<wsp:Policy wsu:Id="UsernameUnsecureTransportPolicy">
+<wsp:ExactlyOne>
+<wsp:All>
+<sp:SupportingTokens xmlns:sp="http://docs.oasis-open.org/ws-sx/ws-securitypolicy/200702">
+<wsp:Policy>
+<sp:UsernameToken sp:IncludeToken="http://docs.oasis-open.org/ws-sx/ws-securitypolicy/200702/IncludeToken/AlwaysToRecipient">
+<wsp:Policy>
+<sp:WssUsernameToken10/>
+</wsp:Policy>
+</sp:UsernameToken>
+</wsp:Policy>
+</sp:SupportingTokens>
+</wsp:All>
+</wsp:ExactlyOne>
+</wsp:Policy>
+</wsdl:definitions>
